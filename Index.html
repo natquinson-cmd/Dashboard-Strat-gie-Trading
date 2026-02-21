@@ -1,0 +1,991 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard Trading — Performance Strategies</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+  :root {
+    --bg-primary: #0a0e1a;
+    --bg-card: #111827;
+    --bg-card-hover: #1a2235;
+    --border: #1e2a3a;
+    --text-primary: #f0f4f8;
+    --text-secondary: #8899aa;
+    --accent-dax: #6366f1;
+    --accent-dax-light: #818cf8;
+    --accent-nas: #06b6d4;
+    --accent-nas-light: #22d3ee;
+    --accent-merged: #a78bfa;
+    --positive: #10b981;
+    --negative: #ef4444;
+    --gradient-dax: linear-gradient(135deg, #6366f1, #818cf8);
+    --gradient-nas: linear-gradient(135deg, #06b6d4, #22d3ee);
+    --gradient-merged: linear-gradient(135deg, #8b5cf6, #a78bfa);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  .dashboard { max-width: 1440px; margin: 0 auto; padding: 32px 40px; }
+
+  /* Header */
+  .header { text-align: center; margin-bottom: 32px; position: relative; }
+  .header::after {
+    content: ''; position: absolute; bottom: -16px; left: 50%; transform: translateX(-50%);
+    width: 120px; height: 3px;
+    background: linear-gradient(90deg, var(--accent-dax), var(--accent-nas));
+    border-radius: 3px;
+  }
+  .header h1 {
+    font-size: 2.2rem; font-weight: 800; letter-spacing: -0.5px;
+    background: linear-gradient(135deg, #f0f4f8 0%, #8899aa 100%);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    margin-bottom: 8px;
+  }
+  .header p { color: var(--text-secondary); font-size: 0.95rem; }
+
+  /* TAB SYSTEM */
+  .tab-bar {
+    display: flex; justify-content: center; gap: 6px;
+    margin: 36px 0 32px; position: relative;
+  }
+  .tab-btn {
+    padding: 12px 32px; border-radius: 12px;
+    border: 1px solid var(--border); background: var(--bg-card);
+    color: var(--text-secondary); font-family: inherit;
+    font-size: 0.88rem; font-weight: 600; cursor: pointer;
+    transition: all 0.25s; position: relative; overflow: hidden;
+  }
+  .tab-btn:hover { background: var(--bg-card-hover); color: var(--text-primary); }
+  .tab-btn.active {
+    background: linear-gradient(135deg, rgba(99,102,241,0.15), rgba(6,182,212,0.15));
+    border-color: var(--accent-dax); color: var(--text-primary);
+    box-shadow: 0 0 20px rgba(99,102,241,0.15);
+  }
+  .tab-btn.active::after {
+    content: ''; position: absolute; bottom: 0; left: 20%; right: 20%;
+    height: 2px; background: linear-gradient(90deg, var(--accent-dax), var(--accent-nas));
+    border-radius: 2px;
+  }
+  .tab-btn .tab-sub {
+    display: block; font-size: 0.68rem; font-weight: 400;
+    color: var(--text-secondary); margin-top: 2px;
+  }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; animation: fadeIn 0.35s ease; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+  /* ═══════════ PERIOD SELECTOR ═══════════ */
+  .period-selector {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 24px 28px 20px;
+    margin-bottom: 28px;
+  }
+  .period-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 18px;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .period-header h3 {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .period-header h3 .p-icon {
+    width: 28px; height: 28px; border-radius: 8px;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 14px;
+    background: rgba(99,102,241,0.12);
+  }
+  .period-summary {
+    font-size: 0.82rem;
+    color: var(--accent-dax-light);
+    font-weight: 600;
+    background: rgba(99,102,241,0.08);
+    padding: 6px 16px;
+    border-radius: 8px;
+    border: 1px solid rgba(99,102,241,0.2);
+  }
+  .period-presets {
+    display: flex; gap: 6px; flex-wrap: wrap;
+  }
+  .preset-btn {
+    padding: 5px 14px; border-radius: 8px;
+    border: 1px solid var(--border); background: transparent;
+    color: var(--text-secondary); font-family: inherit;
+    font-size: 0.72rem; font-weight: 600; cursor: pointer;
+    transition: all 0.2s; letter-spacing: 0.3px;
+  }
+  .preset-btn:hover { background: var(--bg-card-hover); color: var(--text-primary); }
+  .preset-btn.active {
+    background: rgba(99,102,241,0.15);
+    border-color: var(--accent-dax);
+    color: var(--accent-dax-light);
+  }
+
+  /* Timeline track */
+  .timeline-wrapper {
+    position: relative;
+    padding: 0 8px;
+  }
+  .timeline-track {
+    position: relative;
+    height: 48px;
+    margin: 4px 0 0;
+    user-select: none;
+  }
+  .timeline-bg {
+    position: absolute;
+    top: 18px; left: 0; right: 0;
+    height: 6px;
+    background: rgba(30,42,58,0.8);
+    border-radius: 3px;
+  }
+  .timeline-fill {
+    position: absolute;
+    top: 18px; height: 6px;
+    background: linear-gradient(90deg, var(--accent-dax), var(--accent-nas));
+    border-radius: 3px;
+    transition: left 0.15s, width 0.15s;
+    box-shadow: 0 0 12px rgba(99,102,241,0.3);
+  }
+  .timeline-handle {
+    position: absolute;
+    top: 10px;
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    background: var(--bg-primary);
+    border: 3px solid var(--accent-dax-light);
+    cursor: grab;
+    z-index: 10;
+    transition: transform 0.12s, box-shadow 0.12s;
+    transform: translateX(-50%);
+  }
+  .timeline-handle:hover, .timeline-handle.dragging {
+    transform: translateX(-50%) scale(1.2);
+    box-shadow: 0 0 16px rgba(99,102,241,0.5);
+  }
+  .timeline-handle.end {
+    border-color: var(--accent-nas-light);
+  }
+  .timeline-handle.end:hover, .timeline-handle.end.dragging {
+    box-shadow: 0 0 16px rgba(6,182,212,0.5);
+  }
+  .timeline-labels {
+    display: flex;
+    justify-content: space-between;
+    padding-top: 4px;
+  }
+  .timeline-labels span {
+    font-size: 0.62rem;
+    color: var(--text-secondary);
+    min-width: 32px;
+    text-align: center;
+    opacity: 0.6;
+  }
+  .timeline-labels span.year-mark {
+    font-weight: 700;
+    opacity: 1;
+    color: var(--text-primary);
+    font-size: 0.68rem;
+  }
+  .timeline-tooltip {
+    position: absolute;
+    top: -28px;
+    transform: translateX(-50%);
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    padding: 3px 10px;
+    border-radius: 6px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    white-space: nowrap;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.15s;
+    z-index: 20;
+  }
+  .timeline-handle:hover .timeline-tooltip,
+  .timeline-handle.dragging .timeline-tooltip {
+    opacity: 1;
+  }
+
+  /* KPI Cards */
+  .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 40px; }
+  .kpi-card {
+    background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: 16px; padding: 24px; position: relative;
+    overflow: hidden; transition: transform 0.2s, box-shadow 0.2s;
+  }
+  .kpi-card:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(0,0,0,0.3); }
+  .kpi-card .label { font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; color: var(--text-secondary); margin-bottom: 8px; }
+  .kpi-card .value { font-size: 1.8rem; font-weight: 800; letter-spacing: -0.5px; }
+  .kpi-card .sub { font-size: 0.8rem; color: var(--text-secondary); margin-top: 4px; }
+  .kpi-card .stripe { position: absolute; top: 0; left: 0; right: 0; height: 3px; }
+  .stripe-dax { background: var(--gradient-dax); }
+  .stripe-nas { background: var(--gradient-nas); }
+  .stripe-merged { background: var(--gradient-merged); }
+  .stripe-green { background: linear-gradient(90deg, #10b981, #34d399); }
+
+  .badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 0.7rem; font-weight: 600; letter-spacing: 0.5px; }
+  .badge-dax { background: rgba(99,102,241,0.15); color: var(--accent-dax-light); }
+  .badge-nas { background: rgba(6,182,212,0.15); color: var(--accent-nas-light); }
+
+  /* Chart containers */
+  .chart-row { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px; }
+  .chart-full { margin-bottom: 24px; }
+  .chart-card {
+    background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: 16px; padding: 28px; transition: box-shadow 0.2s;
+  }
+  .chart-card:hover { box-shadow: 0 4px 20px rgba(0,0,0,0.2); }
+  .chart-card h3 {
+    font-size: 1rem; font-weight: 600; margin-bottom: 20px; color: var(--text-primary);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .chart-card h3 .icon {
+    width: 28px; height: 28px; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center; font-size: 14px;
+  }
+  .icon-dax { background: rgba(99,102,241,0.15); }
+  .icon-nas { background: rgba(6,182,212,0.15); }
+  .icon-merged { background: rgba(139,92,246,0.15); }
+  .icon-heat { background: rgba(251,146,60,0.15); }
+  canvas { max-height: 380px; }
+
+  /* Heatmap */
+  .heatmap-container { overflow-x: auto; }
+  .heatmap-table { width: 100%; border-collapse: separate; border-spacing: 4px; font-size: 0.78rem; }
+  .heatmap-table th { padding: 10px 8px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; font-size: 0.68rem; letter-spacing: 0.8px; }
+  .heatmap-table td { padding: 10px 6px; text-align: center; border-radius: 8px; font-weight: 600; font-variant-numeric: tabular-nums; transition: transform 0.15s; }
+  .heatmap-table td:hover { transform: scale(1.08); }
+  .heatmap-table .year-cell { font-weight: 700; color: var(--text-primary); text-align: left; background: transparent !important; }
+  .heatmap-table .total-cell { font-weight: 700; border: 1px solid var(--border); }
+
+  .footer {
+    text-align: center; padding: 32px 0 16px; color: var(--text-secondary);
+    font-size: 0.75rem; border-top: 1px solid var(--border); margin-top: 40px;
+  }
+
+  @media (max-width: 900px) {
+    .chart-row { grid-template-columns: 1fr; }
+    .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+    .dashboard { padding: 20px 16px; }
+    .period-header { flex-direction: column; align-items: flex-start; }
+  }
+</style>
+</head>
+<body>
+<div class="dashboard">
+
+  <div class="header">
+    <h1>Trading Performance Dashboard</h1>
+    <p>DAX 40 (IntradayGrafV4-3) & NASDAQ 100 (NAS 15 OPR R2.2) — Capital initial 5 000 € — Déc. 2017 → Fév. 2026</p>
+  </div>
+
+  <!-- TAB BAR -->
+  <div class="tab-bar">
+    <button class="tab-btn active" onclick="switchTab('fixed')">
+      📊 Taille Fixe
+      <span class="tab-sub">Sans réinvestissement</span>
+    </button>
+    <button class="tab-btn" onclick="switchTab('reinvest')">
+      🚀 Réinvestissement
+      <span class="tab-sub">Gains réinvestis</span>
+    </button>
+  </div>
+
+  <!-- ═══════════════════════ TAB 1 : FIXED ═══════════════════════ -->
+  <div id="tab-fixed" class="tab-content active">
+    <!-- Period Selector -->
+    <div class="period-selector" id="periodFixed">
+      <div class="period-header">
+        <h3><span class="p-icon">📅</span> Période d'analyse</h3>
+        <span class="period-summary" id="summaryFixed">Déc 2017 → Fév 2026</span>
+        <div class="period-presets" id="presetsFixed"></div>
+      </div>
+      <div class="timeline-wrapper">
+        <div class="timeline-track" id="trackFixed">
+          <div class="timeline-bg"></div>
+          <div class="timeline-fill" id="fillFixed"></div>
+          <div class="timeline-handle start" id="handleStartFixed">
+            <div class="timeline-tooltip" id="tipStartFixed">Déc 2017</div>
+          </div>
+          <div class="timeline-handle end" id="handleEndFixed">
+            <div class="timeline-tooltip" id="tipEndFixed">Fév 2026</div>
+          </div>
+        </div>
+        <div class="timeline-labels" id="labelsFixed"></div>
+      </div>
+    </div>
+    <div class="kpi-grid" id="kpiFixed"></div>
+    <div class="chart-full"><div class="chart-card">
+      <h3><span class="icon icon-merged">📈</span> Courbe de Capital — Taille Fixe</h3>
+      <canvas id="eqFixed"></canvas>
+    </div></div>
+    <div class="chart-full"><div class="chart-card">
+      <h3><span class="icon icon-merged">📊</span> Performance Annuelle Comparée</h3>
+      <canvas id="annFixed"></canvas>
+    </div></div>
+    <div class="chart-row">
+      <div class="chart-card"><h3><span class="icon icon-dax">📉</span> Mensuel — DAX 40</h3><canvas id="mDaxFixed"></canvas></div>
+      <div class="chart-card"><h3><span class="icon icon-nas">📉</span> Mensuel — NASDAQ 100</h3><canvas id="mNasFixed"></canvas></div>
+    </div>
+    <div class="chart-row">
+      <div class="chart-card"><h3><span class="icon icon-merged">⚡</span> Mensuel Combiné (moyenne)</h3><canvas id="mCombFixed"></canvas></div>
+      <div class="chart-card"><h3><span class="icon icon-merged">🔄</span> Glissant 12 mois</h3><canvas id="r12Fixed"></canvas></div>
+    </div>
+    <div class="chart-full"><div class="chart-card">
+      <h3><span class="icon icon-dax">🟪</span> Heatmap — DAX 40 <span class="badge badge-dax">IntradayGrafV4-3</span></h3>
+      <div class="heatmap-container" id="hmDaxFixed"></div>
+    </div></div>
+    <div class="chart-full"><div class="chart-card">
+      <h3><span class="icon icon-nas">🟦</span> Heatmap — NASDAQ 100 <span class="badge badge-nas">NAS 15 OPR R2.2</span></h3>
+      <div class="heatmap-container" id="hmNasFixed"></div>
+    </div></div>
+    <div class="chart-full"><div class="chart-card">
+      <h3><span class="icon icon-merged">🟣</span> Heatmap Combinée</h3>
+      <div class="heatmap-container" id="hmMergedFixed"></div>
+    </div></div>
+    <div class="chart-full"><div class="chart-card">
+      <h3><span class="icon icon-heat">🔻</span> Drawdown depuis le plus haut</h3>
+      <canvas id="ddFixed"></canvas>
+    </div></div>
+  </div>
+
+  <!-- ═══════════════════════ TAB 2 : REINVEST ═══════════════════════ -->
+  <div id="tab-reinvest" class="tab-content">
+    <!-- Period Selector -->
+    <div class="period-selector" id="periodReinvest">
+      <div class="period-header">
+        <h3><span class="p-icon">📅</span> Période d'analyse</h3>
+        <span class="period-summary" id="summaryReinvest">Déc 2017 → Fév 2026</span>
+        <div class="period-presets" id="presetsReinvest"></div>
+      </div>
+      <div class="timeline-wrapper">
+        <div class="timeline-track" id="trackReinvest">
+          <div class="timeline-bg"></div>
+          <div class="timeline-fill" id="fillReinvest"></div>
+          <div class="timeline-handle start" id="handleStartReinvest">
+            <div class="timeline-tooltip" id="tipStartReinvest">Déc 2017</div>
+          </div>
+          <div class="timeline-handle end" id="handleEndReinvest">
+            <div class="timeline-tooltip" id="tipEndReinvest">Fév 2026</div>
+          </div>
+        </div>
+        <div class="timeline-labels" id="labelsReinvest"></div>
+      </div>
+    </div>
+    <div class="kpi-grid" id="kpiReinvest"></div>
+    <div class="chart-full"><div class="chart-card">
+      <h3><span class="icon icon-merged">🚀</span> Courbe de Capital — Réinvestissement</h3>
+      <canvas id="eqReinvest"></canvas>
+    </div></div>
+    <div class="chart-full"><div class="chart-card">
+      <h3><span class="icon icon-merged">📊</span> Performance Annuelle Comparée</h3>
+      <canvas id="annReinvest"></canvas>
+    </div></div>
+    <div class="chart-row">
+      <div class="chart-card"><h3><span class="icon icon-dax">📉</span> Mensuel — DAX 40</h3><canvas id="mDaxReinvest"></canvas></div>
+      <div class="chart-card"><h3><span class="icon icon-nas">📉</span> Mensuel — NASDAQ 100</h3><canvas id="mNasReinvest"></canvas></div>
+    </div>
+    <div class="chart-row">
+      <div class="chart-card"><h3><span class="icon icon-merged">⚡</span> Mensuel Combiné (moyenne)</h3><canvas id="mCombReinvest"></canvas></div>
+      <div class="chart-card"><h3><span class="icon icon-merged">🔄</span> Glissant 12 mois</h3><canvas id="r12Reinvest"></canvas></div>
+    </div>
+    <div class="chart-full"><div class="chart-card">
+      <h3><span class="icon icon-dax">🟪</span> Heatmap — DAX 40 <span class="badge badge-dax">IntradayGrafV4-3</span></h3>
+      <div class="heatmap-container" id="hmDaxReinvest"></div>
+    </div></div>
+    <div class="chart-full"><div class="chart-card">
+      <h3><span class="icon icon-nas">🟦</span> Heatmap — NASDAQ 100 <span class="badge badge-nas">NAS 15 OPR R2.2</span></h3>
+      <div class="heatmap-container" id="hmNasReinvest"></div>
+    </div></div>
+    <div class="chart-full"><div class="chart-card">
+      <h3><span class="icon icon-merged">🟣</span> Heatmap Combinée</h3>
+      <div class="heatmap-container" id="hmMergedReinvest"></div>
+    </div></div>
+    <div class="chart-full"><div class="chart-card">
+      <h3><span class="icon icon-heat">🔻</span> Drawdown depuis le plus haut</h3>
+      <canvas id="ddReinvest"></canvas>
+    </div></div>
+  </div>
+
+  <div class="footer">
+    Dashboard généré le 19 février 2026 — Capital de départ : 5 000 € par stratégie — Données ProBacktest
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════════════
+// DATA
+// ══════════════════════════════════════════════════════════════
+const monthNames = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
+const monthNamesFull = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+
+// Full timeline of all active months
+const ALL_MONTHS = [];
+// Dec 2017
+ALL_MONTHS.push({ y: 2017, m: 11 });
+// 2018-2025 full
+for (let y = 2018; y <= 2025; y++) for (let m = 0; m < 12; m++) ALL_MONTHS.push({ y, m });
+// Jan-Feb 2026
+ALL_MONTHS.push({ y: 2026, m: 0 });
+ALL_MONTHS.push({ y: 2026, m: 1 });
+
+function mLabel(ym) { return monthNames[ym.m] + ' ' + ym.y; }
+function mLabelFull(ym) { return monthNamesFull[ym.m] + ' ' + ym.y; }
+
+// ── FIXED (sans réinv) ──
+const fDax = {
+  2017:[0,0,0,0,0,0,0,0,0,0,0,6.31],
+  2018:[5.67,21.21,9.31,0.41,1.65,-0.90,12.06,2.02,3.34,6.03,2.74,3.81],
+  2019:[-4.22,1.90,5.97,3.79,0.17,0.31,-0.08,5.76,-1.83,6.53,5.53,2.13],
+  2020:[6.06,2.08,1.92,-0.02,-0.58,1.39,-1.13,1.75,4.71,10.34,7.91,-0.25],
+  2021:[-2.65,2.69,2.11,-0.02,7.42,3.37,0.64,1.99,0.54,-2.18,0.77,4.63],
+  2022:[2.07,-0.91,2.54,1.62,3.35,2.31,-2.03,3.97,2.42,-0.57,2.92,0.88],
+  2023:[1.33,-1.58,1.01,0.85,7.32,1.59,0.03,0.70,0.50,-1.65,0.67,0.02],
+  2024:[1.04,2.90,1.12,1.24,2.23,1.63,4.67,3.74,0.89,1.58,1.15,0.40],
+  2025:[-0.00,1.08,1.32,-1.57,-0.34,0.79,-0.27,-2.00,-0.04,1.63,0.77,-0.01],
+  2026:[-1.32,0.60,0,0,0,0,0,0,0,0,0,0]
+};
+const fNas = {
+  2017:[0,0,0,0,0,0,0,0,0,0,0,1.08],
+  2018:[-2.41,8.58,-7.21,14.16,1.62,3.60,9.93,2.12,6.38,6.31,-3.18,5.74],
+  2019:[2.23,0.95,1.81,-2.00,-4.17,2.30,0.93,0.56,-0.34,1.12,-3.06,0.53],
+  2020:[5.46,5.00,-3.52,-3.52,-6.57,4.89,-3.57,3.83,12.49,-0.15,-2.41,-0.42],
+  2021:[-5.61,-6.08,-6.39,8.56,12.45,2.20,6.16,0.01,-4.51,9.18,0.39,3.09],
+  2022:[-2.16,4.93,-2.46,16.08,9.02,-5.22,-0.55,4.93,-2.23,0.79,3.41,1.05],
+  2023:[8.48,2.31,-0.28,-3.48,1.02,2.34,-2.70,7.68,-2.75,5.48,1.77,-1.44],
+  2024:[1.17,-0.84,-0.19,3.09,2.95,-1.42,7.23,1.89,4.17,5.06,3.31,5.55],
+  2025:[-0.18,5.09,-1.30,0.82,0.31,-3.82,0.26,2.71,1.88,2.42,-0.33,3.82],
+  2026:[1.90,4.73,0,0,0,0,0,0,0,0,0,0]
+};
+
+// ── REINVEST ──
+const rDax = {
+  2017:[0,0,0,0,0,0,0,0,0,0,0,5.81],
+  2018:[5.85,25.47,12.38,0.12,2.26,-1.92,19.07,2.20,5.23,10.63,3.99,6.42],
+  2019:[-8.28,2.57,11.63,7.99,-0.15,0.35,-0.62,11.85,-4.33,14.26,13.14,4.41],
+  2020:[15.13,5.03,5.41,-0.01,-1.75,3.94,-3.53,5.02,13.39,34.37,26.86,-0.89],
+  2021:[-9.69,9.56,7.65,-0.01,29.85,12.71,1.59,8.29,1.24,-8.98,2.67,20.23],
+  2022:[8.66,-4.30,11.71,6.64,15.29,11.16,-9.61,19.96,11.93,-2.93,15.09,4.07],
+  2023:[6.82,-8.08,4.70,4.17,43.66,8.75,-0.43,3.25,2.58,-10.34,3.53,-0.06],
+  2024:[5.84,17.39,6.74,7.36,14.14,10.29,33.22,27.02,6.24,11.42,7.06,2.29],
+  2025:[-0.13,7.78,9.82,-11.86,-2.49,5.25,-1.96,-13.77,-0.43,12.02,5.11,-0.00],
+  2026:[-9.74,3.89,0,0,0,0,0,0,0,0,0,0]
+};
+const rNas = {
+  2017:[0,0,0,0,0,0,0,0,0,0,0,1.08],
+  2018:[-2.50,8.48,-7.64,14.65,1.79,4.17,12.38,2.71,8.88,8.69,-4.99,8.23],
+  2019:[3.25,1.49,2.85,-3.27,-6.65,3.42,1.43,0.72,-0.64,1.68,-4.84,0.78],
+  2020:[8.74,8.14,-6.15,-6.03,-10.23,7.02,-5.92,5.51,20.82,-0.75,-4.38,-0.89],
+  2021:[-9.48,-9.73,-9.71,12.67,20.94,3.55,11.21,-0.24,-8.44,17.45,0.47,5.35],
+  2022:[-5.02,9.70,-5.63,37.57,22.25,-13.00,-1.76,11.95,-5.79,1.70,8.35,2.05],
+  2023:[24.41,6.52,-1.19,-10.00,2.34,6.27,-7.83,23.51,-8.51,17.07,5.35,-4.61],
+  2024:[3.20,-2.85,-1.01,9.02,9.66,-4.86,25.63,5.82,15.66,20.20,13.31,24.45],
+  2025:[-1.33,23.34,-5.95,2.82,1.01,-16.11,0.92,11.72,7.98,10.60,-1.71,18.28],
+  2026:[9.02,24.78,0,0,0,0,0,0,0,0,0,0]
+};
+
+// ══════════════════════════════════════════════════════════════
+// PERIOD STATE per tab
+// ══════════════════════════════════════════════════════════════
+const periodState = {
+  fixed:    { startIdx: 0, endIdx: ALL_MONTHS.length - 1 },
+  reinvest: { startIdx: 0, endIdx: ALL_MONTHS.length - 1 }
+};
+
+// ══════════════════════════════════════════════════════════════
+// HELPERS — now period-aware
+// ══════════════════════════════════════════════════════════════
+function getSlice(startIdx, endIdx) {
+  return ALL_MONTHS.slice(startIdx, endIdx + 1);
+}
+
+function getVal(data, ym) { return data[ym.y][ym.m]; }
+
+function buildTimeline(data, slice) {
+  const labels = [], values = [];
+  for (const ym of slice) {
+    labels.push(mLabel(ym));
+    values.push(getVal(data, ym));
+  }
+  return { labels, values };
+}
+
+function computeEquity(data, start, slice) {
+  const tl = buildTimeline(data, slice);
+  let cap = start;
+  const eq = [start], labels = ['Départ'];
+  for (let i = 0; i < tl.values.length; i++) {
+    cap *= (1 + tl.values[i] / 100);
+    eq.push(cap);
+    labels.push(tl.labels[i]);
+  }
+  return { labels, equity: eq };
+}
+
+function computeDrawdown(arr) {
+  let peak = arr[0];
+  return arr.map(v => { if (v > peak) peak = v; return ((v - peak) / peak) * 100; });
+}
+
+function annualTotals(data, slice) {
+  const r = {};
+  for (const ym of slice) {
+    if (!r[ym.y]) r[ym.y] = 1;
+    r[ym.y] *= (1 + getVal(data, ym) / 100);
+  }
+  for (const y in r) r[y] = (r[y] - 1) * 100;
+  return r;
+}
+
+function mergedTimeline(d1, d2, slice) {
+  const labels = [], values = [];
+  for (const ym of slice) {
+    labels.push(mLabel(ym));
+    values.push((getVal(d1, ym) + getVal(d2, ym)) / 2);
+  }
+  return { labels, values };
+}
+
+function rolling12(labels, values) {
+  const rl = [], rv = [];
+  for (let i = 11; i < values.length; i++) {
+    let p = 1;
+    for (let j = i - 11; j <= i; j++) p *= (1 + values[j] / 100);
+    rl.push(labels[i]);
+    rv.push((p - 1) * 100);
+  }
+  return { labels: rl, values: rv };
+}
+
+function fmt(n) { return Math.round(n).toLocaleString('fr'); }
+
+// ══════════════════════════════════════════════════════════════
+// CHART DEFAULTS
+// ══════════════════════════════════════════════════════════════
+Chart.defaults.color = '#8899aa';
+Chart.defaults.borderColor = 'rgba(30,42,58,0.5)';
+Chart.defaults.font.family = 'Inter, sans-serif';
+
+// ══════════════════════════════════════════════════════════════
+// CHART BUILDERS
+// ══════════════════════════════════════════════════════════════
+function buildKPIs(containerId, daxD, nasD, slice) {
+  const dE = computeEquity(daxD, 5000, slice), nE = computeEquity(nasD, 5000, slice);
+  const fD = dE.equity.at(-1), fN = nE.equity.at(-1);
+  const pD = ((fD - 5000) / 5000 * 100).toFixed(1);
+  const pN = ((fN - 5000) / 5000 * 100).toFixed(1);
+  const comb = fD + fN;
+  const pC = ((comb - 10000) / 10000 * 100).toFixed(1);
+  const ddD = Math.min(...computeDrawdown(dE.equity)).toFixed(1);
+  const ddN = Math.min(...computeDrawdown(nE.equity)).toFixed(1);
+  const combEq = dE.equity.map((v,i) => v + nE.equity[i]);
+  const ddC = Math.min(...computeDrawdown(combEq)).toFixed(1);
+  const nbMonths = slice.length;
+
+  const kpis = [
+    { l:'Capital DAX 40', v:`${fmt(fD)} €`, s:`+${pD}%`, c:'stripe-dax' },
+    { l:'Capital NASDAQ 100', v:`${fmt(fN)} €`, s:`+${pN}%`, c:'stripe-nas' },
+    { l:'Capital Combiné', v:`${fmt(comb)} €`, s:`+${pC}% (2×5k€)`, c:'stripe-merged' },
+    { l:'Max DD DAX', v:`${ddD}%`, s:'Depuis le plus haut', c:'stripe-dax' },
+    { l:'Max DD NASDAQ', v:`${ddN}%`, s:'Depuis le plus haut', c:'stripe-nas' },
+    { l:'Max DD Combiné', v:`${ddC}%`, s:`${nbMonths} mois analysés`, c:'stripe-merged' },
+  ];
+  document.getElementById(containerId).innerHTML = kpis.map(k =>
+    `<div class="kpi-card"><div class="stripe ${k.c}"></div><div class="label">${k.l}</div><div class="value">${k.v}</div><div class="sub">${k.s}</div></div>`
+  ).join('');
+}
+
+function buildEquity(canvasId, daxD, nasD, slice) {
+  const dE = computeEquity(daxD, 5000, slice), nE = computeEquity(nasD, 5000, slice);
+  const cE = dE.equity.map((v,i) => v + nE.equity[i]);
+  return new Chart(document.getElementById(canvasId), {
+    type:'line',
+    data: {
+      labels: dE.labels,
+      datasets: [
+        { label:'Combiné (2×5k€)', data:cE, borderColor:'#a78bfa', backgroundColor:'rgba(167,139,250,0.08)', borderWidth:2.5, fill:true, tension:0.3, pointRadius:0, pointHitRadius:8 },
+        { label:'DAX 40', data:dE.equity, borderColor:'#6366f1', backgroundColor:'rgba(99,102,241,0.06)', borderWidth:2, fill:true, tension:0.3, pointRadius:0, pointHitRadius:8 },
+        { label:'NASDAQ 100', data:nE.equity, borderColor:'#06b6d4', backgroundColor:'rgba(6,182,212,0.06)', borderWidth:2, fill:true, tension:0.3, pointRadius:0, pointHitRadius:8 }
+      ]
+    },
+    options: {
+      responsive:true, interaction:{mode:'index',intersect:false},
+      plugins:{
+        legend:{labels:{usePointStyle:true,padding:20}},
+        tooltip:{backgroundColor:'#1a2235',borderColor:'#2d3a4d',borderWidth:1, callbacks:{label:c=>`${c.dataset.label}: ${fmt(c.parsed.y)} €`}}
+      },
+      scales:{
+        x:{ticks:{maxTicksLimit:20,font:{size:10}},grid:{display:false}},
+        y:{ticks:{callback:v=>fmt(v)+' €',font:{size:11}},grid:{color:'rgba(30,42,58,0.4)'}}
+      }
+    }
+  });
+}
+
+function buildAnnual(canvasId, daxD, nasD, slice) {
+  const dA = annualTotals(daxD, slice), nA = annualTotals(nasD, slice);
+  const yrs = Object.keys(dA).sort();
+  return new Chart(document.getElementById(canvasId), {
+    type:'bar',
+    data: {
+      labels: yrs,
+      datasets: [
+        { label:'DAX 40', data:yrs.map(y=>dA[y]), backgroundColor:'rgba(99,102,241,0.7)', borderRadius:6, barPercentage:0.7 },
+        { label:'NASDAQ 100', data:yrs.map(y=>nA[y]||0), backgroundColor:'rgba(6,182,212,0.7)', borderRadius:6, barPercentage:0.7 },
+        { label:'Moyenne', data:yrs.map(y=>((dA[y]||0)+(nA[y]||0))/2), backgroundColor:'rgba(167,139,250,0.6)', borderRadius:6, barPercentage:0.7 }
+      ]
+    },
+    options: {
+      responsive:true,
+      plugins:{legend:{labels:{usePointStyle:true,padding:16}},tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${c.parsed.y.toFixed(2)}%`}}},
+      scales:{x:{grid:{display:false}},y:{ticks:{callback:v=>v.toFixed(0)+'%'},grid:{color:'rgba(30,42,58,0.4)'}}}
+    }
+  });
+}
+
+function buildMonthlyBar(canvasId, data, slice) {
+  const tl = buildTimeline(data, slice);
+  return new Chart(document.getElementById(canvasId), {
+    type:'bar',
+    data: {
+      labels: tl.labels,
+      datasets:[{data:tl.values, backgroundColor:tl.values.map(v=>v>=0?'rgba(16,185,129,0.7)':'rgba(239,68,68,0.7)'), borderRadius:3, barPercentage:0.85}]
+    },
+    options: {
+      responsive:true,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.parsed.y.toFixed(2)+'%'}}},
+      scales:{x:{ticks:{maxTicksLimit:24,font:{size:9}},grid:{display:false}},y:{ticks:{callback:v=>v+'%'},grid:{color:'rgba(30,42,58,0.4)'}}}
+    }
+  });
+}
+
+function buildCombinedMonthly(canvasId, daxD, nasD, slice) {
+  const m = mergedTimeline(daxD, nasD, slice);
+  return new Chart(document.getElementById(canvasId), {
+    type:'bar',
+    data: {
+      labels: m.labels,
+      datasets:[{data:m.values, backgroundColor:m.values.map(v=>v>=0?'rgba(167,139,250,0.7)':'rgba(239,68,68,0.6)'), borderRadius:3, barPercentage:0.85}]
+    },
+    options: {
+      responsive:true,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.parsed.y.toFixed(2)+'%'}}},
+      scales:{x:{ticks:{maxTicksLimit:24,font:{size:9}},grid:{display:false}},y:{ticks:{callback:v=>v+'%'},grid:{color:'rgba(30,42,58,0.4)'}}}
+    }
+  });
+}
+
+function buildRolling12(canvasId, daxD, nasD, slice) {
+  const dT = buildTimeline(daxD, slice), nT = buildTimeline(nasD, slice);
+  const dR = rolling12(dT.labels, dT.values), nR = rolling12(nT.labels, nT.values);
+  if (dR.labels.length === 0) {
+    // Not enough data for rolling 12m
+    const ctx = document.getElementById(canvasId).getContext('2d');
+    ctx.fillStyle = '#8899aa';
+    ctx.font = '14px Inter';
+    ctx.textAlign = 'center';
+    ctx.fillText('Période trop courte pour le glissant 12 mois', ctx.canvas.width/2, 100);
+    return null;
+  }
+  return new Chart(document.getElementById(canvasId), {
+    type:'line',
+    data: {
+      labels: dR.labels,
+      datasets: [
+        { label:'DAX 40', data:dR.values, borderColor:'#6366f1', borderWidth:2, tension:0.3, pointRadius:0, fill:false },
+        { label:'NASDAQ 100', data:nR.values, borderColor:'#06b6d4', borderWidth:2, tension:0.3, pointRadius:0, fill:false }
+      ]
+    },
+    options: {
+      responsive:true, interaction:{mode:'index',intersect:false},
+      plugins:{legend:{labels:{usePointStyle:true,padding:16}},tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${c.parsed.y.toFixed(1)}%`}}},
+      scales:{x:{ticks:{maxTicksLimit:20,font:{size:9}},grid:{display:false}},y:{ticks:{callback:v=>v.toFixed(0)+'%'},grid:{color:'rgba(30,42,58,0.4)'}}}
+    }
+  });
+}
+
+function buildDrawdown(canvasId, daxD, nasD, slice) {
+  const dE = computeEquity(daxD, 5000, slice), nE = computeEquity(nasD, 5000, slice);
+  const cE = dE.equity.map((v,i) => v + nE.equity[i]);
+  return new Chart(document.getElementById(canvasId), {
+    type:'line',
+    data: {
+      labels: dE.labels,
+      datasets: [
+        { label:'Combiné', data:computeDrawdown(cE), borderColor:'#a78bfa', backgroundColor:'rgba(167,139,250,0.1)', borderWidth:2, fill:true, tension:0.3, pointRadius:0 },
+        { label:'DAX 40', data:computeDrawdown(dE.equity), borderColor:'#6366f1', backgroundColor:'rgba(99,102,241,0.06)', borderWidth:1.5, fill:true, tension:0.3, pointRadius:0 },
+        { label:'NASDAQ 100', data:computeDrawdown(nE.equity), borderColor:'#06b6d4', backgroundColor:'rgba(6,182,212,0.06)', borderWidth:1.5, fill:true, tension:0.3, pointRadius:0 }
+      ]
+    },
+    options: {
+      responsive:true, interaction:{mode:'index',intersect:false},
+      plugins:{legend:{labels:{usePointStyle:true,padding:16}},tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${c.parsed.y.toFixed(2)}%`}}},
+      scales:{x:{ticks:{maxTicksLimit:20,font:{size:10}},grid:{display:false}},y:{ticks:{callback:v=>v.toFixed(0)+'%'},grid:{color:'rgba(30,42,58,0.4)'}}}
+    }
+  });
+}
+
+// ── HEATMAP ──
+function heatColor(val) {
+  const intensity = Math.min(Math.abs(val) / 15, 1);
+  if (val >= 0) return `rgba(16,185,129,${0.12 + intensity * 0.55})`;
+  return `rgba(239,68,68,${0.12 + intensity * 0.55})`;
+}
+
+function buildHeatmap(containerId, data, slice) {
+  // Build a Set of active ym keys
+  const activeSet = new Set();
+  for (const ym of slice) activeSet.add(ym.y + '-' + ym.m);
+
+  // Get year range from slice
+  const years = [...new Set(slice.map(s => s.y))].sort((a,b) => b-a);
+
+  const mh = ['Année', ...monthNames, 'Total'];
+  let html = '<table class="heatmap-table"><thead><tr>' + mh.map(h=>`<th>${h}</th>`).join('') + '</tr></thead><tbody>';
+  for (const y of years) {
+    html += '<tr><td class="year-cell">' + y + '</td>';
+    let prod = 1;
+    let hasActive = false;
+    for (let m = 0; m < 12; m++) {
+      const key = y + '-' + m;
+      if (activeSet.has(key)) {
+        const v = data[y][m];
+        prod *= (1 + v / 100);
+        hasActive = true;
+        const c = v >= 0 ? '#10b981' : '#ef4444';
+        html += `<td style="background:${heatColor(v)};color:${c};">${v>0?'+':''}${v.toFixed(2)}%</td>`;
+      } else {
+        html += '<td style="background:rgba(30,42,58,0.2);color:#444;">—</td>';
+      }
+    }
+    const tot = hasActive ? (prod - 1) * 100 : 0;
+    const tc = tot >= 0 ? '#10b981' : '#ef4444';
+    html += `<td class="total-cell" style="background:${heatColor(tot)};color:${tc};">${tot>0?'+':''}${tot.toFixed(2)}%</td></tr>`;
+  }
+  html += '</tbody></table>';
+  document.getElementById(containerId).innerHTML = html;
+}
+
+function buildMergedHeatmap(containerId, d1, d2, slice) {
+  const merged = {};
+  for (let y = 2017; y <= 2026; y++) { merged[y] = []; for (let m = 0; m < 12; m++) merged[y][m] = (d1[y][m] + d2[y][m]) / 2; }
+  buildHeatmap(containerId, merged, slice);
+}
+
+// ══════════════════════════════════════════════════════════════
+// PERIOD SELECTOR — dual handle timeline
+// ══════════════════════════════════════════════════════════════
+function initTimeline(tabName) {
+  const suffix = tabName === 'fixed' ? 'Fixed' : 'Reinvest';
+  const track = document.getElementById('track' + suffix);
+  const fill = document.getElementById('fill' + suffix);
+  const hStart = document.getElementById('handleStart' + suffix);
+  const hEnd = document.getElementById('handleEnd' + suffix);
+  const tipStart = document.getElementById('tipStart' + suffix);
+  const tipEnd = document.getElementById('tipEnd' + suffix);
+  const summary = document.getElementById('summary' + suffix);
+  const labelsContainer = document.getElementById('labels' + suffix);
+  const presetsContainer = document.getElementById('presets' + suffix);
+
+  const total = ALL_MONTHS.length;
+  const state = periodState[tabName];
+
+  // ── Year labels underneath ──
+  let labelsHtml = '';
+  for (let i = 0; i < total; i++) {
+    const ym = ALL_MONTHS[i];
+    const isJan = ym.m === 0;
+    const isDec2017 = ym.y === 2017 && ym.m === 11;
+    if (isJan || isDec2017) {
+      labelsHtml += `<span class="year-mark" style="position:absolute;left:${(i / (total-1)) * 100}%;transform:translateX(-50%);">${isDec2017 ? '2017' : ym.y}</span>`;
+    }
+  }
+  labelsContainer.style.position = 'relative';
+  labelsContainer.style.height = '20px';
+  labelsContainer.innerHTML = labelsHtml;
+
+  // ── Presets ──
+  const presets = [
+    { label: 'Tout', s: 0, e: total - 1 },
+    { label: '1 an', s: total - 13, e: total - 1 },
+    { label: '2 ans', s: total - 25, e: total - 1 },
+    { label: '3 ans', s: total - 37, e: total - 1 },
+    { label: '5 ans', s: total - 61, e: total - 1 },
+    { label: '2024-25', s: ALL_MONTHS.findIndex(m=>m.y===2024&&m.m===0), e: ALL_MONTHS.findIndex(m=>m.y===2025&&m.m===11) },
+    { label: '2020-22', s: ALL_MONTHS.findIndex(m=>m.y===2020&&m.m===0), e: ALL_MONTHS.findIndex(m=>m.y===2022&&m.m===11) },
+  ];
+  presetsContainer.innerHTML = presets.map((p, i) =>
+    `<button class="preset-btn ${i===0?'active':''}" data-tab="${tabName}" data-s="${Math.max(0,p.s)}" data-e="${Math.min(total-1,p.e)}">${p.label}</button>`
+  ).join('');
+
+  presetsContainer.querySelectorAll('.preset-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const s = +btn.dataset.s, e = +btn.dataset.e;
+      state.startIdx = s;
+      state.endIdx = e;
+      updateUI();
+      renderTabCharts(tabName);
+      // active style
+      presetsContainer.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+    });
+  });
+
+  function posFromIdx(idx) { return (idx / (total - 1)) * 100; }
+  function idxFromPos(pct) { return Math.round(pct / 100 * (total - 1)); }
+
+  function updateUI() {
+    const sP = posFromIdx(state.startIdx), eP = posFromIdx(state.endIdx);
+    hStart.style.left = sP + '%';
+    hEnd.style.left = eP + '%';
+    fill.style.left = sP + '%';
+    fill.style.width = (eP - sP) + '%';
+    tipStart.textContent = mLabel(ALL_MONTHS[state.startIdx]);
+    tipEnd.textContent = mLabel(ALL_MONTHS[state.endIdx]);
+    summary.textContent = mLabelFull(ALL_MONTHS[state.startIdx]) + '  →  ' + mLabelFull(ALL_MONTHS[state.endIdx])
+      + '  (' + (state.endIdx - state.startIdx + 1) + ' mois)';
+  }
+
+  // ── Drag logic ──
+  function startDrag(handle, isEnd) {
+    let dragging = false;
+
+    function onMove(e) {
+      if (!dragging) return;
+      e.preventDefault();
+      const rect = track.getBoundingClientRect();
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      let pct = ((clientX - rect.left) / rect.width) * 100;
+      pct = Math.max(0, Math.min(100, pct));
+      let idx = idxFromPos(pct);
+
+      if (isEnd) {
+        idx = Math.max(state.startIdx + 1, idx);
+        state.endIdx = idx;
+      } else {
+        idx = Math.min(state.endIdx - 1, idx);
+        state.startIdx = idx;
+      }
+      updateUI();
+      // Clear preset active
+      presetsContainer.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+    }
+
+    function onUp() {
+      dragging = false;
+      handle.classList.remove('dragging');
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      document.removeEventListener('touchmove', onMove);
+      document.removeEventListener('touchend', onUp);
+      renderTabCharts(tabName);
+    }
+
+    handle.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      dragging = true;
+      handle.classList.add('dragging');
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+
+    handle.addEventListener('touchstart', (e) => {
+      dragging = true;
+      handle.classList.add('dragging');
+      document.addEventListener('touchmove', onMove, { passive: false });
+      document.addEventListener('touchend', onUp);
+    });
+  }
+
+  startDrag(hStart, false);
+  startDrag(hEnd, true);
+  updateUI();
+}
+
+// ══════════════════════════════════════════════════════════════
+// TAB RENDERING
+// ══════════════════════════════════════════════════════════════
+const chartInstances = {};
+
+function destroyCharts(prefix) {
+  ['eq','ann','mDax','mNas','mComb','r12','dd'].forEach(k => {
+    const key = k + prefix;
+    if (chartInstances[key]) { chartInstances[key].destroy(); delete chartInstances[key]; }
+  });
+}
+
+function renderTabCharts(tabName) {
+  const suffix = tabName === 'fixed' ? 'Fixed' : 'Reinvest';
+  const daxD = tabName === 'fixed' ? fDax : rDax;
+  const nasD = tabName === 'fixed' ? fNas : rNas;
+  const state = periodState[tabName];
+  const slice = getSlice(state.startIdx, state.endIdx);
+
+  destroyCharts(suffix);
+
+  buildKPIs('kpi' + suffix, daxD, nasD, slice);
+  chartInstances['eq' + suffix] = buildEquity('eq' + suffix, daxD, nasD, slice);
+  chartInstances['ann' + suffix] = buildAnnual('ann' + suffix, daxD, nasD, slice);
+  chartInstances['mDax' + suffix] = buildMonthlyBar('mDax' + suffix, daxD, slice);
+  chartInstances['mNas' + suffix] = buildMonthlyBar('mNas' + suffix, nasD, slice);
+  chartInstances['mComb' + suffix] = buildCombinedMonthly('mComb' + suffix, daxD, nasD, slice);
+  chartInstances['r12' + suffix] = buildRolling12('r12' + suffix, daxD, nasD, slice);
+  chartInstances['dd' + suffix] = buildDrawdown('dd' + suffix, daxD, nasD, slice);
+
+  buildHeatmap('hmDax' + suffix, daxD, slice);
+  buildHeatmap('hmNas' + suffix, nasD, slice);
+  buildMergedHeatmap('hmMerged' + suffix, daxD, nasD, slice);
+}
+
+// ══════════════════════════════════════════════════════════════
+// TAB SWITCHING
+// ══════════════════════════════════════════════════════════════
+let currentTab = 'fixed';
+const tabRendered = { fixed: false, reinvest: false };
+
+function switchTab(tab) {
+  if (tab === currentTab) return;
+  currentTab = tab;
+  document.querySelectorAll('.tab-btn').forEach((btn, i) => {
+    btn.classList.toggle('active', (i === 0 && tab === 'fixed') || (i === 1 && tab === 'reinvest'));
+  });
+  document.getElementById('tab-fixed').classList.toggle('active', tab === 'fixed');
+  document.getElementById('tab-reinvest').classList.toggle('active', tab === 'reinvest');
+  if (!tabRendered[tab]) {
+    initTimeline(tab);
+    renderTabCharts(tab);
+    tabRendered[tab] = true;
+  }
+}
+
+// ── INIT ──
+initTimeline('fixed');
+renderTabCharts('fixed');
+tabRendered.fixed = true;
+</script>
+</body>
+</html>
