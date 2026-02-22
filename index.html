@@ -86,6 +86,85 @@
   .tab-content.active { display: block; animation: fadeIn 0.35s ease; }
   @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 
+  /* ═══════════ CAPITAL SELECTOR ═══════════ */
+  .capital-selector {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 22px 28px 18px;
+    margin-bottom: 16px;
+  }
+  .capital-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .capital-header h3 {
+    font-size: 0.9rem; font-weight: 600; color: var(--text-primary);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .capital-header h3 .c-icon {
+    width: 28px; height: 28px; border-radius: 8px;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 14px;
+    background: rgba(16,185,129,0.12);
+  }
+  .capital-value-display {
+    display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+  }
+  .capital-amount {
+    font-size: 1.5rem; font-weight: 800; letter-spacing: -0.5px;
+    background: linear-gradient(135deg, #10b981, #34d399);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .capital-detail {
+    font-size: 0.78rem; color: var(--text-secondary); font-weight: 500;
+  }
+  .capital-slider-wrap {
+    position: relative; padding: 0 2px;
+  }
+  .capital-slider {
+    -webkit-appearance: none; appearance: none;
+    width: 100%; height: 6px;
+    background: rgba(30,42,58,0.8);
+    border-radius: 3px; outline: none;
+    cursor: pointer;
+  }
+  .capital-slider::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none;
+    width: 24px; height: 24px;
+    border-radius: 50%;
+    background: var(--bg-primary);
+    border: 3px solid #34d399;
+    cursor: grab;
+    box-shadow: 0 0 10px rgba(16,185,129,0.3);
+    transition: transform 0.12s, box-shadow 0.12s;
+  }
+  .capital-slider::-webkit-slider-thumb:hover {
+    transform: scale(1.15);
+    box-shadow: 0 0 18px rgba(16,185,129,0.5);
+  }
+  .capital-slider::-moz-range-thumb {
+    width: 24px; height: 24px;
+    border-radius: 50%;
+    background: var(--bg-primary);
+    border: 3px solid #34d399;
+    cursor: grab;
+    box-shadow: 0 0 10px rgba(16,185,129,0.3);
+  }
+  .capital-ticks {
+    display: flex; justify-content: space-between;
+    padding-top: 6px;
+  }
+  .capital-ticks span {
+    font-size: 0.65rem; color: var(--text-secondary);
+    font-weight: 600; cursor: pointer; transition: color 0.2s;
+  }
+  .capital-ticks span:hover { color: var(--text-primary); }
+
   /* ═══════════ PERIOD SELECTOR ═══════════ */
   .period-selector {
     background: var(--bg-card);
@@ -317,6 +396,20 @@
 
   <!-- ═══════════════════════ TAB 1 : FIXED ═══════════════════════ -->
   <div id="tab-fixed" class="tab-content active">
+    <!-- Capital Selector -->
+    <div class="capital-selector" id="capitalFixed">
+      <div class="capital-header">
+        <h3><span class="c-icon">💰</span> Capital initial total</h3>
+        <div class="capital-value-display">
+          <span class="capital-amount" id="capAmountFixed">10 000 €</span>
+          <span class="capital-detail" id="capDetailFixed">→ 5 000 € par stratégie</span>
+        </div>
+      </div>
+      <div class="capital-slider-wrap">
+        <input type="range" class="capital-slider" id="capSliderFixed" min="10000" max="100000" step="5000" value="10000">
+        <div class="capital-ticks" id="capTicksFixed"></div>
+      </div>
+    </div>
     <!-- Period Selector -->
     <div class="period-selector" id="periodFixed">
       <div class="period-header">
@@ -375,6 +468,20 @@
 
   <!-- ═══════════════════════ TAB 2 : REINVEST ═══════════════════════ -->
   <div id="tab-reinvest" class="tab-content">
+    <!-- Capital Selector -->
+    <div class="capital-selector" id="capitalReinvest">
+      <div class="capital-header">
+        <h3><span class="c-icon">💰</span> Capital initial total</h3>
+        <div class="capital-value-display">
+          <span class="capital-amount" id="capAmountReinvest">10 000 €</span>
+          <span class="capital-detail" id="capDetailReinvest">→ 5 000 € par stratégie</span>
+        </div>
+      </div>
+      <div class="capital-slider-wrap">
+        <input type="range" class="capital-slider" id="capSliderReinvest" min="10000" max="100000" step="5000" value="10000">
+        <div class="capital-ticks" id="capTicksReinvest"></div>
+      </div>
+    </div>
     <!-- Period Selector -->
     <div class="period-selector" id="periodReinvest">
       <div class="period-header">
@@ -512,8 +619,8 @@ const rNas = {
 // PERIOD STATE per tab
 // ══════════════════════════════════════════════════════════════
 const periodState = {
-  fixed:    { startIdx: 0, endIdx: ALL_MONTHS.length - 1 },
-  reinvest: { startIdx: 0, endIdx: ALL_MONTHS.length - 1 }
+  fixed:    { startIdx: 0, endIdx: ALL_MONTHS.length - 1, capital: 10000 },
+  reinvest: { startIdx: 0, endIdx: ALL_MONTHS.length - 1, capital: 10000 }
 };
 
 // ══════════════════════════════════════════════════════════════
@@ -593,23 +700,25 @@ Chart.defaults.font.family = 'Inter, sans-serif';
 // ══════════════════════════════════════════════════════════════
 // CHART BUILDERS
 // ══════════════════════════════════════════════════════════════
-function buildKPIs(containerId, daxD, nasD, slice) {
-  const dE = computeEquity(daxD, 5000, slice), nE = computeEquity(nasD, 5000, slice);
+function buildKPIs(containerId, daxD, nasD, slice, totalCapital) {
+  const half = totalCapital / 2;
+  const dE = computeEquity(daxD, half, slice), nE = computeEquity(nasD, half, slice);
   const fD = dE.equity.at(-1), fN = nE.equity.at(-1);
-  const pD = ((fD - 5000) / 5000 * 100).toFixed(1);
-  const pN = ((fN - 5000) / 5000 * 100).toFixed(1);
+  const pD = ((fD - half) / half * 100).toFixed(1);
+  const pN = ((fN - half) / half * 100).toFixed(1);
   const comb = fD + fN;
-  const pC = ((comb - 10000) / 10000 * 100).toFixed(1);
+  const pC = ((comb - totalCapital) / totalCapital * 100).toFixed(1);
   const ddD = Math.min(...computeDrawdown(dE.equity)).toFixed(1);
   const ddN = Math.min(...computeDrawdown(nE.equity)).toFixed(1);
   const combEq = dE.equity.map((v,i) => v + nE.equity[i]);
   const ddC = Math.min(...computeDrawdown(combEq)).toFixed(1);
   const nbMonths = slice.length;
+  const halfFmt = fmt(half);
 
   const kpis = [
     { l:'Capital DAX 40', v:`${fmt(fD)} €`, s:`+${pD}%`, c:'stripe-dax' },
     { l:'Capital NASDAQ 100', v:`${fmt(fN)} €`, s:`+${pN}%`, c:'stripe-nas' },
-    { l:'Capital Combiné', v:`${fmt(comb)} €`, s:`+${pC}% (2×5k€)`, c:'stripe-merged' },
+    { l:'Capital Combiné', v:`${fmt(comb)} €`, s:`+${pC}% (2×${halfFmt}€)`, c:'stripe-merged' },
     { l:'Max DD DAX', v:`${ddD}%`, s:'Depuis le plus haut', c:'stripe-dax' },
     { l:'Max DD NASDAQ', v:`${ddN}%`, s:'Depuis le plus haut', c:'stripe-nas' },
     { l:'Max DD Combiné', v:`${ddC}%`, s:`${nbMonths} mois analysés`, c:'stripe-merged' },
@@ -619,15 +728,16 @@ function buildKPIs(containerId, daxD, nasD, slice) {
   ).join('');
 }
 
-function buildEquity(canvasId, daxD, nasD, slice) {
-  const dE = computeEquity(daxD, 5000, slice), nE = computeEquity(nasD, 5000, slice);
+function buildEquity(canvasId, daxD, nasD, slice, totalCapital) {
+  const half = totalCapital / 2;
+  const dE = computeEquity(daxD, half, slice), nE = computeEquity(nasD, half, slice);
   const cE = dE.equity.map((v,i) => v + nE.equity[i]);
   return new Chart(document.getElementById(canvasId), {
     type:'line',
     data: {
       labels: dE.labels,
       datasets: [
-        { label:'Combiné (2×5k€)', data:cE, borderColor:'#a78bfa', backgroundColor:'rgba(167,139,250,0.08)', borderWidth:2.5, fill:true, tension:0.3, pointRadius:0, pointHitRadius:8 },
+        { label:`Combiné (2×${fmt(half)}€)`, data:cE, borderColor:'#a78bfa', backgroundColor:'rgba(167,139,250,0.08)', borderWidth:2.5, fill:true, tension:0.3, pointRadius:0, pointHitRadius:8 },
         { label:'DAX 40', data:dE.equity, borderColor:'#6366f1', backgroundColor:'rgba(99,102,241,0.06)', borderWidth:2, fill:true, tension:0.3, pointRadius:0, pointHitRadius:8 },
         { label:'NASDAQ 100', data:nE.equity, borderColor:'#06b6d4', backgroundColor:'rgba(6,182,212,0.06)', borderWidth:2, fill:true, tension:0.3, pointRadius:0, pointHitRadius:8 }
       ]
@@ -728,8 +838,9 @@ function buildRolling12(canvasId, daxD, nasD, slice) {
   });
 }
 
-function buildDrawdown(canvasId, daxD, nasD, slice) {
-  const dE = computeEquity(daxD, 5000, slice), nE = computeEquity(nasD, 5000, slice);
+function buildDrawdown(canvasId, daxD, nasD, slice, totalCapital) {
+  const half = totalCapital / 2;
+  const dE = computeEquity(daxD, half, slice), nE = computeEquity(nasD, half, slice);
   const cE = dE.equity.map((v,i) => v + nE.equity[i]);
   return new Chart(document.getElementById(canvasId), {
     type:'line',
@@ -944,21 +1055,69 @@ function renderTabCharts(tabName) {
   const nasD = tabName === 'fixed' ? fNas : rNas;
   const state = periodState[tabName];
   const slice = getSlice(state.startIdx, state.endIdx);
+  const cap = state.capital;
 
   destroyCharts(suffix);
 
-  buildKPIs('kpi' + suffix, daxD, nasD, slice);
-  chartInstances['eq' + suffix] = buildEquity('eq' + suffix, daxD, nasD, slice);
+  buildKPIs('kpi' + suffix, daxD, nasD, slice, cap);
+  chartInstances['eq' + suffix] = buildEquity('eq' + suffix, daxD, nasD, slice, cap);
   chartInstances['ann' + suffix] = buildAnnual('ann' + suffix, daxD, nasD, slice);
   chartInstances['mDax' + suffix] = buildMonthlyBar('mDax' + suffix, daxD, slice);
   chartInstances['mNas' + suffix] = buildMonthlyBar('mNas' + suffix, nasD, slice);
   chartInstances['mComb' + suffix] = buildCombinedMonthly('mComb' + suffix, daxD, nasD, slice);
   chartInstances['r12' + suffix] = buildRolling12('r12' + suffix, daxD, nasD, slice);
-  chartInstances['dd' + suffix] = buildDrawdown('dd' + suffix, daxD, nasD, slice);
+  chartInstances['dd' + suffix] = buildDrawdown('dd' + suffix, daxD, nasD, slice, cap);
 
   buildHeatmap('hmDax' + suffix, daxD, slice);
   buildHeatmap('hmNas' + suffix, nasD, slice);
   buildMergedHeatmap('hmMerged' + suffix, daxD, nasD, slice);
+}
+
+// ══════════════════════════════════════════════════════════════
+// CAPITAL SLIDER
+// ══════════════════════════════════════════════════════════════
+function initCapitalSlider(tabName) {
+  const suffix = tabName === 'fixed' ? 'Fixed' : 'Reinvest';
+  const slider = document.getElementById('capSlider' + suffix);
+  const amountEl = document.getElementById('capAmount' + suffix);
+  const detailEl = document.getElementById('capDetail' + suffix);
+  const ticksEl = document.getElementById('capTicks' + suffix);
+  const state = periodState[tabName];
+
+  // Ticks
+  const tickValues = [10000, 20000, 30000, 50000, 75000, 100000];
+  ticksEl.innerHTML = tickValues.map(v =>
+    `<span data-val="${v}" style="cursor:pointer">${fmt(v)} €</span>`
+  ).join('');
+  ticksEl.querySelectorAll('span').forEach(s => {
+    s.addEventListener('click', () => {
+      const v = +s.dataset.val;
+      slider.value = v;
+      state.capital = v;
+      updateCapitalUI();
+      renderTabCharts(tabName);
+    });
+  });
+
+  function updateCapitalUI() {
+    const v = state.capital;
+    amountEl.textContent = fmt(v) + ' €';
+    detailEl.textContent = '→ ' + fmt(v / 2) + ' € par stratégie';
+    // Update slider background fill
+    const pct = ((v - 10000) / 90000) * 100;
+    slider.style.background = `linear-gradient(90deg, rgba(16,185,129,0.5) ${pct}%, rgba(30,42,58,0.8) ${pct}%)`;
+  }
+
+  slider.addEventListener('input', () => {
+    state.capital = +slider.value;
+    updateCapitalUI();
+  });
+
+  slider.addEventListener('change', () => {
+    renderTabCharts(tabName);
+  });
+
+  updateCapitalUI();
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -976,6 +1135,7 @@ function switchTab(tab) {
   document.getElementById('tab-fixed').classList.toggle('active', tab === 'fixed');
   document.getElementById('tab-reinvest').classList.toggle('active', tab === 'reinvest');
   if (!tabRendered[tab]) {
+    initCapitalSlider(tab);
     initTimeline(tab);
     renderTabCharts(tab);
     tabRendered[tab] = true;
@@ -983,6 +1143,7 @@ function switchTab(tab) {
 }
 
 // ── INIT ──
+initCapitalSlider('fixed');
 initTimeline('fixed');
 renderTabCharts('fixed');
 tabRendered.fixed = true;
