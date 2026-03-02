@@ -584,6 +584,21 @@
     font-size:0.78rem; font-weight:600; cursor:pointer; transition:all 0.2s;
   }
   .csv-btn:hover { background:var(--bg-card-hover); color:var(--text-primary); }
+  .csv-btn.reset-btn { border-color:rgba(239,68,68,0.3); color:rgba(239,68,68,0.7); }
+  .csv-btn.reset-btn:hover { background:rgba(239,68,68,0.1); border-color:var(--negative); color:var(--negative); }
+  .csv-mode-selector { display:flex; gap:8px; margin-bottom:14px; }
+  .csv-mode-option {
+    flex:1; display:flex; flex-direction:column; gap:2px;
+    padding:10px 14px; border-radius:10px;
+    border:1px solid var(--border); background:var(--bg-primary);
+    cursor:pointer; transition:all 0.2s;
+  }
+  .csv-mode-option:has(input:checked) {
+    border-color:var(--accent-dax); background:rgba(99,102,241,0.08);
+  }
+  .csv-mode-option input { display:none; }
+  .csv-mode-label { font-size:0.82rem; font-weight:600; color:var(--text-primary); }
+  .csv-mode-desc { font-size:0.68rem; color:var(--text-secondary); }
   .capital-mgmt-btn {
     position:absolute; top:12px; right:12px; background:rgba(16,185,129,0.15); border:1px solid rgba(16,185,129,0.3);
     color:var(--positive); border-radius:8px; padding:5px 10px; font-size:0.72rem; font-weight:600;
@@ -729,7 +744,10 @@
         <button class="filter-btn" onclick="setAssetFilter('NASDAQ')">🟦 NASDAQ</button>
         <button class="filter-btn" onclick="setAssetFilter('DAX')">🟪 DAX</button>
       </div>
-      <button class="csv-btn" onclick="openCsvModal()">📂 Mettre à jour CSV</button>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <button class="csv-btn" onclick="openCsvModal()">📂 Mettre à jour CSV</button>
+        <button class="csv-btn reset-btn" onclick="openResetModal()">🗑️ Réinitialiser</button>
+      </div>
     </div>
     <div class="hero-kpi" id="heroReal"></div>
     <div class="kpi-grid" id="kpiReal"></div>
@@ -790,6 +808,18 @@
     <div class="csv-modal-content">
       <h3>📂 Mettre à jour les données</h3>
       <p>Sélectionnez votre fichier CSV exporté depuis IG (séparateur tabulation).</p>
+      <div class="csv-mode-selector">
+        <label class="csv-mode-option">
+          <input type="radio" name="csvMode" value="merge" checked>
+          <span class="csv-mode-label">➕ Ajouter les nouveaux</span>
+          <span class="csv-mode-desc">Ne garde que les trades absents de la base</span>
+        </label>
+        <label class="csv-mode-option">
+          <input type="radio" name="csvMode" value="replace">
+          <span class="csv-mode-label">🔄 Remplacer tout</span>
+          <span class="csv-mode-desc">Remplace toute la base par le contenu du CSV</span>
+        </label>
+      </div>
       <label class="file-drop-zone" id="fileDropZone">
         <input type="file" id="csvFileInput" accept=".csv,.txt,.tsv" style="display:none" onchange="handleFileSelect(this)">
         <div class="file-drop-icon">📄</div>
@@ -800,6 +830,23 @@
       <div class="csv-modal-actions">
         <button class="btn-cancel" onclick="closeCsvModal()">Annuler</button>
         <button class="btn-primary" id="btnApplyCsv" onclick="applyCsv()" disabled>✅ Appliquer</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Reset Confirmation Modal -->
+  <div class="csv-modal" id="resetModal">
+    <div class="csv-modal-content" style="max-width:460px;">
+      <h3 style="color:var(--negative);">🗑️ Réinitialiser la base de données</h3>
+      <p style="margin-bottom:8px;">Cette action supprimera <strong>tous les trades</strong> et <strong>tous les ajustements de capital</strong> de Firebase. Cette action est irréversible.</p>
+      <p style="margin-bottom:14px;">Tapez <strong>RESET</strong> pour confirmer :</p>
+      <input type="text" id="resetConfirmInput" placeholder="Tapez RESET ici" autocomplete="off"
+        style="width:100%;padding:10px 14px;border-radius:10px;border:2px solid var(--border);background:var(--bg-primary);color:var(--text-primary);font-family:inherit;font-size:0.9rem;font-weight:700;letter-spacing:2px;text-align:center;outline:none;transition:border-color 0.2s;"
+        oninput="document.getElementById('btnConfirmReset').disabled = this.value !== 'RESET'">
+      <div class="csv-modal-actions">
+        <button class="btn-cancel" onclick="closeResetModal()">Annuler</button>
+        <button class="btn-primary" id="btnConfirmReset" onclick="confirmReset()" disabled
+          style="background:var(--negative);border-color:var(--negative);">🗑️ Supprimer tout</button>
       </div>
     </div>
   </div>
@@ -1123,6 +1170,36 @@ function saveTradesToFirebase(trades) {
   }).catch(err => {
     console.error('Erreur sauvegarde Firebase:', err);
     alert('Erreur lors de la sauvegarde dans Firebase: ' + err.message);
+  });
+}
+
+// ══════════════════════════════════════════════════════════════
+// RESET FIREBASE
+// ══════════════════════════════════════════════════════════════
+function openResetModal() {
+  document.getElementById('resetModal').classList.add('show');
+  document.getElementById('resetConfirmInput').value = '';
+  document.getElementById('btnConfirmReset').disabled = true;
+}
+function closeResetModal() {
+  document.getElementById('resetModal').classList.remove('show');
+}
+function confirmReset() {
+  if (document.getElementById('resetConfirmInput').value !== 'RESET') return;
+  showLoading(true);
+  Promise.all([
+    db.ref('trades').remove(),
+    db.ref('capitalAdjustments').remove()
+  ]).then(() => {
+    realTrades = [];
+    capitalAdjustments = [];
+    renderRealTab();
+    closeResetModal();
+    showLoading(false);
+    setTimeout(() => alert('✅ Base de données réinitialisée. Tous les trades et ajustements ont été supprimés.'), 300);
+  }).catch(err => {
+    showLoading(false);
+    alert('❌ Erreur lors de la réinitialisation : ' + err.message);
   });
 }
 
@@ -1951,7 +2028,9 @@ function readCsvFile(file) {
 }
 
 function tradeKey(t) {
-  return t[0] + '|' + t[1] + '|' + t[2].toFixed(2);
+  // Normaliser le symbole : trim, minuscule, espaces multiples → un seul
+  const sym = t[1].trim().replace(/\s+/g, ' ').toLowerCase();
+  return t[0] + '|' + sym + '|' + t[2].toFixed(2);
 }
 
 function applyCsv() {
@@ -1961,22 +2040,32 @@ function applyCsv() {
     alert('Aucun trade trouvé. Vérifiez le format du fichier (séparateur tabulation, export IG).');
     return;
   }
-  // Delta : fusionner avec les trades existants sans doublons
-  const existingKeys = new Set(realTrades.map(t => tradeKey(t)));
-  const newTrades = parsed.filter(t => !existingKeys.has(tradeKey(t)));
-  const merged = [...realTrades, ...newTrades].sort((a,b) => b[0].localeCompare(a[0]));
-  realTrades = merged;
-  saveTradesToFirebase(merged);
+  const mode = document.querySelector('input[name="csvMode"]:checked').value;
+  let msg;
+  if (mode === 'replace') {
+    // Mode remplacement total
+    realTrades = parsed.sort((a,b) => b[0].localeCompare(a[0]));
+    saveTradesToFirebase(realTrades);
+    msg = `🔄 Base remplacée : ${parsed.length} trade(s) importé(s).`;
+  } else {
+    // Mode merge : fusionner avec les trades existants sans doublons
+    const existingKeys = new Set(realTrades.map(t => tradeKey(t)));
+    const newTrades = parsed.filter(t => !existingKeys.has(tradeKey(t)));
+    const merged = [...realTrades, ...newTrades].sort((a,b) => b[0].localeCompare(a[0]));
+    realTrades = merged;
+    saveTradesToFirebase(merged);
+    msg = newTrades.length > 0
+      ? `✅ ${newTrades.length} nouveau(x) trade(s) ajouté(s), ${parsed.length - newTrades.length} doublon(s) ignoré(s).`
+      : `ℹ️ Aucun nouveau trade — les ${parsed.length} trades du fichier étaient déjà en base.`;
+  }
   // Positionner le calendrier sur le mois le plus récent
-  const latest = merged[0][0];
-  calYear = parseInt(latest.substring(0,4));
-  calMonth = parseInt(latest.substring(5,7)) - 1;
+  if (realTrades.length > 0) {
+    const latest = realTrades[0][0];
+    calYear = parseInt(latest.substring(0,4));
+    calMonth = parseInt(latest.substring(5,7)) - 1;
+  }
   renderRealTab();
   closeCsvModal();
-  // Message récapitulatif
-  const msg = newTrades.length > 0
-    ? `✅ ${newTrades.length} nouveau(x) trade(s) ajouté(s), ${parsed.length - newTrades.length} doublon(s) ignoré(s).`
-    : `ℹ️ Aucun nouveau trade — les ${parsed.length} trades du fichier étaient déjà en base.`;
   setTimeout(() => alert(msg), 300);
 }
 
@@ -1987,12 +2076,25 @@ function stripAccents(str) {
 function parseCsvText(csvText) {
   const lines = csvText.trim().split('\n');
   const trades = [];
+  if (lines.length < 2) return trades;
+  // Détection dynamique des colonnes depuis l'en-tête
+  const headers = lines[0].split('\t').map(h =>
+    stripAccents(h.replace(/^"|"$/g, '').trim().toLowerCase())
+  );
+  const iDate = headers.indexOf('date');
+  const iSymbol = headers.indexOf('symbole');
+  const iGain = headers.indexOf('gain');
+  if (iDate < 0 || iSymbol < 0 || iGain < 0) {
+    console.error('Colonnes introuvables. En-têtes détectés:', headers);
+    return trades;
+  }
+  const minCols = Math.max(iDate, iSymbol, iGain) + 1;
   const frMonths = {'janv':0,'fevr':1,'mars':2,'avr':3,'mai':4,'juin':5,
                     'juil':6,'aout':7,'sept':8,'oct':9,'nov':10,'dec':11};
   for (let i = 1; i < lines.length; i++) {
     const cols = lines[i].split('\t').map(c => c.replace(/^"|"$/g, ''));
-    if (cols.length < 8) continue;
-    const gain = cols[7];
+    if (cols.length < minCols) continue;
+    const gain = cols[iGain];
     if (!gain || gain === '-' || gain.trim() === '-') continue;
     // Nettoyer le gain : enlever €, espaces, remplacer , par .
     const cleaned = gain.replace(/[€\s\u00a0]/g, '').replace(',', '.');
@@ -2000,7 +2102,7 @@ function parseCsvText(csvText) {
     const gainNum = parseFloat(cleaned.replace(/[+-]/g, ''));
     if (isNaN(gainNum)) continue;
     // Parser la date française : "26 févr. 2026, 16:19:27"
-    const dateParts = cols[0].trim().split(/[\s,]+/);
+    const dateParts = cols[iDate].trim().split(/[\s,]+/);
     if (dateParts.length < 3) continue;
     const day = parseInt(dateParts[0]);
     const monthStr = stripAccents(dateParts[1].replace('.', '').toLowerCase());
@@ -2008,7 +2110,7 @@ function parseCsvText(csvText) {
     const month = frMonths[monthStr];
     if (isNaN(day) || month === undefined || isNaN(year)) continue;
     const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
-    trades.push([dateStr, cols[2], isNeg ? -gainNum : gainNum]);
+    trades.push([dateStr, cols[iSymbol], isNeg ? -gainNum : gainNum]);
   }
   return trades;
 }
