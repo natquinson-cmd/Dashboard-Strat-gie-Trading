@@ -497,6 +497,49 @@
   .badge-dax { background: rgba(99,102,241,0.15); color: var(--accent-dax-light); }
   .badge-nas { background: rgba(6,182,212,0.15); color: var(--accent-nas-light); }
 
+  /* Date range slider */
+  .date-range-wrap {
+    background: var(--bg-card); border: 1px solid var(--border); border-radius: 16px;
+    padding: 16px 20px 14px; margin-bottom: 24px;
+  }
+  .date-range-header {
+    display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;
+  }
+  .date-range-header span { font-size: 0.78rem; font-weight: 600; color: var(--text-secondary); }
+  .date-range-header .date-range-label { color: var(--accent-dax-light); font-weight: 700; font-size: 0.82rem; }
+  .dual-range {
+    position: relative; height: 6px; margin: 12px 0 4px;
+  }
+  .dual-range input[type=range] {
+    -webkit-appearance: none; appearance: none;
+    position: absolute; top: 0; left: 0; width: 100%; height: 6px;
+    background: transparent; pointer-events: none; outline: none; margin: 0;
+  }
+  .dual-range input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none;
+    width: 18px; height: 18px; border-radius: 50%;
+    background: var(--bg-primary); border: 3px solid var(--accent-dax-light);
+    cursor: grab; pointer-events: all;
+    box-shadow: 0 0 8px rgba(99,102,241,0.3);
+    transition: transform 0.12s, box-shadow 0.12s;
+  }
+  .dual-range input[type=range]::-webkit-slider-thumb:hover {
+    transform: scale(1.15); box-shadow: 0 0 14px rgba(99,102,241,0.5);
+  }
+  .dual-range input[type=range]::-moz-range-thumb {
+    width: 18px; height: 18px; border-radius: 50%;
+    background: var(--bg-primary); border: 3px solid var(--accent-dax-light);
+    cursor: grab; pointer-events: all;
+  }
+  .dual-range-track {
+    position: absolute; top: 0; height: 6px; border-radius: 3px;
+    background: linear-gradient(90deg, var(--accent-dax), var(--accent-nas));
+  }
+  .dual-range-bg {
+    width: 100%; height: 6px; border-radius: 3px;
+    background: rgba(30,42,58,0.8);
+  }
+
   /* Chart containers */
   .chart-row { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px; }
   .chart-full { margin-bottom: 24px; }
@@ -733,6 +776,18 @@
     </div>
     <div id="advancedSection" style="display:none;">
       <div class="kpi-grid" id="kpiAdvancedReal"></div>
+    </div>
+    <div class="date-range-wrap">
+      <div class="date-range-header">
+        <span>📅 Période des graphiques</span>
+        <span class="date-range-label" id="dateRangeLabel"></span>
+      </div>
+      <div class="dual-range">
+        <div class="dual-range-bg"></div>
+        <div class="dual-range-track" id="dateRangeTrack"></div>
+        <input type="range" id="dateRangeMin" min="0" max="1" value="0" step="1" oninput="onDateRangeChange()">
+        <input type="range" id="dateRangeMax" min="0" max="1" value="1" step="1" oninput="onDateRangeChange()">
+      </div>
     </div>
     <div class="chart-full"><div class="chart-card">
       <h3><span class="icon icon-merged">💹</span> P&L Cumulé</h3>
@@ -1534,15 +1589,74 @@ const travelingLightPlugin = {
   }
 };
 
+// ══════════════════════════════════════════════════════════════
+// DATE RANGE SLIDER for time series charts
+// ══════════════════════════════════════════════════════════════
+let allTradingDays = []; // sorted unique dates from all trades
+
+function initDateRangeSlider() {
+  const trades = getFilteredTrades();
+  const daySet = new Set(trades.map(t => t[0]));
+  allTradingDays = [...daySet].sort();
+  const n = allTradingDays.length;
+  if (n < 2) return;
+  const sMin = document.getElementById('dateRangeMin');
+  const sMax = document.getElementById('dateRangeMax');
+  sMin.max = n - 1; sMax.max = n - 1;
+  sMin.value = 0; sMax.value = n - 1;
+  updateDateRangeUI();
+}
+
+function updateDateRangeUI() {
+  const sMin = document.getElementById('dateRangeMin');
+  const sMax = document.getElementById('dateRangeMax');
+  const lo = parseInt(sMin.value);
+  const hi = parseInt(sMax.value);
+  const n = allTradingDays.length;
+  if (n < 2) return;
+  // Update track highlight
+  const pctL = (lo / (n - 1)) * 100;
+  const pctR = (hi / (n - 1)) * 100;
+  document.getElementById('dateRangeTrack').style.left = pctL + '%';
+  document.getElementById('dateRangeTrack').style.width = (pctR - pctL) + '%';
+  // Update label
+  const moisFr = ['Janv.','Fév.','Mars','Avr.','Mai','Juin','Juil.','Août','Sept.','Oct.','Nov.','Déc.'];
+  const fmtD = d => { const p = d.split('-'); return parseInt(p[2]) + ' ' + moisFr[parseInt(p[1])-1]; };
+  document.getElementById('dateRangeLabel').textContent = fmtD(allTradingDays[lo]) + ' → ' + fmtD(allTradingDays[hi]);
+}
+
+function onDateRangeChange() {
+  const sMin = document.getElementById('dateRangeMin');
+  const sMax = document.getElementById('dateRangeMax');
+  let lo = parseInt(sMin.value);
+  let hi = parseInt(sMax.value);
+  if (lo > hi) { sMin.value = hi; lo = hi; }
+  if (hi < lo) { sMax.value = lo; hi = lo; }
+  updateDateRangeUI();
+  // Rebuild only the 2 time series charts
+  if (realChartInstances['pnlCumReal']) { realChartInstances['pnlCumReal'].destroy(); }
+  if (realChartInstances['drawdownReal']) { realChartInstances['drawdownReal'].destroy(); }
+  realChartInstances['pnlCumReal'] = buildCumulativePnL();
+  realChartInstances['drawdownReal'] = buildDrawdownChart();
+}
+
+function getDateRange() {
+  if (allTradingDays.length < 2) return null;
+  const lo = parseInt(document.getElementById('dateRangeMin').value);
+  const hi = parseInt(document.getElementById('dateRangeMax').value);
+  return { from: allTradingDays[lo], to: allTradingDays[hi] };
+}
+
 function buildCumulativePnL() {
   const trades = getFilteredTrades();
+  const range = getDateRange();
   const sorted = [...trades].sort((a,b) => a[0].localeCompare(b[0]));
   const dayMap = {};
   for (const [d, s, g] of sorted) {
     if (!dayMap[d]) dayMap[d] = 0;
     dayMap[d] += g;
   }
-  const days = Object.keys(dayMap).sort();
+  const days = Object.keys(dayMap).sort().filter(d => !range || (d >= range.from && d <= range.to));
   let cum = 0;
   const labels = [], values = [];
   for (const d of days) {
@@ -2210,6 +2324,7 @@ function parseCsvText(csvText) {
 
 // ── Drawdown Chart ──
 function buildDrawdownChart() {
+  const range = getDateRange();
   // Compute drawdown series for a set of trades
   function computeDrawdown(trades, initialCap) {
     const sorted = [...trades].sort((a,b) => a[0].localeCompare(b[0]));
@@ -2218,7 +2333,7 @@ function buildDrawdownChart() {
       if (!dayMap[d]) dayMap[d] = 0;
       dayMap[d] += g;
     }
-    const days = Object.keys(dayMap).sort();
+    const days = Object.keys(dayMap).sort().filter(d => !range || (d >= range.from && d <= range.to));
     let equity = initialCap;
     let peak = initialCap;
     const labels = [], values = [];
@@ -2237,8 +2352,9 @@ function buildDrawdownChart() {
   // Compute for all, DAX, NASDAQ
   const allData = computeDrawdown(realTrades, initCap);
 
-  const daxTrades = realTrades.filter(t => t[1] === 'DAX');
-  const nasTrades = realTrades.filter(t => t[1] === 'NASDAQ');
+  const filteredTrades = range ? realTrades.filter(t => t[0] >= range.from && t[0] <= range.to) : realTrades;
+  const daxTrades = filteredTrades.filter(t => t[1] === 'DAX');
+  const nasTrades = filteredTrades.filter(t => t[1] === 'NASDAQ');
 
   // Use same timeline (allData.labels) for alignment
   const masterDays = allData.labels;
@@ -2252,7 +2368,7 @@ function buildDrawdownChart() {
       dayMap[d] += g;
     }
     // Need full dates for alignment
-    const allSorted = [...realTrades].sort((a,b) => a[0].localeCompare(b[0]));
+    const allSorted = [...filteredTrades].sort((a,b) => a[0].localeCompare(b[0]));
     const allDayMap = {};
     for (const [d] of allSorted) {
       if (!allDayMap[d]) allDayMap[d] = true;
@@ -2373,6 +2489,7 @@ function updateHeaderSubtitle() {
 function renderRealTab() {
   destroyRealCharts();
   updateHeaderSubtitle();
+  initDateRangeSlider();
   buildRealKPIs();
   buildAdvancedKPIs();
   realChartInstances['pnlCumReal'] = buildCumulativePnL();
