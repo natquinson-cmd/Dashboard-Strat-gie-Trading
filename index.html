@@ -1314,6 +1314,13 @@ function buildRealKPIs() {
   const dashOffset = circumference * (1 - winRateNum / 100);
   const donutColor = winRateNum >= 50 ? '#10b981' : '#ef4444';
 
+  // Donut for gain/loss proportion
+  const grossTotal = totalWins + totalLosses;
+  const gainPct = grossTotal > 0 ? (totalWins / grossTotal * 100) : 0;
+  const lossPct = grossTotal > 0 ? (totalLosses / grossTotal * 100) : 0;
+  const glDashOffset = circumference * (1 - gainPct / 100);
+  const glDonutColor = gainPct >= 50 ? '#10b981' : '#ef4444';
+
   // ── HERO ROW ──
   document.getElementById('heroReal').innerHTML = `
     <div class="hero-card capital" style="position:relative;">
@@ -1329,11 +1336,20 @@ function buildRealKPIs() {
       <div class="hero-value" style="color:${total>=0?'var(--positive)':'var(--negative)'};">
         ${total>=0?'+':''}${total.toFixed(2)} €
       </div>
-      <div style="display:flex;gap:16px;margin-top:10px;">
-        <div><div style="font-size:0.68rem;color:var(--text-secondary);text-transform:uppercase;font-weight:600;">Gain brut</div>
-        <div style="color:var(--positive);font-weight:700;font-size:0.9rem;">+${totalWins.toFixed(2)} €</div></div>
-        <div><div style="font-size:0.68rem;color:var(--text-secondary);text-transform:uppercase;font-weight:600;">Perte brute</div>
-        <div style="color:var(--negative);font-weight:700;font-size:0.9rem;">-${totalLosses.toFixed(2)} €</div></div>
+      <div class="donut-wrap" style="margin-top:8px;">
+        <svg class="donut-svg" viewBox="0 0 64 64">
+          <circle class="donut-bg" cx="32" cy="32" r="28"/>
+          <circle class="donut-fill" cx="32" cy="32" r="28"
+            stroke="${glDonutColor}"
+            stroke-dasharray="${circumference.toFixed(1)}"
+            stroke-dashoffset="${glDashOffset.toFixed(1)}"/>
+          <text class="donut-center" x="32" y="32" transform="rotate(90 32 32)">${gainPct.toFixed(1)}%</text>
+        </svg>
+        <div class="donut-stats">
+          <div class="donut-stat"><span class="donut-dot" style="background:var(--positive);"></span><strong>+${fmt(Math.round(totalWins))} €</strong>&nbsp;gains</div>
+          <div class="donut-stat"><span class="donut-dot" style="background:var(--negative);"></span><strong>-${fmt(Math.round(totalLosses))} €</strong>&nbsp;pertes</div>
+          <div class="donut-stat" style="color:var(--text-secondary);">${gainPct.toFixed(1)}% / ${lossPct.toFixed(1)}%</div>
+        </div>
       </div>
     </div>
     <div class="hero-card">
