@@ -1314,12 +1314,10 @@ function buildRealKPIs() {
   const dashOffset = circumference * (1 - winRateNum / 100);
   const donutColor = winRateNum >= 50 ? '#10b981' : '#ef4444';
 
-  // Donut for gain/loss proportion
+  // Gain/loss proportion for horizontal bars
   const grossTotal = totalWins + totalLosses;
   const gainPct = grossTotal > 0 ? (totalWins / grossTotal * 100) : 0;
   const lossPct = grossTotal > 0 ? (totalLosses / grossTotal * 100) : 0;
-  const glDashOffset = circumference * (1 - gainPct / 100);
-  const glDonutColor = gainPct >= 50 ? '#10b981' : '#ef4444';
 
   // ── HERO ROW ──
   document.getElementById('heroReal').innerHTML = `
@@ -1336,19 +1334,22 @@ function buildRealKPIs() {
       <div class="hero-value" style="color:${total>=0?'var(--positive)':'var(--negative)'};">
         ${total>=0?'+':''}${total.toFixed(2)} €
       </div>
-      <div class="donut-wrap" style="margin-top:8px;">
-        <svg class="donut-svg" viewBox="0 0 64 64">
-          <circle class="donut-bg" cx="32" cy="32" r="28"/>
-          <circle class="donut-fill" cx="32" cy="32" r="28"
-            stroke="${glDonutColor}"
-            stroke-dasharray="${circumference.toFixed(1)}"
-            stroke-dashoffset="${glDashOffset.toFixed(1)}"/>
-          <text class="donut-center" x="32" y="32" transform="rotate(90 32 32)">${gainPct.toFixed(1)}%</text>
-        </svg>
-        <div class="donut-stats">
-          <div class="donut-stat"><span class="donut-dot" style="background:var(--positive);"></span><strong>+${fmt(Math.round(totalWins))} €</strong>&nbsp;gains</div>
-          <div class="donut-stat"><span class="donut-dot" style="background:var(--negative);"></span><strong>-${fmt(Math.round(totalLosses))} €</strong>&nbsp;pertes</div>
-          <div class="donut-stat" style="color:var(--text-secondary);">${gainPct.toFixed(1)}% / ${lossPct.toFixed(1)}%</div>
+      <div style="display:flex;flex-direction:column;gap:6px;margin-top:10px;width:100%;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-size:0.68rem;color:var(--text-secondary);font-weight:600;min-width:42px;">Gains</span>
+          <div style="flex:1;background:rgba(255,255,255,0.06);border-radius:4px;height:18px;overflow:hidden;position:relative;">
+            <div style="height:100%;width:${gainPct.toFixed(1)}%;background:var(--positive);border-radius:4px;transition:width .4s;"></div>
+          </div>
+          <span style="font-size:0.72rem;font-weight:700;color:var(--positive);min-width:72px;text-align:right;">+${fmt(Math.round(totalWins))} €</span>
+          <span style="font-size:0.65rem;color:var(--text-secondary);min-width:38px;text-align:right;">${gainPct.toFixed(1)}%</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-size:0.68rem;color:var(--text-secondary);font-weight:600;min-width:42px;">Pertes</span>
+          <div style="flex:1;background:rgba(255,255,255,0.06);border-radius:4px;height:18px;overflow:hidden;position:relative;">
+            <div style="height:100%;width:${lossPct.toFixed(1)}%;background:var(--negative);border-radius:4px;transition:width .4s;"></div>
+          </div>
+          <span style="font-size:0.72rem;font-weight:700;color:var(--negative);min-width:72px;text-align:right;">-${fmt(Math.round(totalLosses))} €</span>
+          <span style="font-size:0.65rem;color:var(--text-secondary);min-width:38px;text-align:right;">${lossPct.toFixed(1)}%</span>
         </div>
       </div>
     </div>
