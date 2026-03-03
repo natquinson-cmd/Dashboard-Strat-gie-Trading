@@ -584,8 +584,6 @@
     font-size:0.78rem; font-weight:600; cursor:pointer; transition:all 0.2s;
   }
   .csv-btn:hover { background:var(--bg-card-hover); color:var(--text-primary); }
-  .csv-btn.reset-btn { border-color:rgba(239,68,68,0.3); color:rgba(239,68,68,0.7); }
-  .csv-btn.reset-btn:hover { background:rgba(239,68,68,0.1); border-color:var(--negative); color:var(--negative); }
   .csv-mode-selector { display:flex; gap:8px; margin-bottom:14px; }
   .csv-mode-option {
     flex:1; display:flex; flex-direction:column; gap:2px;
@@ -718,7 +716,6 @@
       </div>
       <div style="display:flex;gap:8px;align-items:center;">
         <button class="csv-btn" onclick="openCsvModal()">📂 Mettre à jour CSV</button>
-        <button class="csv-btn reset-btn" onclick="openResetModal()">🗑️ Réinitialiser</button>
       </div>
     </div>
     <div class="hero-kpi" id="heroReal"></div>
@@ -814,22 +811,6 @@
     </div>
   </div>
 
-  <!-- Reset Confirmation Modal -->
-  <div class="csv-modal" id="resetModal">
-    <div class="csv-modal-content" style="max-width:460px;">
-      <h3 style="color:var(--negative);">🗑️ Réinitialiser la base de données</h3>
-      <p style="margin-bottom:8px;">Cette action supprimera <strong>tous les trades</strong> et <strong>tous les ajustements de capital</strong> de Firebase. Cette action est irréversible.</p>
-      <p style="margin-bottom:14px;">Tapez <strong>RESET</strong> pour confirmer :</p>
-      <input type="text" id="resetConfirmInput" placeholder="Tapez RESET ici" autocomplete="off"
-        style="width:100%;padding:10px 14px;border-radius:10px;border:2px solid var(--border);background:var(--bg-primary);color:var(--text-primary);font-family:inherit;font-size:0.9rem;font-weight:700;letter-spacing:2px;text-align:center;outline:none;transition:border-color 0.2s;"
-        oninput="document.getElementById('btnConfirmReset').disabled = this.value !== 'RESET'">
-      <div class="csv-modal-actions">
-        <button class="btn-cancel" onclick="closeResetModal()">Annuler</button>
-        <button class="btn-primary" id="btnConfirmReset" onclick="confirmReset()" disabled
-          style="background:var(--negative);border-color:var(--negative);">🗑️ Supprimer tout</button>
-      </div>
-    </div>
-  </div>
 
 
   <!-- ═══════════════════════ TAB 1 : FIXED ═══════════════════════ -->
@@ -1145,39 +1126,6 @@ function loadDividendsFromFirebase() {
   }).catch(err => { console.error('Erreur chargement dividendes:', err); return []; });
 }
 
-// ══════════════════════════════════════════════════════════════
-// RESET FIREBASE
-// ══════════════════════════════════════════════════════════════
-function openResetModal() {
-  document.getElementById('resetModal').classList.add('show');
-  document.getElementById('resetConfirmInput').value = '';
-  document.getElementById('btnConfirmReset').disabled = true;
-}
-function closeResetModal() {
-  document.getElementById('resetModal').classList.remove('show');
-}
-function confirmReset() {
-  if (document.getElementById('resetConfirmInput').value !== 'RESET') return;
-  showLoading(true);
-  Promise.all([
-    db.ref('trades').remove(),
-    db.ref('dividends').remove(),
-    db.ref('deposits').remove(),
-    db.ref('fees').remove()
-  ]).then(() => {
-    realTrades = [];
-    realDividends = [];
-    realDeposits = [];
-    realFees = [];
-    renderRealTab();
-    closeResetModal();
-    showLoading(false);
-    setTimeout(() => alert('✅ Base de données réinitialisée. Tous les trades, dividendes, dépôts et frais ont été supprimés.'), 300);
-  }).catch(err => {
-    showLoading(false);
-    alert('❌ Erreur lors de la réinitialisation : ' + err.message);
-  });
-}
 
 // ══════════════════════════════════════════════════════════════
 // DONNÉES CSV : dividendes, dépôts, frais
