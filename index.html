@@ -599,34 +599,6 @@
   .csv-mode-option input { display:none; }
   .csv-mode-label { font-size:0.82rem; font-weight:600; color:var(--text-primary); }
   .csv-mode-desc { font-size:0.68rem; color:var(--text-secondary); }
-  .capital-mgmt-btn {
-    position:absolute; top:12px; right:12px; background:rgba(16,185,129,0.15); border:1px solid rgba(16,185,129,0.3);
-    color:var(--positive); border-radius:8px; padding:5px 10px; font-size:0.72rem; font-weight:600;
-    cursor:pointer; font-family:inherit; transition:all 0.2s;
-  }
-  .capital-mgmt-btn:hover { background:rgba(16,185,129,0.25); }
-  .cap-form-group { margin-bottom:16px; }
-  .cap-form-group label { display:block; font-size:0.78rem; color:var(--text-secondary); margin-bottom:6px; font-weight:500; }
-  .cap-form-group input, .cap-form-group select {
-    width:100%; padding:10px 12px; background:var(--bg-primary); color:var(--text-primary);
-    border:1px solid var(--border); border-radius:8px; font-family:inherit; font-size:0.85rem;
-  }
-  .cap-form-group input:focus, .cap-form-group select:focus { outline:none; border-color:var(--accent-nas); }
-  .cap-form-row { display:flex; gap:12px; }
-  .cap-form-row .cap-form-group { flex:1; }
-  .cap-history { margin-top:20px; border-top:1px solid var(--border); padding-top:16px; }
-  .cap-history h4 { font-size:0.82rem; color:var(--text-secondary); margin-bottom:10px; }
-  .cap-history-list { max-height:200px; overflow-y:auto; }
-  .cap-history-item {
-    display:flex; justify-content:space-between; align-items:center; padding:8px 10px;
-    border-radius:8px; margin-bottom:4px; font-size:0.78rem;
-  }
-  .cap-history-item:nth-child(odd) { background:rgba(30,42,58,0.3); }
-  .cap-history-item .cap-h-amount { font-weight:700; }
-  .cap-history-item .cap-h-del {
-    background:none; border:none; color:var(--text-secondary); cursor:pointer; font-size:0.9rem; padding:2px 6px; border-radius:4px;
-  }
-  .cap-history-item .cap-h-del:hover { color:var(--negative); background:rgba(239,68,68,0.1); }
   .csv-modal {
     display:none; position:fixed; top:0; left:0; right:0; bottom:0;
     background:rgba(0,0,0,0.7); z-index:1000; align-items:center; justify-content:center;
@@ -859,38 +831,6 @@
     </div>
   </div>
 
-  <!-- Capital Management Modal -->
-  <div class="csv-modal" id="capitalModal">
-    <div class="csv-modal-content" style="max-width:500px;">
-      <h3>💰 Gérer le capital</h3>
-      <p>Ajoutez un dépôt ou un retrait pour ajuster votre capital total.</p>
-      <div class="cap-form-row">
-        <div class="cap-form-group">
-          <label>Type</label>
-          <select id="capType">
-            <option value="deposit">➕ Dépôt</option>
-            <option value="withdrawal">➖ Retrait</option>
-          </select>
-        </div>
-        <div class="cap-form-group">
-          <label>Montant (€)</label>
-          <input type="number" id="capAmount" placeholder="1000" min="0" step="0.01">
-        </div>
-      </div>
-      <div class="cap-form-group">
-        <label>Date</label>
-        <input type="date" id="capDate">
-      </div>
-      <div class="csv-modal-actions">
-        <button class="btn-cancel" onclick="closeCapitalModal()">Annuler</button>
-        <button class="btn-primary" onclick="addCapitalAdjustment()">✅ Valider</button>
-      </div>
-      <div class="cap-history">
-        <h4>Historique des mouvements</h4>
-        <div class="cap-history-list" id="capHistoryList"></div>
-      </div>
-    </div>
-  </div>
 
   <!-- ═══════════════════════ TAB 1 : FIXED ═══════════════════════ -->
   <div id="tab-fixed" class="tab-content">
@@ -1221,16 +1161,18 @@ function confirmReset() {
   showLoading(true);
   Promise.all([
     db.ref('trades').remove(),
-    db.ref('capitalAdjustments').remove(),
-    db.ref('dividends').remove()
+    db.ref('dividends').remove(),
+    db.ref('deposits').remove(),
+    db.ref('fees').remove()
   ]).then(() => {
     realTrades = [];
-    capitalAdjustments = [];
     realDividends = [];
+    realDeposits = [];
+    realFees = [];
     renderRealTab();
     closeResetModal();
     showLoading(false);
-    setTimeout(() => alert('✅ Base de données réinitialisée. Tous les trades, dividendes et ajustements ont été supprimés.'), 300);
+    setTimeout(() => alert('✅ Base de données réinitialisée. Tous les trades, dividendes, dépôts et frais ont été supprimés.'), 300);
   }).catch(err => {
     showLoading(false);
     alert('❌ Erreur lors de la réinitialisation : ' + err.message);
@@ -1238,88 +1180,38 @@ function confirmReset() {
 }
 
 // ══════════════════════════════════════════════════════════════
-// CAPITAL ADJUSTMENTS (dépôts / retraits)
+// DONNÉES CSV : dividendes, dépôts, frais
 // ══════════════════════════════════════════════════════════════
-let capitalAdjustments = []; // [{date, type, amount, id}]
 let realDividends = []; // [{date, amount, ref, market}]
+let realDeposits = [];  // [{date, amount, ref}]
+let realFees = [];      // [{date, amount, ref, type, market}]
 
-function loadCapitalAdjustments() {
-  return db.ref('capitalAdjustments').once('value').then(snapshot => {
+function saveDepositsToFirebase(deps) {
+  return db.ref('deposits').set(deps).catch(err => console.error('Erreur sauvegarde dépôts:', err));
+}
+function loadDepositsFromFirebase() {
+  return db.ref('deposits').once('value').then(snapshot => {
     const data = snapshot.val();
-    if (data) {
-      capitalAdjustments = Array.isArray(data) ? data : Object.values(data);
-    }
-    return capitalAdjustments;
-  }).catch(err => {
-    console.error('Erreur chargement ajustements:', err);
-    return [];
-  });
+    if (data) realDeposits = Array.isArray(data) ? data : Object.values(data);
+    return realDeposits;
+  }).catch(err => { console.error('Erreur chargement dépôts:', err); return []; });
+}
+function saveFeesToFirebase(f) {
+  return db.ref('fees').set(f).catch(err => console.error('Erreur sauvegarde frais:', err));
+}
+function loadFeesToFirebase() {
+  return db.ref('fees').once('value').then(snapshot => {
+    const data = snapshot.val();
+    if (data) realFees = Array.isArray(data) ? data : Object.values(data);
+    return realFees;
+  }).catch(err => { console.error('Erreur chargement frais:', err); return []; });
 }
 
-function saveCapitalAdjustments() {
-  return db.ref('capitalAdjustments').set(capitalAdjustments).catch(err => {
-    console.error('Erreur sauvegarde ajustements:', err);
-  });
+function getTotalDeposits() {
+  return realDeposits.reduce((sum, d) => sum + (d.amount || 0), 0);
 }
-
-function getTotalAdjustments() {
-  return capitalAdjustments.reduce((sum, a) => sum + (a.type === 'deposit' ? a.amount : -a.amount), 0);
-}
-
-function openCapitalModal() {
-  document.getElementById('capitalModal').classList.add('show');
-  document.getElementById('capDate').value = new Date().toISOString().split('T')[0];
-  document.getElementById('capAmount').value = '';
-  document.getElementById('capType').value = 'deposit';
-  renderCapHistory();
-}
-
-function closeCapitalModal() {
-  document.getElementById('capitalModal').classList.remove('show');
-}
-
-function addCapitalAdjustment() {
-  const type = document.getElementById('capType').value;
-  const amount = parseFloat(document.getElementById('capAmount').value);
-  const date = document.getElementById('capDate').value;
-  if (!amount || amount <= 0 || !date) {
-    alert('Veuillez renseigner un montant valide et une date.');
-    return;
-  }
-  capitalAdjustments.push({ date, type, amount, id: Date.now() });
-  capitalAdjustments.sort((a,b) => a.date.localeCompare(b.date));
-  saveCapitalAdjustments();
-  renderCapHistory();
-  renderRealTab();
-  document.getElementById('capAmount').value = '';
-}
-
-function removeCapitalAdjustment(id) {
-  capitalAdjustments = capitalAdjustments.filter(a => a.id !== id);
-  saveCapitalAdjustments();
-  renderCapHistory();
-  renderRealTab();
-}
-
-function renderCapHistory() {
-  const list = document.getElementById('capHistoryList');
-  if (!list) return;
-  if (capitalAdjustments.length === 0) {
-    list.innerHTML = '<div style="color:var(--text-secondary);font-size:0.78rem;padding:8px;">Aucun mouvement enregistré.</div>';
-    return;
-  }
-  const sorted = [...capitalAdjustments].sort((a,b) => b.date.localeCompare(a.date));
-  list.innerHTML = sorted.map(a => {
-    const sign = a.type === 'deposit' ? '+' : '-';
-    const color = a.type === 'deposit' ? 'var(--positive)' : 'var(--negative)';
-    const label = a.type === 'deposit' ? 'Dépôt' : 'Retrait';
-    const dateDisplay = new Date(a.date).toLocaleDateString('fr-FR',{day:'numeric',month:'short',year:'numeric'});
-    return `<div class="cap-history-item">
-      <span>${dateDisplay} — <em>${label}</em></span>
-      <span><span class="cap-h-amount" style="color:${color}">${sign}${a.amount.toFixed(2)} €</span>
-      <button class="cap-h-del" onclick="removeCapitalAdjustment(${a.id})" title="Supprimer">✕</button></span>
-    </div>`;
-  }).join('');
+function getTotalFees() {
+  return realFees.reduce((sum, f) => sum + (f.amount || 0), 0);
 }
 
 let currentAssetFilter = 'all';
@@ -1396,13 +1288,14 @@ function buildRealKPIs() {
     if (dd > maxDD) maxDD = dd;
   }
 
-  // Capital — toujours basé sur TOUS les trades + ajustements, pas le filtre actif
+  // Capital — toujours basé sur TOUS les trades + dépôts + dividendes + frais
   const allGains = realTrades.map(t => t[2]);
   const totalAll = allGains.reduce((a,b) => a+b, 0);
-  const totalAdjustments = getTotalAdjustments();
-  const capitalActuel = REAL_INITIAL_CAPITAL + totalAll + totalAdjustments;
-  const capitalBase = REAL_INITIAL_CAPITAL + totalAdjustments;
-  const perfPct = capitalBase > 0 ? (totalAll / capitalBase * 100) : 0;
+  const totalDeposits = getTotalDeposits();
+  const totalFees = getTotalFees();
+  const capitalActuel = totalDeposits + totalAll + totalDiv + totalFees;
+  const capitalBase = totalDeposits > 0 ? totalDeposits : 1; // évite division par zéro
+  const perfPct = totalDeposits > 0 ? (totalAll / capitalBase * 100) : 0;
 
   // Donut SVG for win rate
   const circumference = 2 * Math.PI * 28; // r=28
@@ -1412,12 +1305,11 @@ function buildRealKPIs() {
   // ── HERO ROW ──
   document.getElementById('heroReal').innerHTML = `
     <div class="hero-card capital" style="position:relative;">
-      <button class="capital-mgmt-btn" onclick="openCapitalModal()">± Gérer</button>
       <div class="hero-label">💰 Capital Actuel</div>
       <div class="hero-value" style="background:linear-gradient(135deg,${totalAll>=0?'#10b981,#34d399':'#ef4444,#f87171'});-webkit-background-clip:text;-webkit-text-fill-color:transparent;">
         ${fmt(Math.round(capitalActuel))} €
       </div>
-      <div class="hero-sub">Capital initial : ${fmt(REAL_INITIAL_CAPITAL)} € · Ajustements : ${totalAdjustments>=0?'+':''}${totalAdjustments.toFixed(2)} €</div>
+      <div class="hero-sub">Somme des dépôts : ${fmt(totalDeposits)} € · <span style="color:var(--negative)">Frais : ${totalFees.toFixed(2)} €</span></div>
       <span class="hero-badge ${perfPct>=0?'pos':'neg'}">${perfPct>=0?'+':''}${perfPct.toFixed(2)}%</span>
     </div>
     <div class="hero-card">
@@ -1460,7 +1352,7 @@ function buildRealKPIs() {
     { l:'Risk/Reward', v:rr === Infinity ? '∞' : rr.toFixed(2), s:'Gain moy / Perte moy', c:'stripe-nas', vc:rrColor },
     { l:'Gain Moyen', v:'+'+avgWin.toFixed(2)+' €', s:'Max : +'+best.toFixed(2)+' €', c:'stripe-green', vc:'var(--positive)' },
     { l:'Perte Moyenne', v:avgLoss.toFixed(2)+' €', s:'Max : '+worst.toFixed(2)+' €', c:'stripe-dax', vc:'var(--negative)' },
-    { l:'Drawdown Max', v:'-'+maxDD.toFixed(2)+' €', s:'-'+(maxDD/REAL_INITIAL_CAPITAL*100).toFixed(2)+'% du capital', c:'stripe-dax', vc:'var(--negative)' },
+    { l:'Drawdown Max', v:'-'+maxDD.toFixed(2)+' €', s:totalDeposits > 0 ? '-'+(maxDD/totalDeposits*100).toFixed(2)+'% du capital' : '', c:'stripe-dax', vc:'var(--negative)' },
     { l:'Dividendes', v:(totalDiv>=0?'+':'')+totalDiv.toFixed(2)+' €', s:realDividends.length+' versement(s)', c:'stripe-green', vc:totalDiv>=0?'var(--positive)':'var(--negative)' },
   ];
   document.getElementById('kpiReal').innerHTML = kpis.map(k =>
@@ -1951,16 +1843,24 @@ function rebuildWinLossDay() {
   realChartInstances['winLossDayReal'] = buildWinLossDay();
 }
 
-const REAL_INITIAL_CAPITAL = 7000; // Capital initial au 1er janv. 2026
+// Capital calculé dynamiquement : dépôts + trades + dividendes + frais
 
-// Compute running capital at start of a given month (cumulates all trades + adjustments before that month)
+// Compute running capital at start of a given month (cumulates all deposits + trades + dividends + fees before that month)
 function capitalAtMonth(y, m) {
   const trades = getFilteredTrades();
   const prefix = `${y}-${String(m+1).padStart(2,'0')}`;
-  let cap = REAL_INITIAL_CAPITAL;
-  // Add adjustments before this month
-  for (const a of capitalAdjustments) {
-    if (a.date < prefix) cap += (a.type === 'deposit' ? a.amount : -a.amount);
+  let cap = 0;
+  // Add deposits before this month
+  for (const d of realDeposits) {
+    if (d.date < prefix) cap += (d.amount || 0);
+  }
+  // Add dividends before this month
+  for (const d of realDividends) {
+    if (d.date < prefix) cap += (d.amount || 0);
+  }
+  // Add fees before this month
+  for (const f of realFees) {
+    if (f.date < prefix) cap += (f.amount || 0);
   }
   // Add all trades before this month
   const sorted = [...trades].sort((a,b) => a[0].localeCompare(b[0]));
@@ -2202,7 +2102,9 @@ function applyCsv() {
   const result = parseCsvText(pendingCsvText);
   const parsed = result.trades;
   const divs = result.dividends;
-  if (parsed.length === 0 && divs.length === 0) {
+  const deps = result.deposits;
+  const fes = result.fees;
+  if (parsed.length === 0 && divs.length === 0 && deps.length === 0) {
     alert('Aucun trade trouvé. Vérifiez le format du fichier (TransactionHistory CSV, export IG).');
     return;
   }
@@ -2213,7 +2115,11 @@ function applyCsv() {
     saveTradesToFirebase(realTrades);
     realDividends = divs;
     saveDividendsToFirebase(divs);
-    msg = `🔄 Base remplacée : ${parsed.length} trade(s) + ${divs.length} dividende(s) importé(s).`;
+    realDeposits = deps;
+    saveDepositsToFirebase(deps);
+    realFees = fes;
+    saveFeesToFirebase(fes);
+    msg = `🔄 Base remplacée : ${parsed.length} trade(s), ${divs.length} dividende(s), ${deps.length} dépôt(s), ${fes.length} frais importé(s).`;
   } else {
     // Merge trades
     const existingKeys = new Set(realTrades.map(t => tradeKey(t)));
@@ -2226,11 +2132,23 @@ function applyCsv() {
     const newDivs = divs.filter(d => !existingDivRefs.has(d.ref));
     realDividends = [...realDividends, ...newDivs];
     saveDividendsToFirebase(realDividends);
+    // Merge dépôts
+    const existingDepRefs = new Set(realDeposits.map(d => d.ref));
+    const newDeps = deps.filter(d => !existingDepRefs.has(d.ref));
+    realDeposits = [...realDeposits, ...newDeps];
+    saveDepositsToFirebase(realDeposits);
+    // Merge frais
+    const existingFeeRefs = new Set(realFees.map(f => f.ref));
+    const newFees = fes.filter(f => !existingFeeRefs.has(f.ref));
+    realFees = [...realFees, ...newFees];
+    saveFeesToFirebase(realFees);
     const tMsg = newTrades.length > 0
       ? `${newTrades.length} nouveau(x) trade(s) ajouté(s), ${parsed.length - newTrades.length} doublon(s) ignoré(s)`
       : `Aucun nouveau trade`;
     const dMsg = newDivs.length > 0 ? ` + ${newDivs.length} dividende(s)` : '';
-    msg = `✅ ${tMsg}${dMsg}.`;
+    const depMsg = newDeps.length > 0 ? ` + ${newDeps.length} dépôt(s)` : '';
+    const feeMsg = newFees.length > 0 ? ` + ${newFees.length} frais` : '';
+    msg = `✅ ${tMsg}${dMsg}${depMsg}${feeMsg}.`;
   }
   if (realTrades.length > 0) {
     const latest = realTrades[0][0];
@@ -2272,7 +2190,9 @@ function parseCsvText(csvText) {
   const lines = csvText.trim().split('\n');
   const trades = [];
   const dividends = [];
-  if (lines.length < 2) return { trades, dividends };
+  const deposits = [];
+  const fees = [];
+  if (lines.length < 2) return { trades, dividends, deposits, fees };
 
   // Détection dynamique des colonnes (format TransactionHistory IG, séparateur virgule)
   const headers = parseCsvLine(lines[0]).map(h =>
@@ -2291,7 +2211,7 @@ function parseCsvText(csvText) {
 
   if (iDate < 0 || iMarket < 0 || iPL < 0) {
     console.error('Colonnes introuvables. En-têtes détectés:', headers);
-    return { trades, dividends };
+    return { trades, dividends, deposits, fees };
   }
 
   for (let i = 1; i < lines.length; i++) {
@@ -2305,23 +2225,33 @@ function parseCsvText(csvText) {
     const amount = parseFloat(plRaw);
     if (isNaN(amount)) continue;
 
-    // Transaction type : ORDRE = trade, DIVIDEND = dividende, DEPO = dépôt (ignoré)
+    // Transaction type : ORDRE = trade, DIVIDEND = dividende, DEPO = dépôt, autre = frais
     const txType = iType >= 0 ? cols[iType].toUpperCase() : 'ORDRE';
-    if (txType === 'DEPO') continue;
 
-    // DateUtc → YYYY-MM-DD
+    // DateUtc → YYYY-MM-DD (nécessaire pour tous les types)
     const dateUtc = cols[iDate];
     if (!dateUtc || dateUtc.length < 10) continue;
     const dateStr = dateUtc.substring(0, 10);
+    const ref = iRef >= 0 ? cols[iRef] : '';
+
+    if (txType === 'DEPO') {
+      deposits.push({ date: dateStr, amount, ref });
+      continue;
+    }
 
     if (txType === 'DIVIDEND') {
-      dividends.push({ date: dateStr, amount, ref: iRef >= 0 ? cols[iRef] : '', market: cols[iMarket] });
+      dividends.push({ date: dateStr, amount, ref, market: cols[iMarket] });
+      continue;
+    }
+
+    // Tout ce qui n'est pas ORDRE → frais (CHART, WITH, etc.)
+    if (txType !== 'ORDRE') {
+      fees.push({ date: dateStr, amount, ref, type: txType, market: cols[iMarket] || '' });
       continue;
     }
 
     // ── TRADE (ORDRE) ──
     const symbol = mapMarketName(cols[iMarket]);
-    const ref = iRef >= 0 ? cols[iRef] : '';
 
     // Champs étendus pour les indicateurs avancés
     const sizeRaw = iSize >= 0 ? cols[iSize] : '';
@@ -2332,7 +2262,7 @@ function parseCsvText(csvText) {
 
     trades.push([dateStr, symbol, amount, ref, size, openLevel, closeLevel, openDate, dateUtc]);
   }
-  return { trades, dividends };
+  return { trades, dividends, deposits, fees };
 }
 
 // ── Drawdown Chart ──
@@ -2359,8 +2289,7 @@ function buildDrawdownChart() {
     return { labels, values };
   }
 
-  const totalAdj = getTotalAdjustments();
-  const initCap = REAL_INITIAL_CAPITAL + totalAdj;
+  const initCap = getTotalDeposits();
 
   // Compute for all, DAX, NASDAQ
   const allData = computeDrawdown(realTrades, initCap);
@@ -3034,7 +2963,7 @@ function switchTab(tab) {
 }
 
 // ── INIT ──
-Promise.all([loadTradesFromFirebase(), loadCapitalAdjustments(), loadDividendsFromFirebase()]).then(() => {
+Promise.all([loadTradesFromFirebase(), loadDividendsFromFirebase(), loadDepositsFromFirebase(), loadFeesToFirebase()]).then(() => {
   if (realTrades.length > 0) {
     const latest = [...realTrades].sort((a,b) => b[0].localeCompare(a[0]))[0][0];
     calYear = parseInt(latest.substring(0,4));
