@@ -1606,7 +1606,7 @@ function buildAvgGainChart() {
     options: {
       indexAxis:'y',
       responsive:true,
-      layout:{ padding:{ right:80, left:10 } },
+      layout:{ padding:{ right:10, left:10 } },
       plugins:{
         legend:{display:false},
         tooltip:{callbacks:{label:c=> (c.parsed.x>=0?'+':'')+c.parsed.x.toFixed(2)+' €'}}
@@ -1628,25 +1628,14 @@ function buildAvgGainChart() {
         const ctx = chart.ctx;
         chart.data.datasets[0].data.forEach((val, i) => {
           const meta = chart.getDatasetMeta(0).data[i];
-          const barEnd = meta.x; // bout de la barre
-          const barBase = meta.base; // point zéro
+          const barEnd = meta.x;
           ctx.save();
           ctx.font = 'bold 11px Inter, sans-serif';
           ctx.textBaseline = 'middle';
-          ctx.fillStyle = val >= 0 ? '#10b981' : '#ef4444';
-          const label = (val>=0?'+':'')+val.toFixed(2)+' €';
-          const barWidth = Math.abs(barEnd - barBase);
-          const textW = ctx.measureText(label).width;
-          if (textW + 16 < barWidth) {
-            // Texte à l'intérieur de la barre
-            ctx.fillStyle = '#fff';
-            ctx.textAlign = val >= 0 ? 'right' : 'left';
-            ctx.fillText(label, val >= 0 ? barEnd - 8 : barEnd + 8, meta.y);
-          } else {
-            // Texte à l'extérieur, au bout de la barre
-            ctx.textAlign = val >= 0 ? 'left' : 'right';
-            ctx.fillText(label, val >= 0 ? barEnd + 8 : barEnd - 8, meta.y);
-          }
+          ctx.fillStyle = '#fff';
+          const label = (val>=0?'+':'')+Math.round(val)+' €';
+          ctx.textAlign = val >= 0 ? 'right' : 'left';
+          ctx.fillText(label, val >= 0 ? barEnd - 8 : barEnd + 8, meta.y);
           ctx.restore();
         });
       }
