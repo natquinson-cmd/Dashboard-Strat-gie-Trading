@@ -779,7 +779,7 @@
     </div>
     <div class="date-range-wrap">
       <div class="date-range-header">
-        <span>📅 Période des graphiques</span>
+        <span>📅 Période d'analyse</span>
         <span class="date-range-label" id="dateRangeLabel"></span>
       </div>
       <div class="dual-range">
@@ -1227,8 +1227,11 @@ let currentAssetFilter = 'all';
 let calYear = 2026, calMonth = 1; // Feb 2026 (0-indexed month)
 
 function getFilteredTrades() {
-  if (currentAssetFilter === 'all') return realTrades;
-  return realTrades.filter(t => t[1] === currentAssetFilter);
+  let trades = realTrades;
+  if (currentAssetFilter !== 'all') trades = trades.filter(t => t[1] === currentAssetFilter);
+  const range = getDateRange();
+  if (range) trades = trades.filter(t => t[0] >= range.from && t[0] <= range.to);
+  return trades;
 }
 
 function setAssetFilter(f) {
@@ -1595,7 +1598,8 @@ const travelingLightPlugin = {
 let allTradingDays = []; // sorted unique dates from all trades
 
 function initDateRangeSlider() {
-  const trades = getFilteredTrades();
+  // Filtrer par asset SEULEMENT (pas par date, sinon boucle)
+  const trades = currentAssetFilter === 'all' ? realTrades : realTrades.filter(t => t[1] === currentAssetFilter);
   const daySet = new Set(trades.map(t => t[0]));
   allTradingDays = [...daySet].sort();
   const n = allTradingDays.length;
@@ -1633,10 +1637,15 @@ function onDateRangeChange() {
   if (lo > hi) { sMin.value = hi; lo = hi; }
   if (hi < lo) { sMax.value = lo; hi = lo; }
   updateDateRangeUI();
-  // Rebuild only the 2 time series charts
-  if (realChartInstances['pnlCumReal']) { realChartInstances['pnlCumReal'].destroy(); }
-  if (realChartInstances['drawdownReal']) { realChartInstances['drawdownReal'].destroy(); }
+  // Rebuild all charts & KPIs (sauf initDateRangeSlider pour ne pas reset le slider)
+  destroyRealCharts();
+  buildRealKPIs();
+  buildAdvancedKPIs();
   realChartInstances['pnlCumReal'] = buildCumulativePnL();
+  realChartInstances['avgGainReal'] = buildAvgGainChart();
+  realChartInstances['winLossDayReal'] = buildWinLossDay();
+  buildDailyCalendar();
+  buildMonthlyHeatReal();
   realChartInstances['drawdownReal'] = buildDrawdownChart();
 }
 
@@ -1649,14 +1658,13 @@ function getDateRange() {
 
 function buildCumulativePnL() {
   const trades = getFilteredTrades();
-  const range = getDateRange();
   const sorted = [...trades].sort((a,b) => a[0].localeCompare(b[0]));
   const dayMap = {};
   for (const [d, s, g] of sorted) {
     if (!dayMap[d]) dayMap[d] = 0;
     dayMap[d] += g;
   }
-  const days = Object.keys(dayMap).sort().filter(d => !range || (d >= range.from && d <= range.to));
+  const days = Object.keys(dayMap).sort();
   let cum = 0;
   const labels = [], values = [];
   for (const d of days) {
@@ -2324,7 +2332,6 @@ function parseCsvText(csvText) {
 
 // ── Drawdown Chart ──
 function buildDrawdownChart() {
-  const range = getDateRange();
   // Compute drawdown series for a set of trades
   function computeDrawdown(trades, initialCap) {
     const sorted = [...trades].sort((a,b) => a[0].localeCompare(b[0]));
@@ -2333,7 +2340,7 @@ function buildDrawdownChart() {
       if (!dayMap[d]) dayMap[d] = 0;
       dayMap[d] += g;
     }
-    const days = Object.keys(dayMap).sort().filter(d => !range || (d >= range.from && d <= range.to));
+    const days = Object.keys(dayMap).sort();
     let equity = initialCap;
     let peak = initialCap;
     const labels = [], values = [];
@@ -2348,11 +2355,11 @@ function buildDrawdownChart() {
   }
 
   const initCap = getTotalDeposits();
+  const filteredTrades = getFilteredTrades();
 
   // Compute for all, DAX, NASDAQ
-  const allData = computeDrawdown(realTrades, initCap);
+  const allData = computeDrawdown(filteredTrades, initCap);
 
-  const filteredTrades = range ? realTrades.filter(t => t[0] >= range.from && t[0] <= range.to) : realTrades;
   const daxTrades = filteredTrades.filter(t => t[1] === 'DAX');
   const nasTrades = filteredTrades.filter(t => t[1] === 'NASDAQ');
 
