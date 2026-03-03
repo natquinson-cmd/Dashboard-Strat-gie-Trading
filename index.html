@@ -717,7 +717,7 @@
 
   <div class="header">
     <h1>Trading Performance Dashboard</h1>
-    <p>DAX 40 (IntradayGrafV4-3) & NASDAQ 100 (NAS 15 OPR R2.2) — Capital initial 5 000 € — Déc. 2017 → Fév. 2026</p>
+    <p>DAX 40 (IntradayGrafV4-3) & NASDAQ 100 (NAS 15 OPR R2.2) — Capital initial 5 000 € — Janv. 2026 → Mars 2026</p>
   </div>
 
   <!-- TAB BAR -->
@@ -807,7 +807,7 @@
   <div class="csv-modal" id="csvModal">
     <div class="csv-modal-content">
       <h3>📂 Mettre à jour les données</h3>
-      <p>Sélectionnez votre fichier CSV exporté depuis IG (séparateur tabulation).</p>
+      <p>Sélectionnez votre fichier CSV « Transaction History » exporté depuis IG.</p>
       <div class="csv-mode-selector">
         <label class="csv-mode-option">
           <input type="radio" name="csvMode" value="merge" checked>
@@ -821,10 +821,10 @@
         </label>
       </div>
       <label class="file-drop-zone" id="fileDropZone">
-        <input type="file" id="csvFileInput" accept=".csv,.txt,.tsv" style="display:none" onchange="handleFileSelect(this)">
+        <input type="file" id="csvFileInput" accept=".csv" style="display:none" onchange="handleFileSelect(this)">
         <div class="file-drop-icon">📄</div>
         <div class="file-drop-text">Cliquez ou glissez votre fichier ici</div>
-        <div class="file-drop-hint">.csv, .txt, .tsv — export IG</div>
+        <div class="file-drop-hint">.csv — TransactionHistory IG</div>
         <div class="file-drop-selected" id="fileSelectedName" style="display:none"></div>
       </label>
       <div class="csv-modal-actions">
@@ -1137,11 +1137,11 @@ function loadTradesFromFirebase() {
   return db.ref('trades').once('value').then(snapshot => {
     const data = snapshot.val();
     if (data) {
-      // data est un objet { key: {date, symbol, gain}, ... } ou un tableau
+      // data est un objet { key: {date, symbol, gain, ref}, ... } ou un tableau
       if (Array.isArray(data)) {
-        realTrades = data.map(t => [t.date, t.symbol, t.gain]);
+        realTrades = data.map(t => [t.date, t.symbol, t.gain, t.ref || '']);
       } else {
-        realTrades = Object.values(data).map(t => [t.date, t.symbol, t.gain]);
+        realTrades = Object.values(data).map(t => [t.date, t.symbol, t.gain, t.ref || '']);
       }
     }
     firebaseReady = true;
@@ -1163,7 +1163,8 @@ function saveTradesToFirebase(trades) {
   const data = trades.map((t, i) => ({
     date: t[0],
     symbol: t[1],
-    gain: t[2]
+    gain: t[2],
+    ref: t[3] || ''
   }));
   return db.ref('trades').set(data).then(() => {
     console.log('✅ Trades sauvegardés dans Firebase (' + trades.length + ' trades)');
@@ -2024,20 +2025,30 @@ function readCsvFile(file) {
     nameEl.style.display = 'block';
     document.getElementById('btnApplyCsv').disabled = false;
   };
-  reader.readAsText(file, 'windows-1252');
+  reader.readAsText(file, 'UTF-8');
 }
 
 function tradeKey(t) {
-  // Normaliser le symbole : trim, minuscule, espaces multiples → un seul
+  // Utiliser la Reference IG (4ème élément) si disponible — identifiant unique parfait
+  if (t[3]) return t[3];
+  // Fallback : date + symbole normalisé + gain
   const sym = t[1].trim().replace(/\s+/g, ' ').toLowerCase();
   return t[0] + '|' + sym + '|' + t[2].toFixed(2);
+}
+
+// Mapper les noms de marché IG vers les noms courts du dashboard
+function mapMarketName(name) {
+  const n = name.toLowerCase();
+  if (n.includes('us tech 100') || n.includes('nasdaq')) return 'NASDAQ';
+  if (n.includes('allemagne 40') || n.includes('germany 40') || n.includes('dax')) return 'DAX';
+  return name;
 }
 
 function applyCsv() {
   if (!pendingCsvText) return;
   const parsed = parseCsvText(pendingCsvText);
   if (parsed.length === 0) {
-    alert('Aucun trade trouvé. Vérifiez le format du fichier (séparateur tabulation, export IG).');
+    alert('Aucun trade trouvé. Vérifiez le format du fichier (TransactionHistory CSV, export IG).');
     return;
   }
   const mode = document.querySelector('input[name="csvMode"]:checked').value;
@@ -2077,40 +2088,55 @@ function parseCsvText(csvText) {
   const lines = csvText.trim().split('\n');
   const trades = [];
   if (lines.length < 2) return trades;
-  // Détection dynamique des colonnes depuis l'en-tête
-  const headers = lines[0].split('\t').map(h =>
+
+  // Détection dynamique des colonnes depuis l'en-tête (format TransactionHistory IG)
+  // Séparateur : virgule
+  const headers = lines[0].split(',').map(h =>
     stripAccents(h.replace(/^"|"$/g, '').trim().toLowerCase())
   );
-  const iDate = headers.indexOf('date');
-  const iSymbol = headers.indexOf('symbole');
-  const iGain = headers.indexOf('gain');
-  if (iDate < 0 || iSymbol < 0 || iGain < 0) {
+
+  // Colonnes attendues : dateutc, marketname, pl amount, reference, cash transaction
+  const iDate   = headers.indexOf('dateutc');
+  const iMarket = headers.indexOf('marketname');
+  const iPL     = headers.indexOf('pl amount');
+  const iRef    = headers.indexOf('reference');
+  const iCash   = headers.indexOf('cash transaction');
+
+  if (iDate < 0 || iMarket < 0 || iPL < 0) {
     console.error('Colonnes introuvables. En-têtes détectés:', headers);
+    console.error('Colonnes attendues: DateUtc, MarketName, PL Amount');
     return trades;
   }
-  const minCols = Math.max(iDate, iSymbol, iGain) + 1;
-  const frMonths = {'janv':0,'fevr':1,'mars':2,'avr':3,'mai':4,'juin':5,
-                    'juil':6,'aout':7,'sept':8,'oct':9,'nov':10,'dec':11};
+
+  const minCols = Math.max(iDate, iMarket, iPL, iRef, iCash) + 1;
+
   for (let i = 1; i < lines.length; i++) {
-    const cols = lines[i].split('\t').map(c => c.replace(/^"|"$/g, ''));
+    const line = lines[i].trim();
+    if (!line) continue;
+    const cols = line.split(',').map(c => c.replace(/^"|"$/g, '').trim());
     if (cols.length < minCols) continue;
-    const gain = cols[iGain];
-    if (!gain || gain === '-' || gain.trim() === '-') continue;
-    // Nettoyer le gain : enlever €, espaces, remplacer , par .
-    const cleaned = gain.replace(/[€\s\u00a0]/g, '').replace(',', '.');
-    const isNeg = cleaned.startsWith('-');
-    const gainNum = parseFloat(cleaned.replace(/[+-]/g, ''));
+
+    // Ignorer les transactions cash (dépôts/retraits)
+    if (iCash >= 0 && cols[iCash] && cols[iCash].toLowerCase() === 'true') continue;
+
+    // PL Amount : déjà un nombre signé propre (ex: 143.02, -15.75)
+    const plRaw = cols[iPL];
+    if (!plRaw || plRaw === '' || plRaw === '-') continue;
+    const gainNum = parseFloat(plRaw);
     if (isNaN(gainNum)) continue;
-    // Parser la date française : "26 févr. 2026, 16:19:27"
-    const dateParts = cols[iDate].trim().split(/[\s,]+/);
-    if (dateParts.length < 3) continue;
-    const day = parseInt(dateParts[0]);
-    const monthStr = stripAccents(dateParts[1].replace('.', '').toLowerCase());
-    const year = parseInt(dateParts[2]);
-    const month = frMonths[monthStr];
-    if (isNaN(day) || month === undefined || isNaN(year)) continue;
-    const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
-    trades.push([dateStr, cols[iSymbol], isNeg ? -gainNum : gainNum]);
+
+    // DateUtc : format ISO "2026-03-02T20:15:03" → extraire "2026-03-02"
+    const dateUtc = cols[iDate];
+    if (!dateUtc || dateUtc.length < 10) continue;
+    const dateStr = dateUtc.substring(0, 10);
+
+    // MarketName → mapper vers DAX / NASDAQ
+    const symbol = mapMarketName(cols[iMarket]);
+
+    // Reference : identifiant unique du trade (pour déduplication)
+    const ref = iRef >= 0 ? cols[iRef] : '';
+
+    trades.push([dateStr, symbol, gainNum, ref]);
   }
   return trades;
 }
