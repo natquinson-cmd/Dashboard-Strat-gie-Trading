@@ -693,7 +693,7 @@
 
   <div class="header">
     <h1>Trading Performance Dashboard</h1>
-    <p>DAX 40 (IntradayGrafV4-3) & NASDAQ 100 (NAS 15 OPR R2.2) — Déc. 2025 → Mars 2026</p>
+    <p id="headerSubtitle">DAX 40 (IntradayGrafV4-3) & NASDAQ 100 (NAS 15 OPR R2.2)</p>
   </div>
 
   <!-- TAB BAR -->
@@ -2368,8 +2368,22 @@ function destroyRealCharts() {
     if (realChartInstances[k]) { realChartInstances[k].destroy(); delete realChartInstances[k]; }
   });
 }
+function updateHeaderSubtitle() {
+  const sub = document.getElementById('headerSubtitle');
+  if (!sub) return;
+  const base = 'DAX 40 (IntradayGrafV4-3) & NASDAQ 100 (NAS 15 OPR R2.2)';
+  if (realTrades.length === 0) { sub.textContent = base; return; }
+  const dates = realTrades.map(t => t[0]).sort();
+  const first = new Date(dates[0]);
+  const last = new Date(dates[dates.length - 1]);
+  const moisFr = ['Janv.','Fév.','Mars','Avr.','Mai','Juin','Juil.','Août','Sept.','Oct.','Nov.','Déc.'];
+  const fmt = d => moisFr[d.getMonth()] + ' ' + d.getFullYear();
+  sub.textContent = base + ' — ' + fmt(first) + ' → ' + fmt(last);
+}
+
 function renderRealTab() {
   destroyRealCharts();
+  updateHeaderSubtitle();
   buildRealKPIs();
   buildAdvancedKPIs();
   realChartInstances['pnlCumReal'] = buildCumulativePnL();
