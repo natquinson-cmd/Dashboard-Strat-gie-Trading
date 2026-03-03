@@ -1341,7 +1341,6 @@ function buildRealKPIs() {
             <div style="height:100%;width:${gainPct.toFixed(1)}%;background:var(--positive);border-radius:4px;transition:width .4s;"></div>
           </div>
           <span style="font-size:0.72rem;font-weight:700;color:var(--positive);min-width:72px;text-align:right;">+${fmt(Math.round(totalWins))} €</span>
-          <span style="font-size:0.65rem;color:var(--text-secondary);min-width:38px;text-align:right;">${gainPct.toFixed(1)}%</span>
         </div>
         <div style="display:flex;align-items:center;gap:8px;">
           <span style="font-size:0.68rem;color:var(--text-secondary);font-weight:600;min-width:42px;">Pertes</span>
@@ -1349,7 +1348,6 @@ function buildRealKPIs() {
             <div style="height:100%;width:${lossPct.toFixed(1)}%;background:var(--negative);border-radius:4px;transition:width .4s;"></div>
           </div>
           <span style="font-size:0.72rem;font-weight:700;color:var(--negative);min-width:72px;text-align:right;">-${fmt(Math.round(totalLosses))} €</span>
-          <span style="font-size:0.65rem;color:var(--text-secondary);min-width:38px;text-align:right;">${lossPct.toFixed(1)}%</span>
         </div>
       </div>
     </div>
