@@ -751,8 +751,14 @@
     </div>
     <div class="hero-kpi" id="heroReal"></div>
     <div class="kpi-grid" id="kpiReal"></div>
-    <div style="margin-top:28px;margin-bottom:12px;"><h3 style="font-size:1rem;font-weight:700;color:var(--text-primary);display:flex;align-items:center;gap:8px;">📐 Analyse Avancée</h3></div>
-    <div class="kpi-grid" id="kpiAdvancedReal"></div>
+    <div style="margin-top:28px;margin-bottom:4px;">
+      <h3 onclick="toggleAdvanced()" style="font-size:1rem;font-weight:700;color:var(--text-primary);display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none;">
+        <span id="advancedChevron" style="transition:transform .2s;transform:rotate(0deg);display:inline-block;">▶</span> 📐 Analyse Avancée
+      </h3>
+    </div>
+    <div id="advancedSection" style="display:none;">
+      <div class="kpi-grid" id="kpiAdvancedReal"></div>
+    </div>
     <div class="chart-full"><div class="chart-card">
       <h3><span class="icon icon-merged">💹</span> P&L Cumulé</h3>
       <canvas id="pnlCumReal"></canvas>
@@ -1455,12 +1461,22 @@ function buildRealKPIs() {
     { l:'Gain Moyen', v:'+'+avgWin.toFixed(2)+' €', s:'Max : +'+best.toFixed(2)+' €', c:'stripe-green', vc:'var(--positive)' },
     { l:'Perte Moyenne', v:avgLoss.toFixed(2)+' €', s:'Max : '+worst.toFixed(2)+' €', c:'stripe-dax', vc:'var(--negative)' },
     { l:'Drawdown Max', v:'-'+maxDD.toFixed(2)+' €', s:'-'+(maxDD/REAL_INITIAL_CAPITAL*100).toFixed(2)+'% du capital', c:'stripe-dax', vc:'var(--negative)' },
-    { l:'Moy. Trades/Jour', v:avgTradesPerDay.toFixed(1), s:tradingDays+' jours de trading', c:'stripe-merged', vc:'var(--text-primary)' },
     { l:'Dividendes', v:(totalDiv>=0?'+':'')+totalDiv.toFixed(2)+' €', s:realDividends.length+' versement(s)', c:'stripe-green', vc:totalDiv>=0?'var(--positive)':'var(--negative)' },
   ];
   document.getElementById('kpiReal').innerHTML = kpis.map(k =>
     `<div class="kpi-card"><div class="stripe ${k.c}"></div><div class="label">${k.l}</div><div class="value" style="color:${k.vc}">${k.v}</div><div class="sub">${k.s}</div></div>`
   ).join('');
+}
+
+// ══════════════════════════════════════════════════════════════
+// Toggle section Analyse Avancée
+// ══════════════════════════════════════════════════════════════
+function toggleAdvanced() {
+  const sec = document.getElementById('advancedSection');
+  const chev = document.getElementById('advancedChevron');
+  const open = sec.style.display !== 'none';
+  sec.style.display = open ? 'none' : 'block';
+  chev.style.transform = open ? 'rotate(0deg)' : 'rotate(90deg)';
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -1472,6 +1488,10 @@ function buildAdvancedKPIs() {
     document.getElementById('kpiAdvancedReal').innerHTML = '';
     return;
   }
+
+  // Moy. Trades / Jour
+  const tradingDays = new Set(trades.map(t => t[0])).size;
+  const avgTradesPerDay = tradingDays > 0 ? (trades.length / tradingDays) : 0;
   const gains = trades.map(t => t[2]);
   const wins = gains.filter(g => g > 0);
   const losses = gains.filter(g => g <= 0);
@@ -1552,11 +1572,12 @@ function buildAdvancedKPIs() {
     { l:'Espérance / Trade', v:(expectancy>=0?'+':'')+expectancy.toFixed(2)+' €', s:'(WR×GainMoy) - (LR×PerteMoy)', c:'stripe-merged', vc:expColor },
     { l:'Recovery Factor', v:recoveryFactor===Infinity?'∞':recoveryFactor.toFixed(2), s:'Gain Total / Drawdown Max', c:'stripe-nas', vc:rfColor },
     { l:'Série Gagnante', v:curWinStreak > 0 ? curWinStreak+' en cours' : maxWinStreak+'', s:'Max historique : '+maxWinStreak+' trades', c:'stripe-green', vc:curWinStreak > 0 ? 'var(--positive)' : 'var(--text-primary)' },
-    { l:'Série Perdante', v:curLossStreak > 0 ? curLossStreak+' en cours' : maxLossStreak+'', s:'Max historique : '+maxLossStreak+' trades', c:'stripe-dax', vc:curLossStreak > 0 ? 'var(--negative)' : 'var(--text-primary)' },
+    { l:'Série Perdante', v:curLossStreak > 0 ? curLossStreak+' en cours' : maxLossStreak+'', s:'Max historique : '+maxLossStreak+' trades', c:'stripe-dax', vc:'var(--negative)' },
     { l:'Long (achat)', v:longPnL>=0?'+'+longPnL.toFixed(2)+' €':longPnL.toFixed(2)+' €', s:longTrades.length+' trades · WR '+longWR.toFixed(0)+'%', c:'stripe-green', vc:longPnL>=0?'var(--positive)':'var(--negative)' },
     { l:'Short (vente)', v:shortPnL>=0?'+'+shortPnL.toFixed(2)+' €':shortPnL.toFixed(2)+' €', s:shortTrades.length+' trades · WR '+shortWR.toFixed(0)+'%', c:'stripe-nas', vc:shortPnL>=0?'var(--positive)':'var(--negative)' },
     { l:'Durée Moyenne', v:avgDurStr, s:'Min '+minDurStr+' · Max '+maxDurStr, c:'stripe-dax', vc:'var(--text-primary)' },
     { l:'Points Moy / Trade', v:avgPoints.toFixed(1)+' pts', s:'Max : '+maxPoints.toFixed(1)+' pts · '+pointsTrades.length+' trades', c:'stripe-merged', vc:'var(--text-primary)' },
+    { l:'Moy. Trades/Jour', v:avgTradesPerDay.toFixed(1), s:tradingDays+' jours de trading', c:'stripe-merged', vc:'var(--text-primary)' },
   ];
   document.getElementById('kpiAdvancedReal').innerHTML = kpis.map(k =>
     `<div class="kpi-card"><div class="stripe ${k.c}"></div><div class="label">${k.l}</div><div class="value" style="color:${k.vc}">${k.v}</div><div class="sub">${k.s}</div></div>`
