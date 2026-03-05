@@ -912,6 +912,14 @@
       </div>
     </div>
     <div class="kpi-grid" id="kpiFixed"></div>
+    <div style="margin-top:28px;margin-bottom:20px;">
+      <h3 onclick="toggleAdvancedBt('Fixed')" style="font-size:1rem;font-weight:700;color:var(--text-primary);display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none;">
+        <span id="advancedChevronFixed" style="transition:transform .2s;transform:rotate(0deg);display:inline-block;">▶</span> 📐 Analyse Avancée
+      </h3>
+    </div>
+    <div id="advancedSectionFixed" style="display:none;">
+      <div class="kpi-grid" id="kpiAdvancedFixed"></div>
+    </div>
     <div class="chart-full"><div class="chart-card">
       <h3><span class="icon icon-merged">📈</span> Courbe de Capital — Taille Fixe</h3>
       <canvas id="eqFixed"></canvas>
@@ -984,6 +992,14 @@
       </div>
     </div>
     <div class="kpi-grid" id="kpiReinvest"></div>
+    <div style="margin-top:28px;margin-bottom:20px;">
+      <h3 onclick="toggleAdvancedBt('Reinvest')" style="font-size:1rem;font-weight:700;color:var(--text-primary);display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none;">
+        <span id="advancedChevronReinvest" style="transition:transform .2s;transform:rotate(0deg);display:inline-block;">▶</span> 📐 Analyse Avancée
+      </h3>
+    </div>
+    <div id="advancedSectionReinvest" style="display:none;">
+      <div class="kpi-grid" id="kpiAdvancedReinvest"></div>
+    </div>
     <div class="chart-full"><div class="chart-card">
       <h3><span class="icon icon-merged">🚀</span> Courbe de Capital — Réinvestissement</h3>
       <canvas id="eqReinvest"></canvas>
@@ -1501,6 +1517,112 @@ function buildAdvancedKPIs() {
     { l:'Moy. Trades/Jour', v:avgTradesPerDay.toFixed(1), s:tradingDays+' jours de trading', c:'stripe-merged', vc:'var(--text-primary)' },
   ];
   document.getElementById('kpiAdvancedReal').innerHTML = kpis.map(k =>
+    `<div class="kpi-card"><div class="stripe ${k.c}"></div><div class="label">${k.l}</div><div class="value" style="color:${k.vc}">${k.v}</div><div class="sub">${k.s}</div></div>`
+  ).join('');
+}
+
+// ── Toggle Analyse Avancée for backtest tabs ──
+function toggleAdvancedBt(suffix) {
+  const sec = document.getElementById('advancedSection' + suffix);
+  const chev = document.getElementById('advancedChevron' + suffix);
+  const open = sec.style.display !== 'none';
+  sec.style.display = open ? 'none' : 'block';
+  chev.style.transform = open ? 'rotate(0deg)' : 'rotate(90deg)';
+}
+
+function buildAdvancedKPIsBt(suffix, daxD, nasD, slice, totalCapital) {
+  const container = document.getElementById('kpiAdvanced' + suffix);
+  if (!container) return;
+  if (slice.length === 0) { container.innerHTML = ''; return; }
+
+  const half = totalCapital / 2;
+
+  // Rendements mensuels combinés (moyenne DAX + NAS)
+  const monthlyReturns = slice.map(ym => {
+    const d = getVal(daxD, ym);
+    const n = getVal(nasD, ym);
+    return (d + n) / 2;
+  });
+  // Rendements DAX et NAS séparés
+  const daxReturns = slice.map(ym => getVal(daxD, ym));
+  const nasReturns = slice.map(ym => getVal(nasD, ym));
+
+  // Mois gagnants / perdants
+  const winMonths = monthlyReturns.filter(r => r > 0);
+  const lossMonths = monthlyReturns.filter(r => r <= 0);
+  const winRate = monthlyReturns.length > 0 ? winMonths.length / monthlyReturns.length : 0;
+  const lossRate = 1 - winRate;
+  const avgWin = winMonths.length > 0 ? winMonths.reduce((a,b)=>a+b,0)/winMonths.length : 0;
+  const avgLoss = lossMonths.length > 0 ? Math.abs(lossMonths.reduce((a,b)=>a+b,0)/lossMonths.length) : 0;
+
+  // Espérance (en %)
+  const expectancy = (winRate * avgWin) - (lossRate * avgLoss);
+
+  // Equity combinée pour drawdown & recovery
+  const dE = computeEquity(daxD, half, slice);
+  const nE = computeEquity(nasD, half, slice);
+  const combEq = dE.equity.map((v,i) => v + nE.equity[i]);
+  let peak = combEq[0], maxDD = 0;
+  for (const v of combEq) { if (v > peak) peak = v; const dd = (peak - v) / peak * 100; if (dd > maxDD) maxDD = dd; }
+  const totalReturn = ((combEq[combEq.length-1] - totalCapital) / totalCapital * 100);
+  const recoveryFactor = maxDD > 0 ? totalReturn / maxDD : Infinity;
+
+  // Séries (sur rendements mensuels combinés)
+  let maxWinStreak = 0, maxLossStreak = 0, curWinStreak = 0, curLossStreak = 0;
+  let tw = 0, tl = 0;
+  for (const r of monthlyReturns) {
+    if (r > 0) { tw++; tl = 0; if (tw > maxWinStreak) maxWinStreak = tw; }
+    else { tl++; tw = 0; if (tl > maxLossStreak) maxLossStreak = tl; }
+  }
+  // Série en cours (depuis le dernier mois)
+  for (let i = monthlyReturns.length - 1; i >= 0; i--) {
+    if (i === monthlyReturns.length - 1) {
+      if (monthlyReturns[i] > 0) curWinStreak = 1; else curLossStreak = 1;
+    } else {
+      const firstPositive = monthlyReturns[monthlyReturns.length-1] > 0;
+      if ((monthlyReturns[i] > 0) === firstPositive) {
+        if (firstPositive) curWinStreak++; else curLossStreak++;
+      } else break;
+    }
+  }
+
+  // Performance DAX vs NASDAQ
+  const daxTotal = daxReturns.reduce((a,b) => a+b, 0);
+  const nasTotal = nasReturns.reduce((a,b) => a+b, 0);
+  const daxWinMonths = daxReturns.filter(r => r > 0).length;
+  const nasWinMonths = nasReturns.filter(r => r > 0).length;
+  const daxWR = daxReturns.length > 0 ? (daxWinMonths / daxReturns.length * 100) : 0;
+  const nasWR = nasReturns.length > 0 ? (nasWinMonths / nasReturns.length * 100) : 0;
+
+  // Meilleur / pire mois combiné
+  const bestMonth = Math.max(...monthlyReturns);
+  const worstMonth = Math.min(...monthlyReturns);
+
+  // Rendement annualisé
+  const nbYears = slice.length / 12;
+  const finalCap = combEq[combEq.length-1];
+  const cagr = nbYears > 0 ? (Math.pow(finalCap / totalCapital, 1/nbYears) - 1) * 100 : 0;
+
+  // Moy mensuelle
+  const avgMonthly = monthlyReturns.length > 0 ? monthlyReturns.reduce((a,b)=>a+b,0)/monthlyReturns.length : 0;
+
+  const expColor = expectancy >= 0 ? 'var(--positive)' : 'var(--negative)';
+  const rfColor = recoveryFactor >= 1 ? 'var(--positive)' : 'var(--negative)';
+  const cagrColor = cagr >= 0 ? 'var(--positive)' : 'var(--negative)';
+
+  const kpis = [
+    { l:'Espérance / Mois', v:(expectancy>=0?'+':'')+expectancy.toFixed(2)+' %', s:'(WR×GainMoy) - (LR×PerteMoy)', c:'stripe-merged', vc:expColor },
+    { l:'Recovery Factor', v:recoveryFactor===Infinity?'∞':recoveryFactor.toFixed(2), s:'Rendement / Drawdown Max', c:'stripe-nas', vc:rfColor },
+    { l:'Série Gagnante', v:curWinStreak > 0 ? curWinStreak+' en cours' : maxWinStreak+'', s:'Max historique : '+maxWinStreak+' mois', c:'stripe-green', vc:curWinStreak > 0 ? 'var(--positive)' : 'var(--text-primary)' },
+    { l:'Série Perdante', v:curLossStreak > 0 ? curLossStreak+' en cours' : maxLossStreak+'', s:'Max historique : '+maxLossStreak+' mois', c:'stripe-dax', vc:'var(--negative)' },
+    { l:'DAX 40', v:(daxTotal>=0?'+':'')+daxTotal.toFixed(1)+' %', s:daxWinMonths+'/'+daxReturns.length+' mois positifs · WR '+daxWR.toFixed(0)+'%', c:'stripe-dax', vc:daxTotal>=0?'var(--positive)':'var(--negative)' },
+    { l:'NASDAQ 100', v:(nasTotal>=0?'+':'')+nasTotal.toFixed(1)+' %', s:nasWinMonths+'/'+nasReturns.length+' mois positifs · WR '+nasWR.toFixed(0)+'%', c:'stripe-nas', vc:nasTotal>=0?'var(--positive)':'var(--negative)' },
+    { l:'Meilleur Mois', v:'+'+bestMonth.toFixed(2)+' %', s:'Combiné (DAX+NAS)/2', c:'stripe-green', vc:'var(--positive)' },
+    { l:'Pire Mois', v:worstMonth.toFixed(2)+' %', s:'Combiné (DAX+NAS)/2', c:'stripe-dax', vc:'var(--negative)' },
+    { l:'CAGR', v:(cagr>=0?'+':'')+cagr.toFixed(1)+' %', s:'Rendement annualisé · '+nbYears.toFixed(1)+' ans', c:'stripe-merged', vc:cagrColor },
+    { l:'Moy. Mensuelle', v:(avgMonthly>=0?'+':'')+avgMonthly.toFixed(2)+' %', s:winMonths.length+' mois gagnants / '+lossMonths.length+' perdants', c:'stripe-merged', vc:avgMonthly>=0?'var(--positive)':'var(--negative)' },
+  ];
+  container.innerHTML = kpis.map(k =>
     `<div class="kpi-card"><div class="stripe ${k.c}"></div><div class="label">${k.l}</div><div class="value" style="color:${k.vc}">${k.v}</div><div class="sub">${k.s}</div></div>`
   ).join('');
 }
@@ -2972,6 +3094,7 @@ function renderTabCharts(tabName) {
   destroyCharts(suffix);
 
   buildKPIs('kpi' + suffix, daxD, nasD, slice, cap);
+  buildAdvancedKPIsBt(suffix, daxD, nasD, slice, cap);
   chartInstances['eq' + suffix] = buildEquity('eq' + suffix, daxD, nasD, slice, cap);
   chartInstances['ann' + suffix] = buildAnnual('ann' + suffix, daxD, nasD, slice);
   chartInstances['mDax' + suffix] = buildMonthlyBar('mDax' + suffix, daxD, slice);
