@@ -1805,13 +1805,13 @@ function buildCumulativePnL() {
   }
   const days = Object.keys(dayMap).sort();
   let cum = 0;
-  const labels = [], values = [];
-  let lastMonth = '';
+  const labels = [], values = [], rawDates = [];
   for (const d of days) {
     cum += dayMap[d];
-    const mm = d.substring(5,7);
-    if (mm !== lastMonth) { labels.push(monthNames[parseInt(mm)-1]); lastMonth = mm; }
-    else { labels.push(''); }
+    const dd = parseInt(d.substring(8));
+    const mm = parseInt(d.substring(5,7));
+    labels.push(dd + ' ' + monthNames[mm-1]);
+    rawDates.push(d);
     values.push(Math.round(cum * 100) / 100);
   }
   return new Chart(document.getElementById('pnlCumReal'), {
@@ -1831,10 +1831,13 @@ function buildCumulativePnL() {
       plugins:{
         legend:{display:false},
         tooltip:{backgroundColor:'#1a2235',borderColor:'#2d3a4d',borderWidth:1,
-          callbacks:{label:c=>c.parsed.y.toFixed(2)+' €'}}
+          callbacks:{
+            title:items=>{ const d=rawDates[items[0].dataIndex]; return parseInt(d.substring(8))+' '+monthNames[parseInt(d.substring(5,7))-1]+' '+d.substring(0,4); },
+            label:c=>c.parsed.y.toFixed(2)+' €'
+          }}
       },
       scales:{
-        x:{ticks:{maxTicksLimit:20,font:{size:9}},grid:{display:false}},
+        x:{ticks:{maxTicksLimit:20,autoSkip:true,maxRotation:0,font:{size:9}},grid:{display:false}},
         y:{ticks:{callback:v=>fmt(v)+' €'},grid:{color:'rgba(30,42,58,0.4)'}}
       }
     },
@@ -2485,18 +2488,18 @@ function buildDrawdownChart() {
     const days = Object.keys(dayMap).sort();
     let equity = initialCap;
     let peak = initialCap;
-    const labels = [], values = [];
-    let lastMonth = '';
+    const labels = [], values = [], rawDates = [];
     for (const d of days) {
       equity += dayMap[d];
       if (equity > peak) peak = equity;
       const dd = peak > 0 ? ((equity - peak) / peak) * 100 : 0;
-      const mm = d.substring(5,7);
-      if (mm !== lastMonth) { labels.push(monthNames[parseInt(mm)-1]); lastMonth = mm; }
-      else { labels.push(''); }
+      const day = parseInt(d.substring(8));
+      const mm = parseInt(d.substring(5,7));
+      labels.push(day + ' ' + monthNames[mm-1]);
+      rawDates.push(d);
       values.push(Math.round(dd * 100) / 100);
     }
-    return { labels, values };
+    return { labels, values, rawDates };
   }
 
   const initCap = getTotalDeposits();
@@ -2510,6 +2513,7 @@ function buildDrawdownChart() {
 
   // Use same timeline (allData.labels) for alignment
   const masterDays = allData.labels;
+  const masterRawDates = allData.rawDates;
 
   // For per-asset: compute full series then align to master labels
   function alignToMaster(trades) {
@@ -2602,11 +2606,14 @@ function buildDrawdownChart() {
           backgroundColor: '#1a2235',
           borderColor: '#2d3a4d',
           borderWidth: 1,
-          callbacks: { label: c => c.dataset.label + ' : ' + c.parsed.y.toFixed(2) + '%' }
+          callbacks: {
+            title: items=>{ const d=masterRawDates[items[0].dataIndex]; return d ? parseInt(d.substring(8))+' '+monthNames[parseInt(d.substring(5,7))-1]+' '+d.substring(0,4) : ''; },
+            label: c => c.dataset.label + ' : ' + c.parsed.y.toFixed(2) + '%'
+          }
         }
       },
       scales: {
-        x: { ticks: { maxTicksLimit: 20, font: { size: 9 }, color: '#8899aa' }, grid: { display: false } },
+        x: { ticks: { maxTicksLimit: 20, autoSkip:true, maxRotation:0, font: { size: 9 }, color: '#8899aa' }, grid: { display: false } },
         y: {
           max: 0,
           ticks: { callback: v => v.toFixed(1) + '%', color: '#8899aa' },
