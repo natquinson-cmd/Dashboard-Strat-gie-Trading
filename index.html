@@ -1764,7 +1764,7 @@ function updateDateRangeUI() {
   document.getElementById('dateRangeTrack').style.width = (pctR - pctL) + '%';
   // Update label
   const moisFr = ['Janv.','Fév.','Mars','Avr.','Mai','Juin','Juil.','Août','Sept.','Oct.','Nov.','Déc.'];
-  const fmtD = d => { const p = d.split('-'); return parseInt(p[2]) + ' ' + moisFr[parseInt(p[1])-1]; };
+  const fmtD = d => { const p = d.split('-'); return parseInt(p[2]) + ' ' + moisFr[parseInt(p[1])-1] + ' ' + p[0]; };
   document.getElementById('dateRangeLabel').textContent = fmtD(allTradingDays[lo]) + ' → ' + fmtD(allTradingDays[hi]);
 }
 
@@ -1806,11 +1806,15 @@ function buildCumulativePnL() {
   const days = Object.keys(dayMap).sort();
   let cum = 0;
   const labels = [], values = [], rawDates = [];
+  let lastYM = '';
   for (const d of days) {
     cum += dayMap[d];
     const dd = parseInt(d.substring(8));
     const mm = parseInt(d.substring(5,7));
-    labels.push(dd + ' ' + monthNames[mm-1]);
+    const yy = d.substring(2,4);
+    const ym = d.substring(0,7);
+    labels.push(ym !== lastYM ? dd + ' ' + monthNames[mm-1] + ' ' + yy : dd + ' ' + monthNames[mm-1]);
+    lastYM = ym;
     rawDates.push(d);
     values.push(Math.round(cum * 100) / 100);
   }
@@ -2489,13 +2493,17 @@ function buildDrawdownChart() {
     let equity = initialCap;
     let peak = initialCap;
     const labels = [], values = [], rawDates = [];
+    let lastYM = '';
     for (const d of days) {
       equity += dayMap[d];
       if (equity > peak) peak = equity;
       const dd = peak > 0 ? ((equity - peak) / peak) * 100 : 0;
       const day = parseInt(d.substring(8));
       const mm = parseInt(d.substring(5,7));
-      labels.push(day + ' ' + monthNames[mm-1]);
+      const yy = d.substring(2,4);
+      const ym = d.substring(0,7);
+      labels.push(ym !== lastYM ? day + ' ' + monthNames[mm-1] + ' ' + yy : day + ' ' + monthNames[mm-1]);
+      lastYM = ym;
       rawDates.push(d);
       values.push(Math.round(dd * 100) / 100);
     }
