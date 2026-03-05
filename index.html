@@ -1806,9 +1806,12 @@ function buildCumulativePnL() {
   const days = Object.keys(dayMap).sort();
   let cum = 0;
   const labels = [], values = [];
+  let lastMonth = '';
   for (const d of days) {
     cum += dayMap[d];
-    labels.push(d.substring(8) + '/' + d.substring(5,7)); // DD/MM
+    const mm = d.substring(5,7);
+    if (mm !== lastMonth) { labels.push(monthNames[parseInt(mm)-1]); lastMonth = mm; }
+    else { labels.push(''); }
     values.push(Math.round(cum * 100) / 100);
   }
   return new Chart(document.getElementById('pnlCumReal'), {
@@ -2483,11 +2486,14 @@ function buildDrawdownChart() {
     let equity = initialCap;
     let peak = initialCap;
     const labels = [], values = [];
+    let lastMonth = '';
     for (const d of days) {
       equity += dayMap[d];
       if (equity > peak) peak = equity;
       const dd = peak > 0 ? ((equity - peak) / peak) * 100 : 0;
-      labels.push(d.substring(8) + '/' + d.substring(5,7)); // DD/MM
+      const mm = d.substring(5,7);
+      if (mm !== lastMonth) { labels.push(monthNames[parseInt(mm)-1]); lastMonth = mm; }
+      else { labels.push(''); }
       values.push(Math.round(dd * 100) / 100);
     }
     return { labels, values };
