@@ -1808,7 +1808,7 @@ function buildCumulativePnL() {
   const labels = [], values = [];
   for (const d of days) {
     cum += dayMap[d];
-    labels.push(d.substring(5)); // MM-DD
+    labels.push(d.substring(8) + '/' + d.substring(5,7)); // DD/MM
     values.push(Math.round(cum * 100) / 100);
   }
   return new Chart(document.getElementById('pnlCumReal'), {
@@ -2487,7 +2487,7 @@ function buildDrawdownChart() {
       equity += dayMap[d];
       if (equity > peak) peak = equity;
       const dd = peak > 0 ? ((equity - peak) / peak) * 100 : 0;
-      labels.push(d.substring(5)); // MM-DD
+      labels.push(d.substring(8) + '/' + d.substring(5,7)); // DD/MM
       values.push(Math.round(dd * 100) / 100);
     }
     return { labels, values };
