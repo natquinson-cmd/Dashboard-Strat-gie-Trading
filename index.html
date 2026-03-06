@@ -597,7 +597,7 @@
   .cal-nav button:hover { background:var(--bg-card-hover); }
   .cal-nav .cal-title { font-size:1rem; font-weight:700; min-width:180px; text-align:center; }
 
-  .day-grid { display:grid; grid-template-columns:repeat(5,1fr); gap:4px; }
+  .day-grid { display:grid; grid-template-columns:repeat(5,1fr) auto; gap:4px; }
   .day-header { text-align:center; font-size:0.68rem; font-weight:700; color:var(--text-secondary); padding:8px 0; text-transform:uppercase; }
   .day-cell {
     border-radius:10px; display:flex; flex-direction:column;
@@ -617,6 +617,9 @@
   .day-cell.empty { background:transparent; min-height:64px; }
   .day-cell.no-trade { background:rgba(30,42,58,0.08); }
   .day-cell.today { border:2px solid var(--accent-dax-light); }
+  .day-cell.week-total { background:rgba(30,42,58,0.18); border-left:2px solid rgba(136,153,170,0.25); min-width:58px; }
+  .day-cell.week-total .day-pnl { font-size:0.78rem; }
+  .day-cell.week-total .day-num { font-size:0.6rem; font-weight:600; color:var(--text-secondary); }
 
   .stats-bar {
     display:flex; gap:24px; flex-wrap:wrap; padding:16px 0;
@@ -2107,34 +2110,41 @@ function buildDailyCalendar() {
   const todayStr = today.getFullYear()+'-'+String(today.getMonth()+1).padStart(2,'0')+'-'+String(today.getDate()).padStart(2,'0');
 
   let html = '';
-  ['Lun','Mar','Mer','Jeu','Ven'].forEach(d => {
+  ['Lun','Mar','Mer','Jeu','Ven','Σ'].forEach(d => {
     html += `<div class="day-header">${d}</div>`;
   });
 
   // Calculate the weekday offset for the first day
   const firstWeekday = firstDay.getDay();
-  let offset = firstWeekday === 0 ? 4 : (firstWeekday === 6 ? 4 : firstWeekday - 1);
-  // offset = number of empty cells before day 1 in Mon-Fri grid
-  // Mon=0, Tue=1, Wed=2, Thu=3, Fri=4
-  if (firstWeekday === 1) offset = 0;
-  else if (firstWeekday === 2) offset = 1;
-  else if (firstWeekday === 3) offset = 2;
-  else if (firstWeekday === 4) offset = 3;
-  else if (firstWeekday === 5) offset = 4;
-  else if (firstWeekday === 6) offset = 0; // Sat → next Mon is day 3
-  else if (firstWeekday === 0) offset = 0; // Sun → next Mon is day 2
+  let offset = 0;
+  if (firstWeekday >= 1 && firstWeekday <= 5) offset = firstWeekday - 1;
+  // Sat/Sun → next Mon, offset = 0
 
-  // Better approach: find which weekday column day 1 falls on
   for (let i = 0; i < offset; i++) html += '<div class="day-cell empty"></div>';
 
   let totalWinDays = 0, totalLossDays = 0, totalTradeDays = 0;
   let runningCap = startCap;
+  let weekTotal = 0, weekCol = offset;
 
   // Pre-compute max absolute gain of the month for gradient intensity
   const monthPnls = Object.entries(dayData)
     .filter(([d]) => d.startsWith(`${calYear}-${String(calMonth+1).padStart(2,'0')}`))
     .map(([,v]) => Math.abs(v.pnl));
   const maxAbsPnl = monthPnls.length > 0 ? Math.max(...monthPnls) : 1;
+
+  function emitWeekTotal() {
+    // Fill remaining weekday cells if week is incomplete
+    while (weekCol < 5) { html += '<div class="day-cell empty"></div>'; weekCol++; }
+    const sign = weekTotal >= 0 ? '+' : '';
+    const cls = weekTotal >= 0 ? 'win' : 'loss';
+    const weekDisp = showPct ? `${sign}${(startCap>0?(weekTotal/startCap*100):0).toFixed(2)}%` : `${sign}${weekTotal.toFixed(0)}€`;
+    html += `<div class="day-cell week-total ${cls}">
+      <span class="day-num">Total</span>
+      <span class="day-pnl">${weekDisp}</span>
+    </div>`;
+    weekTotal = 0;
+    weekCol = 0;
+  }
 
   for (let d = 1; d <= daysInMonth; d++) {
     const dateObj = new Date(calYear, calMonth, d);
@@ -2158,6 +2168,7 @@ function buildDailyCalendar() {
         displayVal = `${sign}${data.pnl.toFixed(0)}€`;
       }
       runningCap += data.pnl;
+      weekTotal += data.pnl;
       // Gradient intensity: 0.08 (min) to 0.45 (max) proportional to |pnl|
       const intensity = maxAbsPnl > 0 ? 0.08 + (Math.abs(data.pnl) / maxAbsPnl) * 0.37 : 0.12;
       const bgColor = data.pnl >= 0
@@ -2171,7 +2182,14 @@ function buildDailyCalendar() {
     } else {
       html += `<div class="day-cell no-trade ${isToday?'today':''}"><span class="day-num">${d}</span></div>`;
     }
+    weekCol++;
+
+    // Emit weekly total after Friday (dow === 5)
+    if (dow === 5) emitWeekTotal();
   }
+  // Last incomplete week
+  if (weekCol > 0 && weekCol <= 5) emitWeekTotal();
+
   document.getElementById('dayGrid').innerHTML = html;
 
   const winPct = totalTradeDays > 0 ? (totalWinDays/totalTradeDays*100).toFixed(0) : '0';
