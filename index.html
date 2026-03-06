@@ -617,9 +617,9 @@
   .day-cell.empty { background:transparent; min-height:64px; }
   .day-cell.no-trade { background:rgba(30,42,58,0.08); }
   .day-cell.today { border:2px solid var(--accent-dax-light); }
-  .day-cell.week-total { background:rgba(30,42,58,0.18); border-left:2px solid rgba(136,153,170,0.25); min-width:58px; }
-  .day-cell.week-total .day-pnl { font-size:0.78rem; }
-  .day-cell.week-total .day-num { font-size:0.6rem; font-weight:600; color:var(--text-secondary); }
+  .day-cell.week-total { min-width:58px; border:1px solid var(--border); }
+  .day-cell.week-total .day-pnl { font-size:0.82rem; font-weight:700; }
+  .day-cell.week-total .day-num { font-size:0.6rem; font-weight:700; color:var(--text-secondary); text-transform:uppercase; }
 
   .stats-bar {
     display:flex; gap:24px; flex-wrap:wrap; padding:16px 0;
@@ -2136,11 +2136,15 @@ function buildDailyCalendar() {
     // Fill remaining weekday cells if week is incomplete
     while (weekCol < 5) { html += '<div class="day-cell empty"></div>'; weekCol++; }
     const sign = weekTotal >= 0 ? '+' : '';
-    const cls = weekTotal >= 0 ? 'win' : 'loss';
     const weekDisp = showPct ? `${sign}${(startCap>0?(weekTotal/startCap*100):0).toFixed(2)}%` : `${sign}${weekTotal.toFixed(0)}€`;
-    html += `<div class="day-cell week-total ${cls}">
+    const wtIntensity = Math.min(Math.abs(weekTotal) / (maxAbsPnl * 3 || 1), 1);
+    const wtBg = weekTotal >= 0
+      ? `rgba(16,185,129,${(0.12 + wtIntensity * 0.55).toFixed(2)})`
+      : `rgba(239,68,68,${(0.12 + wtIntensity * 0.55).toFixed(2)})`;
+    const wtColor = weekTotal >= 0 ? 'var(--positive)' : 'var(--negative)';
+    html += `<div class="day-cell week-total" style="background:${wtBg}">
       <span class="day-num">Total</span>
-      <span class="day-pnl">${weekDisp}</span>
+      <span class="day-pnl" style="color:${wtColor}">${weekDisp}</span>
     </div>`;
     weekTotal = 0;
     weekCol = 0;
