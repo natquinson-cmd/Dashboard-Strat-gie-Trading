@@ -2143,7 +2143,6 @@ function buildDailyCalendar() {
       : `rgba(239,68,68,${(0.12 + wtIntensity * 0.55).toFixed(2)})`;
     const wtColor = weekTotal >= 0 ? 'var(--positive)' : 'var(--negative)';
     html += `<div class="day-cell week-total" style="background:${wtBg}">
-      <span class="day-num">Total</span>
       <span class="day-pnl" style="color:${wtColor}">${weekDisp}</span>
     </div>`;
     weekTotal = 0;
