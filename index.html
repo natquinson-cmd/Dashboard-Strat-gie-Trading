@@ -4084,6 +4084,30 @@ function repairPortfolioFromDefaults(d) {
   });
 }
 
+function carryForwardPortfolioData(d) {
+  // For each platform (except Trading Auto), carry forward capital from previous month if current is 0
+  d.platforms.forEach(p => {
+    if (p === 'Trading Auto') return;
+    const prin = d.principal[p];
+    if (!prin) return;
+    for (let i = 1; i < d.months.length; i++) {
+      if ((prin[i] === 0 || prin[i] === undefined) && prin[i - 1] !== 0 && prin[i - 1] !== undefined) {
+        prin[i] = prin[i - 1];
+      }
+    }
+  });
+  // Same for loans
+  if (d.loanNames) d.loanNames.forEach(l => {
+    const arr = d.loans && d.loans[l];
+    if (!arr) return;
+    for (let i = 1; i < d.months.length; i++) {
+      if ((arr[i] === 0 || arr[i] === undefined) && arr[i - 1] !== 0 && arr[i - 1] !== undefined) {
+        arr[i] = arr[i - 1];
+      }
+    }
+  });
+}
+
 function loadPortfolioFromFirebase() {
   return db.ref('dashboard/data').once('value').then(snap => {
     const val = snap.val();
@@ -4091,6 +4115,7 @@ function loadPortfolioFromFirebase() {
       portfolioData = val;
       migrateRobotToTradingAuto(portfolioData);
       repairPortfolioFromDefaults(portfolioData);
+      carryForwardPortfolioData(portfolioData);
     } else {
       portfolioData = JSON.parse(JSON.stringify(INV_DEFAULT_DATA));
     }
