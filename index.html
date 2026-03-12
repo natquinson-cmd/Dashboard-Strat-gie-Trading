@@ -4926,12 +4926,8 @@ Promise.all([
     calMonth = parseInt(latest.substring(5,7)) - 1;
   }
 
-  // Sync Trading Auto from real trades
+  // Sync Trading Auto from real trades (no auto-save — save only on user action)
   syncRobotTrading();
-  if (portfolioData) {
-    savePortfolioToFirebase();
-    invSyncStatus = 'synced';
-  }
 
   renderRealTab();
   tabRendered.real = true;
