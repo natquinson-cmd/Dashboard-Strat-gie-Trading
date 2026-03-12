@@ -4043,11 +4043,27 @@ function invHexToRgba(hex, a) { const r = parseInt(hex.slice(1,3),16), g = parse
 function invDestroyCharts() { for (const k in invCharts) { if (invCharts[k]) { invCharts[k].destroy(); delete invCharts[k]; } } }
 
 // ── Portfolio Firebase ──
+function migrateRobotToTradingAuto(d) {
+  // Rename "Robot Trading" → "Trading Auto" in Firebase data
+  const old = 'Robot Trading', nw = 'Trading Auto';
+  const idx = d.platforms.indexOf(old);
+  if (idx !== -1) {
+    d.platforms[idx] = nw;
+    if (d.interests[old]) { d.interests[nw] = d.interests[old]; delete d.interests[old]; }
+    if (d.principal[old]) { d.principal[nw] = d.principal[old]; delete d.principal[old]; }
+    if (d.repartition) {
+      const ri = d.repartition.indexOf(old);
+      if (ri !== -1) d.repartition[ri] = nw;
+    }
+  }
+}
+
 function loadPortfolioFromFirebase() {
   return db.ref('dashboard/data').once('value').then(snap => {
     const val = snap.val();
     if (val && val.platforms && val.months) {
       portfolioData = val;
+      migrateRobotToTradingAuto(portfolioData);
     } else {
       portfolioData = JSON.parse(JSON.stringify(INV_DEFAULT_DATA));
     }
