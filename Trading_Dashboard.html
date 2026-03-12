@@ -4808,13 +4808,26 @@ function syncRobotTrading() {
       m++; if (m > 12) { m = 1; y++; }
       const ym = y + '-' + String(m).padStart(2, '0');
       d.months.push(ym);
-      // Extend all platform arrays
+      // Extend all platform arrays — carry forward last capital, 0 for interests
       d.platforms.forEach(p => {
         if (d.interests[p]) d.interests[p].push(0);
-        if (d.principal[p]) d.principal[p].push(0);
+        if (d.principal[p]) {
+          const lastVal = d.principal[p].length > 0 ? d.principal[p][d.principal[p].length - 1] : 0;
+          d.principal[p].push(p === 'Trading Auto' ? 0 : lastVal);
+        }
       });
-      if (d.loanNames) d.loanNames.forEach(l => { if (d.loans[l]) d.loans[l].push(0); });
-      if (d.loanMonthlyPayments) Object.keys(d.loanMonthlyPayments).forEach(l => { if (Array.isArray(d.loanMonthlyPayments[l])) d.loanMonthlyPayments[l].push(0); });
+      if (d.loanNames) d.loanNames.forEach(l => {
+        if (d.loans[l]) {
+          const lastVal = d.loans[l].length > 0 ? d.loans[l][d.loans[l].length - 1] : 0;
+          d.loans[l].push(lastVal);
+        }
+      });
+      if (d.loanMonthlyPayments) Object.keys(d.loanMonthlyPayments).forEach(l => {
+        if (Array.isArray(d.loanMonthlyPayments[l])) {
+          const lastVal = d.loanMonthlyPayments[l].length > 0 ? d.loanMonthlyPayments[l][d.loanMonthlyPayments[l].length - 1] : 0;
+          d.loanMonthlyPayments[l].push(lastVal);
+        }
+      });
       if (ym >= latestTradeMonth) break;
     }
   }
