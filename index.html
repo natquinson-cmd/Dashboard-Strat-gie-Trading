@@ -4774,14 +4774,34 @@ function invAddMonth() {
 
 function invChangeEditMonth(val) { invEditMonth = parseInt(val); if (invEditing) invLoadFormData(); renderPortfolioTab('update'); }
 
+function invGetWithFallback(arr, idx) {
+  // Return value at idx, or fallback to last non-zero value from previous months
+  if (arr && arr[idx] !== undefined && arr[idx] !== 0) return arr[idx];
+  if (idx > 0 && arr) {
+    for (let i = idx - 1; i >= 0; i--) {
+      if (arr[i] !== undefined && arr[i] !== 0) return arr[i];
+    }
+  }
+  return 0;
+}
+
 function invLoadFormData() {
   invFormData = {};
   portfolioData.platforms.forEach(p => {
-    invFormData[p] = { interest: (portfolioData.interests[p] || [])[invEditMonth] || 0, principal: (portfolioData.principal[p] || [])[invEditMonth] || 0 };
+    if (p === 'Trading Auto') {
+      invFormData[p] = { interest: (portfolioData.interests[p] || [])[invEditMonth] || 0, principal: (portfolioData.principal[p] || [])[invEditMonth] || 0 };
+    } else {
+      const int = (portfolioData.interests[p] || [])[invEditMonth] || 0;
+      const prin = (portfolioData.principal[p] || [])[invEditMonth];
+      // For capital: if 0 or undefined, fallback to previous month
+      const prinVal = (prin !== undefined && prin !== 0) ? prin : invGetWithFallback(portfolioData.principal[p], invEditMonth);
+      invFormData[p] = { interest: int, principal: prinVal };
+    }
   });
   invLoanFormData = {};
   (portfolioData.loanNames || []).forEach(l => {
-    invLoanFormData[l] = (portfolioData.loans[l] || [])[invEditMonth] || 0;
+    const val = (portfolioData.loans[l] || [])[invEditMonth];
+    invLoanFormData[l] = (val !== undefined && val !== 0) ? val : invGetWithFallback(portfolioData.loans[l], invEditMonth);
   });
 }
 
