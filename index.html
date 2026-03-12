@@ -877,8 +877,43 @@
 
 
 
+  <!-- Backtest CSV Modal -->
+  <div class="csv-modal" id="btCsvModal">
+    <div class="csv-modal-content" style="max-width:600px;">
+      <h3>📂 Mettre à jour les données Backtest</h3>
+      <p id="btModalSubtitle">Chargez les fichiers CSV ProRealTime (Rapport détaillé ProBacktest).</p>
+      <div style="display:flex;gap:16px;">
+        <div style="flex:1;">
+          <div style="font-size:0.82rem;font-weight:700;color:var(--text-primary);margin-bottom:6px;">🟪 DAX 40</div>
+          <label class="file-drop-zone" id="btDropDax" style="min-height:100px;">
+            <input type="file" id="btFileDax" accept=".csv" style="display:none" onchange="handleBtFile(this,'dax')">
+            <div class="file-drop-icon" style="font-size:1.4rem;">📄</div>
+            <div class="file-drop-text" style="font-size:0.72rem;">Cliquez ou glissez</div>
+            <div class="file-drop-selected" id="btNameDax" style="display:none;font-size:0.72rem;"></div>
+          </label>
+        </div>
+        <div style="flex:1;">
+          <div style="font-size:0.82rem;font-weight:700;color:var(--text-primary);margin-bottom:6px;">🟦 NASDAQ 100</div>
+          <label class="file-drop-zone" id="btDropNas" style="min-height:100px;">
+            <input type="file" id="btFileNas" accept=".csv" style="display:none" onchange="handleBtFile(this,'nas')">
+            <div class="file-drop-icon" style="font-size:1.4rem;">📄</div>
+            <div class="file-drop-text" style="font-size:0.72rem;">Cliquez ou glissez</div>
+            <div class="file-drop-selected" id="btNameNas" style="display:none;font-size:0.72rem;"></div>
+          </label>
+        </div>
+      </div>
+      <div class="csv-modal-actions">
+        <button class="btn-cancel" onclick="closeBacktestModal()">Annuler</button>
+        <button class="btn-primary" id="btnApplyBt" onclick="applyBacktestCsv()" disabled>✅ Appliquer</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ═══════════════════════ TAB 1 : FIXED ═══════════════════════ -->
   <div id="tab-fixed" class="tab-content">
+    <div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
+      <button class="csv-btn" onclick="openBacktestModal('fixed')">📂 Mettre à jour CSV</button>
+    </div>
     <!-- Capital Selector -->
     <div class="capital-selector" id="capitalFixed">
       <div class="capital-header">
@@ -959,6 +994,9 @@
 
   <!-- ═══════════════════════ TAB 2 : REINVEST ═══════════════════════ -->
   <div id="tab-reinvest" class="tab-content">
+    <div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
+      <button class="csv-btn" onclick="openBacktestModal('reinvest')">📂 Mettre à jour CSV</button>
+    </div>
     <!-- Capital Selector -->
     <div class="capital-selector" id="capitalReinvest">
       <div class="capital-header">
@@ -1050,7 +1088,7 @@ const monthNames = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct
 const monthNamesFull = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
 
 // Full timeline of all active months
-const ALL_MONTHS = [];
+let ALL_MONTHS = [];
 // Dec 2017
 ALL_MONTHS.push({ y: 2017, m: 11 });
 // 2018-2025 full
@@ -1063,7 +1101,7 @@ function mLabel(ym) { return monthNames[ym.m] + ' ' + ym.y; }
 function mLabelFull(ym) { return monthNamesFull[ym.m] + ' ' + ym.y; }
 
 // ── FIXED (sans réinv) ──
-const fDax = {
+let fDax = {
   2017:[0,0,0,0,0,0,0,0,0,0,0,6.31],
   2018:[5.67,21.21,9.31,0.41,1.65,-0.90,12.06,2.02,3.34,6.03,2.74,3.81],
   2019:[-4.22,1.90,5.97,3.79,0.17,0.31,-0.08,5.76,-1.83,6.53,5.53,2.13],
@@ -1075,7 +1113,7 @@ const fDax = {
   2025:[-0.00,1.08,1.32,-1.57,-0.34,0.79,-0.27,-2.00,-0.04,1.63,0.77,-0.01],
   2026:[-1.32,0.60,0,0,0,0,0,0,0,0,0,0]
 };
-const fNas = {
+let fNas = {
   2017:[0,0,0,0,0,0,0,0,0,0,0,1.08],
   2018:[-2.41,8.58,-7.21,14.16,1.62,3.60,9.93,2.12,6.38,6.31,-3.18,5.74],
   2019:[2.23,0.95,1.81,-2.00,-4.17,2.30,0.93,0.56,-0.34,1.12,-3.06,0.53],
@@ -1089,7 +1127,7 @@ const fNas = {
 };
 
 // ── REINVEST ──
-const rDax = {
+let rDax = {
   2017:[0,0,0,0,0,0,0,0,0,0,0,5.81],
   2018:[5.85,25.47,12.38,0.12,2.26,-1.92,19.07,2.20,5.23,10.63,3.99,6.42],
   2019:[-8.28,2.57,11.63,7.99,-0.15,0.35,-0.62,11.85,-4.33,14.26,13.14,4.41],
@@ -1101,7 +1139,7 @@ const rDax = {
   2025:[-0.13,7.78,9.82,-11.86,-2.49,5.25,-1.96,-13.77,-0.43,12.02,5.11,-0.00],
   2026:[-9.74,3.89,0,0,0,0,0,0,0,0,0,0]
 };
-const rNas = {
+let rNas = {
   2017:[0,0,0,0,0,0,0,0,0,0,0,1.08],
   2018:[-2.50,8.48,-7.64,14.65,1.79,4.17,12.38,2.71,8.88,8.69,-4.99,8.23],
   2019:[3.25,1.49,2.85,-3.27,-6.65,3.42,1.43,0.72,-0.64,1.68,-4.84,0.78],
@@ -2288,6 +2326,144 @@ function closeCsvModal() {
   pendingCsvText = '';
 }
 
+// ── Backtest CSV Modal ──
+let pendingBtTab = 'fixed';
+let pendingBtDaxText = '';
+let pendingBtNasText = '';
+
+function openBacktestModal(tab) {
+  pendingBtTab = tab;
+  pendingBtDaxText = '';
+  pendingBtNasText = '';
+  document.getElementById('btFileDax').value = '';
+  document.getElementById('btFileNas').value = '';
+  document.getElementById('btNameDax').style.display = 'none';
+  document.getElementById('btNameNas').style.display = 'none';
+  document.getElementById('btnApplyBt').disabled = true;
+  const label = tab === 'fixed' ? 'Taille Fixe' : 'Réinvestissement';
+  document.getElementById('btModalSubtitle').textContent = 'Chargez les fichiers CSV ProRealTime — ' + label;
+  document.getElementById('btCsvModal').classList.add('show');
+}
+
+function closeBacktestModal() {
+  document.getElementById('btCsvModal').classList.remove('show');
+  pendingBtDaxText = '';
+  pendingBtNasText = '';
+}
+
+function handleBtFile(input, which) {
+  if (input.files.length === 0) return;
+  const file = input.files[0];
+  const reader = new FileReader();
+  reader.onload = e => {
+    if (which === 'dax') {
+      pendingBtDaxText = e.target.result;
+      const el = document.getElementById('btNameDax');
+      el.textContent = '✅ ' + file.name;
+      el.style.display = 'block';
+    } else {
+      pendingBtNasText = e.target.result;
+      const el = document.getElementById('btNameNas');
+      el.textContent = '✅ ' + file.name;
+      el.style.display = 'block';
+    }
+    document.getElementById('btnApplyBt').disabled = !(pendingBtDaxText && pendingBtNasText);
+  };
+  reader.readAsText(file, 'ISO-8859-1');
+}
+
+function parseBacktestCsv(csvText) {
+  const result = {};
+  const lines = csvText.split('\n').filter(l => l.trim());
+  for (let i = 1; i < lines.length; i++) {
+    const cols = lines[i].split('\t').map(c => c.replace(/"/g, '').trim());
+    if (cols.length < 13) continue;
+    const year = parseInt(cols[0]);
+    if (isNaN(year)) continue;
+    const months = [];
+    for (let m = 1; m <= 12; m++) {
+      let v = cols[m].replace('+', '').replace('%', '').replace(',', '.').trim();
+      months.push(parseFloat(v) || 0);
+    }
+    result[year] = months;
+  }
+  return result;
+}
+
+function rebuildAllMonths() {
+  const allData = [fDax, fNas, rDax, rNas];
+  const active = new Set();
+  for (const data of allData) {
+    for (const [yearStr, months] of Object.entries(data)) {
+      const y = parseInt(yearStr);
+      for (let m = 0; m < 12; m++) {
+        if (months[m] !== 0) active.add(y * 100 + m);
+      }
+    }
+  }
+  const sorted = [...active].sort((a, b) => a - b);
+  ALL_MONTHS = sorted.map(v => ({ y: Math.floor(v / 100), m: v % 100 }));
+  periodState.fixed.startIdx = 0;
+  periodState.fixed.endIdx = ALL_MONTHS.length - 1;
+  periodState.reinvest.startIdx = 0;
+  periodState.reinvest.endIdx = ALL_MONTHS.length - 1;
+}
+
+function saveBacktestToFirebase(tabName) {
+  const daxD = tabName === 'fixed' ? fDax : rDax;
+  const nasD = tabName === 'fixed' ? fNas : rNas;
+  const prefix = 'backtest/' + tabName;
+  db.ref(prefix + '/dax').set(daxD);
+  db.ref(prefix + '/nas').set(nasD);
+}
+
+function loadBacktestFromFirebase() {
+  return Promise.all([
+    db.ref('backtest/fixed/dax').once('value'),
+    db.ref('backtest/fixed/nas').once('value'),
+    db.ref('backtest/reinvest/dax').once('value'),
+    db.ref('backtest/reinvest/nas').once('value')
+  ]).then(([fdSnap, fnSnap, rdSnap, rnSnap]) => {
+    const fd = fdSnap.val();
+    const fn = fnSnap.val();
+    const rd = rdSnap.val();
+    const rn = rnSnap.val();
+    if (fd) fDax = fd;
+    if (fn) fNas = fn;
+    if (rd) rDax = rd;
+    if (rn) rNas = rn;
+    if (fd || fn || rd || rn) rebuildAllMonths();
+  }).catch(err => console.error('Erreur chargement backtest:', err));
+}
+
+function applyBacktestCsv() {
+  if (!pendingBtDaxText || !pendingBtNasText) return;
+  const daxData = parseBacktestCsv(pendingBtDaxText);
+  const nasData = parseBacktestCsv(pendingBtNasText);
+  if (Object.keys(daxData).length === 0 || Object.keys(nasData).length === 0) {
+    alert('Erreur de parsing. Vérifiez le format des fichiers CSV ProRealTime.');
+    return;
+  }
+  if (pendingBtTab === 'fixed') {
+    fDax = daxData;
+    fNas = nasData;
+  } else {
+    rDax = daxData;
+    rNas = nasData;
+  }
+  rebuildAllMonths();
+  saveBacktestToFirebase(pendingBtTab);
+  tabRendered.fixed = false;
+  tabRendered.reinvest = false;
+  initTimeline(pendingBtTab);
+  renderTabCharts(pendingBtTab);
+  tabRendered[pendingBtTab] = true;
+  closeBacktestModal();
+  const label = pendingBtTab === 'fixed' ? 'Taille Fixe' : 'Réinvestissement';
+  const nYears = Object.keys(daxData).length;
+  setTimeout(() => alert(`✅ Données ${label} mises à jour : ${nYears} année(s) DAX + ${Object.keys(nasData).length} année(s) NASDAQ.`), 300);
+}
+
 // Drag & Drop
 document.addEventListener('DOMContentLoaded', () => {
   const zone = document.getElementById('fileDropZone');
@@ -2297,6 +2473,23 @@ document.addEventListener('DOMContentLoaded', () => {
   zone.addEventListener('drop', e => {
     e.preventDefault(); zone.classList.remove('dragover');
     if (e.dataTransfer.files.length > 0) readCsvFile(e.dataTransfer.files[0]);
+  });
+  // Backtest drop zones
+  ['dax','nas'].forEach(which => {
+    const dz = document.getElementById('btDrop' + which.charAt(0).toUpperCase() + which.slice(1));
+    if (!dz) return;
+    dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('dragover'); });
+    dz.addEventListener('dragleave', () => dz.classList.remove('dragover'));
+    dz.addEventListener('drop', e => {
+      e.preventDefault(); dz.classList.remove('dragover');
+      if (e.dataTransfer.files.length > 0) {
+        const inp = document.getElementById('btFile' + which.charAt(0).toUpperCase() + which.slice(1));
+        const dt = new DataTransfer();
+        dt.items.add(e.dataTransfer.files[0]);
+        inp.files = dt.files;
+        handleBtFile(inp, which);
+      }
+    });
   });
 });
 
@@ -3226,7 +3419,7 @@ function switchTab(tab) {
 }
 
 // ── INIT ──
-Promise.all([loadTradesFromFirebase(), loadDividendsFromFirebase(), loadDepositsFromFirebase(), loadFeesToFirebase()]).then(() => {
+Promise.all([loadTradesFromFirebase(), loadDividendsFromFirebase(), loadDepositsFromFirebase(), loadFeesToFirebase(), loadBacktestFromFirebase()]).then(() => {
   if (realTrades.length > 0) {
     const latest = [...realTrades].sort((a,b) => b[0].localeCompare(a[0]))[0][0];
     calYear = parseInt(latest.substring(0,4));
