@@ -1061,12 +1061,13 @@
         <canvas id="pnlCumReal"></canvas>
         <div class="proj-slider-wrap" id="projSliderWrap">
           <div class="proj-slider-title">Horizon</div>
-          <input type="range" id="projSlider" class="proj-slider" min="0" max="3" value="0" orient="vertical" oninput="onProjectionChange()">
+          <input type="range" id="projSlider" class="proj-slider" min="0" max="4" value="0" orient="vertical" oninput="onProjectionChange()">
           <div class="proj-slider-labels">
-            <span data-val="3" onclick="document.getElementById('projSlider').value=3;onProjectionChange()">10 ans</span>
-            <span data-val="2" onclick="document.getElementById('projSlider').value=2;onProjectionChange()">5 ans</span>
-            <span data-val="1" onclick="document.getElementById('projSlider').value=1;onProjectionChange()">2 ans</span>
-            <span data-val="0" onclick="document.getElementById('projSlider').value=0;onProjectionChange()">1 an</span>
+            <span data-val="4" onclick="document.getElementById('projSlider').value=4;onProjectionChange()">10 ans</span>
+            <span data-val="3" onclick="document.getElementById('projSlider').value=3;onProjectionChange()">5 ans</span>
+            <span data-val="2" onclick="document.getElementById('projSlider').value=2;onProjectionChange()">2 ans</span>
+            <span data-val="1" onclick="document.getElementById('projSlider').value=1;onProjectionChange()">1 an</span>
+            <span data-val="0" onclick="document.getElementById('projSlider').value=0;onProjectionChange()">6 mois</span>
           </div>
           <div class="proj-mode-btns">
             <button class="proj-mode-btn active" data-mode="fixed" onclick="setProjMode('fixed')">Fixe</button>
@@ -2139,7 +2140,7 @@ function getDateRange() {
 // ── Projection state ──
 let projectionEnabled = false;
 let projMode = 'fixed'; // 'fixed' = Taille Fixe (fDax+fNas), 'reinvest' = Réinvestissement (rDax+rNas)
-const PROJ_HORIZONS = [12, 24, 60, 120]; // months for 1,2,5,10 years
+const PROJ_HORIZONS = [6, 12, 24, 60, 120]; // months for 6m,1y,2y,5y,10y
 
 function getMonthlyReturnsByMonth() {
   // Espérance par mois calendaire (0-11) basée sur le mode choisi
