@@ -810,6 +810,20 @@
   .proj-slider-labels span { cursor:pointer; transition:color 0.2s; padding:2px 0; }
   .proj-slider-labels span:hover { color:var(--text-primary); }
   .proj-slider-labels span.active { color:var(--accent-dax-light); }
+  .proj-mode-btns {
+    display:flex; flex-direction:column; gap:4px; width:100%; margin-top:4px;
+  }
+  .proj-mode-btn {
+    background:rgba(30,42,58,0.7); border:1px solid rgba(255,255,255,0.08);
+    color:var(--text-secondary); font-size:0.6rem; font-weight:700;
+    padding:4px 2px; border-radius:6px; cursor:pointer;
+    transition:all 0.2s; text-transform:uppercase; letter-spacing:0.5px;
+  }
+  .proj-mode-btn:hover { border-color:rgba(99,102,241,0.3); color:var(--text-primary); }
+  .proj-mode-btn.active {
+    background:linear-gradient(135deg, rgba(99,102,241,0.25), rgba(6,182,212,0.2));
+    border-color:rgba(99,102,241,0.5); color:#fff;
+  }
 
   @media (max-width: 900px) {
     .chart-row { grid-template-columns: 1fr; }
@@ -1053,6 +1067,10 @@
             <span data-val="2" onclick="document.getElementById('projSlider').value=2;onProjectionChange()">5 ans</span>
             <span data-val="1" onclick="document.getElementById('projSlider').value=1;onProjectionChange()">2 ans</span>
             <span data-val="0" onclick="document.getElementById('projSlider').value=0;onProjectionChange()">1 an</span>
+          </div>
+          <div class="proj-mode-btns">
+            <button class="proj-mode-btn active" data-mode="fixed" onclick="setProjMode('fixed')">Fixe</button>
+            <button class="proj-mode-btn" data-mode="reinvest" onclick="setProjMode('reinvest')">Cumulé</button>
           </div>
         </div>
       </div>
@@ -2120,26 +2138,14 @@ function getDateRange() {
 
 // ── Projection state ──
 let projectionEnabled = false;
+let projMode = 'fixed'; // 'fixed' = Taille Fixe (fDax+fNas), 'reinvest' = Réinvestissement (rDax+rNas)
 const PROJ_HORIZONS = [12, 24, 60, 120]; // months for 1,2,5,10 years
-const PROJ_HORIZON_LABELS = ['1 an','2 ans','5 ans','10 ans'];
-
-function getAvgMonthlyReturns() {
-  // Compute average monthly % return from ALL backtest data (fixed + reinvest, DAX + NAS combined)
-  const allReturns = [];
-  [fDax, fNas, rDax, rNas].forEach(dataset => {
-    Object.values(dataset).forEach(months => {
-      months.forEach(v => { if (v !== 0) allReturns.push(v); });
-    });
-  });
-  if (allReturns.length === 0) return { avg: 0, values: [] };
-  const avg = allReturns.reduce((a, b) => a + b, 0) / allReturns.length;
-  return { avg, values: allReturns };
-}
 
 function getMonthlyReturnsByMonth() {
-  // Get average return per calendar month (0-11) for more realistic projection
+  // Espérance par mois calendaire (0-11) basée sur le mode choisi
+  const sources = projMode === 'reinvest' ? [rDax, rNas] : [fDax, fNas];
   const byMonth = Array.from({length:12}, () => []);
-  [fDax, fNas, rDax, rNas].forEach(dataset => {
+  sources.forEach(dataset => {
     Object.values(dataset).forEach(months => {
       months.forEach((v, i) => { if (v !== 0) byMonth[i].push(v); });
     });
@@ -2149,17 +2155,14 @@ function getMonthlyReturnsByMonth() {
 
 function buildProjectionData(lastValue, lastDate, horizonMonths) {
   const monthlyByMonth = getMonthlyReturnsByMonth();
-  // Parse last date to get starting month
   const lastD = new Date(lastDate);
-  let currentMonth = lastD.getMonth(); // 0-11
+  let currentMonth = lastD.getMonth();
   let currentYear = lastD.getFullYear();
 
-  // Calculate the capital at end of real data (deposits + gains - fees)
-  // For projection, we apply monthly % returns to the current cumulative P&L
-  // But % returns are based on capital, so we need to estimate capital
+  // Capital de base = dépôts cumulés
   let totalDeposits = 0;
   for (const dep of realDeposits) totalDeposits += dep.amount;
-  const capital = totalDeposits > 0 ? totalDeposits : 10000; // fallback
+  let capital = totalDeposits > 0 ? totalDeposits : 10000;
 
   let cumPnL = lastValue;
   const projLabels = [];
@@ -2168,9 +2171,19 @@ function buildProjectionData(lastValue, lastDate, horizonMonths) {
   for (let i = 0; i < horizonMonths; i++) {
     currentMonth++;
     if (currentMonth > 11) { currentMonth = 0; currentYear++; }
-    const monthReturn = monthlyByMonth[currentMonth]; // % return for this calendar month
-    const monthGain = capital * (monthReturn / 100); // convert % to € based on capital
-    cumPnL += monthGain;
+    const monthReturn = monthlyByMonth[currentMonth]; // espérance % pour ce mois
+
+    if (projMode === 'reinvest') {
+      // Cumulé : on applique le % au capital courant (capital + gains accumulés)
+      const currentCapital = capital + cumPnL;
+      const monthGain = currentCapital * (monthReturn / 100);
+      cumPnL += monthGain;
+    } else {
+      // Fixe : on applique le % toujours au capital initial
+      const monthGain = capital * (monthReturn / 100);
+      cumPnL += monthGain;
+    }
+
     const yy = String(currentYear).substring(2);
     projLabels.push((i % 3 === 0 || i === horizonMonths - 1) ? monthNames[currentMonth] + ' ' + yy : '');
     projValues.push(Math.round(cumPnL * 100) / 100);
@@ -2241,7 +2254,7 @@ function buildCumulativePnL() {
     datasets[0].data = realDataFull;
 
     datasets.push({
-      label:'Projection (€)', data: projDataFull,
+      label:'Projection ' + (projMode === 'reinvest' ? 'Cumulé' : 'Fixe') + ' (€)', data: projDataFull,
       borderColor:'rgba(99,102,241,0.8)', backgroundColor:'rgba(99,102,241,0.05)',
       borderWidth:2, fill:true, tension:0.3,
       borderDash:[8, 4],
@@ -2314,6 +2327,14 @@ function rebuildPnLCumOnly() {
     delete realChartInstances['pnlCumReal'];
   }
   realChartInstances['pnlCumReal'] = buildCumulativePnL();
+}
+
+function setProjMode(mode) {
+  projMode = mode;
+  document.querySelectorAll('.proj-mode-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.mode === mode);
+  });
+  rebuildPnLCumOnly();
 }
 
 function buildAvgGainChart() {
