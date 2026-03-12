@@ -2153,39 +2153,34 @@ function getMonthlyReturnsByMonth() {
   return byMonth.map(arr => arr.length ? arr.reduce((a,b) => a+b, 0) / arr.length : 0);
 }
 
-function buildProjectionData(lastValue, lastDate, horizonMonths) {
+function buildProjectionData(startPnL, lastDate, horizonMonths) {
   const monthlyByMonth = getMonthlyReturnsByMonth();
   const lastD = new Date(lastDate);
   let currentMonth = lastD.getMonth();
   let currentYear = lastD.getFullYear();
 
-  // Capital de base = dépôts cumulés
   let totalDeposits = 0;
   for (const dep of realDeposits) totalDeposits += dep.amount;
-  let capital = totalDeposits > 0 ? totalDeposits : 10000;
+  const capital = totalDeposits > 0 ? totalDeposits : 10000;
 
-  let cumPnL = lastValue;
+  let cumPnL = startPnL;
   const projLabels = [];
   const projValues = [];
 
   for (let i = 0; i < horizonMonths; i++) {
     currentMonth++;
     if (currentMonth > 11) { currentMonth = 0; currentYear++; }
-    const monthReturn = monthlyByMonth[currentMonth]; // espérance % pour ce mois
+    const monthReturn = monthlyByMonth[currentMonth];
 
     if (projMode === 'reinvest') {
-      // Cumulé : on applique le % au capital courant (capital + gains accumulés)
       const currentCapital = capital + cumPnL;
-      const monthGain = currentCapital * (monthReturn / 100);
-      cumPnL += monthGain;
+      cumPnL += currentCapital * (monthReturn / 100);
     } else {
-      // Fixe : on applique le % toujours au capital initial
-      const monthGain = capital * (monthReturn / 100);
-      cumPnL += monthGain;
+      cumPnL += capital * (monthReturn / 100);
     }
 
     const yy = String(currentYear).substring(2);
-    projLabels.push((i % 3 === 0 || i === horizonMonths - 1) ? monthNames[currentMonth] + ' ' + yy : '');
+    projLabels.push(monthNames[currentMonth] + ' ' + yy);
     projValues.push(Math.round(cumPnL * 100) / 100);
   }
   return { labels: projLabels, values: projValues };
@@ -2256,18 +2251,33 @@ function buildCumulativePnL() {
   if (projectionEnabled && values.length > 0) {
     const sliderVal = parseInt(document.getElementById('projSlider').value);
     const horizonMonths = PROJ_HORIZONS[sliderVal];
-    const lastValue = values[values.length - 1];
     const lastDate = rawDates[rawDates.length - 1];
-    const proj = buildProjectionData(lastValue, lastDate, horizonMonths);
 
-    // Pad projection data to start where real data ends
-    const projDataFull = new Array(values.length - 1).fill(null);
-    projDataFull.push(lastValue); // overlap at last real point
-    projDataFull.push(...proj.values);
+    // ── Projection sur les mois passés (réels) ──
+    const monthlyByMonth = getMonthlyReturnsByMonth();
+    let totalDeposits = 0;
+    for (const dep of realDeposits) totalDeposits += dep.amount;
+    const capital = totalDeposits > 0 ? totalDeposits : 10000;
 
-    // Extend labels
+    let cumProj = 0;
+    const projPast = [];
+    for (let i = 0; i < rawDates.length; i++) {
+      const mm = parseInt(rawDates[i].substring(5,7)) - 1; // 0-11
+      const monthReturn = monthlyByMonth[mm];
+      if (projMode === 'reinvest') {
+        const currentCapital = capital + cumProj;
+        cumProj += currentCapital * (monthReturn / 100);
+      } else {
+        cumProj += capital * (monthReturn / 100);
+      }
+      projPast.push(Math.round(cumProj * 100) / 100);
+    }
+
+    // ── Projection sur les mois futurs ──
+    const proj = buildProjectionData(projPast[projPast.length - 1], lastDate, horizonMonths);
+
+    // Extend labels & rawDates for future months
     allLabels = [...labels, ...proj.labels];
-    // Extend rawDates for tooltip
     const lastD = new Date(lastDate);
     let cm = lastD.getMonth(), cy = lastD.getFullYear();
     for (let i = 0; i < horizonMonths; i++) {
@@ -2275,19 +2285,23 @@ function buildCumulativePnL() {
       allRawDates.push(cy + '-' + String(cm+1).padStart(2,'0') + '-15');
     }
 
-    // Pad real data with nulls for extended labels
+    // Full projection data = past + future (continuous line)
+    const projDataFull = [...projPast, ...proj.values];
+
+    // Pad real data with nulls for future labels
     const realDataFull = [...values, ...new Array(horizonMonths).fill(null)];
     datasets[0].data = realDataFull;
 
+    const realCount = values.length;
     datasets.push({
       label:'Projection ' + (projMode === 'reinvest' ? 'Cumulé' : 'Fixe') + ' (€)', data: projDataFull,
       borderColor:'rgba(99,102,241,0.8)', backgroundColor:'rgba(99,102,241,0.05)',
       borderWidth:2, fill:true, tension:0.3,
       borderDash:[8, 4],
-      pointRadius: projDataFull.map((v, i) => i === values.length - 1 ? 5 : (i > values.length - 1 && (i === projDataFull.length - 1) ? 4 : 0)),
+      pointRadius: projDataFull.map((v, i) => i === 0 || i === realCount - 1 || i === projDataFull.length - 1 ? 4 : 0),
       pointHitRadius:8,
-      pointBackgroundColor:'rgba(99,102,241,0.9)',
-      pointBorderColor:'rgba(99,102,241,0.9)',
+      pointBackgroundColor: projDataFull.map((v, i) => i < realCount ? 'rgba(99,102,241,0.6)' : 'rgba(99,102,241,0.9)'),
+      pointBorderColor: projDataFull.map((v, i) => i < realCount ? 'rgba(99,102,241,0.6)' : 'rgba(99,102,241,0.9)'),
       pointStyle: projDataFull.map((v, i) => i === projDataFull.length - 1 ? 'rectRot' : 'circle')
     });
   }
