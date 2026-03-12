@@ -4795,24 +4795,43 @@ function invSaveMonth() {
 function syncRobotTrading() {
   if (!portfolioData || realTrades.length === 0) return;
 
+  const d = portfolioData;
+  const rtIdx = d.platforms.indexOf('Trading Auto');
+  if (rtIdx === -1) return;
+
+  // ── Extend portfolio months up to latest trade month ──
+  const latestTradeMonth = [...realTrades].sort((a,b) => b[0].localeCompare(a[0]))[0][0].substring(0,7);
+  const lastPortfolioMonth = d.months[d.months.length - 1];
+  if (latestTradeMonth > lastPortfolioMonth) {
+    let [y, m] = lastPortfolioMonth.split('-').map(Number);
+    while (true) {
+      m++; if (m > 12) { m = 1; y++; }
+      const ym = y + '-' + String(m).padStart(2, '0');
+      d.months.push(ym);
+      // Extend all platform arrays
+      d.platforms.forEach(p => {
+        if (d.interests[p]) d.interests[p].push(0);
+        if (d.principal[p]) d.principal[p].push(0);
+      });
+      if (d.loanNames) d.loanNames.forEach(l => { if (d.loans[l]) d.loans[l].push(0); });
+      if (d.loanMonthlyPayments) Object.keys(d.loanMonthlyPayments).forEach(l => { if (Array.isArray(d.loanMonthlyPayments[l])) d.loanMonthlyPayments[l].push(0); });
+      if (ym >= latestTradeMonth) break;
+    }
+  }
+
   // Group trades by month (YYYY-MM)
   const tradesByMonth = {};
-  let cumDeposits = 0, cumGains = 0, cumFees = 0;
-
-  // Get all unique months from trades
   realTrades.forEach(t => {
-    const month = t[0].substring(0, 7); // YYYY-MM
+    const month = t[0].substring(0, 7);
     if (!tradesByMonth[month]) tradesByMonth[month] = { gains: 0 };
     tradesByMonth[month].gains += parseFloat(t[2]) || 0;
   });
 
-  // Get sorted trade months
   const tradeMonths = Object.keys(tradesByMonth).sort();
   if (tradeMonths.length === 0) return;
-
   const firstTradeMonth = tradeMonths[0];
 
-  // Calculate cumulative deposits by month
+  // Deposits by month
   const depositsByMonth = {};
   (realDeposits || []).forEach(adj => {
     const m = adj.date.substring(0, 7);
@@ -4820,7 +4839,7 @@ function syncRobotTrading() {
     depositsByMonth[m] += adj.amount;
   });
 
-  // Calculate cumulative fees by month
+  // Fees by month
   const feesByMonth = {};
   (realFees || []).forEach(fee => {
     const m = fee.date.substring(0, 7);
@@ -4828,40 +4847,26 @@ function syncRobotTrading() {
     feesByMonth[m] += fee.amount;
   });
 
-  // For each portfolio month, populate Trading Auto
-  const d = portfolioData;
-  const rtIdx = d.platforms.indexOf('Trading Auto');
-  if (rtIdx === -1) return;
-
   if (!d.interests['Trading Auto']) d.interests['Trading Auto'] = [];
   if (!d.principal['Trading Auto']) d.principal['Trading Auto'] = [];
-
-  // Ensure arrays are the right length
   while (d.interests['Trading Auto'].length < d.months.length) d.interests['Trading Auto'].push(0);
   while (d.principal['Trading Auto'].length < d.months.length) d.principal['Trading Auto'].push(0);
 
-  cumDeposits = 0; cumGains = 0; cumFees = 0;
+  let cumDeposits = 0, cumGains = 0, cumFees = 0;
 
   d.months.forEach((month, i) => {
-    // Before first trade month: no data
     if (month < firstTradeMonth) {
       d.interests['Trading Auto'][i] = 0;
       d.principal['Trading Auto'][i] = 0;
       return;
     }
 
-    // Accumulate deposits and fees up to this month
     cumDeposits += (depositsByMonth[month] || 0);
     cumFees += (feesByMonth[month] || 0);
-
-    // Monthly gains
     const monthlyGains = tradesByMonth[month] ? tradesByMonth[month].gains : 0;
     cumGains += monthlyGains;
 
-    // Interests = gains of the month (rounded)
     d.interests['Trading Auto'][i] = Math.round(monthlyGains * 100) / 100;
-
-    // Capital = cumulative deposits + cumulative gains - cumulative fees
     d.principal['Trading Auto'][i] = Math.round((cumDeposits + cumGains - cumFees) * 100) / 100;
   });
 }
