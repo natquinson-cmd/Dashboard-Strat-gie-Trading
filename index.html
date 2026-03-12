@@ -92,6 +92,47 @@
   }
   .tab-content { display: none; }
   .tab-content.active { display: block; animation: fadeIn 0.35s ease; }
+
+  /* GROUP NAV (2 levels) */
+  .group-bar {
+    display: flex; justify-content: center; gap: 8px;
+    margin: 36px 0 12px;
+  }
+  .group-btn {
+    padding: 10px 28px; border-radius: 10px;
+    border: 1px solid var(--border); background: var(--bg-card);
+    color: var(--text-secondary); font-family: inherit;
+    font-size: 0.92rem; font-weight: 700; cursor: pointer;
+    transition: all 0.25s; position: relative;
+  }
+  .group-btn:hover { background: var(--bg-card-hover); color: var(--text-primary); }
+  .group-btn.active {
+    background: linear-gradient(135deg, rgba(99,102,241,0.18), rgba(6,182,212,0.18));
+    border-color: var(--accent-dax); color: var(--text-primary);
+    box-shadow: 0 0 20px rgba(99,102,241,0.18);
+  }
+  .group-btn.active::after {
+    content: ''; position: absolute; bottom: 0; left: 15%; right: 15%;
+    height: 2px; background: linear-gradient(90deg, var(--accent-dax), var(--accent-nas));
+    border-radius: 2px;
+  }
+  .sub-tab-bar {
+    display: flex; justify-content: center; gap: 4px;
+    margin-bottom: 28px; flex-wrap: wrap;
+  }
+  .sub-tab-btn {
+    padding: 7px 18px; border-radius: 8px;
+    border: 1px solid transparent; background: transparent;
+    color: var(--text-secondary); font-family: inherit;
+    font-size: 0.8rem; font-weight: 500; cursor: pointer;
+    transition: all 0.2s;
+  }
+  .sub-tab-btn:hover { color: var(--text-primary); background: rgba(255,255,255,0.04); }
+  .sub-tab-btn.active {
+    background: rgba(99,102,241,0.12);
+    border-color: rgba(99,102,241,0.25);
+    color: var(--text-primary); font-weight: 600;
+  }
   @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
   @keyframes holoShift {
     0%   { background-position: 0% 50%; }
@@ -732,6 +773,168 @@
     .dashboard { padding: 20px 16px; }
     .period-header { flex-direction: column; align-items: flex-start; }
   }
+
+  /* ═══════════ PORTFOLIO (Investissement) STYLES ═══════════ */
+  .inv-grid { display: grid; gap: 16px; }
+  .inv-grid-2 { grid-template-columns: 1fr 1fr; }
+  .inv-grid-3 { grid-template-columns: 1fr 1fr 1fr; }
+  .inv-grid-kpi { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 24px; }
+  .inv-grid-form { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }
+
+  .inv-card {
+    border-radius: 16px; padding: 20px;
+    background: var(--bg-card); border: 1px solid var(--border);
+    position: relative; overflow: hidden;
+    transition: box-shadow 0.3s, border-color 0.3s;
+  }
+  .inv-card:hover { border-color: rgba(99,102,241,0.3); box-shadow: 0 0 25px rgba(99,102,241,0.08); }
+
+  .inv-stat-card {
+    animation: holoBorder 8s ease infinite, holoGlow 6s ease infinite, slideUp 0.5s ease backwards;
+  }
+  .inv-stat-card:nth-child(2) { animation-delay: 0.5s, 0.5s, 0.1s; }
+  .inv-stat-card:nth-child(3) { animation-delay: 1s, 1s, 0.15s; }
+  .inv-stat-card:nth-child(4) { animation-delay: 1.5s, 1.5s, 0.2s; }
+  .inv-stat-card:nth-child(5) { animation-delay: 2s, 2s, 0.25s; }
+
+  .inv-chart-card {
+    border-radius: 16px; padding: 20px;
+    background: var(--bg-card); border: 1px solid var(--border);
+    position: relative; overflow: hidden;
+  }
+  .inv-chart-card h3 { font-size: 0.88rem; font-weight: 600; margin-bottom: 16px; color: var(--text-primary); }
+
+  .inv-canvas-wrap { position: relative; width: 100%; height: 300px; }
+  .inv-canvas-wrap canvas { width: 100% !important; height: 100% !important; }
+
+  .inv-kpi-icon {
+    width: 32px; height: 32px; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px;
+  }
+  .inv-neon-bar { height: 5px; border-radius: 99px; overflow: hidden; background: rgba(255,255,255,0.04); }
+  .inv-neon-fill { height: 100%; border-radius: 99px; transition: width 0.6s ease; }
+
+  .inv-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+
+  .inv-form-card {
+    border-radius: 12px; padding: 16px;
+    background: rgba(99,102,241,0.04); border: 1px solid rgba(99,102,241,0.1);
+    transition: border-color 0.2s;
+  }
+  .inv-form-card:hover { border-color: rgba(99,102,241,0.25); }
+
+  .inv-loan-card {
+    border-radius: 12px; padding: 16px;
+    background: rgba(239,68,68,0.04); border: 1px solid rgba(239,68,68,0.08);
+    transition: border-color 0.2s;
+  }
+  .inv-loan-card:hover { border-color: rgba(239,68,68,0.15); }
+
+  .inv-ind-card {
+    border-radius: 12px; padding: 12px;
+    background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05);
+  }
+
+  .inv-info-box {
+    border-radius: 12px; padding: 16px;
+    background: rgba(99,102,241,0.05); border: 1px solid rgba(99,102,241,0.12);
+  }
+
+  .inv-btn {
+    padding: 8px 16px; border-radius: 10px; font-size: 12px; font-weight: 500;
+    border: none; cursor: pointer; transition: all 0.25s; color: #fff;
+    font-family: inherit;
+  }
+  .inv-btn:hover { transform: translateY(-1px); }
+  .inv-btn-p { background: linear-gradient(135deg, var(--accent-dax), #4f46e5); box-shadow: 0 0 12px rgba(99,102,241,0.25); }
+  .inv-btn-p:hover { box-shadow: 0 0 20px rgba(99,102,241,0.4); }
+  .inv-btn-s { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); }
+  .inv-btn-ok { background: linear-gradient(135deg, #10b981, #059669); box-shadow: 0 0 12px rgba(16,185,129,0.2); }
+  .inv-btn-ok:hover { box-shadow: 0 0 20px rgba(16,185,129,0.35); }
+  .inv-btn-d { background: linear-gradient(135deg, #ef4444, #dc2626); }
+
+  .inv-tabs {
+    display: flex; gap: 4px; padding: 4px; border-radius: 12px;
+    background: rgba(99,102,241,0.06); border: 1px solid rgba(99,102,241,0.1);
+    flex-wrap: wrap;
+  }
+  .inv-tab {
+    padding: 8px 12px; border-radius: 8px; font-size: 12px; font-weight: 500;
+    border: none; cursor: pointer; transition: all 0.3s;
+    color: var(--text-secondary); background: transparent; font-family: inherit;
+  }
+  .inv-tab:hover { color: var(--text-primary); }
+  .inv-tab.active {
+    background: linear-gradient(135deg, var(--accent-dax), #4f46e5);
+    color: #fff; box-shadow: 0 0 15px rgba(99,102,241,0.3);
+  }
+
+  .inv-notif {
+    position: fixed; top: 16px; right: 16px; z-index: 50;
+    border-radius: 12px; padding: 12px 20px; font-size: 12px; font-weight: 500; color: #fff;
+    animation: fadeIn 0.3s ease; transition: opacity 0.3s;
+  }
+
+  .inv-save-ind {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 10px; border-radius: 6px; font-size: 11px;
+    color: var(--positive); background: rgba(16,185,129,0.06);
+    border: 1px solid rgba(16,185,129,0.15);
+  }
+
+  .inv-input {
+    width: 100%; border-radius: 8px; padding: 8px 12px; font-size: 12px;
+    color: var(--text-primary); outline: none; font-family: inherit;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    background: rgba(99,102,241,0.06); border: 1px solid rgba(99,102,241,0.15);
+  }
+  .inv-input:focus { border-color: rgba(99,102,241,0.4); box-shadow: 0 0 12px rgba(99,102,241,0.15); }
+  .inv-input.loan { background: rgba(239,68,68,0.04); border: 1px solid rgba(239,68,68,0.12); }
+  .inv-input.loan:focus { border-color: rgba(239,68,68,0.3); box-shadow: 0 0 10px rgba(239,68,68,0.08); }
+
+  .inv-select {
+    width: 100%; border-radius: 8px; padding: 8px 12px; font-size: 12px;
+    color: var(--text-primary); outline: none; font-family: inherit; cursor: pointer;
+    background: rgba(99,102,241,0.1); border: 1px solid rgba(99,102,241,0.2);
+  }
+  .inv-select option { background: var(--bg-card); }
+
+  /* Portfolio helpers */
+  .inv-flex { display: flex; }
+  .inv-gap2 { gap: 8px; }
+  .inv-gap3 { gap: 12px; }
+  .inv-gap4 { gap: 16px; }
+  .inv-aic { align-items: center; }
+  .inv-jcsb { justify-content: space-between; }
+  .inv-fw { flex-wrap: wrap; }
+  .inv-fcol { flex-direction: column; }
+  .inv-mt2 { margin-top: 8px; }
+  .inv-mt4 { margin-top: 16px; }
+  .inv-mb3 { margin-bottom: 12px; }
+  .inv-mb4 { margin-bottom: 16px; }
+  .inv-mb6 { margin-bottom: 24px; }
+  .inv-cg { color: #10b981; }
+  .inv-cr { color: #ef4444; }
+  .inv-cy { color: #f59e0b; }
+  .inv-hidden { display: none; }
+  .inv-ox { overflow-x: auto; }
+
+  .inv-table { width: 100%; font-size: 12px; border-collapse: collapse; }
+  .inv-table th { text-align: left; padding: 8px 4px; font-weight: 500; color: var(--text-secondary); }
+  .inv-table td { padding: 10px 4px; }
+  .inv-table .th-r, .inv-table .td-r { text-align: right; }
+
+  @media (max-width: 900px) {
+    .inv-grid-kpi { grid-template-columns: repeat(3, 1fr); }
+    .inv-grid-3 { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 600px) {
+    .inv-grid-kpi { grid-template-columns: repeat(2, 1fr); }
+    .inv-grid-2 { grid-template-columns: 1fr; }
+    .sub-tab-bar { overflow-x: auto; flex-wrap: nowrap; justify-content: flex-start; padding: 0 8px; }
+    .sub-tab-btn { white-space: nowrap; }
+  }
 </style>
 </head>
 <body>
@@ -742,20 +945,15 @@
     <p id="headerSubtitle">DAX 40 (IntradayGrafV4-3) & NASDAQ 100 (NAS 15 OPR R2.2)</p>
   </div>
 
-  <!-- TAB BAR -->
-  <div class="tab-bar">
-    <button class="tab-btn active" onclick="switchTab('real')">
-      💹 Trading Réel
-      <span class="tab-sub">Ordres IG réels</span>
-    </button>
-    <button class="tab-btn" onclick="switchTab('fixed')">
-      📊 Taille Fixe
-      <span class="tab-sub">Backtest sans réinv.</span>
-    </button>
-    <button class="tab-btn" onclick="switchTab('reinvest')">
-      🚀 Réinvestissement
-      <span class="tab-sub">Backtest réinvesti</span>
-    </button>
+  <!-- GROUP BAR (level 1) -->
+  <div class="group-bar">
+    <button class="group-btn active" onclick="switchGroup('trading')">📈 Trading</button>
+    <button class="group-btn" onclick="switchGroup('invest')">💼 Investissement</button>
+  </div>
+
+  <!-- SUB-TAB BAR (level 2) -->
+  <div class="sub-tab-bar" id="subTabBar">
+    <!-- Populated by switchGroup() -->
   </div>
 
   <!-- ═══════════════════════ TAB 0 : REAL TRADING ═══════════════════════ -->
@@ -1087,7 +1285,15 @@
     </div></div>
   </div>
 
-  <div class="footer">
+  <!-- ═══════════════════════ INVESTISSEMENT TABS ═══════════════════════ -->
+  <div id="tab-overview" class="tab-content"></div>
+  <div id="tab-interests" class="tab-content"></div>
+  <div id="tab-evolution" class="tab-content"></div>
+  <div id="tab-loans" class="tab-content"></div>
+  <div id="tab-repartition" class="tab-content"></div>
+  <div id="tab-update" class="tab-content"></div>
+
+  <div class="footer" id="dashFooter">
     Dashboard généré le 19 février 2026 — Capital de départ : 5 000 € par stratégie — Données ProBacktest
   </div>
 </div>
@@ -2604,6 +2810,9 @@ function applyCsv() {
     calMonth = parseInt(latest.substring(5,7)) - 1;
   }
   renderRealTab();
+  // Sync Robot Trading in portfolio after CSV import
+  syncRobotTrading();
+  if (portfolioData) savePortfolioToFirebase();
   closeCsvModal();
   setTimeout(() => alert(msg), 300);
 }
@@ -3411,42 +3620,979 @@ function initCapitalSlider(tabName) {
 }
 
 // ══════════════════════════════════════════════════════════════
-// TAB SWITCHING
+// GROUP & TAB SWITCHING
 // ══════════════════════════════════════════════════════════════
+let currentGroup = 'trading';
 let currentTab = 'real';
 const tabRendered = { real: false, fixed: false, reinvest: false };
+
+const GROUP_TABS = {
+  trading: [
+    { id: 'real', label: '💹 Trading Réel' },
+    { id: 'fixed', label: '📊 Taille Fixe' },
+    { id: 'reinvest', label: '🚀 Réinvestissement' }
+  ],
+  invest: [
+    { id: 'overview', label: "Vue d'ensemble" },
+    { id: 'interests', label: 'Intérêts' },
+    { id: 'evolution', label: 'Évolution' },
+    { id: 'loans', label: 'Emprunts' },
+    { id: 'repartition', label: 'Répartition' },
+    { id: 'update', label: 'Mise à jour' }
+  ]
+};
+
+const ALL_TAB_IDS = ['real', 'fixed', 'reinvest', 'overview', 'interests', 'evolution', 'loans', 'repartition', 'update'];
+
+function renderSubTabs() {
+  const bar = document.getElementById('subTabBar');
+  const tabs = GROUP_TABS[currentGroup];
+  bar.innerHTML = tabs.map(t =>
+    `<button class="sub-tab-btn${t.id === currentTab ? ' active' : ''}" onclick="switchTab('${t.id}')">${t.label}</button>`
+  ).join('');
+}
+
+function switchGroup(group) {
+  if (group === currentGroup) return;
+  currentGroup = group;
+  document.querySelectorAll('.group-btn').forEach((btn, i) => {
+    btn.classList.toggle('active', (i === 0 && group === 'trading') || (i === 1 && group === 'invest'));
+  });
+  // Hide all tabs
+  ALL_TAB_IDS.forEach(t => {
+    const el = document.getElementById('tab-' + t);
+    if (el) el.classList.remove('active');
+  });
+  // Switch to first tab of group
+  const firstTab = GROUP_TABS[group][0].id;
+  currentTab = firstTab;
+  renderSubTabs();
+  activateTab(firstTab);
+}
 
 function switchTab(tab) {
   if (tab === currentTab) return;
   currentTab = tab;
-  const tabNames = ['real', 'fixed', 'reinvest'];
-  document.querySelectorAll('.tab-btn').forEach((btn, i) => {
-    btn.classList.toggle('active', tabNames[i] === tab);
+  // Hide all tabs
+  ALL_TAB_IDS.forEach(t => {
+    const el = document.getElementById('tab-' + t);
+    if (el) el.classList.remove('active');
   });
-  tabNames.forEach(t => {
-    document.getElementById('tab-' + t).classList.toggle('active', t === tab);
+  // Update sub-tab buttons
+  document.querySelectorAll('.sub-tab-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.textContent.includes(GROUP_TABS[currentGroup].find(t => t.id === tab)?.label || ''));
   });
-  if (!tabRendered[tab]) {
-    if (tab === 'real') {
-      renderRealTab();
-    } else {
-      initCapitalSlider(tab);
-      initTimeline(tab);
-      renderTabCharts(tab);
+  renderSubTabs();
+  activateTab(tab);
+}
+
+function activateTab(tab) {
+  const el = document.getElementById('tab-' + tab);
+  if (el) el.classList.add('active');
+
+  // Trading tabs
+  if (['real', 'fixed', 'reinvest'].includes(tab)) {
+    if (!tabRendered[tab]) {
+      if (tab === 'real') {
+        renderRealTab();
+      } else {
+        initCapitalSlider(tab);
+        initTimeline(tab);
+        renderTabCharts(tab);
+      }
+      tabRendered[tab] = true;
     }
-    tabRendered[tab] = true;
+  }
+
+  // Portfolio tabs
+  if (['overview', 'interests', 'evolution', 'loans', 'repartition', 'update'].includes(tab)) {
+    invDestroyCharts();
+    renderPortfolioTab(tab);
   }
 }
 
+// ══════════════════════════════════════════════════════════════
+// PORTFOLIO DATA & LOGIC
+// ══════════════════════════════════════════════════════════════
+const INV_COLORS = ["#6366f1","#06b6d4","#f59e0b","#ec4899","#10b981","#3b82f6","#f97316","#a855f7","#14b8a6","#f43f5e"];
+const INV_LC = ["#ef4444","#f97316","#eab308"];
+const INV_MN = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
+const INV_MEMBER_COLORS = {"Moi":"#6366f1","Noah":"#06b6d4","Elie":"#f59e0b"};
+const INV_REP_MEMBERS = ["Moi","Noah","Elie"];
+
+let portfolioData = null;
+let invCharts = {};
+let invCurrentTab = 'overview';
+let invEditMonth = 0;
+let invEditing = false;
+let invFormData = {};
+let invLoanFormData = {};
+let invShowAddMonth = false;
+let invRepMonthlyMode = false;
+let invRepAdjMode = false;
+let invRepForm = {};
+let invSyncStatus = 'loading';
+
+const INV_DEFAULT_DATA = {
+  platforms:["RMM","Lendermarket","Revolut","Mintos","Robot Trading","RealT","Debitum"],
+  months:["2023-11","2023-12","2024-01","2024-02","2024-03","2024-04","2024-05","2024-06","2024-07","2024-08","2024-09","2024-10","2024-11","2024-12","2025-01","2025-02","2025-03","2025-04","2025-05","2025-06","2025-07","2025-08","2025-09","2025-10","2025-11","2025-12"],
+  interests:{"RMM":[24,218,186,96,80,20,8,29,0,0,0,0,0,0,30,30,30,30,30,100,100,100,100,10,10,8],"Lendermarket":[42,148,124,276,176,110,217,138,188,148,105,167,134,140,155,0,0,30,120,172,174,211,220,287,272,282],"Revolut":[3,27,33,64,57,51,51,0,0,0,0,0,0,15,92,92,90,50,32,34,26,25,25,25,25,10],"Mintos":[35,131,165,159,147,150,166,153,181,147,152,157,199,190,200,131,121,105,22,23,10,3,0,0,0,0],"Robot Trading":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"RealT":[245,252,253,253,255,240,240,240,240,240,240,240,250,250,250,250,220,220,220,220,220,220,30,30,30,30],"Debitum":[4,92,154,238,305,338,413,401,422,415,413,464,509,674,675,602,512,539,611,694,730,663,729,729,663,691]},
+  principal:{"RMM":[25000,10000,5699,5567,2598,0,1000,1603,1620,1693,207,2191,2382,2382,15000,15000,14200,14200,14200,14200,14200,14200,10000,1055,1055,1055],"Lendermarket":[14000,14000,12094,12221,12397,12275,12084,11754,9126,9274,9379,9546,10210,10210,12332,0,0,11700,12000,12543,12671,12906,12906,19426,19685,21780],"Revolut":[2000,4000,5815,5858,5915,0,0,0,2700,3269,3269,0,3269,3269,39984,39984,36000,26500,27838,21000,19500,20700,13000,6000,5000,700],"Mintos":[13000,12500,12087,12170,12332,13426,13709,13864,14031,14963,15417,18796,19047,19047,9769,9769,10015,3130,1332,894,904,247,247,206,206,206],"Robot Trading":[0,0,0,0,0,0,0,8284,7650,6007,6453,6453,0,0,0,0,5000,0,0,0,0,0,700,2000,0,5000],"RealT":[31500,31500,29123,29123,29395,29800,29500,30147,29377,29500,29700,29700,29950,29950,29950,29950,29500,28000,28000,28000,28000,28000,32000,32000,32000,32000],"Debitum":[0,15000,22986,23334,27372,34681,34915,34930,32913,32809,32910,43558,48513,49000,52994,52994,40642,51155,53701,60518,61336,61336,61339,60341,60341,54561]},
+  loanNames:["Emprunt Younited","Emprunt Revolut","Emprunt RMM"],
+  loanMonthlyPayments:{"Emprunt Younited":747,"Emprunt Revolut":0,"Emprunt RMM":0},
+  loans:{"Emprunt Younited":[38300,38300,38300,38300,38300,38300,38300,38300,38300,38300,38300,38300,38300,38300,38300,38300,38300,38300,38300,38300,38300,38300,38300,38300,38300,38300],"Emprunt Revolut":[17700,17700,17700,17700,17700,17700,17700,17700,17700,17700,17700,17700,17700,17700,17700,17700,17700,17700,17700,17700,17700,17700,17700,17700,17700,17700],"Emprunt RMM":[5200,5200,5200,5200,5200,5200,5200,5200,5200,5200,5200,5200,5200,5200,5200,5200,5200,5200,5200,5200,5200,5200,5200,5200,5200,5200]},
+  repartition:{
+    members:["Moi","Noah","Elie"],
+    capital:{"Moi":21780,"Noah":7380,"Elie":6840},
+    history:[{date:"2025-12",type:"init",desc:"Répartition initiale","Moi":21780,"Noah":7380,"Elie":6840,total:36000}]
+  }
+};
+
+// ── Portfolio helpers ──
+function invFmMonth(ym) { const p = ym.split('-'); return INV_MN[parseInt(p[1],10)-1] + ' ' + p[0]; }
+function invFmShort(ym) { const p = ym.split('-'); return INV_MN[parseInt(p[1],10)-1] + " '" + p[0].slice(2); }
+function invNextMonth(ym) { const p = ym.split('-'); let y = +p[0], m = +p[1]; if (m === 12) { y++; m = 1; } else { m++; } return y + '-' + (m < 10 ? '0' : '') + m; }
+function invFmt(v) { return v.toLocaleString('fr-FR') + ' €'; }
+function invFmtK(v) { return v >= 1000 ? (v/1000).toFixed(0) + 'k€' : v + '€'; }
+function invHexToRgba(hex, a) { const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16); return `rgba(${r},${g},${b},${a})`; }
+function invDestroyCharts() { for (const k in invCharts) { if (invCharts[k]) { invCharts[k].destroy(); delete invCharts[k]; } } }
+
+// ── Portfolio Firebase ──
+function loadPortfolioFromFirebase() {
+  return db.ref('dashboard/data').once('value').then(snap => {
+    const val = snap.val();
+    if (val && val.platforms && val.months) {
+      portfolioData = val;
+    } else {
+      portfolioData = JSON.parse(JSON.stringify(INV_DEFAULT_DATA));
+    }
+    invEditMonth = portfolioData.months.length - 1;
+  }).catch(err => {
+    console.error('Portfolio load error:', err);
+    portfolioData = JSON.parse(JSON.stringify(INV_DEFAULT_DATA));
+    invEditMonth = portfolioData.months.length - 1;
+  });
+}
+
+function savePortfolioToFirebase() {
+  invSyncStatus = 'saving';
+  invUpdateSyncIndicator();
+  db.ref('dashboard/data').set(portfolioData).then(() => {
+    invSyncStatus = 'synced';
+    invUpdateSyncIndicator();
+  }).catch(err => {
+    console.error('Portfolio save error:', err);
+    invSyncStatus = 'offline';
+    invUpdateSyncIndicator();
+  });
+}
+
+function invUpdateSyncIndicator() {
+  const el = document.getElementById('inv-sync-ind');
+  if (!el) return;
+  if (invSyncStatus === 'synced') {
+    el.innerHTML = '✓ Synchronisé'; el.style.color = '#10b981';
+  } else if (invSyncStatus === 'saving') {
+    el.innerHTML = '⟳ Sauvegarde...'; el.style.color = '#f59e0b';
+  } else {
+    el.innerHTML = '✕ Hors-ligne'; el.style.color = '#ef4444';
+  }
+}
+
+// ── Portfolio compute ──
+function invCompute() {
+  const d = portfolioData;
+  const li = d.months.length - 1;
+  const tp = d.platforms.reduce((s, p) => s + ((d.principal[p] || [])[li] || 0), 0);
+  const tl = (d.loanNames || []).reduce((s, l) => s + ((d.loans[l] || [])[li] || 0), 0);
+  const nc = tp - tl;
+  const tic = d.platforms.reduce((s, p) => s + ((d.interests[p] || []).reduce((a, b) => a + b, 0)), 0);
+  const lmi = d.platforms.reduce((s, p) => s + ((d.interests[p] || [])[li] || 0), 0);
+  const pmi = li > 0 ? d.platforms.reduce((s, p) => s + ((d.interests[p] || [])[li-1] || 0), 0) : 0;
+  const mc = pmi > 0 ? ((lmi - pmi) / pmi * 100).toFixed(1) : 0;
+  const am = d.months.length > 0 ? Math.round(tic / d.months.length) : 0;
+  const tmp = (d.loanNames || []).reduce((s, l) => s + ((d.loanMonthlyPayments || {})[l] || 0), 0);
+  return { tp, tl, nc, tic, lmi, mc, am, tmp, nmi: lmi - tmp, li };
+}
+
+function invGetLabels() { return portfolioData.months.map(invFmShort); }
+
+// ── Portfolio notify ──
+function invNotify(msg, type) {
+  const el = document.createElement('div');
+  el.className = 'inv-notif';
+  el.style.background = type === 'err' ? 'linear-gradient(135deg,#ef4444,#dc2626)' : 'linear-gradient(135deg,#10b981,#059669)';
+  el.style.boxShadow = '0 0 20px ' + (type === 'err' ? 'rgba(239,68,68,0.3)' : 'rgba(16,185,129,0.3)');
+  el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(() => { el.style.opacity = '0'; setTimeout(() => el.remove(), 300); }, 2500);
+}
+
+// ── Repartition helpers ──
+function invGetRep() {
+  if (portfolioData.repartition) return portfolioData.repartition;
+  return { members: ["Moi","Noah","Elie"], capital: {"Moi":21780,"Noah":7380,"Elie":6840}, history: [{date:"2025-12",type:"init",desc:"Répartition initiale","Moi":21780,"Noah":7380,"Elie":6840,total:36000}] };
+}
+function invGetRepTotal() { const rep = invGetRep(); return INV_REP_MEMBERS.reduce((s, m) => s + (rep.capital[m] || 0), 0); }
+function invGetRepPct(member) { const t = invGetRepTotal(); return t > 0 ? (invGetRep().capital[member] || 0) / t : 0; }
+
+function invSyncLendermarketFromRep(li, moiInterest) {
+  const moiCap = invGetRep().capital["Moi"] || 0;
+  if (typeof li === 'undefined') li = portfolioData.months.length - 1;
+  if (!portfolioData.principal["Lendermarket"]) portfolioData.principal["Lendermarket"] = [];
+  while (portfolioData.principal["Lendermarket"].length <= li) portfolioData.principal["Lendermarket"].push(0);
+  portfolioData.principal["Lendermarket"][li] = moiCap;
+  if (typeof moiInterest !== 'undefined') {
+    if (!portfolioData.interests["Lendermarket"]) portfolioData.interests["Lendermarket"] = [];
+    while (portfolioData.interests["Lendermarket"].length <= li) portfolioData.interests["Lendermarket"].push(0);
+    portfolioData.interests["Lendermarket"][li] = moiInterest;
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+// PORTFOLIO RENDERING
+// ══════════════════════════════════════════════════════════════
+function renderPortfolioTab(tab) {
+  if (!portfolioData) return;
+  invCurrentTab = tab;
+  const t = invCompute();
+  const li = t.li;
+  const labels = invGetLabels();
+  const container = document.getElementById('tab-' + tab);
+  if (!container) return;
+
+  let h = '';
+
+  // KPIs (shown on all portfolio tabs)
+  h += '<div class="inv-grid-kpi">';
+  const kpis = [
+    { l: "Capital Brut", v: invFmt(t.tp), i: "💰", c: "#6366f1", s: portfolioData.platforms.filter(p => (portfolioData.principal[p] || [])[li] > 0).length + " plateformes" },
+    { l: "Capital Net", v: invFmt(t.nc), i: "🏦", c: t.nc >= 0 ? "#10b981" : "#ef4444", s: "Emprunts : " + invFmt(t.tl) },
+    { l: "Intérêts du mois", v: invFmt(t.lmi), i: "📈", c: "#06b6d4", s: (t.mc > 0 ? "+" : "") + t.mc + "% vs préc." },
+    { l: "Intérêts cumulés", v: invFmt(t.tic), i: "📊", c: "#f59e0b", s: "Moy. " + invFmt(t.am) + "/mois" },
+    { l: "Revenu net/mois", v: invFmt(t.nmi), i: "⚡", c: t.nmi >= 0 ? "#10b981" : "#ef4444", s: "Remb. " + invFmt(t.tmp) + "/mois" }
+  ];
+  kpis.forEach((k, i) => {
+    h += `<div class="inv-card inv-stat-card" style="animation-delay:${0.5*i}s,${0.5*i}s,${0.1*i}s">`;
+    h += `<div class="inv-flex inv-aic inv-gap2"><div class="inv-kpi-icon" style="background:${k.c}18;color:${k.c}">${k.i}</div><span style="font-size:12px;font-weight:500;color:var(--text-secondary)">${k.l}</span></div>`;
+    h += `<div style="font-size:20px;font-weight:700;margin-top:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${k.v}</div>`;
+    h += `<div style="font-size:12px;color:var(--text-secondary);margin-top:2px">${k.s}</div></div>`;
+  });
+  h += '</div>';
+
+  // Sync indicator
+  h += `<div class="inv-flex inv-jcsb inv-aic inv-mb4"><div></div><div id="inv-sync-ind" class="inv-save-ind">✓ Synchronisé</div></div>`;
+
+  // Tab-specific content
+  if (tab === 'overview') h += invRenderOverview(t, labels, li);
+  else if (tab === 'interests') h += invRenderInterests(t, labels);
+  else if (tab === 'evolution') h += invRenderEvolution(t, labels, li);
+  else if (tab === 'loans') h += invRenderLoans(t, labels, li);
+  else if (tab === 'repartition') h += invRenderRepartition(t, li);
+  else if (tab === 'update') h += invRenderUpdate(t, li);
+
+  // Footer
+  h += `<div style="text-align:center;margin-top:32px;font-size:12px;color:var(--text-secondary);opacity:0.4">Portfolio Dashboard — ${portfolioData.months.length} mois — Dernier : ${portfolioData.months.length > 0 ? invFmMonth(portfolioData.months[portfolioData.months.length - 1]) : ''}</div>`;
+
+  container.innerHTML = h;
+
+  // Build charts after DOM
+  requestAnimationFrame(() => {
+    if (tab === 'overview') invBuildOverviewCharts(t, labels, li);
+    else if (tab === 'interests') invBuildInterestCharts(t, labels);
+    else if (tab === 'evolution') invBuildEvolutionCharts(t, labels, li);
+    else if (tab === 'loans') invBuildLoanCharts(t, labels, li);
+    else if (tab === 'repartition') invBuildRepartitionCharts(t, labels, li);
+    invUpdateSyncIndicator();
+  });
+}
+
+// ── Overview ──
+function invRenderOverview(t, labels, li) {
+  const d = portfolioData;
+  let h = '<div class="inv-grid">';
+  h += '<div class="inv-grid inv-grid-2">';
+  h += '<div class="inv-chart-card"><h3>Évolution capital brut vs net</h3><div class="inv-canvas-wrap"><canvas id="inv-ch-capital"></canvas></div></div>';
+  h += '<div class="inv-chart-card"><h3>Répartition actuelle</h3><div class="inv-canvas-wrap"><canvas id="inv-ch-pie"></canvas></div></div>';
+  h += '</div>';
+  h += '<div class="inv-grid inv-grid-2">';
+  h += '<div class="inv-chart-card"><h3>Intérêts mensuels</h3><div class="inv-canvas-wrap"><canvas id="inv-ch-intbar"></canvas></div></div>';
+  h += '<div class="inv-card"><h3 style="font-size:0.88rem;font-weight:600;margin-bottom:16px">Détails par plateforme</h3><div style="display:flex;flex-direction:column;gap:12px">';
+  d.platforms.forEach((p, i) => {
+    const v = (d.principal[p] || [])[li] || 0;
+    const pc = t.tp > 0 ? (v / t.tp * 100).toFixed(1) : 0;
+    const iv = (d.interests[p] || [])[li] || 0;
+    if (v > 0) {
+      h += `<div><div class="inv-flex inv-jcsb" style="font-size:12px;margin-bottom:4px"><span class="inv-flex inv-aic inv-gap2"><span class="inv-dot" style="background:${INV_COLORS[i%10]};box-shadow:0 0 6px ${INV_COLORS[i%10]}"></span><span style="color:var(--text-secondary)">${p}</span></span><span style="font-weight:500">${invFmt(v)}</span></div>`;
+      h += `<div class="inv-neon-bar"><div class="inv-neon-fill" style="width:${pc}%;background:${INV_COLORS[i%10]}"></div></div>`;
+      h += `<div class="inv-flex inv-jcsb" style="font-size:12px;color:var(--text-secondary);margin-top:2px"><span>${pc}%</span><span>+${invFmt(iv)} ce mois</span></div></div>`;
+    }
+  });
+  h += '</div></div></div></div>';
+  return h;
+}
+
+function invBuildOverviewCharts(t, labels, li) {
+  const d = portfolioData;
+  const brutData = d.months.map((_, i) => d.platforms.reduce((s, p) => s + ((d.principal[p] || [])[i] || 0), 0));
+  const empData = d.months.map((_, i) => (d.loanNames || []).reduce((s, l) => s + ((d.loans[l] || [])[i] || 0), 0));
+  const netData = brutData.map((b, i) => b - empData[i]);
+
+  invCharts.capital = new Chart(document.getElementById('inv-ch-capital'), { type: 'line', data: { labels, datasets: [
+    { label: 'Capital brut', data: brutData, borderColor: '#6366f1', backgroundColor: invHexToRgba('#6366f1', 0.08), fill: true, borderWidth: 2, tension: 0.3 },
+    { label: 'Emprunts', data: empData, borderColor: '#ef4444', borderDash: [5,5], backgroundColor: 'transparent', fill: false, borderWidth: 1.5, tension: 0.3 },
+    { label: 'Capital net', data: netData, borderColor: '#10b981', backgroundColor: invHexToRgba('#10b981', 0.08), fill: true, borderWidth: 2, tension: 0.3 }
+  ]}, options: { responsive: true, maintainAspectRatio: false, scales: { x: { ticks: { maxTicksLimit: 8 } }, y: { ticks: { callback: invFmtK } } }, plugins: { tooltip: { callbacks: { label: ctx => ' ' + ctx.dataset.label + ': ' + invFmt(ctx.parsed.y) } } } } });
+
+  const pieData = d.platforms.map((p, i) => ({ name: p, value: (d.principal[p] || [])[li] || 0, color: INV_COLORS[i%10] })).filter(x => x.value > 0);
+  invCharts.pie = new Chart(document.getElementById('inv-ch-pie'), { type: 'doughnut', data: { labels: pieData.map(x => x.name), datasets: [{ data: pieData.map(x => x.value), backgroundColor: pieData.map(x => x.color), borderWidth: 0, hoverOffset: 8 }] }, options: { responsive: true, maintainAspectRatio: false, cutout: '55%', plugins: { legend: { position: 'bottom', labels: { padding: 8, font: { size: 10 } } }, tooltip: { callbacks: { label: ctx => { const total = ctx.dataset.data.reduce((a, b) => a + b, 0); return ' ' + ctx.label + ': ' + invFmt(ctx.parsed) + ' (' + Math.round(ctx.parsed / total * 100) + '%)'; } } } } } });
+
+  const datasets = d.platforms.filter(p => (d.interests[p] || []).some(v => v > 0)).map(p => ({ label: p, data: d.months.map((_, j) => (d.interests[p] || [])[j] || 0), backgroundColor: invHexToRgba(INV_COLORS[d.platforms.indexOf(p) % 10], 0.75), borderRadius: 2 }));
+  invCharts.intbar = new Chart(document.getElementById('inv-ch-intbar'), { type: 'bar', data: { labels, datasets }, options: { responsive: true, maintainAspectRatio: false, scales: { x: { stacked: true, ticks: { maxTicksLimit: 8 } }, y: { stacked: true } }, plugins: { tooltip: { mode: 'index', callbacks: { label: ctx => ' ' + ctx.dataset.label + ': ' + invFmt(ctx.parsed.y), footer: items => 'Total: ' + invFmt(items.reduce((s, i) => s + i.parsed.y, 0)) } } } } });
+}
+
+// ── Interests ──
+function invRenderInterests(t, labels) {
+  const d = portfolioData;
+  let h = '<div class="inv-grid">';
+  h += '<div class="inv-chart-card"><h3>Intérêts cumulés par plateforme</h3><div class="inv-canvas-wrap" style="height:350px"><canvas id="inv-ch-cumul"></canvas></div></div>';
+  h += '<div class="inv-grid inv-grid-2">';
+  h += '<div class="inv-chart-card"><h3>Répartition des intérêts</h3><div class="inv-canvas-wrap" style="height:280px"><canvas id="inv-ch-intpie"></canvas></div></div>';
+  h += '<div class="inv-card"><h3 style="font-size:0.88rem;font-weight:600;margin-bottom:16px">Classement par plateforme</h3><div style="display:flex;flex-direction:column;gap:12px">';
+  const sorted = d.platforms.map((p, i) => ({ name: p, total: (d.interests[p] || []).reduce((a, b) => a + b, 0), color: INV_COLORS[i%10] })).filter(x => x.total > 0).sort((a, b) => b.total - a.total);
+  const mx = sorted.length > 0 ? sorted[0].total : 1;
+  sorted.forEach(x => {
+    h += `<div><div class="inv-flex inv-jcsb" style="font-size:12px;margin-bottom:4px"><span class="inv-flex inv-aic inv-gap2"><span class="inv-dot" style="background:${x.color};box-shadow:0 0 6px ${x.color}"></span><span style="color:var(--text-secondary)">${x.name}</span></span><span style="font-weight:500">${invFmt(x.total)}</span></div>`;
+    h += `<div class="inv-neon-bar"><div class="inv-neon-fill" style="width:${x.total/mx*100}%;background:${x.color}"></div></div></div>`;
+  });
+  h += '</div></div></div>';
+  h += '<div class="inv-chart-card"><h3>Évolution mensuelle des intérêts</h3><div class="inv-canvas-wrap"><canvas id="inv-ch-intline"></canvas></div></div>';
+  h += '</div>';
+  return h;
+}
+
+function invBuildInterestCharts(t, labels) {
+  const d = portfolioData;
+  const cumSets = d.platforms.filter(p => (d.interests[p] || []).some(v => v > 0)).map(p => {
+    const cum = []; let total = 0; const idx = d.platforms.indexOf(p);
+    d.months.forEach((_, i) => { total += (d.interests[p] || [])[i] || 0; cum.push(total); });
+    return { label: p, data: cum, borderColor: INV_COLORS[idx%10], backgroundColor: invHexToRgba(INV_COLORS[idx%10], 0.06), fill: true, borderWidth: 1.5, tension: 0.3 };
+  });
+  invCharts.cumul = new Chart(document.getElementById('inv-ch-cumul'), { type: 'line', data: { labels, datasets: cumSets }, options: { responsive: true, maintainAspectRatio: false, scales: { x: { ticks: { maxTicksLimit: 8 } }, y: { ticks: { callback: invFmtK } } } } });
+
+  const ipd = d.platforms.map((p, i) => ({ name: p, value: (d.interests[p] || []).reduce((a, b) => a + b, 0), color: INV_COLORS[i%10] })).filter(x => x.value > 0);
+  invCharts.intpie = new Chart(document.getElementById('inv-ch-intpie'), { type: 'doughnut', data: { labels: ipd.map(x => x.name), datasets: [{ data: ipd.map(x => x.value), backgroundColor: ipd.map(x => x.color), borderWidth: 0 }] }, options: { responsive: true, maintainAspectRatio: false, cutout: '55%', plugins: { legend: { position: 'bottom', labels: { padding: 8, font: { size: 10 } } } } } });
+
+  const lineSets = d.platforms.filter(p => (d.interests[p] || []).some(v => v > 0)).map(p => {
+    const idx = d.platforms.indexOf(p);
+    return { label: p, data: d.months.map((_, i) => (d.interests[p] || [])[i] || 0), borderColor: INV_COLORS[idx%10], backgroundColor: 'transparent', borderWidth: 1.5, tension: 0.3 };
+  });
+  invCharts.intline = new Chart(document.getElementById('inv-ch-intline'), { type: 'line', data: { labels, datasets: lineSets }, options: { responsive: true, maintainAspectRatio: false, scales: { x: { ticks: { maxTicksLimit: 8 } } } } });
+}
+
+// ── Evolution ──
+function invRenderEvolution(t, labels, li) {
+  let h = '<div class="inv-grid">';
+  h += '<div class="inv-chart-card"><h3>Capital par plateforme (empilé)</h3><div class="inv-canvas-wrap" style="height:380px"><canvas id="inv-ch-stack"></canvas></div></div>';
+  h += '<div class="inv-grid inv-grid-2">';
+  h += '<div class="inv-chart-card"><h3>Variation mensuelle du capital</h3><div class="inv-canvas-wrap"><canvas id="inv-ch-var"></canvas></div></div>';
+  h += '<div class="inv-chart-card"><h3>Mois actuel vs précédent</h3><div class="inv-canvas-wrap"><canvas id="inv-ch-compare"></canvas></div></div>';
+  h += '</div></div>';
+  return h;
+}
+
+function invBuildEvolutionCharts(t, labels, li) {
+  const d = portfolioData;
+  const stackSets = d.platforms.filter(p => (d.principal[p] || []).some(v => v > 0)).map(p => {
+    const idx = d.platforms.indexOf(p);
+    return { label: p, data: d.months.map((_, i) => (d.principal[p] || [])[i] || 0), borderColor: INV_COLORS[idx%10], backgroundColor: invHexToRgba(INV_COLORS[idx%10], 0.15), fill: true, borderWidth: 1.5, tension: 0.3 };
+  });
+  invCharts.stack = new Chart(document.getElementById('inv-ch-stack'), { type: 'line', data: { labels, datasets: stackSets }, options: { responsive: true, maintainAspectRatio: false, scales: { x: { ticks: { maxTicksLimit: 10 } }, y: { stacked: true, ticks: { callback: invFmtK } } }, plugins: { tooltip: { mode: 'index' } } } });
+
+  const totals = d.months.map((_, i) => d.platforms.reduce((s, p) => s + ((d.principal[p] || [])[i] || 0), 0));
+  const variations = totals.slice(1).map((v, i) => v - totals[i]);
+  invCharts.varChart = new Chart(document.getElementById('inv-ch-var'), { type: 'bar', data: { labels: labels.slice(1), datasets: [{ label: 'Variation', data: variations, backgroundColor: variations.map(v => v >= 0 ? invHexToRgba('#10b981', 0.7) : invHexToRgba('#ef4444', 0.7)), borderRadius: 3 }] }, options: { responsive: true, maintainAspectRatio: false, scales: { x: { ticks: { maxTicksLimit: 8 } }, y: { ticks: { callback: invFmtK } } }, plugins: { legend: { display: false } } } });
+
+  const compData = d.platforms.filter(p => ((d.principal[p] || [])[li] || 0) > 0 || ((d.principal[p] || [])[Math.max(0, li-1)] || 0) > 0);
+  invCharts.compare = new Chart(document.getElementById('inv-ch-compare'), { type: 'bar', data: { labels: compData, datasets: [
+    { label: 'Précédent', data: compData.map(p => (d.principal[p] || [])[Math.max(0, li-1)] || 0), backgroundColor: invHexToRgba('#6366f1', 0.25), borderRadius: 3 },
+    { label: 'Actuel', data: compData.map(p => (d.principal[p] || [])[li] || 0), backgroundColor: invHexToRgba('#6366f1', 0.75), borderRadius: 3 }
+  ] }, options: { responsive: true, maintainAspectRatio: false, indexAxis: 'y', scales: { x: { ticks: { callback: invFmtK } } }, plugins: { tooltip: { callbacks: { label: ctx => ' ' + ctx.dataset.label + ': ' + invFmt(ctx.parsed.x) } } } } });
+}
+
+// ── Loans ──
+function invRenderLoans(t, labels, li) {
+  const d = portfolioData;
+  let h = '<div class="inv-grid">';
+  h += '<div class="inv-grid-kpi" style="grid-template-columns:repeat(3,1fr)">';
+  (d.loanNames || []).forEach((l, i) => {
+    const cu = (d.loans[l] || [])[li] || 0;
+    const ini = (d.loans[l] || [])[0] || cu;
+    const po = ini - cu;
+    const pp = ini > 0 ? (po / ini * 100).toFixed(1) : 0;
+    const mo = (d.loanMonthlyPayments || {})[l] || 0;
+    h += `<div class="inv-card" style="border-color:rgba(239,68,68,0.1)">`;
+    h += `<div class="inv-flex inv-aic inv-gap2 inv-mb3"><span class="inv-dot" style="background:${INV_LC[i%3]};box-shadow:0 0 8px ${INV_LC[i%3]};width:12px;height:12px"></span><span style="font-size:14px;font-weight:600">${l}</span></div>`;
+    h += '<div style="display:flex;flex-direction:column;gap:8px">';
+    h += `<div class="inv-flex inv-jcsb" style="font-size:12px"><span style="color:var(--text-secondary)">Restant dû</span><span style="font-weight:500">${invFmt(cu)}</span></div>`;
+    h += `<div class="inv-flex inv-jcsb" style="font-size:12px"><span style="color:var(--text-secondary)">Initial</span><span style="color:var(--text-secondary)">${invFmt(ini)}</span></div>`;
+    h += `<div class="inv-flex inv-jcsb" style="font-size:12px"><span style="color:var(--text-secondary)">Remboursé</span><span class="inv-cg">${invFmt(po)} (${pp}%)</span></div>`;
+    if (mo > 0) h += `<div class="inv-flex inv-jcsb" style="font-size:12px"><span style="color:var(--text-secondary)">Mensualité</span><span class="inv-cy">${invFmt(mo)}/mois</span></div>`;
+    h += `<div class="inv-neon-bar inv-mt2"><div class="inv-neon-fill" style="width:${pp}%;background:linear-gradient(90deg,#10b981,#059669)"></div></div>`;
+    h += '</div></div>';
+  });
+  h += '</div>';
+  h += '<div class="inv-chart-card"><h3>Évolution des emprunts</h3><div class="inv-canvas-wrap"><canvas id="inv-ch-loans"></canvas></div></div>';
+  h += '<div class="inv-grid inv-grid-2">';
+  h += '<div class="inv-chart-card"><h3>Capital net vs dette</h3><div class="inv-canvas-wrap"><canvas id="inv-ch-netdebt"></canvas></div></div>';
+  h += '<div class="inv-card"><h3 style="font-size:0.88rem;font-weight:600;margin-bottom:16px">Indicateurs clés</h3><div style="display:flex;flex-direction:column;gap:16px">';
+  h += `<div class="inv-ind-card"><div style="font-size:12px;color:var(--text-secondary);margin-bottom:4px">Taux d'endettement</div><div style="font-size:18px;font-weight:700">${t.tp > 0 ? (t.tl / t.tp * 100).toFixed(1) : 0}%</div><div style="font-size:12px;color:var(--text-secondary)">Dette / Capital brut</div></div>`;
+  h += `<div class="inv-ind-card"><div style="font-size:12px;color:var(--text-secondary);margin-bottom:4px">Couverture remboursements</div><div style="font-size:18px;font-weight:700;color:${t.lmi >= t.tmp ? '#10b981' : '#ef4444'}">${t.tmp > 0 ? (t.lmi / t.tmp).toFixed(2) + 'x' : 'N/A'}</div><div style="font-size:12px;color:var(--text-secondary)">Intérêts / Mensualités</div></div>`;
+  h += `<div class="inv-ind-card"><div style="font-size:12px;color:var(--text-secondary);margin-bottom:4px">Rendement net</div><div style="font-size:18px;font-weight:700;color:${t.nmi >= 0 ? '#10b981' : '#ef4444'}">${t.tp > 0 ? (t.nmi * 12 / t.tp * 100).toFixed(1) : 0}% / an</div><div style="font-size:12px;color:var(--text-secondary)">(Intérêts - Remb.) × 12 / Capital</div></div>`;
+  h += '</div></div></div></div>';
+  return h;
+}
+
+function invBuildLoanCharts(t, labels, li) {
+  const d = portfolioData;
+  const loanSets = (d.loanNames || []).map((l, i) => ({
+    label: l, data: d.months.map((_, j) => (d.loans[l] || [])[j] || 0), borderColor: INV_LC[i%3], backgroundColor: invHexToRgba(INV_LC[i%3], 0.1), fill: true, borderWidth: 1.5, tension: 0.3
+  }));
+  invCharts.loans = new Chart(document.getElementById('inv-ch-loans'), { type: 'line', data: { labels, datasets: loanSets }, options: { responsive: true, maintainAspectRatio: false, scales: { x: { ticks: { maxTicksLimit: 8 } }, y: { ticks: { callback: invFmtK } } } } });
+
+  const brutD = d.months.map((_, i) => d.platforms.reduce((s, p) => s + ((d.principal[p] || [])[i] || 0), 0));
+  const empD = d.months.map((_, i) => (d.loanNames || []).reduce((s, l) => s + ((d.loans[l] || [])[i] || 0), 0));
+  const netD = brutD.map((b, i) => b - empD[i]);
+  invCharts.netdebt = new Chart(document.getElementById('inv-ch-netdebt'), { type: 'line', data: { labels, datasets: [
+    { label: 'Capital brut', data: brutD, borderColor: '#6366f1', backgroundColor: invHexToRgba('#6366f1', 0.06), fill: true, borderWidth: 2, tension: 0.3 },
+    { label: 'Emprunts', data: empD, borderColor: '#ef4444', borderDash: [5,5], backgroundColor: 'transparent', borderWidth: 1.5, tension: 0.3 },
+    { label: 'Capital net', data: netD, borderColor: '#10b981', backgroundColor: invHexToRgba('#10b981', 0.06), fill: true, borderWidth: 2, tension: 0.3 }
+  ] }, options: { responsive: true, maintainAspectRatio: false, scales: { x: { ticks: { maxTicksLimit: 8 } }, y: { ticks: { callback: invFmtK } } } } });
+}
+
+// ── Repartition ──
+function invRenderRepartition(t, li) {
+  const d = portfolioData;
+  const rep = invGetRep();
+  const totalCap = invGetRepTotal();
+  const moiIntStored = (d.interests["Lendermarket"] || [])[li] || 0;
+  const moiPct = invGetRepPct("Moi");
+  const totalInterest = moiPct > 0 ? Math.round(moiIntStored / moiPct) : moiIntStored;
+
+  let h = '<div class="inv-grid">';
+  // 3 member cards
+  h += '<div class="inv-grid inv-grid-3">';
+  INV_REP_MEMBERS.forEach(m => {
+    const cap = rep.capital[m] || 0;
+    const pct = totalCap > 0 ? cap / totalCap : 0;
+    const memberInt = Math.round(totalInterest * pct);
+    const col = INV_MEMBER_COLORS[m];
+    h += `<div class="inv-card inv-stat-card">`;
+    h += `<div class="inv-flex inv-aic inv-gap2"><div class="inv-kpi-icon" style="background:${col}18;color:${col}">👤</div><span style="font-size:12px;font-weight:500;color:var(--text-secondary)">${m}</span></div>`;
+    h += `<div style="font-size:20px;font-weight:700;margin-top:6px">${invFmt(cap)}</div>`;
+    h += `<div class="inv-flex inv-jcsb" style="font-size:12px;color:var(--text-secondary);margin-top:4px"><span>${(pct*100).toFixed(1)}%</span><span class="inv-cg">+${invFmt(memberInt)}/mois</span></div>`;
+    h += `<div class="inv-neon-bar inv-mt2"><div class="inv-neon-fill" style="width:${pct*100}%;background:${col}"></div></div></div>`;
+  });
+  h += '</div>';
+
+  // Summary
+  h += `<div class="inv-card"><div class="inv-flex inv-jcsb inv-aic inv-fw inv-gap4">`;
+  h += `<div><span style="font-size:14px;font-weight:600">Capital total Lendermarket</span><span style="font-size:20px;font-weight:700;margin-left:12px">${invFmt(totalCap)}</span></div>`;
+  h += `<div class="inv-flex inv-aic inv-gap3"><span style="font-size:12px;color:var(--text-secondary)">Intérêts totaux :</span><span style="font-size:14px;font-weight:600;color:#10b981">+${invFmt(totalInterest)}/mois</span>`;
+  h += `<span style="font-size:12px;color:var(--text-secondary)">|</span><span style="font-size:12px;color:var(--text-secondary)">Ma part :</span><span style="font-size:14px;font-weight:600;color:#10b981">+${invFmt(moiIntStored)}</span></div>`;
+  h += '</div></div>';
+
+  // Charts
+  h += '<div class="inv-grid inv-grid-2">';
+  h += '<div class="inv-chart-card"><h3>Répartition du capital</h3><div class="inv-canvas-wrap" style="height:250px"><canvas id="inv-ch-rep-pie"></canvas></div></div>';
+  h += '<div class="inv-chart-card"><h3>Répartition des intérêts</h3><div class="inv-canvas-wrap" style="height:250px"><canvas id="inv-ch-rep-int"></canvas></div></div>';
+  h += '</div>';
+
+  // Monthly update section
+  h += '<div class="inv-card"><h3 style="font-size:0.88rem;font-weight:600;margin-bottom:16px">1. Mise à jour mensuelle</h3>';
+  h += '<p style="font-size:12px;color:var(--text-secondary);margin-bottom:16px">Entre le nouveau capital total Lendermarket et les intérêts du mois. La croissance et les intérêts sont répartis proportionnellement.</p>';
+  if (!invRepMonthlyMode) {
+    h += '<button class="inv-btn inv-btn-p" onclick="invStartRepMonthly()">Mettre à jour</button>';
+  } else {
+    h += '<div class="inv-grid inv-grid-2" style="margin-bottom:16px">';
+    h += `<div class="inv-form-card"><div class="inv-flex inv-aic inv-gap2 inv-mb3"><span class="inv-dot" style="background:#6366f1;box-shadow:0 0 6px #6366f1;width:12px;height:12px"></span><span style="font-size:12px;font-weight:500">Nouveau capital total</span></div>`;
+    h += `<input class="inv-input" type="number" id="inv-rep-monthly-total" value="${invRepForm.total||0}" onchange="invRepForm.total=Number(this.value);renderPortfolioTab('repartition')" oninput="invRepForm.total=Number(this.value)"></div>`;
+    h += `<div class="inv-form-card"><div class="inv-flex inv-aic inv-gap2 inv-mb3"><span class="inv-dot" style="background:#10b981;box-shadow:0 0 6px #10b981;width:12px;height:12px"></span><span style="font-size:12px;font-weight:500">Intérêts du mois (total)</span></div>`;
+    h += `<input class="inv-input" type="number" id="inv-rep-monthly-int" value="${invRepForm.interest||0}" onchange="invRepForm.interest=Number(this.value);renderPortfolioTab('repartition')" oninput="invRepForm.interest=Number(this.value)"></div>`;
+    h += '</div>';
+    // Preview
+    const previewTotal = invRepForm.total || 0;
+    const previewInt = invRepForm.interest || 0;
+    h += '<div class="inv-info-box" style="margin-bottom:16px"><div style="font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:12px">Aperçu de la répartition</div>';
+    h += '<div class="inv-grid inv-grid-3" style="text-align:center">';
+    INV_REP_MEMBERS.forEach(m => {
+      const pct2 = invGetRepPct(m);
+      const newCap = Math.round(previewTotal * pct2);
+      const memberInt2 = Math.round(previewInt * pct2);
+      const delta = newCap - (rep.capital[m] || 0);
+      h += `<div><div style="font-size:12px;color:var(--text-secondary)">${m}</div><div style="font-size:14px;font-weight:600">${invFmt(newCap)}</div>`;
+      h += `<div style="font-size:12px;color:${delta >= 0 ? '#10b981' : '#ef4444'}">${delta >= 0 ? '+' : ''}${invFmt(delta)}</div>`;
+      h += `<div style="font-size:12px;color:#10b981">+${invFmt(memberInt2)} int.</div></div>`;
+    });
+    h += '</div></div>';
+    h += '<div class="inv-flex inv-gap3" style="justify-content:flex-end"><button class="inv-btn inv-btn-s" onclick="invRepMonthlyMode=false;renderPortfolioTab(\'repartition\')">Annuler</button><button class="inv-btn inv-btn-ok" onclick="invSaveRepMonthly()">Sauvegarder</button></div>';
+  }
+  h += '</div>';
+
+  // Adjustment section
+  h += '<div class="inv-card"><h3 style="font-size:0.88rem;font-weight:600;margin-bottom:16px">2. Ajustement ponctuel (dépôt / retrait)</h3>';
+  h += '<p style="font-size:12px;color:var(--text-secondary);margin-bottom:16px">Ajoute ou retire une somme pour une personne. Les pourcentages se recalculent automatiquement.</p>';
+  if (!invRepAdjMode) {
+    h += '<button class="inv-btn inv-btn-p" onclick="invStartRepAdj()" style="background:linear-gradient(135deg,#06b6d4,#6366f1)">Ajustement</button>';
+  } else {
+    h += '<div class="inv-grid inv-grid-3" style="margin-bottom:16px">';
+    h += '<div class="inv-form-card"><div style="font-size:12px;font-weight:500;margin-bottom:12px">Personne</div>';
+    h += '<select class="inv-select" onchange="invRepForm.adjMember=this.value;renderPortfolioTab(\'repartition\')">';
+    INV_REP_MEMBERS.forEach(m => { h += `<option value="${m}"${invRepForm.adjMember === m ? ' selected' : ''}>${m}</option>`; });
+    h += '</select></div>';
+    h += '<div class="inv-form-card"><div style="font-size:12px;font-weight:500;margin-bottom:12px">Type</div>';
+    h += '<select class="inv-select" onchange="invRepForm.adjType=this.value;renderPortfolioTab(\'repartition\')">';
+    h += `<option value="depot"${invRepForm.adjType === 'depot' ? ' selected' : ''}>Dépôt (+)</option>`;
+    h += `<option value="retrait"${invRepForm.adjType === 'retrait' ? ' selected' : ''}>Retrait (−)</option>`;
+    h += '</select></div>';
+    h += '<div class="inv-form-card"><div style="font-size:12px;font-weight:500;margin-bottom:12px">Montant (€)</div>';
+    h += `<input class="inv-input" type="number" value="${invRepForm.adjAmount||''}" onchange="invRepForm.adjAmount=Number(this.value);renderPortfolioTab('repartition')" oninput="invRepForm.adjAmount=Number(this.value)" placeholder="0" min="0"></div>`;
+    h += '</div>';
+    // Preview
+    const adjMember = invRepForm.adjMember || "Moi";
+    const adjAmount = invRepForm.adjAmount || 0;
+    const adjSign = invRepForm.adjType === 'retrait' ? -1 : 1;
+    const newMemberCap = (rep.capital[adjMember] || 0) + adjAmount * adjSign;
+    const newAdjTotal = totalCap + adjAmount * adjSign;
+    h += '<div class="inv-info-box" style="margin-bottom:16px;border-color:rgba(6,182,212,0.12);background:rgba(6,182,212,0.04)"><div style="font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:12px">Aperçu après ajustement</div>';
+    h += '<div class="inv-grid inv-grid-3" style="text-align:center">';
+    INV_REP_MEMBERS.forEach(m => {
+      let cap = rep.capital[m] || 0;
+      if (m === adjMember) cap = newMemberCap;
+      const pctA = newAdjTotal > 0 ? cap / newAdjTotal : 0;
+      const oldPctA = totalCap > 0 ? (rep.capital[m] || 0) / totalCap : 0;
+      const pctDelta = pctA - oldPctA;
+      h += `<div><div style="font-size:12px;color:var(--text-secondary)">${m}</div><div style="font-size:14px;font-weight:600">${invFmt(cap)}</div>`;
+      h += `<div style="font-size:12px;font-weight:500">${(pctA*100).toFixed(1)}%</div>`;
+      h += `<div style="font-size:12px;color:${pctDelta >= 0 ? '#10b981' : '#ef4444'}">${pctDelta >= 0 ? '+' : ''}${(pctDelta*100).toFixed(1)}%</div></div>`;
+    });
+    h += '</div>';
+    h += `<div style="font-size:12px;color:var(--text-secondary);margin-top:8px;text-align:center">Nouveau total : <span style="font-weight:600">${invFmt(newAdjTotal)}</span></div></div>`;
+    h += '<div class="inv-flex inv-gap3" style="justify-content:flex-end"><button class="inv-btn inv-btn-s" onclick="invRepAdjMode=false;renderPortfolioTab(\'repartition\')">Annuler</button><button class="inv-btn inv-btn-ok" onclick="invSaveRepAdj()">Sauvegarder</button></div>';
+  }
+  h += '</div>';
+
+  // History
+  h += '<div class="inv-card"><h3 style="font-size:0.88rem;font-weight:600;margin-bottom:16px">Historique des mouvements</h3>';
+  const hist = (rep.history || []).slice().reverse();
+  if (hist.length > 0) {
+    h += '<div class="inv-ox"><table class="inv-table"><thead><tr><th>Date</th><th>Mouvement</th><th class="th-r">Moi</th><th class="th-r">Noah</th><th class="th-r">Elie</th><th class="th-r">Total</th></tr></thead><tbody>';
+    hist.forEach(ev => {
+      const typeLabel = ev.type === 'init' ? '<span style="color:var(--text-secondary)">Initial</span>' : ev.type === 'update' ? 'Mise à jour' : ev.type === 'depot' ? '<span class="inv-cg">+ Dépôt</span>' : '<span class="inv-cr">− Retrait</span>';
+      h += '<tr style="border-bottom:1px solid rgba(255,255,255,0.03)">';
+      h += `<td style="font-size:12px">${invFmMonth(ev.date)}</td>`;
+      h += `<td style="font-size:12px">${typeLabel}${ev.desc ? ' <span style="color:var(--text-secondary)">' + ev.desc + '</span>' : ''}</td>`;
+      h += `<td class="td-r" style="font-size:12px;color:#6366f1">${invFmt(ev["Moi"]||0)}</td>`;
+      h += `<td class="td-r" style="font-size:12px">${invFmt(ev["Noah"]||0)}</td>`;
+      h += `<td class="td-r" style="font-size:12px">${invFmt(ev["Elie"]||0)}</td>`;
+      h += `<td class="td-r" style="font-size:12px;font-weight:500">${invFmt(ev.total||0)}</td></tr>`;
+    });
+    h += '</tbody></table></div>';
+  } else {
+    h += '<p style="font-size:12px;color:var(--text-secondary)">Aucun mouvement enregistré.</p>';
+  }
+  h += '</div></div>';
+  return h;
+}
+
+function invBuildRepartitionCharts(t, labels, li) {
+  const rep = invGetRep();
+  const totalCap = invGetRepTotal();
+  const moiIntStored = (portfolioData.interests["Lendermarket"] || [])[li] || 0;
+  const moiPct = invGetRepPct("Moi");
+  const totalInt = moiPct > 0 ? Math.round(moiIntStored / moiPct) : moiIntStored;
+
+  const repLabels = ["Moi","Noah","Elie"];
+  const colors = ["#6366f1","#06b6d4","#f59e0b"];
+  const capData = INV_REP_MEMBERS.map(m => rep.capital[m] || 0);
+  const intData = INV_REP_MEMBERS.map(m => Math.round(totalInt * invGetRepPct(m)));
+
+  const el1 = document.getElementById('inv-ch-rep-pie');
+  if (el1) invCharts.repPie = new Chart(el1, { type: 'doughnut', data: { labels: repLabels, datasets: [{ data: capData, backgroundColor: colors, borderWidth: 0, hoverOffset: 8 }] }, options: { responsive: true, maintainAspectRatio: false, cutout: '55%', plugins: { legend: { position: 'bottom', labels: { padding: 8, font: { size: 11 } } }, tooltip: { callbacks: { label: ctx => { const total = ctx.dataset.data.reduce((a, b) => a + b, 0); return ' ' + ctx.label + ': ' + invFmt(ctx.parsed) + ' (' + Math.round(ctx.parsed / total * 100) + '%)'; } } } } } });
+
+  const el2 = document.getElementById('inv-ch-rep-int');
+  if (el2) invCharts.repInt = new Chart(el2, { type: 'doughnut', data: { labels: repLabels, datasets: [{ data: intData, backgroundColor: colors, borderWidth: 0, hoverOffset: 8 }] }, options: { responsive: true, maintainAspectRatio: false, cutout: '55%', plugins: { legend: { position: 'bottom', labels: { padding: 8, font: { size: 11 } } }, tooltip: { callbacks: { label: ctx => ' ' + ctx.label + ': ' + invFmt(ctx.parsed) + '€' } } } } });
+}
+
+// Repartition actions
+function invStartRepMonthly() {
+  invRepForm = { total: invGetRepTotal(), interest: (portfolioData.interests["Lendermarket"] || [])[portfolioData.months.length - 1] || 0 };
+  invRepMonthlyMode = true; invRepAdjMode = false; renderPortfolioTab('repartition');
+}
+
+function invSaveRepMonthly() {
+  if (!portfolioData.repartition) portfolioData.repartition = invGetRep();
+  const rep = portfolioData.repartition;
+  const li = portfolioData.months.length - 1;
+  const newTotal = Number(invRepForm.total) || 0;
+  const totalInterest = Number(invRepForm.interest) || 0;
+  const oldTotal = invGetRepTotal();
+  INV_REP_MEMBERS.forEach(m => {
+    const pct = oldTotal > 0 ? (rep.capital[m] || 0) / oldTotal : 1/3;
+    rep.capital[m] = Math.round(newTotal * pct);
+  });
+  const sum = INV_REP_MEMBERS.reduce((s, m) => s + (rep.capital[m] || 0), 0);
+  rep.capital["Moi"] += (newTotal - sum);
+  const moiPct = newTotal > 0 ? (rep.capital["Moi"] || 0) / newTotal : 0;
+  const moiInterest = Math.round(totalInterest * moiPct);
+  invSyncLendermarketFromRep(li, moiInterest);
+  if (!rep.history) rep.history = [];
+  const ev = { date: portfolioData.months[li], type: 'update', desc: 'Mise à jour mensuelle' };
+  INV_REP_MEMBERS.forEach(m => { ev[m] = rep.capital[m] || 0; });
+  ev.total = newTotal; ev.interest = totalInterest;
+  rep.history.push(ev);
+  invRepMonthlyMode = false;
+  savePortfolioToFirebase();
+  invNotify('Lendermarket mis à jour ! Total: ' + invFmt(newTotal) + ', Intérêts Moi: ' + invFmt(moiInterest));
+  renderPortfolioTab('repartition');
+}
+
+function invStartRepAdj() {
+  invRepForm = { adjMember: "Moi", adjType: "depot", adjAmount: 0 };
+  invRepAdjMode = true; invRepMonthlyMode = false; renderPortfolioTab('repartition');
+}
+
+function invSaveRepAdj() {
+  if (!portfolioData.repartition) portfolioData.repartition = invGetRep();
+  const rep = portfolioData.repartition;
+  const li = portfolioData.months.length - 1;
+  const member = invRepForm.adjMember || "Moi";
+  const amount = Number(invRepForm.adjAmount) || 0;
+  if (amount <= 0) { invNotify('Montant invalide', 'err'); return; }
+  const sign = invRepForm.adjType === 'retrait' ? -1 : 1;
+  const newCap = (rep.capital[member] || 0) + amount * sign;
+  if (newCap < 0) { invNotify('Le capital de ' + member + ' ne peut pas être négatif', 'err'); return; }
+  rep.capital[member] = newCap;
+  invSyncLendermarketFromRep(li);
+  if (!rep.history) rep.history = [];
+  const ev = { date: portfolioData.months[li], type: invRepForm.adjType, desc: member + ' ' + (sign > 0 ? '+' : '-') + invFmt(amount) };
+  INV_REP_MEMBERS.forEach(m => { ev[m] = rep.capital[m] || 0; });
+  ev.total = invGetRepTotal();
+  rep.history.push(ev);
+  invRepAdjMode = false;
+  savePortfolioToFirebase();
+  invNotify((sign > 0 ? 'Dépôt' : 'Retrait') + ' de ' + invFmt(amount) + ' pour ' + member + '. Nouveau total: ' + invFmt(ev.total));
+  renderPortfolioTab('repartition');
+}
+
+// ── Update tab ──
+function invRenderUpdate(t, li) {
+  const d = portfolioData;
+  let h = '<div class="inv-grid">';
+  // Data management
+  h += '<div class="inv-card"><div class="inv-flex inv-jcsb inv-aic inv-fw inv-gap4" style="flex-wrap:wrap">';
+  h += '<div><h3 style="font-size:0.88rem;font-weight:600">Gestion des données</h3><p style="font-size:12px;color:var(--text-secondary);margin-top:4px">Sauvegarde automatique. Export JSON pour transférer vers un autre appareil.</p></div>';
+  h += '<div class="inv-flex inv-fw inv-gap2">';
+  h += '<button class="inv-btn inv-btn-ok" onclick="invExportJSON()">Exporter JSON</button>';
+  h += '<button class="inv-btn inv-btn-s" onclick="document.getElementById(\'invFileInput\').click()">Importer JSON</button>';
+  h += '<input id="invFileInput" type="file" accept=".json" onchange="invImportJSON(event)" class="inv-hidden">';
+  h += '<button class="inv-btn inv-btn-p" onclick="invToggleAddMonth()">+ Nouveau mois</button>';
+  h += '</div></div>';
+  if (invShowAddMonth) {
+    const nm = invNextMonth(d.months[d.months.length - 1]);
+    h += `<div class="inv-info-box inv-mt4"><div class="inv-flex inv-jcsb inv-aic inv-fw inv-gap2">`;
+    h += `<div><span style="font-size:12px;font-weight:500">Ajouter : </span><span style="font-size:12px;font-weight:600;color:#6366f1">${invFmMonth(nm)}</span><span style="font-size:12px;color:var(--text-secondary);margin-left:8px">(valeurs précédentes copiées)</span></div>`;
+    h += '<div class="inv-flex inv-gap2"><button class="inv-btn inv-btn-s" onclick="invToggleAddMonth()">Annuler</button><button class="inv-btn inv-btn-p" onclick="invAddMonth()">Confirmer</button></div>';
+    h += '</div></div>';
+  }
+  h += '</div>';
+
+  // Monthly update
+  h += '<div class="inv-card"><div class="inv-flex inv-jcsb inv-aic inv-fw inv-gap4 inv-mb6" style="flex-wrap:wrap">';
+  h += '<h3 style="font-size:0.88rem;font-weight:600">Mise à jour mensuelle</h3>';
+  h += '<div class="inv-flex inv-aic inv-gap3">';
+  h += '<select class="inv-select" onchange="invChangeEditMonth(this.value)" style="width:auto">';
+  d.months.forEach((m, i) => { h += `<option value="${i}"${invEditMonth === i ? ' selected' : ''}>${invFmMonth(m)}</option>`; });
+  h += '</select>';
+  if (!invEditing) h += '<button class="inv-btn inv-btn-p" onclick="invStartEditing()">Modifier</button>';
+  h += '</div></div>';
+
+  if (invEditing) {
+    h += '<div><div style="font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:12px">Plateformes d\'investissement</div>';
+    h += '<div class="inv-grid-form" style="margin-bottom:24px">';
+    d.platforms.forEach((p, i) => {
+      if (p === 'Lendermarket') {
+        const intVal = (d.interests[p] || [])[invEditMonth] || 0;
+        const prinVal = (d.principal[p] || [])[invEditMonth] || 0;
+        h += `<div class="inv-form-card" style="opacity:0.6"><div class="inv-flex inv-aic inv-gap2 inv-mb3"><span class="inv-dot" style="background:${INV_COLORS[i%10]};box-shadow:0 0 6px ${INV_COLORS[i%10]};width:12px;height:12px"></span><span style="font-size:12px;font-weight:500">${p} <span style="color:var(--text-secondary)">🔒</span></span></div>`;
+        h += '<div style="display:flex;flex-direction:column;gap:8px">';
+        h += `<div><label style="font-size:12px;color:var(--text-secondary);display:block;margin-bottom:4px">Intérêts (€)</label><div style="font-size:14px;font-weight:600;padding:8px 0;color:#10b981">${invFmt(intVal)}</div></div>`;
+        h += `<div><label style="font-size:12px;color:var(--text-secondary);display:block;margin-bottom:4px">Capital (€)</label><div style="font-size:14px;font-weight:600;padding:8px 0">${invFmt(prinVal)}</div></div>`;
+        h += '<div style="font-size:12px;color:var(--text-secondary);margin-top:4px">→ Modifiable via l\'onglet Répartition</div>';
+        h += '</div></div>';
+        return;
+      }
+      if (p === 'Robot Trading') {
+        const intVal = (d.interests[p] || [])[invEditMonth] || 0;
+        const prinVal = (d.principal[p] || [])[invEditMonth] || 0;
+        h += `<div class="inv-form-card" style="opacity:0.6"><div class="inv-flex inv-aic inv-gap2 inv-mb3"><span class="inv-dot" style="background:${INV_COLORS[i%10]};box-shadow:0 0 6px ${INV_COLORS[i%10]};width:12px;height:12px"></span><span style="font-size:12px;font-weight:500">${p} <span style="color:var(--text-secondary)">🔒</span></span></div>`;
+        h += '<div style="display:flex;flex-direction:column;gap:8px">';
+        h += `<div><label style="font-size:12px;color:var(--text-secondary);display:block;margin-bottom:4px">Intérêts (€)</label><div style="font-size:14px;font-weight:600;padding:8px 0;color:#10b981">${invFmt(intVal)}</div></div>`;
+        h += `<div><label style="font-size:12px;color:var(--text-secondary);display:block;margin-bottom:4px">Capital (€)</label><div style="font-size:14px;font-weight:600;padding:8px 0">${invFmt(prinVal)}</div></div>`;
+        h += '<div style="font-size:12px;color:var(--text-secondary);margin-top:4px">→ Calculé depuis Trading Réel</div>';
+        h += '</div></div>';
+        return;
+      }
+      const intVal = invFormData[p] ? invFormData[p].interest : '';
+      const prinVal = invFormData[p] ? invFormData[p].principal : '';
+      h += `<div class="inv-form-card"><div class="inv-flex inv-aic inv-gap2 inv-mb3"><span class="inv-dot" style="background:${INV_COLORS[i%10]};box-shadow:0 0 6px ${INV_COLORS[i%10]};width:12px;height:12px"></span><span style="font-size:12px;font-weight:500">${p}</span></div>`;
+      h += '<div style="display:flex;flex-direction:column;gap:8px">';
+      h += `<div><label style="font-size:12px;color:var(--text-secondary);display:block;margin-bottom:4px">Intérêts (€)</label><input class="inv-input" type="number" value="${intVal}" onchange="invUpdateForm('${p}','interest',this.value)" placeholder="0"></div>`;
+      h += `<div><label style="font-size:12px;color:var(--text-secondary);display:block;margin-bottom:4px">Capital total (€)</label><input class="inv-input" type="number" value="${prinVal}" onchange="invUpdateForm('${p}','principal',this.value)" placeholder="0"></div>`;
+      h += '</div></div>';
+    });
+    h += '</div>';
+
+    if ((d.loanNames || []).length > 0) {
+      h += '<div style="font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:12px">Emprunts en cours</div><div class="inv-grid-form" style="margin-bottom:24px">';
+      d.loanNames.forEach((l, i) => {
+        const lv = invLoanFormData[l] || '';
+        h += `<div class="inv-loan-card"><div class="inv-flex inv-aic inv-gap2 inv-mb3"><span class="inv-dot" style="background:${INV_LC[i%3]};box-shadow:0 0 6px ${INV_LC[i%3]};width:12px;height:12px"></span><span style="font-size:12px;font-weight:500">${l}</span></div>`;
+        h += `<label style="font-size:12px;color:var(--text-secondary);display:block;margin-bottom:4px">Restant dû (€)</label>`;
+        h += `<input class="inv-input loan" type="number" value="${lv}" onchange="invUpdateLoanForm('${l}',this.value)" placeholder="0"></div>`;
+      });
+      h += '</div>';
+    }
+    h += '<div class="inv-flex inv-gap3" style="justify-content:flex-end"><button class="inv-btn inv-btn-s" onclick="invCancelEditing()">Annuler</button><button class="inv-btn inv-btn-ok" onclick="invSaveMonth()">Sauvegarder</button></div>';
+    h += '</div>';
+  } else {
+    // Read-only table
+    h += '<div class="inv-ox"><table class="inv-table"><thead><tr><th>Plateforme</th><th class="th-r">Capital</th><th class="th-r">Intérêts</th><th class="th-r">% total</th></tr></thead><tbody>';
+    const tc = d.platforms.reduce((s, p) => s + ((d.principal[p] || [])[invEditMonth] || 0), 0);
+    d.platforms.forEach((p, i) => {
+      const c = (d.principal[p] || [])[invEditMonth] || 0;
+      const it = (d.interests[p] || [])[invEditMonth] || 0;
+      h += `<tr style="border-bottom:1px solid rgba(255,255,255,0.03)"><td><div class="inv-flex inv-aic inv-gap2"><span class="inv-dot" style="background:${INV_COLORS[i%10]};box-shadow:0 0 4px ${INV_COLORS[i%10]}"></span>${p}</div></td>`;
+      h += `<td class="td-r">${invFmt(c)}</td><td class="td-r" style="color:${it > 0 ? '#10b981' : 'var(--text-secondary)'}">${it > 0 ? '+' + invFmt(it) : '-'}</td>`;
+      h += `<td class="td-r" style="color:var(--text-secondary)">${tc > 0 ? (c / tc * 100).toFixed(1) + '%' : '-'}</td></tr>`;
+    });
+    const totalInt = d.platforms.reduce((s, p) => s + ((d.interests[p] || [])[invEditMonth] || 0), 0);
+    h += `<tr style="border-top:1px solid rgba(99,102,241,0.2)"><td style="font-weight:600">Total</td><td class="td-r" style="font-weight:600">${invFmt(tc)}</td><td class="td-r" style="font-weight:600;color:#10b981">+${invFmt(totalInt)}</td><td class="td-r" style="font-weight:600">100%</td></tr>`;
+    h += '</tbody></table>';
+
+    if ((d.loanNames || []).length > 0) {
+      h += '<div style="font-size:12px;font-weight:600;color:var(--text-secondary);margin-top:16px;margin-bottom:8px">Emprunts</div><table class="inv-table"><tbody>';
+      let totalLoans = 0;
+      d.loanNames.forEach((l, i) => {
+        const lv = (d.loans[l] || [])[invEditMonth] || 0; totalLoans += lv;
+        h += `<tr style="border-bottom:1px solid rgba(255,255,255,0.03)"><td><div class="inv-flex inv-aic inv-gap2"><span class="inv-dot" style="background:${INV_LC[i%3]};box-shadow:0 0 4px ${INV_LC[i%3]}"></span>${l}</div></td><td class="td-r inv-cr">${invFmt(lv)}</td></tr>`;
+      });
+      h += `<tr style="border-top:1px solid rgba(239,68,68,0.15)"><td style="font-weight:600">Total emprunts</td><td class="td-r" style="font-weight:600;color:#ef4444">${invFmt(totalLoans)}</td></tr>`;
+      h += `<tr style="border-top:1px solid rgba(99,102,241,0.2)"><td style="font-weight:700">Capital net</td><td class="td-r" style="font-weight:700;color:#10b981">${invFmt(tc - totalLoans)}</td></tr>`;
+      h += '</tbody></table>';
+    }
+    h += '</div>';
+  }
+  h += '</div></div>';
+  return h;
+}
+
+// ── Update actions ──
+function invExportJSON() {
+  const b = new Blob([JSON.stringify(portfolioData, null, 2)], { type: 'application/json' });
+  const u = URL.createObjectURL(b);
+  const a = document.createElement('a'); a.href = u; a.download = 'data-investissement.json'; a.click();
+  URL.revokeObjectURL(u);
+  invNotify('JSON exporté !');
+}
+
+function invImportJSON(e) {
+  const f = e.target.files && e.target.files[0]; if (!f) return;
+  const r = new FileReader();
+  r.onload = ev => {
+    try {
+      const p = JSON.parse(ev.target.result);
+      if (!p.platforms || !p.months) { invNotify('Format invalide.', 'err'); return; }
+      if (!p.loanNames) p.loanNames = []; if (!p.loans) p.loans = {}; if (!p.loanMonthlyPayments) p.loanMonthlyPayments = {};
+      portfolioData = p;
+      savePortfolioToFirebase();
+      invEditMonth = portfolioData.months.length - 1;
+      invEditing = false;
+      invNotify('Importé : ' + portfolioData.months.length + ' mois');
+      renderPortfolioTab(invCurrentTab);
+    } catch (x) { invNotify('Erreur JSON.', 'err'); }
+  };
+  r.readAsText(f); e.target.value = '';
+}
+
+function invToggleAddMonth() { invShowAddMonth = !invShowAddMonth; renderPortfolioTab('update'); }
+
+function invAddMonth() {
+  const d = portfolioData;
+  const nm = invNextMonth(d.months[d.months.length - 1]);
+  d.months.push(nm);
+  d.platforms.forEach(p => {
+    d.interests[p] = d.interests[p] || []; d.interests[p].push(0);
+    d.principal[p] = d.principal[p] || []; d.principal[p].push(d.principal[p][d.principal[p].length - 2] || 0);
+  });
+  (d.loanNames || []).forEach(l => {
+    d.loans[l] = d.loans[l] || []; d.loans[l].push(d.loans[l][d.loans[l].length - 2] || 0);
+  });
+  savePortfolioToFirebase();
+  invEditMonth = d.months.length - 1;
+  invShowAddMonth = false;
+  invNotify(invFmMonth(nm) + ' ajouté !');
+  invStartEditing();
+}
+
+function invChangeEditMonth(val) { invEditMonth = parseInt(val); if (invEditing) invLoadFormData(); renderPortfolioTab('update'); }
+
+function invLoadFormData() {
+  invFormData = {};
+  portfolioData.platforms.forEach(p => {
+    invFormData[p] = { interest: (portfolioData.interests[p] || [])[invEditMonth] || 0, principal: (portfolioData.principal[p] || [])[invEditMonth] || 0 };
+  });
+  invLoanFormData = {};
+  (portfolioData.loanNames || []).forEach(l => {
+    invLoanFormData[l] = (portfolioData.loans[l] || [])[invEditMonth] || 0;
+  });
+}
+
+function invStartEditing() { invEditing = true; invLoadFormData(); renderPortfolioTab('update'); }
+function invCancelEditing() { invEditing = false; renderPortfolioTab('update'); }
+
+function invUpdateForm(platform, field, value) {
+  if (!invFormData[platform]) invFormData[platform] = { interest: 0, principal: 0 };
+  invFormData[platform][field] = value;
+}
+function invUpdateLoanForm(loan, value) { invLoanFormData[loan] = value; }
+
+function invSaveMonth() {
+  const d = portfolioData;
+  d.platforms.forEach(p => {
+    if (p === 'Lendermarket' || p === 'Robot Trading') return;
+    if (!d.interests[p]) d.interests[p] = [];
+    if (!d.principal[p]) d.principal[p] = [];
+    while (d.interests[p].length <= invEditMonth) d.interests[p].push(0);
+    while (d.principal[p].length <= invEditMonth) d.principal[p].push(0);
+    d.interests[p][invEditMonth] = Number(invFormData[p] && invFormData[p].interest) || 0;
+    d.principal[p][invEditMonth] = Number(invFormData[p] && invFormData[p].principal) || 0;
+  });
+  (d.loanNames || []).forEach(l => {
+    if (!d.loans[l]) d.loans[l] = [];
+    while (d.loans[l].length <= invEditMonth) d.loans[l].push(0);
+    d.loans[l][invEditMonth] = Number(invLoanFormData[l]) || 0;
+  });
+  savePortfolioToFirebase();
+  invEditing = false;
+  invNotify('Sauvegardé !');
+  renderPortfolioTab('update');
+}
+
+// ══════════════════════════════════════════════════════════════
+// SYNC ROBOT TRADING
+// ══════════════════════════════════════════════════════════════
+function syncRobotTrading() {
+  if (!portfolioData || realTrades.length === 0) return;
+
+  // Group trades by month (YYYY-MM)
+  const tradesByMonth = {};
+  let cumDeposits = 0, cumGains = 0, cumFees = 0;
+
+  // Get all unique months from trades
+  realTrades.forEach(t => {
+    const month = t[0].substring(0, 7); // YYYY-MM
+    if (!tradesByMonth[month]) tradesByMonth[month] = { gains: 0 };
+    tradesByMonth[month].gains += parseFloat(t[2]) || 0;
+  });
+
+  // Get sorted trade months
+  const tradeMonths = Object.keys(tradesByMonth).sort();
+  if (tradeMonths.length === 0) return;
+
+  const firstTradeMonth = tradeMonths[0];
+
+  // Calculate cumulative deposits by month
+  const depositsByMonth = {};
+  (realDeposits || []).forEach(adj => {
+    const m = adj.date.substring(0, 7);
+    if (!depositsByMonth[m]) depositsByMonth[m] = 0;
+    depositsByMonth[m] += adj.amount;
+  });
+
+  // Calculate cumulative fees by month
+  const feesByMonth = {};
+  (realFees || []).forEach(fee => {
+    const m = fee.date.substring(0, 7);
+    if (!feesByMonth[m]) feesByMonth[m] = 0;
+    feesByMonth[m] += fee.amount;
+  });
+
+  // For each portfolio month, populate Robot Trading
+  const d = portfolioData;
+  const rtIdx = d.platforms.indexOf('Robot Trading');
+  if (rtIdx === -1) return;
+
+  if (!d.interests['Robot Trading']) d.interests['Robot Trading'] = [];
+  if (!d.principal['Robot Trading']) d.principal['Robot Trading'] = [];
+
+  // Ensure arrays are the right length
+  while (d.interests['Robot Trading'].length < d.months.length) d.interests['Robot Trading'].push(0);
+  while (d.principal['Robot Trading'].length < d.months.length) d.principal['Robot Trading'].push(0);
+
+  cumDeposits = 0; cumGains = 0; cumFees = 0;
+
+  d.months.forEach((month, i) => {
+    // Before first trade month: no data
+    if (month < firstTradeMonth) {
+      d.interests['Robot Trading'][i] = 0;
+      d.principal['Robot Trading'][i] = 0;
+      return;
+    }
+
+    // Accumulate deposits and fees up to this month
+    cumDeposits += (depositsByMonth[month] || 0);
+    cumFees += (feesByMonth[month] || 0);
+
+    // Monthly gains
+    const monthlyGains = tradesByMonth[month] ? tradesByMonth[month].gains : 0;
+    cumGains += monthlyGains;
+
+    // Interests = gains of the month (rounded)
+    d.interests['Robot Trading'][i] = Math.round(monthlyGains * 100) / 100;
+
+    // Capital = cumulative deposits + cumulative gains - cumulative fees
+    d.principal['Robot Trading'][i] = Math.round((cumDeposits + cumGains - cumFees) * 100) / 100;
+  });
+}
+
 // ── INIT ──
-Promise.all([loadTradesFromFirebase(), loadDividendsFromFirebase(), loadDepositsFromFirebase(), loadFeesToFirebase(), loadBacktestFromFirebase()]).then(() => {
+Promise.all([
+  loadTradesFromFirebase(),
+  loadDividendsFromFirebase(),
+  loadDepositsFromFirebase(),
+  loadFeesToFirebase(),
+  loadBacktestFromFirebase(),
+  loadPortfolioFromFirebase()
+]).then(() => {
   if (realTrades.length > 0) {
     const latest = [...realTrades].sort((a,b) => b[0].localeCompare(a[0]))[0][0];
     calYear = parseInt(latest.substring(0,4));
     calMonth = parseInt(latest.substring(5,7)) - 1;
   }
+
+  // Sync Robot Trading from real trades
+  syncRobotTrading();
+  if (portfolioData) {
+    savePortfolioToFirebase();
+    invSyncStatus = 'synced';
+  }
+
   renderRealTab();
   tabRendered.real = true;
+
+  // Render sub-tabs for initial group
+  renderSubTabs();
 });
 </script>
 </body>
