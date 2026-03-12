@@ -882,6 +882,18 @@
     <div class="csv-modal-content" style="max-width:600px;">
       <h3>📂 Mettre à jour les données Backtest</h3>
       <p id="btModalSubtitle">Chargez les fichiers CSV ProRealTime (Rapport détaillé ProBacktest).</p>
+      <div class="csv-mode-selector">
+        <label class="csv-mode-option">
+          <input type="radio" name="btCsvMode" value="merge" checked>
+          <span class="csv-mode-label">➕ Fusionner</span>
+          <span class="csv-mode-desc">Met à jour les années du CSV, garde les anciennes intactes</span>
+        </label>
+        <label class="csv-mode-option">
+          <input type="radio" name="btCsvMode" value="replace">
+          <span class="csv-mode-label">🔄 Remplacer tout</span>
+          <span class="csv-mode-desc">Remplace toutes les données par le contenu du CSV</span>
+        </label>
+      </div>
       <div style="display:flex;gap:16px;">
         <div style="flex:1;">
           <div style="font-size:0.82rem;font-weight:700;color:var(--text-primary);margin-bottom:6px;">🟪 DAX 40</div>
@@ -2444,12 +2456,20 @@ function applyBacktestCsv() {
     alert('Erreur de parsing. Vérifiez le format des fichiers CSV ProRealTime.');
     return;
   }
-  if (pendingBtTab === 'fixed') {
-    fDax = daxData;
-    fNas = nasData;
+  const mode = document.querySelector('input[name="btCsvMode"]:checked').value;
+  let msg;
+  if (mode === 'replace') {
+    if (pendingBtTab === 'fixed') { fDax = daxData; fNas = nasData; }
+    else { rDax = daxData; rNas = nasData; }
+    msg = `🔄 Données remplacées : ${Object.keys(daxData).length} année(s) DAX + ${Object.keys(nasData).length} année(s) NASDAQ.`;
   } else {
-    rDax = daxData;
-    rNas = nasData;
+    // Merge : on ne met à jour que les années présentes dans le CSV
+    const target = pendingBtTab === 'fixed' ? [fDax, fNas] : [rDax, rNas];
+    for (const [year, months] of Object.entries(daxData)) target[0][year] = months;
+    for (const [year, months] of Object.entries(nasData)) target[1][year] = months;
+    const newDax = Object.keys(daxData).length;
+    const newNas = Object.keys(nasData).length;
+    msg = `✅ Fusion : ${newDax} année(s) DAX + ${newNas} année(s) NASDAQ mises à jour, anciennes données conservées.`;
   }
   rebuildAllMonths();
   saveBacktestToFirebase(pendingBtTab);
@@ -2460,8 +2480,7 @@ function applyBacktestCsv() {
   tabRendered[pendingBtTab] = true;
   closeBacktestModal();
   const label = pendingBtTab === 'fixed' ? 'Taille Fixe' : 'Réinvestissement';
-  const nYears = Object.keys(daxData).length;
-  setTimeout(() => alert(`✅ Données ${label} mises à jour : ${nYears} année(s) DAX + ${Object.keys(nasData).length} année(s) NASDAQ.`), 300);
+  setTimeout(() => alert(msg), 300);
 }
 
 // Drag & Drop
