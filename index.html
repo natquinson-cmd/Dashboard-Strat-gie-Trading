@@ -941,14 +941,14 @@
 <div class="dashboard">
 
   <div class="header">
-    <h1>Trading Performance Dashboard</h1>
+    <h1 id="mainTitle">Trading Auto Dashboard</h1>
     <p id="headerSubtitle">DAX 40 (IntradayGrafV4-3) & NASDAQ 100 (NAS 15 OPR R2.2)</p>
   </div>
 
   <!-- GROUP BAR (level 1) -->
   <div class="group-bar">
-    <button class="group-btn active" onclick="switchGroup('trading')">📈 Trading</button>
-    <button class="group-btn" onclick="switchGroup('invest')">💼 Investissement</button>
+    <button class="group-btn active" onclick="switchGroup('trading')">📈 Trading Auto</button>
+    <button class="group-btn" onclick="switchGroup('invest')">💼 Portfolio</button>
   </div>
 
   <!-- SUB-TAB BAR (level 2) -->
@@ -3652,12 +3652,25 @@ function renderSubTabs() {
   ).join('');
 }
 
+function updateHeader(group) {
+  const title = document.getElementById('mainTitle');
+  const subtitle = document.getElementById('headerSubtitle');
+  if (group === 'trading') {
+    title.textContent = 'Trading Auto Dashboard';
+    subtitle.textContent = 'DAX 40 (IntradayGrafV4-3) & NASDAQ 100 (NAS 15 OPR R2.2)';
+  } else {
+    title.textContent = 'Portfolio Dashboard';
+    subtitle.textContent = 'Suivi de vos investissements P2P & Crypto';
+  }
+}
+
 function switchGroup(group) {
   if (group === currentGroup) return;
   currentGroup = group;
   document.querySelectorAll('.group-btn').forEach((btn, i) => {
     btn.classList.toggle('active', (i === 0 && group === 'trading') || (i === 1 && group === 'invest'));
   });
+  updateHeader(group);
   // Hide all tabs
   ALL_TAB_IDS.forEach(t => {
     const el = document.getElementById('tab-' + t);
