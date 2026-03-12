@@ -4058,12 +4058,39 @@ function migrateRobotToTradingAuto(d) {
   }
 }
 
+function repairPortfolioFromDefaults(d) {
+  // Restore data from INV_DEFAULT_DATA for months that were zeroed out
+  const def = INV_DEFAULT_DATA;
+  def.months.forEach((m, i) => {
+    const di = d.months.indexOf(m);
+    if (di === -1) return;
+    def.platforms.forEach(p => {
+      if (p === 'Trading Auto') return; // recalculated by syncRobotTrading
+      // Restore principal if current is 0 but default has a value
+      if (d.principal[p] && def.principal[p] && (d.principal[p][di] === 0 || d.principal[p][di] === undefined) && def.principal[p][i] !== 0) {
+        d.principal[p][di] = def.principal[p][i];
+      }
+      // Restore interests if current is 0 but default has a value
+      if (d.interests[p] && def.interests[p] && (d.interests[p][di] === 0 || d.interests[p][di] === undefined) && def.interests[p][i] !== 0) {
+        d.interests[p][di] = def.interests[p][i];
+      }
+    });
+    // Restore loans
+    if (def.loanNames) def.loanNames.forEach(l => {
+      if (d.loans && d.loans[l] && def.loans[l] && (d.loans[l][di] === 0 || d.loans[l][di] === undefined) && def.loans[l][i] !== 0) {
+        d.loans[l][di] = def.loans[l][i];
+      }
+    });
+  });
+}
+
 function loadPortfolioFromFirebase() {
   return db.ref('dashboard/data').once('value').then(snap => {
     const val = snap.val();
     if (val && val.platforms && val.months) {
       portfolioData = val;
       migrateRobotToTradingAuto(portfolioData);
+      repairPortfolioFromDefaults(portfolioData);
     } else {
       portfolioData = JSON.parse(JSON.stringify(INV_DEFAULT_DATA));
     }
