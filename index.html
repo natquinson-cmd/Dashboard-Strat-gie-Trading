@@ -2200,25 +2200,51 @@ function buildCumulativePnL() {
     dayMap[d] += g;
   }
   const days = Object.keys(dayMap).sort();
-  let cum = 0;
-  const labels = [], values = [], rawDates = [];
-  let lastYM = '';
-  for (const d of days) {
-    cum += dayMap[d];
-    const dd = parseInt(d.substring(8));
-    const mm = parseInt(d.substring(5,7));
-    const yy = d.substring(2,4);
-    const ym = d.substring(0,7);
-    labels.push(ym !== lastYM ? dd + ' ' + monthNames[mm-1] + ' ' + yy : dd + ' ' + monthNames[mm-1]);
-    lastYM = ym;
-    rawDates.push(d);
-    values.push(Math.round(cum * 100) / 100);
+
+  let labels, values, rawDates;
+
+  if (projectionEnabled) {
+    // ── Mode projection : agréger les données réelles par mois ──
+    const monthMap = {};
+    for (const d of days) {
+      const ym = d.substring(0,7); // "2025-03"
+      if (!monthMap[ym]) monthMap[ym] = 0;
+      monthMap[ym] += dayMap[d];
+    }
+    const months = Object.keys(monthMap).sort();
+    let cum = 0;
+    labels = []; values = []; rawDates = [];
+    for (const ym of months) {
+      cum += monthMap[ym];
+      const mm = parseInt(ym.substring(5,7));
+      const yy = ym.substring(2,4);
+      labels.push(monthNames[mm-1] + ' ' + yy);
+      rawDates.push(ym + '-15'); // mid-month for tooltip
+      values.push(Math.round(cum * 100) / 100);
+    }
+  } else {
+    // ── Mode normal : données journalières ──
+    let cum = 0;
+    labels = []; values = []; rawDates = [];
+    let lastYM = '';
+    for (const d of days) {
+      cum += dayMap[d];
+      const dd = parseInt(d.substring(8));
+      const mm = parseInt(d.substring(5,7));
+      const yy = d.substring(2,4);
+      const ym = d.substring(0,7);
+      labels.push(ym !== lastYM ? dd + ' ' + monthNames[mm-1] + ' ' + yy : dd + ' ' + monthNames[mm-1]);
+      lastYM = ym;
+      rawDates.push(d);
+      values.push(Math.round(cum * 100) / 100);
+    }
   }
 
   const datasets = [{
     label:'P&L Cumulé (€)', data: values,
     borderColor:'#10b981', backgroundColor:'rgba(16,185,129,0.08)',
-    borderWidth:2.5, fill:true, tension:0.3, pointRadius:3, pointHitRadius:8,
+    borderWidth:2.5, fill:true, tension:0.3,
+    pointRadius: projectionEnabled ? 4 : 3, pointHitRadius:8,
     pointBackgroundColor: values.map(v => v >= 0 ? '#10b981' : '#ef4444'),
     pointBorderColor: values.map(v => v >= 0 ? '#10b981' : '#ef4444')
   }];
@@ -2234,14 +2260,14 @@ function buildCumulativePnL() {
     const lastDate = rawDates[rawDates.length - 1];
     const proj = buildProjectionData(lastValue, lastDate, horizonMonths);
 
-    // Pad projection data to start where real data ends (NaN for real portion)
+    // Pad projection data to start where real data ends
     const projDataFull = new Array(values.length - 1).fill(null);
     projDataFull.push(lastValue); // overlap at last real point
     projDataFull.push(...proj.values);
 
     // Extend labels
     allLabels = [...labels, ...proj.labels];
-    // Extend rawDates for tooltip (projected months don't have exact dates)
+    // Extend rawDates for tooltip
     const lastD = new Date(lastDate);
     let cm = lastD.getMonth(), cy = lastD.getFullYear();
     for (let i = 0; i < horizonMonths; i++) {
@@ -2279,6 +2305,9 @@ function buildCumulativePnL() {
               const idx = items[0].dataIndex;
               const d = allRawDates[idx];
               if (!d) return '';
+              if (projectionEnabled) {
+                return monthNamesFull[parseInt(d.substring(5,7))-1] + ' ' + d.substring(0,4);
+              }
               return parseInt(d.substring(8))+' '+monthNames[parseInt(d.substring(5,7))-1]+' '+d.substring(0,4);
             },
             label:c=>{
