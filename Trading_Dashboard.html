@@ -770,6 +770,47 @@
   .toggle-label { letter-spacing:0.2px; }
   .toggle-val { font-size:0.72rem; font-weight:700; color:var(--accent-dax-light); min-width:16px; text-align:center; }
 
+  /* ═══════════ Projection Slider ═══════════ */
+  .proj-container { display:flex; align-items:stretch; gap:0; position:relative; }
+  .proj-container canvas { flex:1; min-width:0; }
+  .proj-slider-wrap {
+    display:none; flex-direction:column; align-items:center; justify-content:center;
+    padding:8px 6px 8px 10px; gap:6px; min-width:62px;
+    border-left:1px solid rgba(255,255,255,0.06);
+  }
+  .proj-slider-wrap.visible { display:flex; }
+  .proj-slider-title {
+    font-size:0.65rem; font-weight:700; text-transform:uppercase;
+    color:var(--text-secondary); letter-spacing:0.8px; white-space:nowrap;
+  }
+  .proj-slider {
+    writing-mode:vertical-lr; direction:rtl;
+    -webkit-appearance:none; appearance:none;
+    width:6px; height:140px; background:rgba(30,42,58,0.8);
+    border-radius:3px; outline:none; cursor:pointer;
+  }
+  .proj-slider::-webkit-slider-thumb {
+    -webkit-appearance:none; appearance:none;
+    width:18px; height:18px; border-radius:50%;
+    background:linear-gradient(135deg, var(--accent-dax), var(--accent-nas));
+    box-shadow:0 0 8px rgba(99,102,241,0.4); cursor:pointer;
+    border:2px solid rgba(255,255,255,0.2);
+  }
+  .proj-slider::-moz-range-thumb {
+    width:18px; height:18px; border-radius:50%;
+    background:linear-gradient(135deg, var(--accent-dax), var(--accent-nas));
+    box-shadow:0 0 8px rgba(99,102,241,0.4); cursor:pointer;
+    border:2px solid rgba(255,255,255,0.2);
+  }
+  .proj-slider-labels {
+    display:flex; flex-direction:column; gap:0;
+    font-size:0.62rem; font-weight:600; color:var(--text-secondary);
+    height:140px; justify-content:space-between; text-align:center;
+  }
+  .proj-slider-labels span { cursor:pointer; transition:color 0.2s; padding:2px 0; }
+  .proj-slider-labels span:hover { color:var(--text-primary); }
+  .proj-slider-labels span.active { color:var(--accent-dax-light); }
+
   @media (max-width: 900px) {
     .chart-row { grid-template-columns: 1fr; }
     .kpi-grid { grid-template-columns: repeat(2, 1fr); }
@@ -993,9 +1034,28 @@
         <input type="range" id="dateRangeMax" min="0" max="1" value="1" step="1" oninput="onDateRangeChange()">
       </div>
     </div>
-    <div class="chart-full"><div class="chart-card">
-      <h3><span class="icon icon-merged">💹</span> P&L Cumulé</h3>
-      <canvas id="pnlCumReal"></canvas>
+    <div class="chart-full"><div class="chart-card proj-chart-card">
+      <h3 style="display:flex;justify-content:space-between;align-items:center;">
+        <span style="display:flex;align-items:center;gap:8px;"><span class="icon icon-merged">💹</span> P&L Cumulé</span>
+        <label class="toggle-wrap" title="Activer la projection">
+          <span class="toggle-label">Projection</span>
+          <input type="checkbox" id="projToggle" onchange="toggleProjection()">
+          <span class="toggle-track"></span>
+        </label>
+      </h3>
+      <div class="proj-container">
+        <canvas id="pnlCumReal"></canvas>
+        <div class="proj-slider-wrap" id="projSliderWrap">
+          <div class="proj-slider-title">Horizon</div>
+          <input type="range" id="projSlider" class="proj-slider" min="0" max="3" value="0" orient="vertical" oninput="onProjectionChange()">
+          <div class="proj-slider-labels">
+            <span data-val="3" onclick="document.getElementById('projSlider').value=3;onProjectionChange()">10 ans</span>
+            <span data-val="2" onclick="document.getElementById('projSlider').value=2;onProjectionChange()">5 ans</span>
+            <span data-val="1" onclick="document.getElementById('projSlider').value=1;onProjectionChange()">2 ans</span>
+            <span data-val="0" onclick="document.getElementById('projSlider').value=0;onProjectionChange()">1 an</span>
+          </div>
+        </div>
+      </div>
     </div></div>
     <div class="chart-row">
       <div class="chart-card"><h3><span class="icon icon-dax">📊</span> Gain Moyen</h3><canvas id="avgGainReal"></canvas></div>
@@ -2058,6 +2118,66 @@ function getDateRange() {
   return { from: allTradingDays[lo], to: allTradingDays[hi] };
 }
 
+// ── Projection state ──
+let projectionEnabled = false;
+const PROJ_HORIZONS = [12, 24, 60, 120]; // months for 1,2,5,10 years
+const PROJ_HORIZON_LABELS = ['1 an','2 ans','5 ans','10 ans'];
+
+function getAvgMonthlyReturns() {
+  // Compute average monthly % return from ALL backtest data (fixed + reinvest, DAX + NAS combined)
+  const allReturns = [];
+  [fDax, fNas, rDax, rNas].forEach(dataset => {
+    Object.values(dataset).forEach(months => {
+      months.forEach(v => { if (v !== 0) allReturns.push(v); });
+    });
+  });
+  if (allReturns.length === 0) return { avg: 0, values: [] };
+  const avg = allReturns.reduce((a, b) => a + b, 0) / allReturns.length;
+  return { avg, values: allReturns };
+}
+
+function getMonthlyReturnsByMonth() {
+  // Get average return per calendar month (0-11) for more realistic projection
+  const byMonth = Array.from({length:12}, () => []);
+  [fDax, fNas, rDax, rNas].forEach(dataset => {
+    Object.values(dataset).forEach(months => {
+      months.forEach((v, i) => { if (v !== 0) byMonth[i].push(v); });
+    });
+  });
+  return byMonth.map(arr => arr.length ? arr.reduce((a,b) => a+b, 0) / arr.length : 0);
+}
+
+function buildProjectionData(lastValue, lastDate, horizonMonths) {
+  const monthlyByMonth = getMonthlyReturnsByMonth();
+  // Parse last date to get starting month
+  const lastD = new Date(lastDate);
+  let currentMonth = lastD.getMonth(); // 0-11
+  let currentYear = lastD.getFullYear();
+
+  // Calculate the capital at end of real data (deposits + gains - fees)
+  // For projection, we apply monthly % returns to the current cumulative P&L
+  // But % returns are based on capital, so we need to estimate capital
+  let totalDeposits = 0;
+  for (const dep of realDeposits) totalDeposits += dep.amount;
+  const capital = totalDeposits > 0 ? totalDeposits : 10000; // fallback
+
+  let cumPnL = lastValue;
+  const projLabels = [];
+  const projValues = [];
+
+  for (let i = 0; i < horizonMonths; i++) {
+    currentMonth++;
+    if (currentMonth > 11) { currentMonth = 0; currentYear++; }
+    const monthReturn = monthlyByMonth[currentMonth]; // % return for this calendar month
+    const monthGain = capital * (monthReturn / 100); // convert % to € based on capital
+    cumPnL += monthGain;
+    const yy = String(currentYear).substring(2);
+    projLabels.push((i % 3 === 0 || i === horizonMonths - 1) ? monthNames[currentMonth] + ' ' + yy : '');
+    projValues.push(Math.round(cumPnL * 100) / 100);
+  }
+  return { labels: projLabels, values: projValues };
+}
+
 function buildCumulativePnL() {
   const trades = getFilteredTrades();
   const sorted = [...trades].sort((a,b) => a[0].localeCompare(b[0]));
@@ -2081,35 +2201,119 @@ function buildCumulativePnL() {
     rawDates.push(d);
     values.push(Math.round(cum * 100) / 100);
   }
+
+  const datasets = [{
+    label:'P&L Cumulé (€)', data: values,
+    borderColor:'#10b981', backgroundColor:'rgba(16,185,129,0.08)',
+    borderWidth:2.5, fill:true, tension:0.3, pointRadius:3, pointHitRadius:8,
+    pointBackgroundColor: values.map(v => v >= 0 ? '#10b981' : '#ef4444'),
+    pointBorderColor: values.map(v => v >= 0 ? '#10b981' : '#ef4444')
+  }];
+
+  let allLabels = [...labels];
+  let allRawDates = [...rawDates];
+
+  // If projection is enabled, add projection dataset
+  if (projectionEnabled && values.length > 0) {
+    const sliderVal = parseInt(document.getElementById('projSlider').value);
+    const horizonMonths = PROJ_HORIZONS[sliderVal];
+    const lastValue = values[values.length - 1];
+    const lastDate = rawDates[rawDates.length - 1];
+    const proj = buildProjectionData(lastValue, lastDate, horizonMonths);
+
+    // Pad projection data to start where real data ends (NaN for real portion)
+    const projDataFull = new Array(values.length - 1).fill(null);
+    projDataFull.push(lastValue); // overlap at last real point
+    projDataFull.push(...proj.values);
+
+    // Extend labels
+    allLabels = [...labels, ...proj.labels];
+    // Extend rawDates for tooltip (projected months don't have exact dates)
+    const lastD = new Date(lastDate);
+    let cm = lastD.getMonth(), cy = lastD.getFullYear();
+    for (let i = 0; i < horizonMonths; i++) {
+      cm++; if (cm > 11) { cm = 0; cy++; }
+      allRawDates.push(cy + '-' + String(cm+1).padStart(2,'0') + '-15');
+    }
+
+    // Pad real data with nulls for extended labels
+    const realDataFull = [...values, ...new Array(horizonMonths).fill(null)];
+    datasets[0].data = realDataFull;
+
+    datasets.push({
+      label:'Projection (€)', data: projDataFull,
+      borderColor:'rgba(99,102,241,0.8)', backgroundColor:'rgba(99,102,241,0.05)',
+      borderWidth:2, fill:true, tension:0.3,
+      borderDash:[8, 4],
+      pointRadius: projDataFull.map((v, i) => i === values.length - 1 ? 5 : (i > values.length - 1 && (i === projDataFull.length - 1) ? 4 : 0)),
+      pointHitRadius:8,
+      pointBackgroundColor:'rgba(99,102,241,0.9)',
+      pointBorderColor:'rgba(99,102,241,0.9)',
+      pointStyle: projDataFull.map((v, i) => i === projDataFull.length - 1 ? 'rectRot' : 'circle')
+    });
+  }
+
   return new Chart(document.getElementById('pnlCumReal'), {
     type:'line',
-    data: {
-      labels,
-      datasets: [{
-        label:'P&L Cumulé (€)', data:values,
-        borderColor:'#10b981', backgroundColor:'rgba(16,185,129,0.08)',
-        borderWidth:2.5, fill:true, tension:0.3, pointRadius:3, pointHitRadius:8,
-        pointBackgroundColor: values.map(v => v >= 0 ? '#10b981' : '#ef4444'),
-        pointBorderColor: values.map(v => v >= 0 ? '#10b981' : '#ef4444')
-      }]
-    },
+    data: { labels: allLabels, datasets },
     options: {
       responsive:true,
       plugins:{
-        legend:{display:false},
+        legend:{ display: projectionEnabled, labels:{ color:'#8892a4', font:{size:11}, usePointStyle:true, padding:12 } },
         tooltip:{backgroundColor:'#1a2235',borderColor:'#2d3a4d',borderWidth:1,
           callbacks:{
-            title:items=>{ const d=rawDates[items[0].dataIndex]; return parseInt(d.substring(8))+' '+monthNames[parseInt(d.substring(5,7))-1]+' '+d.substring(0,4); },
-            label:c=>c.parsed.y.toFixed(2)+' €'
+            title:items=>{
+              const idx = items[0].dataIndex;
+              const d = allRawDates[idx];
+              if (!d) return '';
+              return parseInt(d.substring(8))+' '+monthNames[parseInt(d.substring(5,7))-1]+' '+d.substring(0,4);
+            },
+            label:c=>{
+              if (c.parsed.y == null) return '';
+              const prefix = c.datasetIndex === 1 ? '📊 Proj: ' : '';
+              return prefix + c.parsed.y.toFixed(2)+' €';
+            }
           }}
       },
       scales:{
-        x:{ticks:{maxTicksLimit:20,autoSkip:true,maxRotation:0,font:{size:9}},grid:{display:false}},
-        y:{ticks:{callback:v=>fmt(v)+' €'},grid:{color:'rgba(30,42,58,0.4)'}}
+        x:{ticks:{maxTicksLimit: projectionEnabled ? 30 : 20, autoSkip:true, maxRotation:0, font:{size:9}}, grid:{display:false}},
+        y:{ticks:{callback:v=>fmt(v)+' €'}, grid:{color:'rgba(30,42,58,0.4)'}}
       }
     },
     plugins: [travelingLightPlugin]
   });
+}
+
+function toggleProjection() {
+  projectionEnabled = document.getElementById('projToggle').checked;
+  const wrap = document.getElementById('projSliderWrap');
+  if (projectionEnabled) {
+    wrap.classList.add('visible');
+  } else {
+    wrap.classList.remove('visible');
+  }
+  updateProjSliderLabels();
+  rebuildPnLCumOnly();
+}
+
+function onProjectionChange() {
+  updateProjSliderLabels();
+  rebuildPnLCumOnly();
+}
+
+function updateProjSliderLabels() {
+  const val = parseInt(document.getElementById('projSlider').value);
+  document.querySelectorAll('.proj-slider-labels span').forEach(s => {
+    s.classList.toggle('active', parseInt(s.dataset.val) === val);
+  });
+}
+
+function rebuildPnLCumOnly() {
+  if (realChartInstances['pnlCumReal']) {
+    realChartInstances['pnlCumReal'].destroy();
+    delete realChartInstances['pnlCumReal'];
+  }
+  realChartInstances['pnlCumReal'] = buildCumulativePnL();
 }
 
 function buildAvgGainChart() {
