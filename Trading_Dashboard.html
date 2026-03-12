@@ -1494,13 +1494,14 @@ function buildAdvancedKPIs() {
   const expectancy = (winRate * avgWin) - (lossRate * avgLoss);
 
   // A2 — Recovery Factor = Total P&L / Max Drawdown
-  const sorted = [...trades].sort((a,b) => a[0].localeCompare(b[0]));
+  const sortKey = t => (t[8] || t[0]);
+  const sorted = [...trades].sort((a,b) => sortKey(a).localeCompare(sortKey(b)));
   let cum = 0, peak = 0, maxDD = 0;
   for (const t of sorted) { cum += t[2]; if (cum > peak) peak = cum; const dd = peak - cum; if (dd > maxDD) maxDD = dd; }
   const totalPnL = gains.reduce((a,b)=>a+b,0);
   const recoveryFactor = maxDD > 0 ? totalPnL / maxDD : Infinity;
 
-  // A3 — Streaks (séries gagnantes/perdantes)
+  // A3 — Streaks (séries gagnantes/perdantes) — trié par closeDate avec heure
   let curWinStreak = 0, curLossStreak = 0, maxWinStreak = 0, maxLossStreak = 0;
   let tempWin = 0, tempLoss = 0;
   for (const t of sorted) {
@@ -1508,7 +1509,7 @@ function buildAdvancedKPIs() {
     else { tempLoss++; tempWin = 0; if (tempLoss > maxLossStreak) maxLossStreak = tempLoss; }
   }
   // Série en cours (du plus récent)
-  const reversed = [...trades].sort((a,b) => b[0].localeCompare(a[0]));
+  const reversed = [...trades].sort((a,b) => sortKey(b).localeCompare(sortKey(a)));
   if (reversed.length > 0) {
     const firstSign = reversed[0][2] > 0;
     let streak = 0;
