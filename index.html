@@ -4578,8 +4578,19 @@ function invRenderRepartition(t, li) {
   } else {
     h += '<p style="font-size:12px;color:var(--text-secondary)">Aucun mouvement enregistré.</p>';
   }
+  h += '<div style="margin-top:16px;text-align:right"><button class="inv-btn" style="background:rgba(239,68,68,0.15);color:#ef4444;font-size:0.7rem" onclick="invResetRepartition()">Réinitialiser (Déc 2025)</button></div>';
   h += '</div></div>';
   return h;
+}
+
+function invResetRepartition() {
+  if (!confirm('Réinitialiser la répartition aux valeurs de Décembre 2025 ?\n\nMoi: 21 780 €\nNoah: 7 380 €\nElie: 6 840 €\nTotal: 36 000 €\n\nL\'historique sera aussi réinitialisé.')) return;
+  portfolioData.repartition = { members: ["Moi","Noah","Elie"], capital: {"Moi":21780,"Noah":7380,"Elie":6840}, history: [{date:"2025-12",type:"init",desc:"Répartition initiale","Moi":21780,"Noah":7380,"Elie":6840,total:36000}] };
+  const li = invLastCompletedMonth();
+  invSyncLendermarketFromRep(li);
+  savePortfolioToFirebase();
+  invNotify('Répartition réinitialisée aux valeurs de Déc 2025');
+  renderPortfolioTab('repartition');
 }
 
 function invBuildRepartitionCharts(t, labels, li) {
