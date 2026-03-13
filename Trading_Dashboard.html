@@ -4522,6 +4522,12 @@ function invRenderRepartition(t, li) {
   if (!invRepAdjMode) {
     h += '<button class="inv-btn inv-btn-p" onclick="invStartRepAdj()" style="background:linear-gradient(135deg,#06b6d4,#6366f1)">Ajustement</button>';
   } else {
+    // Month selector for adjustment
+    const adjMi = invRepForm.adjMonth !== undefined ? invRepForm.adjMonth : invLastCompletedMonth();
+    h += '<div style="margin-bottom:16px"><label style="font-size:12px;font-weight:500;color:var(--text-secondary);margin-right:8px">Mois de l\'ajustement :</label>';
+    h += '<select class="inv-select" style="display:inline-block;width:auto;min-width:160px" onchange="invRepForm.adjMonth=Number(this.value);renderPortfolioTab(\'repartition\')">';
+    d.months.forEach((m, i) => { h += `<option value="${i}"${adjMi === i ? ' selected' : ''}>${invFmMonth(m)}</option>`; });
+    h += '</select></div>';
     h += '<div class="inv-grid inv-grid-3" style="margin-bottom:16px">';
     h += '<div class="inv-form-card"><div style="font-size:12px;font-weight:500;margin-bottom:12px">Personne</div>';
     h += '<select class="inv-select" onchange="invRepForm.adjMember=this.value;renderPortfolioTab(\'repartition\')">';
@@ -4666,14 +4672,14 @@ function invSaveRepMonthly() {
 }
 
 function invStartRepAdj() {
-  invRepForm = { adjMember: "Moi", adjType: "depot", adjAmount: 0 };
+  invRepForm = { adjMember: "Moi", adjType: "depot", adjAmount: 0, adjMonth: invLastCompletedMonth() };
   invRepAdjMode = true; invRepMonthlyMode = false; renderPortfolioTab('repartition');
 }
 
 function invSaveRepAdj() {
   if (!portfolioData.repartition) portfolioData.repartition = invGetRep();
   const rep = portfolioData.repartition;
-  const li = portfolioData.months.length - 1;
+  const li = invRepForm.adjMonth !== undefined ? invRepForm.adjMonth : invLastCompletedMonth();
   const member = invRepForm.adjMember || "Moi";
   const amount = Number(invRepForm.adjAmount) || 0;
   if (amount <= 0) { invNotify('Montant invalide', 'err'); return; }
