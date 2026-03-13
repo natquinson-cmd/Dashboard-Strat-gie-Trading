@@ -2776,7 +2776,7 @@ function buildMonthlyHeatReal() {
         const c = data.pnl >= 0 ? '#10b981' : '#ef4444';
         const sign = data.pnl >= 0 ? '+' : '';
         const displayVal = showPct ? `${sign}${pct.toFixed(1)}%` : `${sign}${data.pnl.toFixed(0)}€`;
-        html += `<td style="background:${bg};color:${c};" title="${data.trades} trades — ${sign}${data.pnl.toFixed(2)}€">${displayVal}</td>`;
+        html += `<td style="background:${bg};color:${c};" title="${data.trades} trades — ${sign}${data.pnl.toFixed(2)}€"><div>${displayVal}</div><div style="font-size:0.58rem;color:var(--text-secondary);margin-top:1px">${data.trades} trade${data.trades>1?'s':''}</div></td>`;
       } else {
         html += '<td style="background:rgba(30,42,58,0.2);color:#444;">—</td>';
       }
