@@ -4016,6 +4016,7 @@ let invShowAddMonth = false;
 let invRepMonthlyMode = false;
 let invRepAdjMode = false;
 let invRepForm = {};
+let invRepEditMonth = -1; // month index for Répartition monthly update (-1 = use last completed)
 let invSyncStatus = 'loading';
 
 const INV_DEFAULT_DATA = {
@@ -4484,6 +4485,12 @@ function invRenderRepartition(t, li) {
   if (!invRepMonthlyMode) {
     h += '<button class="inv-btn inv-btn-p" onclick="invStartRepMonthly()">Mettre à jour</button>';
   } else {
+    // Month selector
+    const repMi = invRepEditMonth;
+    h += '<div style="margin-bottom:16px"><label style="font-size:12px;font-weight:500;color:var(--text-secondary);margin-right:8px">Mois à mettre à jour :</label>';
+    h += '<select class="inv-select" style="display:inline-block;width:auto;min-width:160px" onchange="invChangeRepMonth(Number(this.value))">';
+    d.months.forEach((m, i) => { h += `<option value="${i}"${repMi === i ? ' selected' : ''}>${invFmMonth(m)}</option>`; });
+    h += '</select></div>';
     h += '<div class="inv-grid inv-grid-2" style="margin-bottom:16px">';
     h += `<div class="inv-form-card"><div class="inv-flex inv-aic inv-gap2 inv-mb3"><span class="inv-dot" style="background:#6366f1;box-shadow:0 0 6px #6366f1;width:12px;height:12px"></span><span style="font-size:12px;font-weight:500">Nouveau capital total</span></div>`;
     h += `<input class="inv-input" type="number" id="inv-rep-monthly-total" value="${invRepForm.total||0}" onchange="invRepForm.total=Number(this.value);renderPortfolioTab('repartition')" oninput="invRepForm.total=Number(this.value)"></div>`;
@@ -4596,14 +4603,34 @@ function invBuildRepartitionCharts(t, labels, li) {
 
 // Repartition actions
 function invStartRepMonthly() {
-  invRepForm = { total: invGetRepTotal(), interest: (portfolioData.interests["Lendermarket"] || [])[portfolioData.months.length - 1] || 0 };
+  if (invRepEditMonth < 0) invRepEditMonth = invLastCompletedMonth();
+  const mi = invRepEditMonth;
+  const existingPrin = (portfolioData.principal["Lendermarket"] || [])[mi] || 0;
+  const existingInt = (portfolioData.interests["Lendermarket"] || [])[mi] || 0;
+  // If month already has data, pre-fill with it; otherwise use current repartition total
+  const moiPct = invGetRepPct("Moi");
+  const prefillTotal = existingPrin > 0 ? (moiPct > 0 ? Math.round(existingPrin / moiPct) : existingPrin) : invGetRepTotal();
+  const prefillInt = existingInt > 0 ? (moiPct > 0 ? Math.round(existingInt / moiPct) : existingInt) : 0;
+  invRepForm = { total: prefillTotal, interest: prefillInt };
   invRepMonthlyMode = true; invRepAdjMode = false; renderPortfolioTab('repartition');
+}
+
+function invChangeRepMonth(val) {
+  invRepEditMonth = val;
+  const mi = invRepEditMonth;
+  const existingPrin = (portfolioData.principal["Lendermarket"] || [])[mi] || 0;
+  const existingInt = (portfolioData.interests["Lendermarket"] || [])[mi] || 0;
+  const moiPct = invGetRepPct("Moi");
+  const prefillTotal = existingPrin > 0 ? (moiPct > 0 ? Math.round(existingPrin / moiPct) : existingPrin) : invGetRepTotal();
+  const prefillInt = existingInt > 0 ? (moiPct > 0 ? Math.round(existingInt / moiPct) : existingInt) : 0;
+  invRepForm = { total: prefillTotal, interest: prefillInt };
+  renderPortfolioTab('repartition');
 }
 
 function invSaveRepMonthly() {
   if (!portfolioData.repartition) portfolioData.repartition = invGetRep();
   const rep = portfolioData.repartition;
-  const li = portfolioData.months.length - 1;
+  const li = invRepEditMonth;
   const newTotal = Number(invRepForm.total) || 0;
   const totalInterest = Number(invRepForm.interest) || 0;
   const oldTotal = invGetRepTotal();
@@ -4623,7 +4650,7 @@ function invSaveRepMonthly() {
   rep.history.push(ev);
   invRepMonthlyMode = false;
   savePortfolioToFirebase();
-  invNotify('Lendermarket mis à jour ! Total: ' + invFmt(newTotal) + ', Intérêts Moi: ' + invFmt(moiInterest));
+  invNotify(invFmMonth(portfolioData.months[li]) + ' — Lendermarket mis à jour ! Total: ' + invFmt(newTotal) + ', Intérêts Moi: ' + invFmt(moiInterest));
   renderPortfolioTab('repartition');
 }
 
