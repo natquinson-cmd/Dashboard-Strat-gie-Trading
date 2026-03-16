@@ -3137,6 +3137,7 @@ function parseCsvText(csvText) {
   const iOpen    = headers.indexOf('open level');
   const iClose   = headers.indexOf('close level');
   const iOpenDt  = headers.indexOf('opendateutc');
+  const iSummary = headers.indexOf('summary');
 
   if (iDate < 0 || iMarket < 0 || iPL < 0) {
     console.error('Colonnes introuvables. En-têtes détectés:', headers);
@@ -3164,6 +3165,12 @@ function parseCsvText(csvText) {
     const ref = iRef >= 0 ? cols[iRef] : '';
 
     if (txType === 'DEPO') {
+      // "Intérêt de financement CFD" → traiter comme dividende, pas comme dépôt
+      const summary = iSummary >= 0 ? cols[iSummary] : '';
+      if (/int[eé]r[eê]t\s+(de\s+)?financement/i.test(summary)) {
+        dividends.push({ date: dateStr, amount, ref, market: summary });
+        continue;
+      }
       deposits.push({ date: dateStr, amount, ref });
       continue;
     }
