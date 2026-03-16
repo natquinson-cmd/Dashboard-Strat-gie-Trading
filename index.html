@@ -4162,7 +4162,9 @@ const INV_USD_PLATFORMS = ['RMM', 'RealT'];
 let usdEurRate = 0.92; // fallback, updated at init
 
 function invIsUsd(p) { return INV_USD_PLATFORMS.includes(p); }
+function invIsLoanUsd(l) { return INV_USD_PLATFORMS.some(p => l.toLowerCase().includes(p.toLowerCase())); }
 function invToEur(p, v) { return invIsUsd(p) ? v * usdEurRate : v; }
+function invLoanToEur(l, v) { return invIsLoanUsd(l) ? v * usdEurRate : v; }
 function invPrinArr(p, n) {
   const arr = (portfolioData.principal[p] || []).slice(0, n);
   return invIsUsd(p) ? arr.map(v => (v || 0) * usdEurRate) : arr.map(v => v || 0);
@@ -4362,7 +4364,7 @@ function invCompute() {
   const li = invLastCompletedMonth();
   const numMonths = li + 1;
   const tp = d.platforms.reduce((s, p) => s + invToEur(p, (d.principal[p] || [])[li] || 0), 0);
-  const tl = (d.loanNames || []).reduce((s, l) => s + ((d.loans[l] || [])[li] || 0), 0);
+  const tl = (d.loanNames || []).reduce((s, l) => s + invLoanToEur(l, (d.loans[l] || [])[li] || 0), 0);
   const nc = tp - tl;
   const tic = d.platforms.reduce((s, p) => {
     const arr = d.interests[p] || [];
@@ -4490,7 +4492,7 @@ function invRenderOverview(t, labels, li) {
     }
   });
   h += '</div></div></div>';
-  h += `<div style="font-size:0.68rem;color:var(--text-secondary);text-align:right;padding:4px 8px">Taux USD/EUR : ${usdEurRate.toFixed(4)}</div>`;
+  h += `<div style="font-size:0.68rem;color:var(--text-secondary);text-align:right;padding:4px 8px">Taux EUR/USD : ${(1/usdEurRate).toFixed(4)}</div>`;
   h += '</div>';
   return h;
 }
@@ -4498,7 +4500,7 @@ function invRenderOverview(t, labels, li) {
 function invBuildOverviewCharts(t, labels, li) {
   const d = portfolioData, n = li + 1;
   const brutData = Array.from({length:n}, (_, i) => d.platforms.reduce((s, p) => s + invToEur(p, (d.principal[p] || [])[i] || 0), 0));
-  const empData = Array.from({length:n}, (_, i) => (d.loanNames || []).reduce((s, l) => s + ((d.loans[l] || [])[i] || 0), 0));
+  const empData = Array.from({length:n}, (_, i) => (d.loanNames || []).reduce((s, l) => s + invLoanToEur(l, (d.loans[l] || [])[i] || 0), 0));
   const netData = brutData.map((b, i) => b - empData[i]);
 
   invCharts.capital = new Chart(document.getElementById('inv-ch-capital'), { type: 'line', data: { labels, datasets: [
@@ -4591,17 +4593,20 @@ function invRenderLoans(t, labels, li) {
   let h = '<div class="inv-grid">';
   h += '<div class="inv-grid-kpi" style="grid-template-columns:repeat(3,1fr)">';
   (d.loanNames || []).forEach((l, i) => {
-    const cu = (d.loans[l] || [])[li] || 0;
-    const ini = (d.loans[l] || [])[0] || cu;
+    const cuRaw = (d.loans[l] || [])[li] || 0;
+    const iniRaw = (d.loans[l] || [])[0] || cuRaw;
+    const cu = invLoanToEur(l, cuRaw);
+    const ini = invLoanToEur(l, iniRaw);
     const po = ini - cu;
     const pp = ini > 0 ? (po / ini * 100).toFixed(1) : 0;
     const mo = (d.loanMonthlyPayments || {})[l] || 0;
+    const isUsd = invIsLoanUsd(l);
     h += `<div class="inv-card" style="border-color:rgba(239,68,68,0.1)">`;
-    h += `<div class="inv-flex inv-aic inv-gap2 inv-mb3"><span class="inv-dot" style="background:${INV_LC[i%3]};box-shadow:0 0 8px ${INV_LC[i%3]};width:12px;height:12px"></span><span style="font-size:14px;font-weight:600">${l}</span></div>`;
+    h += `<div class="inv-flex inv-aic inv-gap2 inv-mb3"><span class="inv-dot" style="background:${INV_LC[i%3]};box-shadow:0 0 8px ${INV_LC[i%3]};width:12px;height:12px"></span><span style="font-size:14px;font-weight:600">${l}${isUsd ? ' <span style="font-size:0.6rem;color:var(--text-secondary)">USD</span>' : ''}</span></div>`;
     h += '<div style="display:flex;flex-direction:column;gap:8px">';
-    h += `<div class="inv-flex inv-jcsb" style="font-size:12px"><span style="color:var(--text-secondary)">Restant dû</span><span style="font-weight:500">${invFmt(cu)}</span></div>`;
-    h += `<div class="inv-flex inv-jcsb" style="font-size:12px"><span style="color:var(--text-secondary)">Initial</span><span style="color:var(--text-secondary)">${invFmt(ini)}</span></div>`;
-    h += `<div class="inv-flex inv-jcsb" style="font-size:12px"><span style="color:var(--text-secondary)">Remboursé</span><span class="inv-cg">${invFmt(po)} (${pp}%)</span></div>`;
+    h += `<div class="inv-flex inv-jcsb" style="font-size:12px"><span style="color:var(--text-secondary)">Restant dû</span><span style="font-weight:500">${invFmt(Math.round(cu))}${isUsd ? ' <span style="font-size:0.6rem;color:var(--text-secondary)">(' + cuRaw.toLocaleString('fr-FR') + ' $)</span>' : ''}</span></div>`;
+    h += `<div class="inv-flex inv-jcsb" style="font-size:12px"><span style="color:var(--text-secondary)">Initial</span><span style="color:var(--text-secondary)">${invFmt(Math.round(ini))}${isUsd ? ' <span style="font-size:0.6rem">(' + iniRaw.toLocaleString('fr-FR') + ' $)</span>' : ''}</span></div>`;
+    h += `<div class="inv-flex inv-jcsb" style="font-size:12px"><span style="color:var(--text-secondary)">Remboursé</span><span class="inv-cg">${invFmt(Math.round(po))} (${pp}%)</span></div>`;
     if (mo > 0) h += `<div class="inv-flex inv-jcsb" style="font-size:12px"><span style="color:var(--text-secondary)">Mensualité</span><span class="inv-cy">${invFmt(mo)}/mois</span></div>`;
     h += `<div class="inv-neon-bar inv-mt2"><div class="inv-neon-fill" style="width:${pp}%;background:linear-gradient(90deg,#10b981,#059669)"></div></div>`;
     h += '</div></div>';
@@ -4621,12 +4626,12 @@ function invRenderLoans(t, labels, li) {
 function invBuildLoanCharts(t, labels, li) {
   const d = portfolioData, n = li + 1;
   const loanSets = (d.loanNames || []).map((l, i) => ({
-    label: l, data: (d.loans[l] || []).slice(0, n), borderColor: INV_LC[i%3], backgroundColor: invHexToRgba(INV_LC[i%3], 0.1), fill: true, borderWidth: 1.5, tension: 0.3
+    label: l, data: (d.loans[l] || []).slice(0, n).map(v => invLoanToEur(l, v || 0)), borderColor: INV_LC[i%3], backgroundColor: invHexToRgba(INV_LC[i%3], 0.1), fill: true, borderWidth: 1.5, tension: 0.3
   }));
   invCharts.loans = new Chart(document.getElementById('inv-ch-loans'), { type: 'line', data: { labels, datasets: loanSets }, options: { responsive: true, maintainAspectRatio: false, scales: { x: { ticks: { maxTicksLimit: 8 } }, y: { ticks: { callback: invFmtK } } } } });
 
   const brutD = Array.from({length: n}, (_, i) => d.platforms.reduce((s, p) => s + invToEur(p, (d.principal[p] || [])[i] || 0), 0));
-  const empD = Array.from({length: n}, (_, i) => (d.loanNames || []).reduce((s, l) => s + ((d.loans[l] || [])[i] || 0), 0));
+  const empD = Array.from({length: n}, (_, i) => (d.loanNames || []).reduce((s, l) => s + invLoanToEur(l, (d.loans[l] || [])[i] || 0), 0));
   const netD = brutD.map((b, i) => b - empD[i]);
   invCharts.netdebt = new Chart(document.getElementById('inv-ch-netdebt'), { type: 'line', data: { labels, datasets: [
     { label: 'Capital brut', data: brutD, borderColor: '#6366f1', backgroundColor: invHexToRgba('#6366f1', 0.06), fill: true, borderWidth: 2, tension: 0.3 },
@@ -4968,8 +4973,10 @@ function invRenderUpdate(t, li) {
       h += '<div style="font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:12px">Emprunts en cours</div><div class="inv-grid-form" style="margin-bottom:24px">';
       d.loanNames.forEach((l, i) => {
         const lv = invLoanFormData[l] || '';
+        const lCur = invIsLoanUsd(l) ? '$' : '€';
+        const lEurNote = invIsLoanUsd(l) ? ` <span style="font-size:0.68rem;color:var(--text-secondary)">(≈ ${invFmt(Math.round(invLoanToEur(l, Number(lv)||0)))})</span>` : '';
         h += `<div class="inv-loan-card"><div class="inv-flex inv-aic inv-gap2 inv-mb3"><span class="inv-dot" style="background:${INV_LC[i%3]};box-shadow:0 0 6px ${INV_LC[i%3]};width:12px;height:12px"></span><span style="font-size:12px;font-weight:500">${l}</span></div>`;
-        h += `<label style="font-size:12px;color:var(--text-secondary);display:block;margin-bottom:4px">Restant dû (€)</label>`;
+        h += `<label style="font-size:12px;color:var(--text-secondary);display:block;margin-bottom:4px">Restant dû (${lCur})${lEurNote}</label>`;
         h += `<input class="inv-input loan" type="number" value="${lv}" onchange="invUpdateLoanForm('${l}',this.value)" placeholder="0"></div>`;
       });
       h += '</div>';
@@ -5230,7 +5237,7 @@ function formatTimestamp(ts) {
 }
 
 // Build timestamp — mis à jour automatiquement à chaque déploiement
-const DASH_BUILD_TS = 1773664229765;
+const DASH_BUILD_TS = 1773664755361;
 
 function displayDashTimestamp() {
   const el = document.getElementById('footerDashUpdate');
