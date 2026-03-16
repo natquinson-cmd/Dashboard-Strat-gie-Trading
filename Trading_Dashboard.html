@@ -648,7 +648,9 @@
     align-items:center; justify-content:center; font-size:0.72rem; font-weight:600;
     transition:transform 0.15s; position:relative; min-height:64px; padding:6px 2px;
   }
+  .day-cell { cursor:pointer; }
   .day-cell:hover { transform:scale(1.05); }
+  .day-cell.selected { outline:2px solid var(--accent-dax-light); outline-offset:-2px; }
   .day-cell .day-num { font-size:0.65rem; color:var(--text-secondary); margin-bottom:2px; }
   .day-cell .day-pnl { font-size:0.82rem; font-weight:700; }
   .day-cell .day-trades { font-size:0.58rem; color:var(--text-secondary); margin-top:1px; }
@@ -664,6 +666,25 @@
   .day-cell.week-total { min-width:58px; border:1px solid var(--border); }
   .day-cell.week-total .day-pnl { font-size:0.82rem; font-weight:700; }
   .day-cell.week-total .day-num { font-size:0.6rem; font-weight:700; color:var(--text-secondary); text-transform:uppercase; }
+
+  .day-detail-panel {
+    display:none; margin-top:8px; padding:16px; border-radius:12px;
+    background:var(--bg-card); border:1px solid var(--border);
+    animation: fadeIn 0.2s ease;
+  }
+  .day-detail-panel.visible { display:block; }
+  .day-detail-panel .detail-header {
+    display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;
+  }
+  .day-detail-panel .detail-header h4 { margin:0; font-size:0.88rem; font-weight:600; }
+  .day-detail-panel .detail-close { cursor:pointer; color:var(--text-secondary); font-size:1.1rem; padding:2px 6px; border-radius:6px; }
+  .day-detail-panel .detail-close:hover { background:var(--bg-card-hover); color:var(--text-primary); }
+  .day-detail-table { width:100%; border-collapse:collapse; font-size:0.78rem; }
+  .day-detail-table th { text-align:left; color:var(--text-secondary); font-weight:600; padding:6px 8px; border-bottom:1px solid var(--border); font-size:0.7rem; text-transform:uppercase; }
+  .day-detail-table td { padding:6px 8px; border-bottom:1px solid rgba(255,255,255,0.03); }
+  .day-detail-table tr:last-child td { border-bottom:none; }
+  .day-detail-table .td-r { text-align:right; }
+  .day-detail-summary { display:flex; gap:16px; margin-top:10px; padding-top:10px; border-top:1px solid var(--border); font-size:0.78rem; }
 
   .stats-bar {
     display:flex; gap:24px; flex-wrap:wrap; padding:16px 0;
@@ -1096,6 +1117,7 @@
         <button onclick="calNext()">▶</button>
       </div>
       <div class="day-grid" id="dayGrid"></div>
+      <div class="day-detail-panel" id="dayDetailPanel"></div>
       <div class="stats-bar" id="dayStats"></div>
     </div></div>
     <div class="chart-full"><div class="chart-card">
@@ -2706,7 +2728,7 @@ function buildDailyCalendar() {
       const bgColor = data.pnl >= 0
         ? `rgba(16,185,129,${intensity.toFixed(2)})`
         : `rgba(239,68,68,${intensity.toFixed(2)})`;
-      html += `<div class="day-cell ${cls} ${isToday?'today':''}" style="background:${bgColor}">
+      html += `<div class="day-cell ${cls} ${isToday?'today':''}" style="background:${bgColor}" onclick="showDayDetail('${dateStr}',this)">
         <span class="day-num">${d}</span>
         <span class="day-pnl">${displayVal}</span>
         <span class="day-trades">${data.trades} trade${data.trades>1?'s':''}</span>
@@ -2742,8 +2764,95 @@ function buildDailyCalendar() {
   `;
 }
 
-function calPrev() { calMonth--; if(calMonth<0){calMonth=11;calYear--;} buildDailyCalendar(); }
-function calNext() { calMonth++; if(calMonth>11){calMonth=0;calYear++;} buildDailyCalendar(); }
+function calPrev() { calMonth--; if(calMonth<0){calMonth=11;calYear--;} closeDayDetail(); buildDailyCalendar(); }
+function calNext() { calMonth++; if(calMonth>11){calMonth=0;calYear++;} closeDayDetail(); buildDailyCalendar(); }
+
+let selectedDayCell = null;
+
+function showDayDetail(dateStr, cellEl) {
+  const panel = document.getElementById('dayDetailPanel');
+  // Toggle off if clicking same day
+  if (selectedDayCell === cellEl) { closeDayDetail(); return; }
+  // Highlight selected cell
+  if (selectedDayCell) selectedDayCell.classList.remove('selected');
+  cellEl.classList.add('selected');
+  selectedDayCell = cellEl;
+
+  const trades = getFilteredTrades().filter(t => t[0] === dateStr);
+  if (trades.length === 0) { closeDayDetail(); return; }
+
+  // Format date
+  const [y, m, d] = dateStr.split('-');
+  const dayNames = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
+  const dateObj = new Date(parseInt(y), parseInt(m)-1, parseInt(d));
+  const dayName = dayNames[dateObj.getDay()];
+  const dateLabel = `${dayName} ${parseInt(d)} ${monthNames[parseInt(m)-1]} ${y}`;
+
+  let h = '<div class="detail-header">';
+  h += `<h4>📋 ${dateLabel} — ${trades.length} trade${trades.length>1?'s':''}</h4>`;
+  h += '<span class="detail-close" onclick="closeDayDetail()">✕</span></div>';
+
+  h += '<table class="day-detail-table"><thead><tr>';
+  h += '<th>Symbole</th><th>Direction</th><th>Taille</th><th>Ouverture</th><th>Clôture</th><th>Points</th><th class="td-r">P&L</th>';
+  h += '</tr></thead><tbody>';
+
+  let totalPnl = 0;
+  trades.sort((a, b) => (a[7] || a[0]).localeCompare(b[7] || b[0]));
+  for (const t of trades) {
+    const pnl = t[2];
+    totalPnl += pnl;
+    const sign = pnl >= 0 ? '+' : '';
+    const color = pnl >= 0 ? 'var(--positive)' : 'var(--negative)';
+    const dir = t[4] > 0 ? '🔼 Long' : t[4] < 0 ? '🔽 Short' : '—';
+    const size = t[4] ? Math.abs(t[4]) : '—';
+    const openLvl = t[5] ? t[5].toFixed(1) : '—';
+    const closeLvl = t[6] ? t[6].toFixed(1) : '—';
+    let pts = '—';
+    if (t[5] > 0 && t[6] > 0 && t[4] !== 0) {
+      pts = t[4] > 0 ? (t[6] - t[5]).toFixed(1) : (t[5] - t[6]).toFixed(1);
+      pts = (parseFloat(pts) >= 0 ? '+' : '') + pts;
+    }
+    // Extract time from openDate/closeDate
+    const openTime = t[7] && t[7].length >= 16 ? t[7].substring(11, 16) : '';
+    const closeTime = t[8] && t[8].length >= 16 ? t[8].substring(11, 16) : '';
+    const openStr = openLvl !== '—' ? `${openLvl}${openTime ? ' <span style="color:var(--text-secondary);font-size:0.68rem">(' + openTime + ')</span>' : ''}` : '—';
+    const closeStr = closeLvl !== '—' ? `${closeLvl}${closeTime ? ' <span style="color:var(--text-secondary);font-size:0.68rem">(' + closeTime + ')</span>' : ''}` : '—';
+
+    h += '<tr>';
+    h += `<td style="font-weight:600">${t[1]}</td>`;
+    h += `<td>${dir}</td>`;
+    h += `<td>${size}</td>`;
+    h += `<td>${openStr}</td>`;
+    h += `<td>${closeStr}</td>`;
+    h += `<td style="font-weight:500">${pts}</td>`;
+    h += `<td class="td-r" style="font-weight:700;color:${color}">${sign}${pnl.toFixed(2)} €</td>`;
+    h += '</tr>';
+  }
+  h += '</tbody></table>';
+
+  // Summary
+  const wins = trades.filter(t => t[2] >= 0).length;
+  const losses = trades.length - wins;
+  const totalSign = totalPnl >= 0 ? '+' : '';
+  const totalColor = totalPnl >= 0 ? 'var(--positive)' : 'var(--negative)';
+  h += '<div class="day-detail-summary">';
+  h += `<span><strong>Total :</strong> <span style="color:${totalColor};font-weight:700">${totalSign}${totalPnl.toFixed(2)} €</span></span>`;
+  h += `<span style="color:var(--text-secondary)">|</span>`;
+  h += `<span style="color:var(--positive)">${wins} gagnant${wins>1?'s':''}</span>`;
+  h += `<span style="color:var(--text-secondary)">|</span>`;
+  h += `<span style="color:var(--negative)">${losses} perdant${losses>1?'s':''}</span>`;
+  h += '</div>';
+
+  panel.innerHTML = h;
+  panel.classList.add('visible');
+  panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function closeDayDetail() {
+  const panel = document.getElementById('dayDetailPanel');
+  if (panel) { panel.classList.remove('visible'); panel.innerHTML = ''; }
+  if (selectedDayCell) { selectedDayCell.classList.remove('selected'); selectedDayCell = null; }
+}
 
 function buildMonthlyHeatReal() {
   const trades = getFilteredTrades();
@@ -5056,7 +5165,7 @@ function formatTimestamp(ts) {
 }
 
 // Build timestamp — mis à jour automatiquement à chaque déploiement
-const DASH_BUILD_TS = 1773649830369;
+const DASH_BUILD_TS = 1773654579832;
 
 function displayDashTimestamp() {
   const el = document.getElementById('footerDashUpdate');
