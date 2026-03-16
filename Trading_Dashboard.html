@@ -4158,6 +4158,27 @@ const INV_MN = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','N
 const INV_MEMBER_COLORS = {"Moi":"#6366f1","Noah":"#06b6d4","Elie":"#f59e0b"};
 const INV_REP_MEMBERS = ["Moi","Noah","Elie"];
 
+const INV_USD_PLATFORMS = ['RMM', 'RealT'];
+let usdEurRate = 0.92; // fallback, updated at init
+
+function invIsUsd(p) { return INV_USD_PLATFORMS.includes(p); }
+function invToEur(p, v) { return invIsUsd(p) ? v * usdEurRate : v; }
+function invPrinArr(p, n) {
+  const arr = (portfolioData.principal[p] || []).slice(0, n);
+  return invIsUsd(p) ? arr.map(v => (v || 0) * usdEurRate) : arr.map(v => v || 0);
+}
+function invIntArr(p, n) {
+  const arr = (portfolioData.interests[p] || []).slice(0, n);
+  return invIsUsd(p) ? arr.map(v => (v || 0) * usdEurRate) : arr.map(v => v || 0);
+}
+
+function fetchUsdEurRate() {
+  return fetch('https://open.er-api.com/v6/latest/USD')
+    .then(r => r.json())
+    .then(d => { if (d && d.rates && d.rates.EUR) { usdEurRate = d.rates.EUR; } })
+    .catch(() => { /* keep fallback */ });
+}
+
 let portfolioData = null;
 let invCharts = {};
 let invCurrentTab = 'overview';
@@ -4339,17 +4360,17 @@ function invLastCompletedMonth() {
 function invCompute() {
   const d = portfolioData;
   const li = invLastCompletedMonth();
-  const numMonths = li + 1; // months from 0 to li
-  const tp = d.platforms.reduce((s, p) => s + ((d.principal[p] || [])[li] || 0), 0);
+  const numMonths = li + 1;
+  const tp = d.platforms.reduce((s, p) => s + invToEur(p, (d.principal[p] || [])[li] || 0), 0);
   const tl = (d.loanNames || []).reduce((s, l) => s + ((d.loans[l] || [])[li] || 0), 0);
   const nc = tp - tl;
   const tic = d.platforms.reduce((s, p) => {
     const arr = d.interests[p] || [];
-    let sum = 0; for (let i = 0; i <= li; i++) sum += (arr[i] || 0);
+    let sum = 0; for (let i = 0; i <= li; i++) sum += invToEur(p, arr[i] || 0);
     return s + sum;
   }, 0);
-  const lmi = d.platforms.reduce((s, p) => s + ((d.interests[p] || [])[li] || 0), 0);
-  const pmi = li > 0 ? d.platforms.reduce((s, p) => s + ((d.interests[p] || [])[li-1] || 0), 0) : 0;
+  const lmi = d.platforms.reduce((s, p) => s + invToEur(p, (d.interests[p] || [])[li] || 0), 0);
+  const pmi = li > 0 ? d.platforms.reduce((s, p) => s + invToEur(p, (d.interests[p] || [])[li-1] || 0), 0) : 0;
   const mc = pmi > 0 ? ((lmi - pmi) / pmi * 100).toFixed(1) : 0;
   const am = numMonths > 0 ? Math.round(tic / numMonths) : 0;
   const tmp = (d.loanNames || []).reduce((s, l) => s + ((d.loanMonthlyPayments || {})[l] || 0), 0);
@@ -4459,22 +4480,24 @@ function invRenderOverview(t, labels, li) {
   h += '<div class="inv-chart-card"><h3>Intérêts mensuels</h3><div class="inv-canvas-wrap"><canvas id="inv-ch-intbar"></canvas></div></div>';
   h += '<div class="inv-card"><h3 style="font-size:0.88rem;font-weight:600;margin-bottom:16px">Détails par plateforme</h3><div style="display:flex;flex-direction:column;gap:12px">';
   d.platforms.forEach((p, i) => {
-    const v = (d.principal[p] || [])[li] || 0;
+    const v = invToEur(p, (d.principal[p] || [])[li] || 0);
     const pc = t.tp > 0 ? (v / t.tp * 100).toFixed(1) : 0;
-    const iv = (d.interests[p] || [])[li] || 0;
+    const iv = invToEur(p, (d.interests[p] || [])[li] || 0);
     if (v > 0) {
-      h += `<div><div class="inv-flex inv-jcsb" style="font-size:12px;margin-bottom:4px"><span class="inv-flex inv-aic inv-gap2"><span class="inv-dot" style="background:${invColor(p,i)};box-shadow:0 0 6px ${invColor(p,i)}"></span><span style="color:var(--text-secondary)">${p}</span></span><span style="font-weight:500">${invFmt(v)}</span></div>`;
+      h += `<div><div class="inv-flex inv-jcsb" style="font-size:12px;margin-bottom:4px"><span class="inv-flex inv-aic inv-gap2"><span class="inv-dot" style="background:${invColor(p,i)};box-shadow:0 0 6px ${invColor(p,i)}"></span><span style="color:var(--text-secondary)">${p}${invIsUsd(p) ? ' <span style="font-size:0.6rem">🇺🇸</span>' : ''}</span></span><span style="font-weight:500">${invFmt(Math.round(v))}</span></div>`;
       h += `<div class="inv-neon-bar"><div class="inv-neon-fill" style="width:${pc}%;background:${invColor(p,i)}"></div></div>`;
-      h += `<div class="inv-flex inv-jcsb" style="font-size:12px;color:var(--text-secondary);margin-top:2px"><span>${pc}%</span><span>+${invFmt(iv)} ce mois</span></div></div>`;
+      h += `<div class="inv-flex inv-jcsb" style="font-size:12px;color:var(--text-secondary);margin-top:2px"><span>${pc}%</span><span>+${invFmt(Math.round(iv))} ce mois</span></div></div>`;
     }
   });
-  h += '</div></div></div></div>';
+  h += '</div></div></div>';
+  h += `<div style="font-size:0.68rem;color:var(--text-secondary);text-align:right;padding:4px 8px">Taux USD/EUR : ${usdEurRate.toFixed(4)}</div>`;
+  h += '</div>';
   return h;
 }
 
 function invBuildOverviewCharts(t, labels, li) {
   const d = portfolioData, n = li + 1;
-  const brutData = Array.from({length:n}, (_, i) => d.platforms.reduce((s, p) => s + ((d.principal[p] || [])[i] || 0), 0));
+  const brutData = Array.from({length:n}, (_, i) => d.platforms.reduce((s, p) => s + invToEur(p, (d.principal[p] || [])[i] || 0), 0));
   const empData = Array.from({length:n}, (_, i) => (d.loanNames || []).reduce((s, l) => s + ((d.loans[l] || [])[i] || 0), 0));
   const netData = brutData.map((b, i) => b - empData[i]);
 
@@ -4484,10 +4507,10 @@ function invBuildOverviewCharts(t, labels, li) {
     { label: 'Capital net', data: netData, borderColor: '#10b981', backgroundColor: invHexToRgba('#10b981', 0.08), fill: true, borderWidth: 2, tension: 0.3 }
   ]}, options: { responsive: true, maintainAspectRatio: false, scales: { x: { ticks: { maxTicksLimit: 8 } }, y: { ticks: { callback: invFmtK } } }, plugins: { tooltip: { callbacks: { label: ctx => ' ' + ctx.dataset.label + ': ' + invFmt(ctx.parsed.y) } } } } });
 
-  const pieData = d.platforms.map((p, i) => ({ name: p, value: (d.principal[p] || [])[li] || 0, color: invColor(p,i) })).filter(x => x.value > 0);
+  const pieData = d.platforms.map((p, i) => ({ name: p, value: invToEur(p, (d.principal[p] || [])[li] || 0), color: invColor(p,i) })).filter(x => x.value > 0);
   invCharts.pie = new Chart(document.getElementById('inv-ch-pie'), { type: 'doughnut', data: { labels: pieData.map(x => x.name), datasets: [{ data: pieData.map(x => x.value), backgroundColor: pieData.map(x => x.color), borderWidth: 0, hoverOffset: 8 }] }, options: { responsive: true, maintainAspectRatio: false, cutout: '55%', plugins: { legend: { position: 'bottom', labels: { padding: 8, font: { size: 10 } } }, tooltip: { callbacks: { label: ctx => { const total = ctx.dataset.data.reduce((a, b) => a + b, 0); return ' ' + ctx.label + ': ' + invFmt(ctx.parsed) + ' (' + Math.round(ctx.parsed / total * 100) + '%)'; } } } } } });
 
-  const datasets = d.platforms.filter(p => (d.interests[p] || []).slice(0,n).some(v => v > 0)).map(p => ({ label: p, data: (d.interests[p] || []).slice(0,n), backgroundColor: invHexToRgba(invColor(p,d.platforms.indexOf(p)), 0.75), borderRadius: 2 }));
+  const datasets = d.platforms.filter(p => invIntArr(p, n).some(v => v > 0)).map(p => ({ label: p, data: invIntArr(p, n), backgroundColor: invHexToRgba(invColor(p,d.platforms.indexOf(p)), 0.75), borderRadius: 2 }));
   invCharts.intbar = new Chart(document.getElementById('inv-ch-intbar'), { type: 'bar', data: { labels, datasets }, options: { responsive: true, maintainAspectRatio: false, scales: { x: { stacked: true, ticks: { maxTicksLimit: 8 } }, y: { stacked: true } }, plugins: { tooltip: { mode: 'index', callbacks: { label: ctx => ' ' + ctx.dataset.label + ': ' + invFmt(ctx.parsed.y), footer: items => 'Total: ' + invFmt(items.reduce((s, i) => s + i.parsed.y, 0)) } } } } });
 }
 
@@ -4500,7 +4523,7 @@ function invRenderInterests(t, labels) {
   h += '<div class="inv-chart-card"><h3>Répartition des intérêts</h3><div class="inv-canvas-wrap" style="height:280px"><canvas id="inv-ch-intpie"></canvas></div></div>';
   h += '<div class="inv-card"><h3 style="font-size:0.88rem;font-weight:600;margin-bottom:16px">Classement par plateforme</h3><div style="display:flex;flex-direction:column;gap:12px">';
   const n = t.li + 1;
-  const sorted = d.platforms.map((p, i) => ({ name: p, total: (d.interests[p] || []).slice(0, n).reduce((a, b) => a + b, 0), color: invColor(p,i) })).filter(x => x.total > 0).sort((a, b) => b.total - a.total);
+  const sorted = d.platforms.map((p, i) => ({ name: p, total: invIntArr(p, n).reduce((a, b) => a + b, 0), color: invColor(p,i) })).filter(x => x.total > 0).sort((a, b) => b.total - a.total);
   const mx = sorted.length > 0 ? sorted[0].total : 1;
   sorted.forEach(x => {
     h += `<div><div class="inv-flex inv-jcsb" style="font-size:12px;margin-bottom:4px"><span class="inv-flex inv-aic inv-gap2"><span class="inv-dot" style="background:${x.color};box-shadow:0 0 6px ${x.color}"></span><span style="color:var(--text-secondary)">${x.name}</span></span><span style="font-weight:500">${invFmt(x.total)}</span></div>`;
@@ -4514,19 +4537,20 @@ function invRenderInterests(t, labels) {
 
 function invBuildInterestCharts(t, labels) {
   const d = portfolioData, n = t.li + 1;
-  const cumSets = d.platforms.filter(p => (d.interests[p] || []).slice(0, n).some(v => v > 0)).map(p => {
+  const cumSets = d.platforms.filter(p => invIntArr(p, n).some(v => v > 0)).map(p => {
     const cum = []; let total = 0; const idx = d.platforms.indexOf(p);
-    for (let i = 0; i < n; i++) { total += (d.interests[p] || [])[i] || 0; cum.push(total); }
+    const arr = invIntArr(p, n);
+    for (let i = 0; i < n; i++) { total += arr[i]; cum.push(total); }
     return { label: p, data: cum, borderColor: invColor(p,idx), backgroundColor: invHexToRgba(invColor(p,idx), 0.06), fill: true, borderWidth: 1.5, tension: 0.3 };
   });
   invCharts.cumul = new Chart(document.getElementById('inv-ch-cumul'), { type: 'line', data: { labels, datasets: cumSets }, options: { responsive: true, maintainAspectRatio: false, scales: { x: { ticks: { maxTicksLimit: 8 } }, y: { ticks: { callback: invFmtK } } } } });
 
-  const ipd = d.platforms.map((p, i) => ({ name: p, value: (d.interests[p] || []).slice(0, n).reduce((a, b) => a + b, 0), color: invColor(p,i) })).filter(x => x.value > 0);
+  const ipd = d.platforms.map((p, i) => ({ name: p, value: invIntArr(p, n).reduce((a, b) => a + b, 0), color: invColor(p,i) })).filter(x => x.value > 0);
   invCharts.intpie = new Chart(document.getElementById('inv-ch-intpie'), { type: 'doughnut', data: { labels: ipd.map(x => x.name), datasets: [{ data: ipd.map(x => x.value), backgroundColor: ipd.map(x => x.color), borderWidth: 0 }] }, options: { responsive: true, maintainAspectRatio: false, cutout: '55%', plugins: { legend: { position: 'bottom', labels: { padding: 8, font: { size: 10 } } } } } });
 
-  const lineSets = d.platforms.filter(p => (d.interests[p] || []).slice(0, n).some(v => v > 0)).map(p => {
+  const lineSets = d.platforms.filter(p => invIntArr(p, n).some(v => v > 0)).map(p => {
     const idx = d.platforms.indexOf(p);
-    return { label: p, data: (d.interests[p] || []).slice(0, n), borderColor: invColor(p,idx), backgroundColor: 'transparent', borderWidth: 1.5, tension: 0.3 };
+    return { label: p, data: invIntArr(p, n), borderColor: invColor(p,idx), backgroundColor: 'transparent', borderWidth: 1.5, tension: 0.3 };
   });
   invCharts.intline = new Chart(document.getElementById('inv-ch-intline'), { type: 'line', data: { labels, datasets: lineSets }, options: { responsive: true, maintainAspectRatio: false, scales: { x: { ticks: { maxTicksLimit: 8 } } } } });
 }
@@ -4544,20 +4568,20 @@ function invRenderEvolution(t, labels, li) {
 
 function invBuildEvolutionCharts(t, labels, li) {
   const d = portfolioData, n = li + 1;
-  const stackSets = d.platforms.filter(p => (d.principal[p] || []).slice(0, n).some(v => v > 0)).map(p => {
+  const stackSets = d.platforms.filter(p => invPrinArr(p, n).some(v => v > 0)).map(p => {
     const idx = d.platforms.indexOf(p);
-    return { label: p, data: (d.principal[p] || []).slice(0, n), borderColor: invColor(p,idx), backgroundColor: invHexToRgba(invColor(p,idx), 0.15), fill: true, borderWidth: 1.5, tension: 0.3 };
+    return { label: p, data: invPrinArr(p, n), borderColor: invColor(p,idx), backgroundColor: invHexToRgba(invColor(p,idx), 0.15), fill: true, borderWidth: 1.5, tension: 0.3 };
   });
   invCharts.stack = new Chart(document.getElementById('inv-ch-stack'), { type: 'line', data: { labels, datasets: stackSets }, options: { responsive: true, maintainAspectRatio: false, scales: { x: { ticks: { maxTicksLimit: 10 } }, y: { stacked: true, ticks: { callback: invFmtK } } }, plugins: { tooltip: { mode: 'index' } } } });
 
-  const totals = Array.from({length: n}, (_, i) => d.platforms.reduce((s, p) => s + ((d.principal[p] || [])[i] || 0), 0));
+  const totals = Array.from({length: n}, (_, i) => d.platforms.reduce((s, p) => s + invToEur(p, (d.principal[p] || [])[i] || 0), 0));
   const variations = totals.slice(1).map((v, i) => v - totals[i]);
   invCharts.varChart = new Chart(document.getElementById('inv-ch-var'), { type: 'bar', data: { labels: labels.slice(1), datasets: [{ label: 'Variation', data: variations, backgroundColor: variations.map(v => v >= 0 ? invHexToRgba('#10b981', 0.7) : invHexToRgba('#ef4444', 0.7)), borderRadius: 3 }] }, options: { responsive: true, maintainAspectRatio: false, scales: { x: { ticks: { maxTicksLimit: 8 } }, y: { ticks: { callback: invFmtK } } }, plugins: { legend: { display: false } } } });
 
-  const compData = d.platforms.filter(p => ((d.principal[p] || [])[li] || 0) > 0 || ((d.principal[p] || [])[Math.max(0, li-1)] || 0) > 0);
+  const compData = d.platforms.filter(p => invToEur(p, (d.principal[p] || [])[li] || 0) > 0 || invToEur(p, (d.principal[p] || [])[Math.max(0, li-1)] || 0) > 0);
   invCharts.compare = new Chart(document.getElementById('inv-ch-compare'), { type: 'bar', data: { labels: compData, datasets: [
-    { label: 'Précédent', data: compData.map(p => (d.principal[p] || [])[Math.max(0, li-1)] || 0), backgroundColor: invHexToRgba('#6366f1', 0.25), borderRadius: 3 },
-    { label: 'Actuel', data: compData.map(p => (d.principal[p] || [])[li] || 0), backgroundColor: invHexToRgba('#6366f1', 0.75), borderRadius: 3 }
+    { label: 'Précédent', data: compData.map(p => invToEur(p, (d.principal[p] || [])[Math.max(0, li-1)] || 0)), backgroundColor: invHexToRgba('#6366f1', 0.25), borderRadius: 3 },
+    { label: 'Actuel', data: compData.map(p => invToEur(p, (d.principal[p] || [])[li] || 0)), backgroundColor: invHexToRgba('#6366f1', 0.75), borderRadius: 3 }
   ] }, options: { responsive: true, maintainAspectRatio: false, indexAxis: 'y', scales: { x: { ticks: { callback: invFmtK } } }, plugins: { tooltip: { callbacks: { label: ctx => ' ' + ctx.dataset.label + ': ' + invFmt(ctx.parsed.x) } } } } });
 }
 
@@ -4601,7 +4625,7 @@ function invBuildLoanCharts(t, labels, li) {
   }));
   invCharts.loans = new Chart(document.getElementById('inv-ch-loans'), { type: 'line', data: { labels, datasets: loanSets }, options: { responsive: true, maintainAspectRatio: false, scales: { x: { ticks: { maxTicksLimit: 8 } }, y: { ticks: { callback: invFmtK } } } } });
 
-  const brutD = Array.from({length: n}, (_, i) => d.platforms.reduce((s, p) => s + ((d.principal[p] || [])[i] || 0), 0));
+  const brutD = Array.from({length: n}, (_, i) => d.platforms.reduce((s, p) => s + invToEur(p, (d.principal[p] || [])[i] || 0), 0));
   const empD = Array.from({length: n}, (_, i) => (d.loanNames || []).reduce((s, l) => s + ((d.loans[l] || [])[i] || 0), 0));
   const netD = brutD.map((b, i) => b - empD[i]);
   invCharts.netdebt = new Chart(document.getElementById('inv-ch-netdebt'), { type: 'line', data: { labels, datasets: [
@@ -4931,8 +4955,11 @@ function invRenderUpdate(t, li) {
       const prinVal = invFormData[p] ? invFormData[p].principal : '';
       h += `<div class="inv-form-card"><div class="inv-flex inv-aic inv-gap2 inv-mb3"><span class="inv-dot" style="background:${invColor(p,i)};box-shadow:0 0 6px ${invColor(p,i)};width:12px;height:12px"></span><span style="font-size:12px;font-weight:500">${p}</span></div>`;
       h += '<div style="display:flex;flex-direction:column;gap:8px">';
-      h += `<div><label style="font-size:12px;color:var(--text-secondary);display:block;margin-bottom:4px">Intérêts (€)</label><input class="inv-input" type="number" value="${intVal}" onchange="invUpdateForm('${p}','interest',this.value)" placeholder="0"></div>`;
-      h += `<div><label style="font-size:12px;color:var(--text-secondary);display:block;margin-bottom:4px">Capital total (€)</label><input class="inv-input" type="number" value="${prinVal}" onchange="invUpdateForm('${p}','principal',this.value)" placeholder="0"></div>`;
+      const cur = invIsUsd(p) ? '$' : '€';
+      const eurNote = invIsUsd(p) ? ` <span style="font-size:0.68rem;color:var(--text-secondary)">(≈ ${invFmt(invToEur(p, Number(intVal)||0))})</span>` : '';
+      const eurNotePrin = invIsUsd(p) ? ` <span style="font-size:0.68rem;color:var(--text-secondary)">(≈ ${invFmt(invToEur(p, Number(prinVal)||0))})</span>` : '';
+      h += `<div><label style="font-size:12px;color:var(--text-secondary);display:block;margin-bottom:4px">Intérêts (${cur})${eurNote}</label><input class="inv-input" type="number" value="${intVal}" onchange="invUpdateForm('${p}','interest',this.value)" placeholder="0"></div>`;
+      h += `<div><label style="font-size:12px;color:var(--text-secondary);display:block;margin-bottom:4px">Capital total (${cur})${eurNotePrin}</label><input class="inv-input" type="number" value="${prinVal}" onchange="invUpdateForm('${p}','principal',this.value)" placeholder="0"></div>`;
       h += '</div></div>';
     });
     h += '</div>';
@@ -4952,16 +4979,20 @@ function invRenderUpdate(t, li) {
   } else {
     // Read-only table
     h += '<div class="inv-ox"><table class="inv-table"><thead><tr><th>Plateforme</th><th class="th-r">Capital</th><th class="th-r">Intérêts</th><th class="th-r">% total</th></tr></thead><tbody>';
-    const tc = d.platforms.reduce((s, p) => s + ((d.principal[p] || [])[invEditMonth] || 0), 0);
+    const tc = d.platforms.reduce((s, p) => s + invToEur(p, (d.principal[p] || [])[invEditMonth] || 0), 0);
     d.platforms.forEach((p, i) => {
-      const c = (d.principal[p] || [])[invEditMonth] || 0;
-      const it = (d.interests[p] || [])[invEditMonth] || 0;
-      h += `<tr style="border-bottom:1px solid rgba(255,255,255,0.03)"><td><div class="inv-flex inv-aic inv-gap2"><span class="inv-dot" style="background:${invColor(p,i)};box-shadow:0 0 4px ${invColor(p,i)}"></span>${p}</div></td>`;
-      h += `<td class="td-r">${invFmt(c)}</td><td class="td-r" style="color:${it > 0 ? '#10b981' : 'var(--text-secondary)'}">${it > 0 ? '+' + invFmt(it) : '-'}</td>`;
+      const c = invToEur(p, (d.principal[p] || [])[invEditMonth] || 0);
+      const it = invToEur(p, (d.interests[p] || [])[invEditMonth] || 0);
+      const rawC = (d.principal[p] || [])[invEditMonth] || 0;
+      const rawI = (d.interests[p] || [])[invEditMonth] || 0;
+      const usdNote = invIsUsd(p) ? ` <span style="font-size:0.68rem;color:var(--text-secondary)">(${rawC.toLocaleString('fr-FR')} $)</span>` : '';
+      const usdNoteI = invIsUsd(p) && rawI > 0 ? ` <span style="font-size:0.68rem;color:var(--text-secondary)">(${rawI.toLocaleString('fr-FR')} $)</span>` : '';
+      h += `<tr style="border-bottom:1px solid rgba(255,255,255,0.03)"><td><div class="inv-flex inv-aic inv-gap2"><span class="inv-dot" style="background:${invColor(p,i)};box-shadow:0 0 4px ${invColor(p,i)}"></span>${p}${invIsUsd(p) ? ' <span style="font-size:0.6rem;color:var(--text-secondary)">USD</span>' : ''}</div></td>`;
+      h += `<td class="td-r">${invFmt(Math.round(c))}${usdNote}</td><td class="td-r" style="color:${it > 0 ? '#10b981' : 'var(--text-secondary)'}">${it > 0 ? '+' + invFmt(Math.round(it)) + usdNoteI : '-'}</td>`;
       h += `<td class="td-r" style="color:var(--text-secondary)">${tc > 0 ? (c / tc * 100).toFixed(1) + '%' : '-'}</td></tr>`;
     });
-    const totalInt = d.platforms.reduce((s, p) => s + ((d.interests[p] || [])[invEditMonth] || 0), 0);
-    h += `<tr style="border-top:1px solid rgba(99,102,241,0.2)"><td style="font-weight:600">Total</td><td class="td-r" style="font-weight:600">${invFmt(tc)}</td><td class="td-r" style="font-weight:600;color:#10b981">+${invFmt(totalInt)}</td><td class="td-r" style="font-weight:600">100%</td></tr>`;
+    const totalInt = d.platforms.reduce((s, p) => s + invToEur(p, (d.interests[p] || [])[invEditMonth] || 0), 0);
+    h += `<tr style="border-top:1px solid rgba(99,102,241,0.2)"><td style="font-weight:600">Total</td><td class="td-r" style="font-weight:600">${invFmt(Math.round(tc))}</td><td class="td-r" style="font-weight:600;color:#10b981">+${invFmt(Math.round(totalInt))}</td><td class="td-r" style="font-weight:600">100%</td></tr>`;
     h += '</tbody></table>';
 
     if ((d.loanNames || []).length > 0) {
@@ -5199,7 +5230,7 @@ function formatTimestamp(ts) {
 }
 
 // Build timestamp — mis à jour automatiquement à chaque déploiement
-const DASH_BUILD_TS = 1773662765684;
+const DASH_BUILD_TS = 1773664229765;
 
 function displayDashTimestamp() {
   const el = document.getElementById('footerDashUpdate');
@@ -5235,7 +5266,8 @@ Promise.all([
   loadFeesToFirebase(),
   loadBacktestFromFirebase(),
   loadPortfolioFromFirebase(),
-  loadDataTimestamp()
+  loadDataTimestamp(),
+  fetchUsdEurRate()
 ]).then(() => {
   if (realTrades.length > 0) {
     const latest = [...realTrades].sort((a,b) => b[0].localeCompare(a[0]))[0][0];
