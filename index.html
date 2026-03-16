@@ -3196,7 +3196,10 @@ function parseCsvText(csvText) {
     const closeLevel = iClose >= 0 && cols[iClose] !== '-' ? parseFloat(cols[iClose]) : 0;
     const openDate = iOpenDt >= 0 ? cols[iOpenDt] : '';
 
-    trades.push([dateStr, symbol, amount, ref, size, openLevel, closeLevel, openDate, dateUtc]);
+    // Date du trade = date d'ouverture si disponible, sinon date de clôture
+    const tradeDate = openDate && openDate.length >= 10 ? openDate.substring(0, 10) : dateStr;
+
+    trades.push([tradeDate, symbol, amount, ref, size, openLevel, closeLevel, openDate, dateUtc]);
   }
   return { trades, dividends, deposits, fees };
 }
