@@ -1376,7 +1376,7 @@
   <div id="tab-update" class="tab-content"></div>
 
   <div class="footer" id="dashFooter">
-    Dashboard créé le 19 février 2026 — <span id="footerLastUpdate"></span>
+    Dashboard créé le 19 février 2026 — Dernière mise à jour du Dashboard : 13 mars 2026 — <span id="footerDataUpdate"></span>
   </div>
 </div>
 
@@ -3097,7 +3097,7 @@ function applyCsv() {
     calMonth = parseInt(latest.substring(5,7)) - 1;
   }
   renderRealTab();
-  updateFooterTimestamp();
+  updateDataTimestamp();
   // Sync Trading Auto in portfolio after CSV import
   syncRobotTrading();
   if (portfolioData) savePortfolioToFirebase();
@@ -4160,6 +4160,7 @@ function savePortfolioToFirebase() {
   db.ref('dashboard/data').set(portfolioData).then(() => {
     invSyncStatus = 'synced';
     invUpdateSyncIndicator();
+    updateDataTimestamp();
   }).catch(err => {
     console.error('Portfolio save error:', err);
     invSyncStatus = 'offline';
@@ -5044,16 +5045,37 @@ function syncRobotTrading() {
   });
 }
 
-function updateFooterTimestamp() {
-  const el = document.getElementById('footerLastUpdate');
+function formatTimestamp(ts) {
+  const dt = new Date(ts);
+  const d = String(dt.getDate()).padStart(2, '0');
+  const m = monthNames[dt.getMonth()].toLowerCase();
+  const y = dt.getFullYear();
+  const h = String(dt.getHours()).padStart(2, '0');
+  const min = String(dt.getMinutes()).padStart(2, '0');
+  return d + ' ' + m + ' ' + y + ' à ' + h + ':' + min;
+}
+
+function updateDataTimestamp() {
+  const now = Date.now();
+  db.ref('lastDataUpdate').set(now);
+  displayDataTimestamp(now);
+}
+
+function displayDataTimestamp(ts) {
+  const el = document.getElementById('footerDataUpdate');
   if (!el) return;
-  const now = new Date();
-  const d = String(now.getDate()).padStart(2, '0');
-  const m = monthNames[now.getMonth()].toLowerCase();
-  const y = now.getFullYear();
-  const h = String(now.getHours()).padStart(2, '0');
-  const min = String(now.getMinutes()).padStart(2, '0');
-  el.textContent = 'Dernière mise à jour : ' + d + ' ' + m + ' ' + y + ' à ' + h + ':' + min;
+  if (ts) {
+    el.textContent = 'Dernière mise à jour des données : ' + formatTimestamp(ts);
+  } else {
+    el.textContent = '';
+  }
+}
+
+function loadDataTimestamp() {
+  return db.ref('lastDataUpdate').once('value').then(snap => {
+    const ts = snap.val();
+    if (ts) displayDataTimestamp(ts);
+  });
 }
 
 // ── INIT ──
@@ -5063,7 +5085,8 @@ Promise.all([
   loadDepositsFromFirebase(),
   loadFeesToFirebase(),
   loadBacktestFromFirebase(),
-  loadPortfolioFromFirebase()
+  loadPortfolioFromFirebase(),
+  loadDataTimestamp()
 ]).then(() => {
   if (realTrades.length > 0) {
     const latest = [...realTrades].sort((a,b) => b[0].localeCompare(a[0]))[0][0];
@@ -5079,8 +5102,6 @@ Promise.all([
 
   // Render sub-tabs for initial group
   renderSubTabs();
-
-  updateFooterTimestamp();
 });
 </script>
 </body>
