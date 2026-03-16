@@ -4140,7 +4140,19 @@ function activateTab(tab) {
 // ══════════════════════════════════════════════════════════════
 // PORTFOLIO DATA & LOGIC
 // ══════════════════════════════════════════════════════════════
-const INV_COLORS = ["#6366f1","#06b6d4","#f59e0b","#ec4899","#10b981","#3b82f6","#f97316","#a855f7","#14b8a6","#f43f5e"];
+const INV_COLORS_FALLBACK = ["#6366f1","#06b6d4","#f59e0b","#ec4899","#10b981","#3b82f6","#f97316","#a855f7","#14b8a6","#f43f5e"];
+const INV_PLATFORM_COLORS = {
+  "Revolut": "#3b82f6",       // Bleu
+  "Lendermarket": "#a855f7",  // Violet
+  "RealT": "#f59e0b",         // Jaune
+  "Mintos": "#10b981",        // Vert
+  "Debitum": "#ec4899",       // Rose
+  "Trading Auto": "#ef4444",  // Rouge
+  "RMM": "#f97316"            // Orange
+};
+function invColor(p, i) { return INV_PLATFORM_COLORS[p] || INV_COLORS_FALLBACK[i % 10]; }
+// Legacy alias for indexed access
+const INV_COLORS = INV_COLORS_FALLBACK;
 const INV_LC = ["#ef4444","#f97316","#eab308"];
 const INV_MN = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
 const INV_MEMBER_COLORS = {"Moi":"#6366f1","Noah":"#06b6d4","Elie":"#f59e0b"};
@@ -4435,8 +4447,8 @@ function invRenderOverview(t, labels, li) {
     const pc = t.tp > 0 ? (v / t.tp * 100).toFixed(1) : 0;
     const iv = (d.interests[p] || [])[li] || 0;
     if (v > 0) {
-      h += `<div><div class="inv-flex inv-jcsb" style="font-size:12px;margin-bottom:4px"><span class="inv-flex inv-aic inv-gap2"><span class="inv-dot" style="background:${INV_COLORS[i%10]};box-shadow:0 0 6px ${INV_COLORS[i%10]}"></span><span style="color:var(--text-secondary)">${p}</span></span><span style="font-weight:500">${invFmt(v)}</span></div>`;
-      h += `<div class="inv-neon-bar"><div class="inv-neon-fill" style="width:${pc}%;background:${INV_COLORS[i%10]}"></div></div>`;
+      h += `<div><div class="inv-flex inv-jcsb" style="font-size:12px;margin-bottom:4px"><span class="inv-flex inv-aic inv-gap2"><span class="inv-dot" style="background:${invColor(p,i)};box-shadow:0 0 6px ${invColor(p,i)}"></span><span style="color:var(--text-secondary)">${p}</span></span><span style="font-weight:500">${invFmt(v)}</span></div>`;
+      h += `<div class="inv-neon-bar"><div class="inv-neon-fill" style="width:${pc}%;background:${invColor(p,i)}"></div></div>`;
       h += `<div class="inv-flex inv-jcsb" style="font-size:12px;color:var(--text-secondary);margin-top:2px"><span>${pc}%</span><span>+${invFmt(iv)} ce mois</span></div></div>`;
     }
   });
@@ -4456,10 +4468,10 @@ function invBuildOverviewCharts(t, labels, li) {
     { label: 'Capital net', data: netData, borderColor: '#10b981', backgroundColor: invHexToRgba('#10b981', 0.08), fill: true, borderWidth: 2, tension: 0.3 }
   ]}, options: { responsive: true, maintainAspectRatio: false, scales: { x: { ticks: { maxTicksLimit: 8 } }, y: { ticks: { callback: invFmtK } } }, plugins: { tooltip: { callbacks: { label: ctx => ' ' + ctx.dataset.label + ': ' + invFmt(ctx.parsed.y) } } } } });
 
-  const pieData = d.platforms.map((p, i) => ({ name: p, value: (d.principal[p] || [])[li] || 0, color: INV_COLORS[i%10] })).filter(x => x.value > 0);
+  const pieData = d.platforms.map((p, i) => ({ name: p, value: (d.principal[p] || [])[li] || 0, color: invColor(p,i) })).filter(x => x.value > 0);
   invCharts.pie = new Chart(document.getElementById('inv-ch-pie'), { type: 'doughnut', data: { labels: pieData.map(x => x.name), datasets: [{ data: pieData.map(x => x.value), backgroundColor: pieData.map(x => x.color), borderWidth: 0, hoverOffset: 8 }] }, options: { responsive: true, maintainAspectRatio: false, cutout: '55%', plugins: { legend: { position: 'bottom', labels: { padding: 8, font: { size: 10 } } }, tooltip: { callbacks: { label: ctx => { const total = ctx.dataset.data.reduce((a, b) => a + b, 0); return ' ' + ctx.label + ': ' + invFmt(ctx.parsed) + ' (' + Math.round(ctx.parsed / total * 100) + '%)'; } } } } } });
 
-  const datasets = d.platforms.filter(p => (d.interests[p] || []).slice(0,n).some(v => v > 0)).map(p => ({ label: p, data: (d.interests[p] || []).slice(0,n), backgroundColor: invHexToRgba(INV_COLORS[d.platforms.indexOf(p) % 10], 0.75), borderRadius: 2 }));
+  const datasets = d.platforms.filter(p => (d.interests[p] || []).slice(0,n).some(v => v > 0)).map(p => ({ label: p, data: (d.interests[p] || []).slice(0,n), backgroundColor: invHexToRgba(invColor(p,d.platforms.indexOf(p)), 0.75), borderRadius: 2 }));
   invCharts.intbar = new Chart(document.getElementById('inv-ch-intbar'), { type: 'bar', data: { labels, datasets }, options: { responsive: true, maintainAspectRatio: false, scales: { x: { stacked: true, ticks: { maxTicksLimit: 8 } }, y: { stacked: true } }, plugins: { tooltip: { mode: 'index', callbacks: { label: ctx => ' ' + ctx.dataset.label + ': ' + invFmt(ctx.parsed.y), footer: items => 'Total: ' + invFmt(items.reduce((s, i) => s + i.parsed.y, 0)) } } } } });
 }
 
@@ -4472,7 +4484,7 @@ function invRenderInterests(t, labels) {
   h += '<div class="inv-chart-card"><h3>Répartition des intérêts</h3><div class="inv-canvas-wrap" style="height:280px"><canvas id="inv-ch-intpie"></canvas></div></div>';
   h += '<div class="inv-card"><h3 style="font-size:0.88rem;font-weight:600;margin-bottom:16px">Classement par plateforme</h3><div style="display:flex;flex-direction:column;gap:12px">';
   const n = t.li + 1;
-  const sorted = d.platforms.map((p, i) => ({ name: p, total: (d.interests[p] || []).slice(0, n).reduce((a, b) => a + b, 0), color: INV_COLORS[i%10] })).filter(x => x.total > 0).sort((a, b) => b.total - a.total);
+  const sorted = d.platforms.map((p, i) => ({ name: p, total: (d.interests[p] || []).slice(0, n).reduce((a, b) => a + b, 0), color: invColor(p,i) })).filter(x => x.total > 0).sort((a, b) => b.total - a.total);
   const mx = sorted.length > 0 ? sorted[0].total : 1;
   sorted.forEach(x => {
     h += `<div><div class="inv-flex inv-jcsb" style="font-size:12px;margin-bottom:4px"><span class="inv-flex inv-aic inv-gap2"><span class="inv-dot" style="background:${x.color};box-shadow:0 0 6px ${x.color}"></span><span style="color:var(--text-secondary)">${x.name}</span></span><span style="font-weight:500">${invFmt(x.total)}</span></div>`;
@@ -4489,16 +4501,16 @@ function invBuildInterestCharts(t, labels) {
   const cumSets = d.platforms.filter(p => (d.interests[p] || []).slice(0, n).some(v => v > 0)).map(p => {
     const cum = []; let total = 0; const idx = d.platforms.indexOf(p);
     for (let i = 0; i < n; i++) { total += (d.interests[p] || [])[i] || 0; cum.push(total); }
-    return { label: p, data: cum, borderColor: INV_COLORS[idx%10], backgroundColor: invHexToRgba(INV_COLORS[idx%10], 0.06), fill: true, borderWidth: 1.5, tension: 0.3 };
+    return { label: p, data: cum, borderColor: invColor(p,idx), backgroundColor: invHexToRgba(invColor(p,idx), 0.06), fill: true, borderWidth: 1.5, tension: 0.3 };
   });
   invCharts.cumul = new Chart(document.getElementById('inv-ch-cumul'), { type: 'line', data: { labels, datasets: cumSets }, options: { responsive: true, maintainAspectRatio: false, scales: { x: { ticks: { maxTicksLimit: 8 } }, y: { ticks: { callback: invFmtK } } } } });
 
-  const ipd = d.platforms.map((p, i) => ({ name: p, value: (d.interests[p] || []).slice(0, n).reduce((a, b) => a + b, 0), color: INV_COLORS[i%10] })).filter(x => x.value > 0);
+  const ipd = d.platforms.map((p, i) => ({ name: p, value: (d.interests[p] || []).slice(0, n).reduce((a, b) => a + b, 0), color: invColor(p,i) })).filter(x => x.value > 0);
   invCharts.intpie = new Chart(document.getElementById('inv-ch-intpie'), { type: 'doughnut', data: { labels: ipd.map(x => x.name), datasets: [{ data: ipd.map(x => x.value), backgroundColor: ipd.map(x => x.color), borderWidth: 0 }] }, options: { responsive: true, maintainAspectRatio: false, cutout: '55%', plugins: { legend: { position: 'bottom', labels: { padding: 8, font: { size: 10 } } } } } });
 
   const lineSets = d.platforms.filter(p => (d.interests[p] || []).slice(0, n).some(v => v > 0)).map(p => {
     const idx = d.platforms.indexOf(p);
-    return { label: p, data: (d.interests[p] || []).slice(0, n), borderColor: INV_COLORS[idx%10], backgroundColor: 'transparent', borderWidth: 1.5, tension: 0.3 };
+    return { label: p, data: (d.interests[p] || []).slice(0, n), borderColor: invColor(p,idx), backgroundColor: 'transparent', borderWidth: 1.5, tension: 0.3 };
   });
   invCharts.intline = new Chart(document.getElementById('inv-ch-intline'), { type: 'line', data: { labels, datasets: lineSets }, options: { responsive: true, maintainAspectRatio: false, scales: { x: { ticks: { maxTicksLimit: 8 } } } } });
 }
@@ -4518,7 +4530,7 @@ function invBuildEvolutionCharts(t, labels, li) {
   const d = portfolioData, n = li + 1;
   const stackSets = d.platforms.filter(p => (d.principal[p] || []).slice(0, n).some(v => v > 0)).map(p => {
     const idx = d.platforms.indexOf(p);
-    return { label: p, data: (d.principal[p] || []).slice(0, n), borderColor: INV_COLORS[idx%10], backgroundColor: invHexToRgba(INV_COLORS[idx%10], 0.15), fill: true, borderWidth: 1.5, tension: 0.3 };
+    return { label: p, data: (d.principal[p] || []).slice(0, n), borderColor: invColor(p,idx), backgroundColor: invHexToRgba(invColor(p,idx), 0.15), fill: true, borderWidth: 1.5, tension: 0.3 };
   });
   invCharts.stack = new Chart(document.getElementById('inv-ch-stack'), { type: 'line', data: { labels, datasets: stackSets }, options: { responsive: true, maintainAspectRatio: false, scales: { x: { ticks: { maxTicksLimit: 10 } }, y: { stacked: true, ticks: { callback: invFmtK } } }, plugins: { tooltip: { mode: 'index' } } } });
 
@@ -4880,7 +4892,7 @@ function invRenderUpdate(t, li) {
       if (p === 'Lendermarket') {
         const intVal = (d.interests[p] || [])[invEditMonth] || 0;
         const prinVal = (d.principal[p] || [])[invEditMonth] || 0;
-        h += `<div class="inv-form-card" style="opacity:0.6"><div class="inv-flex inv-aic inv-gap2 inv-mb3"><span class="inv-dot" style="background:${INV_COLORS[i%10]};box-shadow:0 0 6px ${INV_COLORS[i%10]};width:12px;height:12px"></span><span style="font-size:12px;font-weight:500">${p} <span style="color:var(--text-secondary)">🔒</span></span></div>`;
+        h += `<div class="inv-form-card" style="opacity:0.6"><div class="inv-flex inv-aic inv-gap2 inv-mb3"><span class="inv-dot" style="background:${invColor(p,i)};box-shadow:0 0 6px ${invColor(p,i)};width:12px;height:12px"></span><span style="font-size:12px;font-weight:500">${p} <span style="color:var(--text-secondary)">🔒</span></span></div>`;
         h += '<div style="display:flex;flex-direction:column;gap:8px">';
         h += `<div><label style="font-size:12px;color:var(--text-secondary);display:block;margin-bottom:4px">Intérêts (€)</label><div style="font-size:14px;font-weight:600;padding:8px 0;color:#10b981">${invFmt(intVal)}</div></div>`;
         h += `<div><label style="font-size:12px;color:var(--text-secondary);display:block;margin-bottom:4px">Capital (€)</label><div style="font-size:14px;font-weight:600;padding:8px 0">${invFmt(prinVal)}</div></div>`;
@@ -4891,7 +4903,7 @@ function invRenderUpdate(t, li) {
       if (p === 'Trading Auto') {
         const intVal = (d.interests[p] || [])[invEditMonth] || 0;
         const prinVal = (d.principal[p] || [])[invEditMonth] || 0;
-        h += `<div class="inv-form-card" style="opacity:0.6"><div class="inv-flex inv-aic inv-gap2 inv-mb3"><span class="inv-dot" style="background:${INV_COLORS[i%10]};box-shadow:0 0 6px ${INV_COLORS[i%10]};width:12px;height:12px"></span><span style="font-size:12px;font-weight:500">${p} <span style="color:var(--text-secondary)">🔒</span></span></div>`;
+        h += `<div class="inv-form-card" style="opacity:0.6"><div class="inv-flex inv-aic inv-gap2 inv-mb3"><span class="inv-dot" style="background:${invColor(p,i)};box-shadow:0 0 6px ${invColor(p,i)};width:12px;height:12px"></span><span style="font-size:12px;font-weight:500">${p} <span style="color:var(--text-secondary)">🔒</span></span></div>`;
         h += '<div style="display:flex;flex-direction:column;gap:8px">';
         h += `<div><label style="font-size:12px;color:var(--text-secondary);display:block;margin-bottom:4px">Intérêts (€)</label><div style="font-size:14px;font-weight:600;padding:8px 0;color:#10b981">${invFmt(intVal)}</div></div>`;
         h += `<div><label style="font-size:12px;color:var(--text-secondary);display:block;margin-bottom:4px">Capital (€)</label><div style="font-size:14px;font-weight:600;padding:8px 0">${invFmt(prinVal)}</div></div>`;
@@ -4901,7 +4913,7 @@ function invRenderUpdate(t, li) {
       }
       const intVal = invFormData[p] ? invFormData[p].interest : '';
       const prinVal = invFormData[p] ? invFormData[p].principal : '';
-      h += `<div class="inv-form-card"><div class="inv-flex inv-aic inv-gap2 inv-mb3"><span class="inv-dot" style="background:${INV_COLORS[i%10]};box-shadow:0 0 6px ${INV_COLORS[i%10]};width:12px;height:12px"></span><span style="font-size:12px;font-weight:500">${p}</span></div>`;
+      h += `<div class="inv-form-card"><div class="inv-flex inv-aic inv-gap2 inv-mb3"><span class="inv-dot" style="background:${invColor(p,i)};box-shadow:0 0 6px ${invColor(p,i)};width:12px;height:12px"></span><span style="font-size:12px;font-weight:500">${p}</span></div>`;
       h += '<div style="display:flex;flex-direction:column;gap:8px">';
       h += `<div><label style="font-size:12px;color:var(--text-secondary);display:block;margin-bottom:4px">Intérêts (€)</label><input class="inv-input" type="number" value="${intVal}" onchange="invUpdateForm('${p}','interest',this.value)" placeholder="0"></div>`;
       h += `<div><label style="font-size:12px;color:var(--text-secondary);display:block;margin-bottom:4px">Capital total (€)</label><input class="inv-input" type="number" value="${prinVal}" onchange="invUpdateForm('${p}','principal',this.value)" placeholder="0"></div>`;
@@ -4928,7 +4940,7 @@ function invRenderUpdate(t, li) {
     d.platforms.forEach((p, i) => {
       const c = (d.principal[p] || [])[invEditMonth] || 0;
       const it = (d.interests[p] || [])[invEditMonth] || 0;
-      h += `<tr style="border-bottom:1px solid rgba(255,255,255,0.03)"><td><div class="inv-flex inv-aic inv-gap2"><span class="inv-dot" style="background:${INV_COLORS[i%10]};box-shadow:0 0 4px ${INV_COLORS[i%10]}"></span>${p}</div></td>`;
+      h += `<tr style="border-bottom:1px solid rgba(255,255,255,0.03)"><td><div class="inv-flex inv-aic inv-gap2"><span class="inv-dot" style="background:${invColor(p,i)};box-shadow:0 0 4px ${invColor(p,i)}"></span>${p}</div></td>`;
       h += `<td class="td-r">${invFmt(c)}</td><td class="td-r" style="color:${it > 0 ? '#10b981' : 'var(--text-secondary)'}">${it > 0 ? '+' + invFmt(it) : '-'}</td>`;
       h += `<td class="td-r" style="color:var(--text-secondary)">${tc > 0 ? (c / tc * 100).toFixed(1) + '%' : '-'}</td></tr>`;
     });
@@ -5171,7 +5183,7 @@ function formatTimestamp(ts) {
 }
 
 // Build timestamp — mis à jour automatiquement à chaque déploiement
-const DASH_BUILD_TS = 1773656696942;
+const DASH_BUILD_TS = 1773661615761;
 
 function displayDashTimestamp() {
   const el = document.getElementById('footerDashUpdate');
