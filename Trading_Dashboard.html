@@ -4060,9 +4060,13 @@ const ALL_TAB_IDS = ['real', 'fixed', 'reinvest', 'overview', 'interests', 'evol
 function renderSubTabs() {
   const bar = document.getElementById('subTabBar');
   const tabs = GROUP_TABS[currentGroup];
-  bar.innerHTML = tabs.map(t =>
+  let html = tabs.map(t =>
     `<button class="sub-tab-btn${t.id === currentTab ? ' active' : ''}" onclick="switchTab('${t.id}')">${t.label}</button>`
   ).join('');
+  if (currentGroup === 'invest') {
+    html += `<span id="eurUsdRate" style="margin-left:auto;font-size:0.7rem;color:var(--text-secondary);display:flex;align-items:center;gap:4px;padding-right:4px">💱 EUR/USD : ${(1/usdEurRate).toFixed(4)}</span>`;
+  }
+  bar.innerHTML = html;
 }
 
 function updateHeader(group) {
@@ -4491,9 +4495,7 @@ function invRenderOverview(t, labels, li) {
       h += `<div class="inv-flex inv-jcsb" style="font-size:12px;color:var(--text-secondary);margin-top:2px"><span>${pc}%</span><span>+${invFmt(Math.round(iv))} ce mois</span></div></div>`;
     }
   });
-  h += '</div></div></div>';
-  h += `<div style="font-size:0.68rem;color:var(--text-secondary);text-align:right;padding:4px 8px">Taux EUR/USD : ${(1/usdEurRate).toFixed(4)}</div>`;
-  h += '</div>';
+  h += '</div></div></div></div>';
   return h;
 }
 
@@ -5237,7 +5239,7 @@ function formatTimestamp(ts) {
 }
 
 // Build timestamp — mis à jour automatiquement à chaque déploiement
-const DASH_BUILD_TS = 1773664755361;
+const DASH_BUILD_TS = 1773665275576;
 
 function displayDashTimestamp() {
   const el = document.getElementById('footerDashUpdate');
