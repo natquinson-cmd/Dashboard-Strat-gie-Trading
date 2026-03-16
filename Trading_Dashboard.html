@@ -3047,17 +3047,32 @@ function applyCsv() {
     saveFeesToFirebase(fes);
     msg = `🔄 Base remplacée : ${parsed.length} trade(s), ${divs.length} dividende(s), ${deps.length} dépôt(s), ${fes.length} frais importé(s).`;
   } else {
-    // Merge trades
-    const existingKeys = new Set(realTrades.map(t => tradeKey(t)));
-    const newTrades = parsed.filter(t => !existingKeys.has(tradeKey(t)));
+    // Merge trades + mise à jour date d'ouverture pour les trades existants
+    const existingByKey = {};
+    realTrades.forEach(t => { existingByKey[tradeKey(t)] = t; });
+    let updatedCount = 0;
+    const newTrades = [];
+    parsed.forEach(t => {
+      const key = tradeKey(t);
+      const existing = existingByKey[key];
+      if (existing) {
+        // Mettre à jour la date si elle a changé (passage à date d'ouverture)
+        if (existing[0] !== t[0]) { existing[0] = t[0]; updatedCount++; }
+      } else {
+        newTrades.push(t);
+      }
+    });
     const merged = [...realTrades, ...newTrades].sort((a,b) => b[0].localeCompare(a[0]));
     realTrades = merged;
     saveTradesToFirebase(merged);
-    // Merge dividendes
+    // Merge dividendes (+ reclasser les anciens dépôts qui sont maintenant des dividendes)
     const existingDivRefs = new Set(realDividends.map(d => d.ref));
     const newDivs = divs.filter(d => !existingDivRefs.has(d.ref));
     realDividends = [...realDividends, ...newDivs];
     saveDividendsToFirebase(realDividends);
+    // Retirer des dépôts ceux qui ont été reclassés en dividendes
+    const divRefSet = new Set(divs.map(d => d.ref));
+    realDeposits = realDeposits.filter(d => !divRefSet.has(d.ref));
     // Merge dépôts
     const existingDepRefs = new Set(realDeposits.map(d => d.ref));
     const newDeps = deps.filter(d => !existingDepRefs.has(d.ref));
@@ -3068,8 +3083,8 @@ function applyCsv() {
     const newFees = fes.filter(f => !existingFeeRefs.has(f.ref));
     realFees = [...realFees, ...newFees];
     saveFeesToFirebase(realFees);
-    const tMsg = newTrades.length > 0
-      ? `${newTrades.length} nouveau(x) trade(s) ajouté(s), ${parsed.length - newTrades.length} doublon(s) ignoré(s)`
+    const tMsg = newTrades.length > 0 || updatedCount > 0
+      ? `${newTrades.length} nouveau(x) trade(s)${updatedCount > 0 ? ', ' + updatedCount + ' mis à jour' : ''}, ${parsed.length - newTrades.length - updatedCount} doublon(s) ignoré(s)`
       : `Aucun nouveau trade`;
     const dMsg = newDivs.length > 0 ? ` + ${newDivs.length} dividende(s)` : '';
     const depMsg = newDeps.length > 0 ? ` + ${newDeps.length} dépôt(s)` : '';
