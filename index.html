@@ -5064,11 +5064,9 @@ function updateDataTimestamp() {
 function displayDataTimestamp(ts) {
   const el = document.getElementById('footerDataUpdate');
   if (!el) return;
-  if (ts) {
-    el.textContent = 'Dernière mise à jour des données : ' + formatTimestamp(ts);
-  } else {
-    el.textContent = '';
-  }
+  el.textContent = ts
+    ? 'Dernière mise à jour des données : ' + formatTimestamp(ts)
+    : 'Dernière mise à jour des données : —';
 }
 
 function loadDataTimestamp() {
