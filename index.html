@@ -2812,9 +2812,15 @@ function showDayDetail(dateStr, cellEl) {
       pts = t[4] > 0 ? (t[6] - t[5]).toFixed(1) : (t[5] - t[6]).toFixed(1);
       pts = (parseFloat(pts) >= 0 ? '+' : '') + pts;
     }
-    // Extract time from openDate/closeDate
-    const openTime = t[7] && t[7].length >= 16 ? t[7].substring(11, 16) : '';
-    const closeTime = t[8] && t[8].length >= 16 ? t[8].substring(11, 16) : '';
+    // Extract time from openDate/closeDate (+1h timezone offset)
+    function shiftHour(ts) {
+      if (!ts || ts.length < 16) return '';
+      const dt = new Date(ts);
+      dt.setHours(dt.getHours() + 1);
+      return String(dt.getHours()).padStart(2,'0') + ':' + String(dt.getMinutes()).padStart(2,'0');
+    }
+    const openTime = shiftHour(t[7]);
+    const closeTime = shiftHour(t[8]);
     const openStr = openLvl !== '—' ? `${openLvl}${openTime ? ' <span style="color:var(--text-secondary);font-size:0.68rem">(' + openTime + ')</span>' : ''}` : '—';
     const closeStr = closeLvl !== '—' ? `${closeLvl}${closeTime ? ' <span style="color:var(--text-secondary);font-size:0.68rem">(' + closeTime + ')</span>' : ''}` : '—';
 
@@ -5165,7 +5171,7 @@ function formatTimestamp(ts) {
 }
 
 // Build timestamp — mis à jour automatiquement à chaque déploiement
-const DASH_BUILD_TS = 1773654579832;
+const DASH_BUILD_TS = 1773656696942;
 
 function displayDashTimestamp() {
   const el = document.getElementById('footerDashUpdate');
