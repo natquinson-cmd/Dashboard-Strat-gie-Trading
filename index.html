@@ -1376,7 +1376,7 @@
   <div id="tab-update" class="tab-content"></div>
 
   <div class="footer" id="dashFooter">
-    Dashboard généré le 19 février 2026 — Capital de départ : 5 000 € par stratégie — Données ProBacktest
+    Dashboard créé le 19 février 2026 — <span id="footerLastUpdate"></span>
   </div>
 </div>
 
@@ -3097,6 +3097,7 @@ function applyCsv() {
     calMonth = parseInt(latest.substring(5,7)) - 1;
   }
   renderRealTab();
+  updateFooterTimestamp();
   // Sync Trading Auto in portfolio after CSV import
   syncRobotTrading();
   if (portfolioData) savePortfolioToFirebase();
@@ -5043,6 +5044,18 @@ function syncRobotTrading() {
   });
 }
 
+function updateFooterTimestamp() {
+  const el = document.getElementById('footerLastUpdate');
+  if (!el) return;
+  const now = new Date();
+  const d = String(now.getDate()).padStart(2, '0');
+  const m = monthNames[now.getMonth()].toLowerCase();
+  const y = now.getFullYear();
+  const h = String(now.getHours()).padStart(2, '0');
+  const min = String(now.getMinutes()).padStart(2, '0');
+  el.textContent = 'Dernière mise à jour : ' + d + ' ' + m + ' ' + y + ' à ' + h + ':' + min;
+}
+
 // ── INIT ──
 Promise.all([
   loadTradesFromFirebase(),
@@ -5066,6 +5079,8 @@ Promise.all([
 
   // Render sub-tabs for initial group
   renderSubTabs();
+
+  updateFooterTimestamp();
 });
 </script>
 </body>
