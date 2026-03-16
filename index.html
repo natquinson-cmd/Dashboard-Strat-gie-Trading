@@ -1376,7 +1376,7 @@
   <div id="tab-update" class="tab-content"></div>
 
   <div class="footer" id="dashFooter">
-    Dashboard créé le 19 février 2026 — Dernière mise à jour du Dashboard : 13 mars 2026 à 22:30 — <span id="footerDataUpdate"></span>
+    Dashboard créé le 19 février 2026 — Dernière mise à jour du Dashboard : <span id="footerDashUpdate"></span> — <span id="footerDataUpdate"></span>
   </div>
 </div>
 
@@ -5055,6 +5055,14 @@ function formatTimestamp(ts) {
   return d + ' ' + m + ' ' + y + ' à ' + h + ':' + min;
 }
 
+// Build timestamp — mis à jour automatiquement à chaque déploiement
+const DASH_BUILD_TS = 1773649830369;
+
+function displayDashTimestamp() {
+  const el = document.getElementById('footerDashUpdate');
+  if (el) el.textContent = formatTimestamp(DASH_BUILD_TS);
+}
+
 function updateDataTimestamp() {
   const now = Date.now();
   db.ref('lastDataUpdate').set(now);
@@ -5100,6 +5108,7 @@ Promise.all([
 
   // Render sub-tabs for initial group
   renderSubTabs();
+  displayDashTimestamp();
 });
 </script>
 </body>
