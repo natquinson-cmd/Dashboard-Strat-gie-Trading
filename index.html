@@ -4206,7 +4206,7 @@ const INV_DEFAULT_DATA = {
   principal:{"RMM":[25000,10000,5699,5567,2598,0,1000,1603,1620,1693,207,2191,2382,2382,15000,15000,14200,14200,14200,14200,14200,14200,10000,1055,1055,1055],"Lendermarket":[14000,14000,12094,12221,12397,12275,12084,11754,9126,9274,9379,9546,10210,10210,12332,0,0,11700,12000,12543,12671,12906,12906,19426,19685,21780],"Revolut":[2000,4000,5815,5858,5915,0,0,0,2700,3269,3269,0,3269,3269,39984,39984,36000,26500,27838,21000,19500,20700,13000,6000,5000,700],"Mintos":[13000,12500,12087,12170,12332,13426,13709,13864,14031,14963,15417,18796,19047,19047,9769,9769,10015,3130,1332,894,904,247,247,206,206,206],"Trading Auto":[0,0,0,0,0,0,0,8284,7650,6007,6453,6453,0,0,0,0,5000,0,0,0,0,0,700,2000,0,5000],"RealT":[31500,31500,29123,29123,29395,29800,29500,30147,29377,29500,29700,29700,29950,29950,29950,29950,29500,28000,28000,28000,28000,28000,32000,32000,32000,32000],"Debitum":[0,15000,22986,23334,27372,34681,34915,34930,32913,32809,32910,43558,48513,49000,52994,52994,40642,51155,53701,60518,61336,61336,61339,60341,60341,54561]},
   loanNames:["Emprunt Younited","Emprunt Revolut","Emprunt RMM"],
   loanMonthlyPayments:{"Emprunt Younited":747,"Emprunt Revolut":298,"Emprunt RMM":0},
-  loans:{"Emprunt Younited":[50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000],"Emprunt Revolut":[20000,20000,20000,20000,20000,20000,20000,20000,20000,20000,20000,20000,20000,20000,20000,20000,20000,20000,20000,20000,20000,20000,20000,20000,20000,20000],"Emprunt RMM":[5200,5200,5200,5200,5200,5200,5200,5200,5200,5200,5200,5200,5200,5200,5200,5200,5200,5200,5200,5200,5200,5200,5200,5200,5200,5200]},
+  loans:{"Emprunt Younited":[50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000],"Emprunt Revolut":[20000,20000,20000,20000,20000,20000,20000,20000,20000,20000,20000,20000,20000,20000,20000,20000,20000,20000,20000,20000,20000,20000,20000,20000,20000,20000],"Emprunt RMM":[7400,7400,7400,7400,7400,7400,7400,7400,7400,7400,7400,7400,7400,7400,7400,7400,7400,7400,7400,7400,7400,7400,7400,7400,7400,7400]},
   repartition:{
     members:["Moi","Noah","Elie"],
     capital:{"Moi":21780,"Noah":7380,"Elie":6840},
@@ -4599,18 +4599,31 @@ function invRenderLoans(t, labels, li) {
     const iniRaw = (d.loans[l] || [])[0] || cuRaw;
     const cu = invLoanToEur(l, cuRaw);
     const ini = invLoanToEur(l, iniRaw);
-    const po = ini - cu;
-    const pp = ini > 0 ? (po / ini * 100).toFixed(1) : 0;
     const mo = (d.loanMonthlyPayments || {})[l] || 0;
     const isUsd = invIsLoanUsd(l);
+    const growing = cu > ini; // dette qui augmente (intérêts capitalisés)
     h += `<div class="inv-card" style="border-color:rgba(239,68,68,0.1)">`;
     h += `<div class="inv-flex inv-aic inv-gap2 inv-mb3"><span class="inv-dot" style="background:${INV_LC[i%3]};box-shadow:0 0 8px ${INV_LC[i%3]};width:12px;height:12px"></span><span style="font-size:14px;font-weight:600">${l}${isUsd ? ' <span style="font-size:0.6rem;color:var(--text-secondary)">USD</span>' : ''}</span></div>`;
     h += '<div style="display:flex;flex-direction:column;gap:8px">';
     h += `<div class="inv-flex inv-jcsb" style="font-size:12px"><span style="color:var(--text-secondary)">Restant dû</span><span style="font-weight:500">${invFmt(Math.round(cu))}${isUsd ? ' <span style="font-size:0.6rem;color:var(--text-secondary)">(' + cuRaw.toLocaleString('fr-FR') + ' $)</span>' : ''}</span></div>`;
     h += `<div class="inv-flex inv-jcsb" style="font-size:12px"><span style="color:var(--text-secondary)">Initial</span><span style="color:var(--text-secondary)">${invFmt(Math.round(ini))}${isUsd ? ' <span style="font-size:0.6rem">(' + iniRaw.toLocaleString('fr-FR') + ' $)</span>' : ''}</span></div>`;
-    h += `<div class="inv-flex inv-jcsb" style="font-size:12px"><span style="color:var(--text-secondary)">Remboursé</span><span class="inv-cg">${invFmt(Math.round(po))} (${pp}%)</span></div>`;
+    if (growing) {
+      const increase = cu - ini;
+      const ipct = ini > 0 ? (increase / ini * 100).toFixed(1) : 0;
+      h += `<div class="inv-flex inv-jcsb" style="font-size:12px"><span style="color:var(--text-secondary)">Augmentation</span><span class="inv-cr">+${invFmt(Math.round(increase))} (+${ipct}%)</span></div>`;
+    } else {
+      const po = ini - cu;
+      const pp = ini > 0 ? (po / ini * 100).toFixed(1) : 0;
+      h += `<div class="inv-flex inv-jcsb" style="font-size:12px"><span style="color:var(--text-secondary)">Remboursé</span><span class="inv-cg">${invFmt(Math.round(po))} (${pp}%)</span></div>`;
+    }
     if (mo > 0) h += `<div class="inv-flex inv-jcsb" style="font-size:12px"><span style="color:var(--text-secondary)">Mensualité</span><span class="inv-cy">${invFmt(mo)}/mois</span></div>`;
-    h += `<div class="inv-neon-bar inv-mt2"><div class="inv-neon-fill" style="width:${pp}%;background:linear-gradient(90deg,#10b981,#059669)"></div></div>`;
+    if (growing) {
+      const barPct = Math.min((cu - ini) / ini * 100, 100);
+      h += `<div class="inv-neon-bar inv-mt2"><div class="inv-neon-fill" style="width:${barPct}%;background:linear-gradient(90deg,#ef4444,#dc2626)"></div></div>`;
+    } else {
+      const pp = ini > 0 ? ((ini - cu) / ini * 100).toFixed(1) : 0;
+      h += `<div class="inv-neon-bar inv-mt2"><div class="inv-neon-fill" style="width:${pp}%;background:linear-gradient(90deg,#10b981,#059669)"></div></div>`;
+    }
     h += '</div></div>';
   });
   h += '</div>';
@@ -5239,7 +5252,7 @@ function formatTimestamp(ts) {
 }
 
 // Build timestamp — mis à jour automatiquement à chaque déploiement
-const DASH_BUILD_TS = 1773665275576;
+const DASH_BUILD_TS = 1773665922475;
 
 function displayDashTimestamp() {
   const el = document.getElementById('footerDashUpdate');
