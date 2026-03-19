@@ -1045,6 +1045,7 @@
       </div>
       <div style="display:flex;gap:8px;align-items:center;">
         <button class="csv-btn" onclick="syncFromIG()" id="btnIgSync" style="background:linear-gradient(135deg,rgba(16,185,129,0.15),rgba(6,182,212,0.15));border-color:rgba(16,185,129,0.3);">🔄 Synchroniser IG</button>
+        <button class="csv-btn" onclick="syncFromIG(true)" id="btnIgFull" title="Recharger tout l'historique depuis IG" style="font-size:0.7rem;padding:6px 10px;opacity:0.7;">🔁 Historique complet</button>
       </div>
     </div>
     <div class="hero-kpi" id="heroReal"></div>
@@ -2928,8 +2929,9 @@ async function igRequest(path, method, headers, body) {
   return { headers: Object.fromEntries(res.headers.entries()), body: json };
 }
 
-async function syncFromIG() {
-  const btn = document.getElementById('btnIgSync');
+async function syncFromIG(fullSync) {
+  if (fullSync && !confirm('⚠️ Recharger tout l\'historique IG ?\nCela va re-télécharger toutes les transactions depuis le début du compte.')) return;
+  const btn = document.getElementById(fullSync ? 'btnIgFull' : 'btnIgSync');
   const origText = btn.textContent;
   btn.disabled = true;
   btn.textContent = '⏳ Connexion IG...';
@@ -2969,15 +2971,19 @@ async function syncFromIG() {
     // 2. Récupérer les transactions depuis la dernière sync
     btn.textContent = '⏳ Récupération...';
     const now = new Date();
-    const lastSyncSnap = await db.ref('lastDataUpdate').once('value');
-    const lastSyncTs = lastSyncSnap.val();
-    const from = lastSyncTs ? new Date(lastSyncTs) : new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000);
-    // Reculer d'1 jour supplémentaire pour couvrir les trades ouverts avant la sync
-    from.setDate(from.getDate() - 1);
+    let from;
+    if (fullSync) {
+      from = new Date('2025-01-01'); // Début de l'historique
+    } else {
+      const lastSyncSnap = await db.ref('lastDataUpdate').once('value');
+      const lastSyncTs = lastSyncSnap.val();
+      from = lastSyncTs ? new Date(lastSyncTs) : new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000);
+      from.setDate(from.getDate() - 1); // -1 jour de marge
+    }
     const fromStr = from.toISOString().substring(0, 10) + 'T00:00:00';
     const toStr = now.toISOString().substring(0, 10) + 'T23:59:59';
-    const fromLabel = from.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
-    const toLabel = now.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+    const fromLabel = from.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' });
+    const toLabel = now.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' });
 
     const txRes = await igRequest(
       `/history/transactions?from=${fromStr}&to=${toStr}&type=ALL&pageSize=500`,
@@ -5474,7 +5480,7 @@ function formatTimestamp(ts) {
 }
 
 // Build timestamp — mis à jour automatiquement à chaque déploiement
-const DASH_BUILD_TS = 1773912907804;
+const DASH_BUILD_TS = 1773913113676;
 
 function displayDashTimestamp() {
   const el = document.getElementById('footerDashUpdate');
