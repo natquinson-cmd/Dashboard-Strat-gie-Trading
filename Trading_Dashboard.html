@@ -2973,7 +2973,7 @@ async function syncFromIG(fullSync) {
     const now = new Date();
     let from;
     if (fullSync) {
-      from = new Date('2025-01-01'); // Début de l'historique
+      from = new Date('2026-01-01'); // Jamais avant 2026
     } else {
       const lastSyncSnap = await db.ref('lastDataUpdate').once('value');
       const lastSyncTs = lastSyncSnap.val();
@@ -5480,7 +5480,7 @@ function formatTimestamp(ts) {
 }
 
 // Build timestamp — mis à jour automatiquement à chaque déploiement
-const DASH_BUILD_TS = 1773913113676;
+const DASH_BUILD_TS = 1773913142725;
 
 function displayDashTimestamp() {
   const el = document.getElementById('footerDashUpdate');
