@@ -342,12 +342,14 @@ async function main() {
     // 1. Login IG
     const session = await igLogin();
 
-    // 2. Dates : 3 derniers jours
+    // 2. Dates : depuis la dernière sync (ou 3 jours par défaut)
     const now = new Date();
-    const from = new Date(now);
-    from.setDate(from.getDate() - 3);
+    const lastSyncTs = await firebaseGet('/lastDataUpdate');
+    const from = lastSyncTs ? new Date(lastSyncTs) : new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000);
+    from.setDate(from.getDate() - 1); // -1 jour de marge pour les trades ouverts avant la sync
     const toDate   = now.toISOString().substring(0, 10);
     const fromDate = from.toISOString().substring(0, 10);
+    console.log(`  Période : ${fromDate} → ${toDate}`);
 
     // 3. Récupérer les transactions
     const txs = await igGetTransactions(session, fromDate, toDate);

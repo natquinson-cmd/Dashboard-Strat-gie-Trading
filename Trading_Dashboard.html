@@ -2969,12 +2969,18 @@ async function syncFromIG() {
       }
     }
 
-    // 2. Récupérer les transactions des 3 derniers jours
+    // 2. Récupérer les transactions depuis la dernière sync
     btn.textContent = '⏳ Récupération...';
     const now = new Date();
-    const from = new Date(now); from.setDate(from.getDate() - 3);
+    const lastSyncSnap = await db.ref('lastDataUpdate').once('value');
+    const lastSyncTs = lastSyncSnap.val();
+    const from = lastSyncTs ? new Date(lastSyncTs) : new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000);
+    // Reculer d'1 jour supplémentaire pour couvrir les trades ouverts avant la sync
+    from.setDate(from.getDate() - 1);
     const fromStr = from.toISOString().substring(0, 10) + 'T00:00:00';
     const toStr = now.toISOString().substring(0, 10) + 'T23:59:59';
+    const fromLabel = from.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+    const toLabel = now.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
 
     const txRes = await igRequest(
       `/history/transactions?from=${fromStr}&to=${toStr}&type=ALL&pageSize=500`,
@@ -2986,7 +2992,7 @@ async function syncFromIG() {
     if (txs.length === 0) {
       btn.textContent = origText;
       btn.disabled = false;
-      alert('ℹ️ Aucune transaction IG sur les 3 derniers jours.');
+      alert(`ℹ️ Aucune transaction IG du ${fromLabel} au ${toLabel}.`);
       return;
     }
 
@@ -5464,7 +5470,7 @@ function formatTimestamp(ts) {
 }
 
 // Build timestamp — mis à jour automatiquement à chaque déploiement
-const DASH_BUILD_TS = 1773912248305;
+const DASH_BUILD_TS = 1773912410844;
 
 function displayDashTimestamp() {
   const el = document.getElementById('footerDashUpdate');
