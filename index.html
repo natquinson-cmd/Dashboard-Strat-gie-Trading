@@ -2936,37 +2936,35 @@ async function syncFromIG() {
   btn.textContent = '⏳ Connexion IG...';
 
   try {
-    // 1. Récupérer les credentials depuis Firebase (stockés via le script node)
-    // On utilise les credentials en dur via le .env côté node — ici on passe par un proxy local
-    // Alternative : appel direct à l'API IG (peut échouer en CORS)
+    // 1. Vérifier/demander les credentials (stockés dans localStorage, jamais sur le réseau)
+    let creds = getIgCreds();
+    if (!creds) {
+      creds = promptIgCreds();
+      if (!creds) { btn.textContent = origText; btn.disabled = false; return; }
+    }
 
-    // Essai direct — si CORS bloque, on fallback sur le script node
+    // 2. Connexion à l'API IG
     let session;
     try {
-      btn.textContent = '⏳ Connexion IG...';
       const loginRes = await igRequest('/session', 'POST', {
-        'X-IG-API-KEY': await getIgApiKey(),
+        'X-IG-API-KEY': creds.apiKey,
         'Version': '2'
       }, {
-        identifier: await getIgUsername(),
-        password: await getIgPassword()
+        identifier: creds.username,
+        password: creds.password
       });
       session = {
         cst: loginRes.headers['cst'],
         securityToken: loginRes.headers['x-security-token'],
-        apiKey: await getIgApiKey()
+        apiKey: creds.apiKey
       };
-    } catch (corsErr) {
-      // CORS bloqué — fallback sur le script Node.js local
-      btn.textContent = '⏳ Sync via script...';
-      try {
-        const result = await runIgSyncScript();
-        btn.textContent = origText;
-        btn.disabled = false;
-        return;
-      } catch (nodeErr) {
-        throw new Error('Impossible de se connecter à IG. Erreur: ' + corsErr.message);
+    } catch (loginErr) {
+      // Si erreur d'auth, effacer les credentials et redemander
+      if (loginErr.message.includes('invalid-details') || loginErr.message.includes('api-key-invalid')) {
+        localStorage.removeItem('ig_creds');
+        throw new Error('Identifiants IG invalides. Réessayez.');
       }
+      throw loginErr;
     }
 
     // 2. Récupérer les transactions depuis la dernière sync
@@ -3117,22 +3115,29 @@ function mergeIgData(data) {
   return { msg, newCount, updatedCount, dupCount };
 }
 
-// Credentials IG — chargés depuis Firebase (stockés par le script node)
-let _igCreds = null;
-async function loadIgCreds() {
-  if (_igCreds) return _igCreds;
-  const snap = await db.ref('igConfig').once('value');
-  _igCreds = snap.val();
-  return _igCreds;
+// Credentials IG — stockés dans localStorage (privé au navigateur, jamais envoyé sur le réseau)
+function getIgCreds() {
+  const raw = localStorage.getItem('ig_creds');
+  if (raw) try { return JSON.parse(raw); } catch(e) {}
+  return null;
 }
-async function getIgApiKey() { const c = await loadIgCreds(); return c && c.apiKey || ''; }
-async function getIgUsername() { const c = await loadIgCreds(); return c && c.username || ''; }
-async function getIgPassword() { const c = await loadIgCreds(); return c && c.password || ''; }
 
-// Fallback: exécuter le script Node.js (ne fonctionne que si Claude Code est actif)
-async function runIgSyncScript() {
-  throw new Error('Script node non disponible depuis le navigateur');
+function promptIgCreds() {
+  const existing = getIgCreds() || {};
+  const apiKey = prompt('Clé API IG :', existing.apiKey || '');
+  if (!apiKey) return null;
+  const username = prompt('Identifiant IG :', existing.username || '');
+  if (!username) return null;
+  const password = prompt('Mot de passe IG :', existing.password || '');
+  if (!password) return null;
+  const creds = { apiKey, username, password };
+  localStorage.setItem('ig_creds', JSON.stringify(creds));
+  return creds;
 }
+
+function getIgApiKey() { const c = getIgCreds(); return c ? c.apiKey : ''; }
+function getIgUsername() { const c = getIgCreds(); return c ? c.username : ''; }
+function getIgPassword() { const c = getIgCreds(); return c ? c.password : ''; }
 
 // ── CSV Modal ──
 let pendingCsvText = '';
@@ -5470,7 +5475,7 @@ function formatTimestamp(ts) {
 }
 
 // Build timestamp — mis à jour automatiquement à chaque déploiement
-const DASH_BUILD_TS = 1773912410844;
+const DASH_BUILD_TS = 1773912728946;
 
 function displayDashTimestamp() {
   const el = document.getElementById('footerDashUpdate');
