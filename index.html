@@ -1044,6 +1044,7 @@
         <button class="filter-btn" onclick="setAssetFilter('DAX')">🟪 DAX</button>
       </div>
       <div style="display:flex;gap:8px;align-items:center;">
+        <button class="csv-btn" onclick="syncFromIG()" id="btnIgSync" style="background:linear-gradient(135deg,rgba(16,185,129,0.15),rgba(6,182,212,0.15));border-color:rgba(16,185,129,0.3);">🔄 Synchroniser IG</button>
         <button class="csv-btn" onclick="openCsvModal()">📂 Mettre à jour CSV</button>
       </div>
     </div>
@@ -2914,6 +2915,217 @@ function buildMonthlyHeatReal() {
     <div class="stat-item"><span class="stat-dot green"></span>${totalWinMonths} mois gagnants (${winPct}%)</div>
     <div class="stat-item"><span class="stat-dot red"></span>${totalLossMonths} mois perdants (${lossPct}%)</div>
   `;
+}
+
+// ── IG API Sync ──
+const IG_API_BASE = 'https://api.ig.com/gateway/deal';
+
+async function igRequest(path, method, headers, body) {
+  const opts = { method, headers: { 'Accept': 'application/json; charset=UTF-8', ...headers } };
+  if (body) { opts.body = JSON.stringify(body); opts.headers['Content-Type'] = 'application/json'; }
+  const res = await fetch(IG_API_BASE + path, opts);
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.errorCode || `HTTP ${res.status}`);
+  return { headers: Object.fromEntries(res.headers.entries()), body: json };
+}
+
+async function syncFromIG() {
+  const btn = document.getElementById('btnIgSync');
+  const origText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = '⏳ Connexion IG...';
+
+  try {
+    // 1. Récupérer les credentials depuis Firebase (stockés via le script node)
+    // On utilise les credentials en dur via le .env côté node — ici on passe par un proxy local
+    // Alternative : appel direct à l'API IG (peut échouer en CORS)
+
+    // Essai direct — si CORS bloque, on fallback sur le script node
+    let session;
+    try {
+      btn.textContent = '⏳ Connexion IG...';
+      const loginRes = await igRequest('/session', 'POST', {
+        'X-IG-API-KEY': await getIgApiKey(),
+        'Version': '2'
+      }, {
+        identifier: await getIgUsername(),
+        password: await getIgPassword()
+      });
+      session = {
+        cst: loginRes.headers['cst'],
+        securityToken: loginRes.headers['x-security-token'],
+        apiKey: await getIgApiKey()
+      };
+    } catch (corsErr) {
+      // CORS bloqué — fallback sur le script Node.js local
+      btn.textContent = '⏳ Sync via script...';
+      try {
+        const result = await runIgSyncScript();
+        btn.textContent = origText;
+        btn.disabled = false;
+        return;
+      } catch (nodeErr) {
+        throw new Error('Impossible de se connecter à IG. Erreur: ' + corsErr.message);
+      }
+    }
+
+    // 2. Récupérer les transactions des 3 derniers jours
+    btn.textContent = '⏳ Récupération...';
+    const now = new Date();
+    const from = new Date(now); from.setDate(from.getDate() - 3);
+    const fromStr = from.toISOString().substring(0, 10) + 'T00:00:00';
+    const toStr = now.toISOString().substring(0, 10) + 'T23:59:59';
+
+    const txRes = await igRequest(
+      `/history/transactions?from=${fromStr}&to=${toStr}&type=ALL&pageSize=500`,
+      'GET',
+      { 'X-IG-API-KEY': session.apiKey, 'CST': session.cst, 'X-SECURITY-TOKEN': session.securityToken, 'Version': '2' }
+    );
+    const txs = txRes.body.transactions || [];
+
+    if (txs.length === 0) {
+      btn.textContent = origText;
+      btn.disabled = false;
+      alert('ℹ️ Aucune transaction IG sur les 3 derniers jours.');
+      return;
+    }
+
+    // 3. Convertir au format Dashboard
+    btn.textContent = '⏳ Fusion...';
+    const converted = convertIgTransactions(txs);
+
+    // 4. Fusionner avec les données existantes (même logique que applyCsv en mode merge)
+    const result = mergeIgData(converted);
+
+    // 5. Sauvegarder
+    saveTradesToFirebase(realTrades);
+    saveDividendsToFirebase(realDividends);
+    saveDepositsToFirebase(realDeposits);
+    saveFeesToFirebase(realFees);
+
+    // 6. Refresh
+    if (realTrades.length > 0) {
+      const latest = realTrades[0][0];
+      calYear = parseInt(latest.substring(0, 4));
+      calMonth = parseInt(latest.substring(5, 7)) - 1;
+    }
+    renderRealTab();
+    updateDataTimestamp();
+    syncRobotTrading();
+    if (portfolioData) savePortfolioToFirebase();
+
+    btn.textContent = origText;
+    btn.disabled = false;
+    alert(result.msg);
+
+  } catch (err) {
+    btn.textContent = origText;
+    btn.disabled = false;
+    alert('❌ Erreur synchronisation IG: ' + err.message);
+  }
+}
+
+function parseIgPL(plStr) {
+  if (!plStr) return 0;
+  return parseFloat(plStr.replace(/[^0-9.\-]/g, '')) || 0;
+}
+
+function convertIgTransactions(txs) {
+  const trades = [], dividends = [], deposits = [], fees = [];
+  for (const tx of txs) {
+    const amount = parseIgPL(tx.profitAndLoss);
+    if (isNaN(amount)) continue;
+    const dateUtc = tx.dateUtc || tx.date || '';
+    if (!dateUtc || dateUtc.length < 10) continue;
+    const dateStr = dateUtc.substring(0, 10);
+    const ref = tx.reference || '';
+    const txType = (tx.transactionType || '').toUpperCase();
+    const market = tx.instrumentName || '';
+
+    if (txType === 'DEPO' || txType === 'DEPOSIT') {
+      if (/int[eé]r[eê]t\s+(de\s+)?financement/i.test(market)) {
+        dividends.push({ date: dateStr, amount, ref, market });
+      } else {
+        deposits.push({ date: dateStr, amount, ref });
+      }
+      continue;
+    }
+    if (txType === 'DIVIDEND') { dividends.push({ date: dateStr, amount, ref, market }); continue; }
+    if (txType !== 'ORDRE' && txType !== 'TRADE' && txType !== 'DEAL') {
+      fees.push({ date: dateStr, amount, ref, type: txType, market });
+      continue;
+    }
+    const symbol = mapMarketName(market);
+    const size = tx.size ? parseFloat(tx.size) : 0;
+    const openLevel = tx.openLevel && tx.openLevel !== '-' ? parseFloat(tx.openLevel) : 0;
+    const closeLevel = tx.closeLevel && tx.closeLevel !== '-' ? parseFloat(tx.closeLevel) : 0;
+    const openDate = tx.openDateUtc || '';
+    const tradeDate = openDate && openDate.length >= 10 ? openDate.substring(0, 10) : dateStr;
+    trades.push([tradeDate, symbol, amount, ref, size, openLevel, closeLevel, openDate, dateUtc]);
+  }
+  return { trades, dividends, deposits, fees };
+}
+
+function mergeIgData(data) {
+  // Même logique que applyCsv mode merge
+  const existingByKey = {};
+  realTrades.forEach(t => { existingByKey[tradeKey(t)] = t; });
+  let newCount = 0, updatedCount = 0, dupCount = 0;
+  const newTrades = [];
+  data.trades.forEach(t => {
+    const key = tradeKey(t);
+    const existing = existingByKey[key];
+    if (existing) {
+      if (existing[0] !== t[0]) { existing[0] = t[0]; updatedCount++; }
+      else dupCount++;
+    } else { newTrades.push(t); newCount++; }
+  });
+  realTrades = [...realTrades, ...newTrades].sort((a, b) => b[0].localeCompare(a[0]));
+
+  // Dividendes
+  const existingDivRefs = new Set(realDividends.map(d => d.ref));
+  const newDivs = data.dividends.filter(d => !existingDivRefs.has(d.ref));
+  const divRefSet = new Set(data.dividends.map(d => d.ref));
+  realDeposits = realDeposits.filter(d => !divRefSet.has(d.ref));
+  realDividends = [...realDividends, ...newDivs];
+
+  // Dépôts
+  const existingDepRefs = new Set(realDeposits.map(d => d.ref));
+  const newDeps = data.deposits.filter(d => !existingDepRefs.has(d.ref));
+  realDeposits = [...realDeposits, ...newDeps];
+
+  // Frais
+  const existingFeeRefs = new Set(realFees.map(f => f.ref));
+  const newFees = data.fees.filter(f => !existingFeeRefs.has(f.ref));
+  realFees = [...realFees, ...newFees];
+
+  // Message identique au CSV
+  const tMsg = newCount > 0 || updatedCount > 0
+    ? `${newCount} nouveau(x) trade(s)${updatedCount > 0 ? ', ' + updatedCount + ' mis à jour' : ''}, ${dupCount} doublon(s) ignoré(s)`
+    : `Aucun nouveau trade (${dupCount} doublon${dupCount > 1 ? 's' : ''})`;
+  const dMsg = newDivs.length > 0 ? ` + ${newDivs.length} dividende(s)` : '';
+  const depMsg = newDeps.length > 0 ? ` + ${newDeps.length} dépôt(s)` : '';
+  const feeMsg = newFees.length > 0 ? ` + ${newFees.length} frais` : '';
+  const msg = `🔄 Sync IG : ${tMsg}${dMsg}${depMsg}${feeMsg}.`;
+
+  return { msg, newCount, updatedCount, dupCount };
+}
+
+// Credentials IG — chargés depuis Firebase (stockés par le script node)
+let _igCreds = null;
+async function loadIgCreds() {
+  if (_igCreds) return _igCreds;
+  const snap = await db.ref('igConfig').once('value');
+  _igCreds = snap.val();
+  return _igCreds;
+}
+async function getIgApiKey() { const c = await loadIgCreds(); return c && c.apiKey || ''; }
+async function getIgUsername() { const c = await loadIgCreds(); return c && c.username || ''; }
+async function getIgPassword() { const c = await loadIgCreds(); return c && c.password || ''; }
+
+// Fallback: exécuter le script Node.js (ne fonctionne que si Claude Code est actif)
+async function runIgSyncScript() {
+  throw new Error('Script node non disponible depuis le navigateur');
 }
 
 // ── CSV Modal ──
@@ -5252,7 +5464,7 @@ function formatTimestamp(ts) {
 }
 
 // Build timestamp — mis à jour automatiquement à chaque déploiement
-const DASH_BUILD_TS = 1773665922475;
+const DASH_BUILD_TS = 1773912248305;
 
 function displayDashTimestamp() {
   const el = document.getElementById('footerDashUpdate');
