@@ -2348,8 +2348,8 @@ function buildCumulativePnL() {
       interaction:{ mode:'nearest', axis:'x', intersect:false },
       hover:{ mode:'nearest', axis:'x', intersect:false },
       plugins:{
-        legend:{ display: projectionEnabled, labels:{ color:'#8892a4', font:{size:11}, usePointStyle:true, padding:12 } },
-        tooltip:{backgroundColor:'#1a2235',borderColor:'#2d3a4d',borderWidth:1,
+        legend:{ display: projectionEnabled, labels:{ color:'#8892a4', font:{size:11}, usePointStyle:false, boxWidth:14, boxHeight:14, padding:12 } },
+        tooltip:{backgroundColor:'#1a2235',borderColor:'#2d3a4d',borderWidth:1,usePointStyle:false,boxWidth:12,boxHeight:12,boxPadding:6,
           callbacks:{
             title:items=>{
               const idx = items[0].dataIndex;
@@ -2515,7 +2515,7 @@ function buildWinLossDay() {
         responsive:true,
         layout:{ padding:{ top:25 } },
         plugins:{
-          legend:{display:true,labels:{color:'#8899aa',font:{size:11},usePointStyle:true,pointStyle:'circle',padding:16}},
+          legend:{display:true,labels:{color:'#8899aa',font:{size:11},usePointStyle:false,boxWidth:14,boxHeight:14,padding:16}},
           tooltip:{callbacks:{label:c=>{
             const isGain = c.datasetIndex === 0;
             return c.dataset.label+': '+(isGain?'+':'-')+c.parsed.y.toFixed(2)+' €';
@@ -2568,7 +2568,7 @@ function buildWinLossDay() {
         responsive:true,
         layout:{ padding:{ top:25 } },
         plugins:{
-          legend:{display:true,labels:{color:'#8899aa',font:{size:11},usePointStyle:true,pointStyle:'circle',padding:16}},
+          legend:{display:true,labels:{color:'#8899aa',font:{size:11},usePointStyle:false,boxWidth:14,boxHeight:14,padding:16}},
           tooltip:{callbacks:{label:c=>c.dataset.label+': '+c.parsed.y+' trades'}}
         },
         scales:{
@@ -3704,7 +3704,7 @@ function buildDrawdownChart() {
       plugins: {
         legend: {
           display: true,
-          labels: { color: '#8899aa', font: { size: 11 }, usePointStyle: true, pointStyle: 'line', padding: 16 }
+          labels: { color: '#8899aa', font: { size: 11 }, usePointStyle: false, boxWidth: 14, boxHeight: 14, padding: 16 }
         },
         tooltip: {
           backgroundColor: '#1a2235',
@@ -3896,7 +3896,7 @@ function buildEquity(canvasId, daxD, nasD, slice, totalCapital) {
     options: {
       responsive:true, interaction:{mode:'index',intersect:false},
       plugins:{
-        legend:{labels:{usePointStyle:true,padding:20}},
+        legend:{labels:{usePointStyle:false,boxWidth:14,boxHeight:14,padding:20}},
         tooltip:{backgroundColor:'#1a2235',borderColor:'#2d3a4d',borderWidth:1, callbacks:{label:c=>`${c.dataset.label}: ${fmt(c.parsed.y)} €`}}
       },
       scales:{
@@ -3922,7 +3922,7 @@ function buildAnnual(canvasId, daxD, nasD, slice) {
     },
     options: {
       responsive:true,
-      plugins:{legend:{labels:{usePointStyle:true,padding:16}},tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${c.parsed.y.toFixed(2)}%`}}},
+      plugins:{legend:{labels:{usePointStyle:false,boxWidth:14,boxHeight:14,padding:16}},tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${c.parsed.y.toFixed(2)}%`}}},
       scales:{x:{grid:{display:false}},y:{ticks:{callback:v=>v.toFixed(0)+'%'},grid:{color:'rgba(30,42,58,0.4)'}}}
     }
   });
@@ -3983,7 +3983,7 @@ function buildRolling12(canvasId, daxD, nasD, slice) {
     },
     options: {
       responsive:true, interaction:{mode:'index',intersect:false},
-      plugins:{legend:{labels:{usePointStyle:true,padding:16}},tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${c.parsed.y.toFixed(1)}%`}}},
+      plugins:{legend:{labels:{usePointStyle:false,boxWidth:14,boxHeight:14,padding:16}},tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${c.parsed.y.toFixed(1)}%`}}},
       scales:{x:{ticks:{maxTicksLimit:20,font:{size:9}},grid:{display:false}},y:{ticks:{callback:v=>v.toFixed(0)+'%'},grid:{color:'rgba(30,42,58,0.4)'}}}
     }
   });
@@ -4005,7 +4005,7 @@ function buildDrawdown(canvasId, daxD, nasD, slice, totalCapital) {
     },
     options: {
       responsive:true, interaction:{mode:'index',intersect:false},
-      plugins:{legend:{labels:{usePointStyle:true,padding:16}},tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${c.parsed.y.toFixed(2)}%`}}},
+      plugins:{legend:{labels:{usePointStyle:false,boxWidth:14,boxHeight:14,padding:16}},tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${c.parsed.y.toFixed(2)}%`}}},
       scales:{x:{ticks:{maxTicksLimit:20,font:{size:10}},grid:{display:false}},y:{ticks:{callback:v=>v.toFixed(0)+'%'},grid:{color:'rgba(30,42,58,0.4)'}}}
     }
   });
@@ -4816,7 +4816,7 @@ function invBuildEvolutionCharts(t, labels, li) {
     const idx = d.platforms.indexOf(p);
     return { label: p, data: invPrinArr(p, n), borderColor: invColor(p,idx), backgroundColor: invHexToRgba(invColor(p,idx), 0.15), fill: true, borderWidth: 1.5, tension: 0.3 };
   });
-  invCharts.stack = new Chart(document.getElementById('inv-ch-stack'), { type: 'line', data: { labels, datasets: stackSets }, options: { responsive: true, maintainAspectRatio: false, scales: { x: { ticks: { maxTicksLimit: 10 } }, y: { stacked: true, ticks: { callback: invFmtK } } }, plugins: { tooltip: { mode: 'index' } } } });
+  invCharts.stack = new Chart(document.getElementById('inv-ch-stack'), { type: 'line', data: { labels, datasets: stackSets }, options: { responsive: true, maintainAspectRatio: false, scales: { x: { ticks: { maxTicksLimit: 10 } }, y: { stacked: true, ticks: { callback: invFmtK } } }, plugins: { legend: { labels: { usePointStyle:false, boxWidth:14, boxHeight:14, padding:12 } }, tooltip: { mode: 'index', usePointStyle:false, boxWidth:12, boxHeight:12, boxPadding:6 } } } });
 
   const totals = Array.from({length: n}, (_, i) => d.platforms.reduce((s, p) => s + invToEur(p, (d.principal[p] || [])[i] || 0), 0));
   const variations = totals.slice(1).map((v, i) => v - totals[i]);
