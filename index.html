@@ -4819,7 +4819,7 @@ function invBuildEvolutionCharts(t, labels, li) {
     const idx = d.platforms.indexOf(p);
     return { label: p, data: invPrinArr(p, n), borderColor: invColor(p,idx), backgroundColor: invHexToRgba(invColor(p,idx), 0.15), fill: true, borderWidth: 1.5, tension: 0.3 };
   });
-  invCharts.stack = new Chart(document.getElementById('inv-ch-stack'), { type: 'line', data: { labels, datasets: stackSets }, options: { responsive: true, maintainAspectRatio: false, scales: { x: { ticks: { maxTicksLimit: 10 } }, y: { stacked: true, ticks: { callback: invFmtK } } }, plugins: { legend: { labels: { usePointStyle:false, boxWidth:14, boxHeight:14, padding:12 } }, tooltip: { mode: 'index', usePointStyle:false, boxWidth:12, boxHeight:12, boxPadding:6 } } } });
+  invCharts.stack = new Chart(document.getElementById('inv-ch-stack'), { type: 'line', data: { labels, datasets: stackSets }, options: { responsive: true, maintainAspectRatio: false, scales: { x: { ticks: { maxTicksLimit: 10 } }, y: { stacked: true, ticks: { callback: invFmtK } } }, plugins: { legend: { labels: { usePointStyle:false, boxWidth:14, boxHeight:14, padding:12 } }, tooltip: { mode: 'index', usePointStyle:false, boxWidth:12, boxHeight:12, boxPadding:6, callbacks: { label: c => c.parsed.y != null ? ' ' + c.dataset.label + ': ' + fmt(Math.round(c.parsed.y)) : '' } } } } });
 
   const totals = Array.from({length: n}, (_, i) => d.platforms.reduce((s, p) => s + invToEur(p, (d.principal[p] || [])[i] || 0), 0));
   const variations = totals.slice(1).map((v, i) => v - totals[i]);
