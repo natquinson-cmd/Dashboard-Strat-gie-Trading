@@ -1610,11 +1610,11 @@ function getTotalFees() {
 let currentAssetFilter = 'all';
 let calYear = 2026, calMonth = 1; // Feb 2026 (0-indexed month)
 
-// Mois exclus des stats/graphiques (non significatifs)
-const EXCLUDED_MONTHS = ['2025-12'];
+// Mois exclus du graphique P&L cumulé (non significatifs, faussent la projection)
+const EXCLUDED_MONTHS_PNL = ['2025-12'];
 
 function getFilteredTrades() {
-  let trades = realTrades.filter(t => !EXCLUDED_MONTHS.includes(t[0].substring(0,7)));
+  let trades = realTrades;
   if (currentAssetFilter !== 'all') trades = trades.filter(t => t[1] === currentAssetFilter);
   const range = getDateRange();
   if (range) trades = trades.filter(t => t[0] >= range.from && t[0] <= range.to);
@@ -2224,7 +2224,7 @@ function buildProjectionData(startPnL, lastDate, horizonMonths) {
 }
 
 function buildCumulativePnL() {
-  const trades = getFilteredTrades();
+  const trades = getFilteredTrades().filter(t => !EXCLUDED_MONTHS_PNL.includes(t[0].substring(0,7)));
   const sorted = [...trades].sort((a,b) => a[0].localeCompare(b[0]));
   const dayMap = {};
   for (const [d, s, g] of sorted) {
