@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Dashboard Trading — Performance Strategies</title>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📊</text></svg>">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
@@ -162,6 +161,10 @@
   }
 
   /* ═══════════ TRAVELING LIGHT on card borders ═══════════ */
+  @keyframes athPulse {
+    0%, 100% { opacity: 1; box-shadow: 0 0 4px rgba(245,158,11,0.4); }
+    50% { opacity: 0.85; box-shadow: 0 0 12px rgba(245,158,11,0.7); }
+  }
   @keyframes borderLight {
     0%   { --light-angle: 0deg; }
     100% { --light-angle: 360deg; }
@@ -1690,6 +1693,12 @@ function buildRealKPIs() {
   const capitalBase = totalDeposits > 0 ? totalDeposits : 1; // évite division par zéro
   const perfPct = totalDeposits > 0 ? (totalAll / capitalBase * 100) : 0;
 
+  // All-Time High detection (basé sur le P&L cumulé de tous les trades réels)
+  const sortedReal = [...realTrades].sort((a,b) => a[0].localeCompare(b[0]));
+  let cumReal = 0, peakReal = 0;
+  for (const t of sortedReal) { cumReal += t[2]; if (cumReal > peakReal) peakReal = cumReal; }
+  const isATH = realTrades.length > 0 && cumReal >= peakReal && cumReal > 0;
+
   // Donut SVG for win rate
   const circumference = 2 * Math.PI * 28; // r=28
   const dashOffset = circumference * (1 - winRateNum / 100);
@@ -1703,7 +1712,7 @@ function buildRealKPIs() {
   // ── HERO ROW ──
   document.getElementById('heroReal').innerHTML = `
     <div class="hero-card capital" style="position:relative;">
-      <div class="hero-label">💰 Capital Actuel</div>
+      <div class="hero-label">💰 Capital Actuel${isATH ? ' <span style="display:inline-flex;align-items:center;gap:4px;margin-left:8px;background:linear-gradient(135deg,#f59e0b,#fbbf24);color:#000;font-size:0.7rem;font-weight:700;padding:2px 8px;border-radius:20px;vertical-align:middle;animation:athPulse 2s ease-in-out infinite;letter-spacing:0.5px;">🏆 ATH</span>' : ''}</div>
       <div style="display:flex;align-items:baseline;gap:12px;">
         <div class="hero-value" style="background:linear-gradient(135deg,${totalAll>=0?'#10b981,#34d399':'#ef4444,#f87171'});-webkit-background-clip:text;-webkit-text-fill-color:transparent;">
           ${fmt(Math.round(capitalActuel))} €
