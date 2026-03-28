@@ -2366,7 +2366,7 @@ function buildCumulativePnL() {
             label:c=>{
               if (c.parsed.y == null) return '';
               const prefix = c.datasetIndex === 1 ? '📊 Proj: ' : '';
-              return prefix + c.parsed.y.toFixed(2)+' €';
+              return prefix + fmt(Math.round(c.parsed.y))+' €';
             }
           }}
       },
