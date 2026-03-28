@@ -1610,8 +1610,11 @@ function getTotalFees() {
 let currentAssetFilter = 'all';
 let calYear = 2026, calMonth = 1; // Feb 2026 (0-indexed month)
 
+// Mois exclus des stats/graphiques (non significatifs)
+const EXCLUDED_MONTHS = ['2025-12'];
+
 function getFilteredTrades() {
-  let trades = realTrades;
+  let trades = realTrades.filter(t => !EXCLUDED_MONTHS.includes(t[0].substring(0,7)));
   if (currentAssetFilter !== 'all') trades = trades.filter(t => t[1] === currentAssetFilter);
   const range = getDateRange();
   if (range) trades = trades.filter(t => t[0] >= range.from && t[0] <= range.to);
