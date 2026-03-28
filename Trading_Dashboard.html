@@ -1712,7 +1712,7 @@ function buildRealKPIs() {
   // ── HERO ROW ──
   document.getElementById('heroReal').innerHTML = `
     <div class="hero-card capital" style="position:relative;">
-      <div class="hero-label">💰 Capital Actuel${isATH ? ' <span style="display:inline-flex;align-items:center;gap:4px;margin-left:8px;background:linear-gradient(135deg,#f59e0b,#fbbf24);color:#000;font-size:0.7rem;font-weight:700;padding:2px 8px;border-radius:20px;vertical-align:middle;animation:athPulse 2s ease-in-out infinite;letter-spacing:0.5px;">🏆 ATH</span>' : ''}</div>
+      <div class="hero-label">💰 Capital Actuel${isATH ? ' <span style="display:inline-flex;align-items:center;gap:5px;margin-left:10px;background:linear-gradient(135deg,#f59e0b,#fbbf24);color:#000;font-size:0.85rem;font-weight:700;padding:4px 12px;border-radius:20px;vertical-align:middle;animation:athPulse 2s ease-in-out infinite;letter-spacing:0.5px;">🏆 ATH</span>' : ''}</div>
       <div style="display:flex;align-items:baseline;gap:12px;">
         <div class="hero-value" style="background:linear-gradient(135deg,${totalAll>=0?'#10b981,#34d399':'#ef4444,#f87171'});-webkit-background-clip:text;-webkit-text-fill-color:transparent;">
           ${fmt(Math.round(capitalActuel))} €
