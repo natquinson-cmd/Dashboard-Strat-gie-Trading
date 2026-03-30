@@ -2849,12 +2849,11 @@ function showDayDetail(dateStr, cellEl) {
       pts = t[4] > 0 ? (t[6] - t[5]).toFixed(1) : (t[5] - t[6]).toFixed(1);
       pts = (parseFloat(pts) >= 0 ? '+' : '') + pts;
     }
-    // Extract time from openDate/closeDate (+1h timezone offset)
+    // Extract time from openDate/closeDate (UTC → Europe/Paris)
     function shiftHour(ts) {
       if (!ts || ts.length < 16) return '';
-      const dt = new Date(ts);
-      dt.setHours(dt.getHours() + 1);
-      return String(dt.getHours()).padStart(2,'0') + ':' + String(dt.getMinutes()).padStart(2,'0') + ':' + String(dt.getSeconds()).padStart(2,'0');
+      const dt = new Date(ts + (ts.endsWith('Z') || ts.includes('+') ? '' : 'Z'));
+      return dt.toLocaleTimeString('fr-FR', { timeZone:'Europe/Paris', hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:false });
     }
     const openTime = shiftHour(t[7]);
     const closeTime = shiftHour(t[8]);
