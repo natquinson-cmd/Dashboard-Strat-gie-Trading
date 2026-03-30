@@ -1733,7 +1733,7 @@ function buildRealKPIs() {
           <circle cx="26" cy="26" r="20" fill="none" stroke="#10b981" stroke-width="6" stroke-dasharray="${(2*Math.PI*20*gainPct/100).toFixed(1)} ${(2*Math.PI*20).toFixed(1)}" stroke-dashoffset="0" transform="rotate(-90 26 26)" stroke-linecap="round"/>
           <text x="26" y="27" text-anchor="middle" dominant-baseline="middle" fill="${totalWins >= totalLosses ? '#10b981' : '#ef4444'}" font-size="11" font-weight="700">${totalLosses > 0 ? (totalWins / totalLosses).toFixed(2) : '∞'}</text>
         </svg>
-        <span style="font-size:0.55rem;color:var(--text-secondary);margin-top:2px;">R:R</span>
+        <span style="font-size:0.55rem;color:var(--text-secondary);margin-top:2px;">Gain/Perte</span>
       </div>
       <div class="hero-value" style="color:${total>=0?'var(--positive)':'var(--negative)'};">
         ${total>=0?'+':''}${total.toFixed(2)} €
