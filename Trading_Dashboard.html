@@ -1724,8 +1724,17 @@ function buildRealKPIs() {
       </div>
       <div style="font-size:0.92rem;color:var(--text-secondary);margin-top:8px;">Capital versé : ${fmt(totalDeposits)} € · <span style="color:var(--negative)">Frais : ${fmt(Math.round(totalFees))} €</span></div>
     </div>
-    <div class="hero-card">
+    <div class="hero-card" style="position:relative;">
       <div class="hero-label">📈 Gain Total</div>
+      <div style="position:absolute;top:16px;right:16px;display:flex;flex-direction:column;align-items:center;">
+        <svg width="52" height="52" viewBox="0 0 52 52">
+          <circle cx="26" cy="26" r="20" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="6"/>
+          <circle cx="26" cy="26" r="20" fill="none" stroke="#ef4444" stroke-width="6" stroke-dasharray="${(2*Math.PI*20).toFixed(1)}" stroke-dashoffset="0" transform="rotate(-90 26 26)"/>
+          <circle cx="26" cy="26" r="20" fill="none" stroke="#10b981" stroke-width="6" stroke-dasharray="${(2*Math.PI*20*gainPct/100).toFixed(1)} ${(2*Math.PI*20).toFixed(1)}" stroke-dashoffset="0" transform="rotate(-90 26 26)" stroke-linecap="round"/>
+          <text x="26" y="27" text-anchor="middle" dominant-baseline="middle" fill="${rr >= 1 ? '#10b981' : '#ef4444'}" font-size="11" font-weight="700">${rr === Infinity ? '∞' : rr.toFixed(2)}</text>
+        </svg>
+        <span style="font-size:0.55rem;color:var(--text-secondary);margin-top:2px;">R:R</span>
+      </div>
       <div class="hero-value" style="color:${total>=0?'var(--positive)':'var(--negative)'};">
         ${total>=0?'+':''}${total.toFixed(2)} €
       </div>
