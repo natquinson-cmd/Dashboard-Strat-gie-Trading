@@ -2854,7 +2854,7 @@ function showDayDetail(dateStr, cellEl) {
       if (!ts || ts.length < 16) return '';
       const dt = new Date(ts);
       dt.setHours(dt.getHours() + 1);
-      return String(dt.getHours()).padStart(2,'0') + ':' + String(dt.getMinutes()).padStart(2,'0');
+      return String(dt.getHours()).padStart(2,'0') + ':' + String(dt.getMinutes()).padStart(2,'0') + ':' + String(dt.getSeconds()).padStart(2,'0');
     }
     const openTime = shiftHour(t[7]);
     const closeTime = shiftHour(t[8]);
