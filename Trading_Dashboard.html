@@ -174,10 +174,10 @@
     initial-value: 0deg;
     inherits: false;
   }
-  .hero-card, .kpi-card, .chart-card, .capital-selector {
+  .hero-card, .kpi-card, .chart-card, .capital-selector, .inv-card, .inv-chart-card {
     position: relative;
   }
-  .hero-card::after, .kpi-card::after, .chart-card::after, .capital-selector::after {
+  .hero-card::after, .kpi-card::after, .chart-card::after, .capital-selector::after, .inv-card::after, .inv-chart-card::after {
     content: '';
     position: absolute;
     inset: -1px;
@@ -861,31 +861,42 @@
   .inv-grid { display: grid; gap: 16px; }
   .inv-grid-2 { grid-template-columns: 1fr 1fr; }
   .inv-grid-3 { grid-template-columns: 1fr 1fr 1fr; }
-  .inv-grid-kpi { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 24px; }
+  .inv-grid-kpi { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; margin-bottom: 32px; }
+  .inv-grid-kpi .kpi-card:nth-child(1) { animation-delay: 0s, 0s, 0.05s; }
+  .inv-grid-kpi .kpi-card:nth-child(2) { animation-delay: 0.5s, 0.5s, 0.1s; }
+  .inv-grid-kpi .kpi-card:nth-child(3) { animation-delay: 1s, 1s, 0.15s; }
+  .inv-grid-kpi .kpi-card:nth-child(4) { animation-delay: 1.5s, 1.5s, 0.2s; }
+  .inv-grid-kpi .kpi-card:nth-child(5) { animation-delay: 2s, 2s, 0.25s; }
   .inv-grid-form { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }
 
   .inv-card {
-    border-radius: 16px; padding: 20px;
+    border-radius: 16px; padding: 24px;
     background: var(--bg-card); border: 1px solid var(--border);
     position: relative; overflow: hidden;
-    transition: box-shadow 0.3s, border-color 0.3s;
+    transition: box-shadow 0.2s, transform 0.2s;
+    animation: holoBorder 10s ease infinite, holoGlow 7s ease infinite;
   }
-  .inv-card:hover { border-color: rgba(99,102,241,0.3); box-shadow: 0 0 25px rgba(99,102,241,0.08); }
+  .inv-card:hover { box-shadow: 0 4px 20px rgba(0,0,0,0.2); transform: translateY(-1px); }
 
-  .inv-stat-card {
-    animation: holoBorder 8s ease infinite, holoGlow 6s ease infinite, slideUp 0.5s ease backwards;
-  }
-  .inv-stat-card:nth-child(2) { animation-delay: 0.5s, 0.5s, 0.1s; }
-  .inv-stat-card:nth-child(3) { animation-delay: 1s, 1s, 0.15s; }
-  .inv-stat-card:nth-child(4) { animation-delay: 1.5s, 1.5s, 0.2s; }
-  .inv-stat-card:nth-child(5) { animation-delay: 2s, 2s, 0.25s; }
+  .inv-stat-card { /* animation delays via .inv-grid-kpi nth-child selectors */ }
 
   .inv-chart-card {
-    border-radius: 16px; padding: 20px;
+    border-radius: 16px; padding: 28px;
     background: var(--bg-card); border: 1px solid var(--border);
     position: relative; overflow: hidden;
+    animation: holoBorder 10s ease infinite, holoGlow 7s ease infinite;
+    transition: box-shadow 0.2s;
   }
-  .inv-chart-card h3 { font-size: 0.88rem; font-weight: 600; margin-bottom: 16px; color: var(--text-primary); }
+  .inv-chart-card:hover { box-shadow: 0 4px 20px rgba(0,0,0,0.2); }
+  .inv-chart-card h3 {
+    font-size: 1rem; font-weight: 600; margin-bottom: 20px;
+    color: var(--text-primary); display: flex; align-items: center; gap: 8px;
+  }
+  .inv-chart-icon {
+    width: 28px; height: 28px; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center; font-size: 14px;
+    background: rgba(99,102,241,0.15); flex-shrink: 0;
+  }
 
   .inv-canvas-wrap { position: relative; width: 100%; height: 300px; }
   .inv-canvas-wrap canvas { width: 100% !important; height: 100% !important; }
@@ -4715,21 +4726,23 @@ function renderPortfolioTab(tab) {
     const color = pos ? '#10b981' : '#ef4444';
     const arrow = pos ? '▲' : '▼';
     const sign = pos ? '+' : '−';
-    return `<span style="font-size:11px;font-weight:600;color:${color};margin-left:6px;letter-spacing:0.2px">${arrow} ${sign}${absDiff.toLocaleString('fr-FR')} €</span>`;
+    return `<div style="font-size:0.72rem;font-weight:600;color:${color};margin-top:2px;letter-spacing:0.2px">${arrow} ${sign}${absDiff.toLocaleString('fr-FR')} €</div>`;
   }
   h += '<div class="inv-grid-kpi">';
   const kpis = [
-    { l: "Capital Brut", v: invFmt(Math.round(t.tp)), i: "💰", c: "#6366f1", s: portfolioData.platforms.filter(p => (portfolioData.principal[p] || [])[li] > 0).length + " plateformes", d: invDeltaHtml(t.tp, t.tp_prev) },
-    { l: "Capital Net", v: invFmt(Math.round(t.nc)), i: "🏦", c: t.nc >= 0 ? "#10b981" : "#ef4444", s: "Emprunts : " + invFmt(Math.round(t.tl)), d: invDeltaHtml(t.nc, t.nc_prev) },
-    { l: "Intérêts du mois", v: invFmt(Math.round(t.lmi)), i: "📈", c: "#06b6d4", s: (t.mc > 0 ? "+" : "") + t.mc + "% vs préc.", d: invDeltaHtml(t.lmi, t.pmi) },
-    { l: "Intérêts cumulés", v: invFmt(Math.round(t.tic)), i: "📊", c: "#f59e0b", s: "Moy. " + invFmt(t.am) + "/mois", d: invDeltaHtml(t.tic, t.tic_prev) },
-    { l: "Revenu net/mois", v: invFmt(Math.round(t.nmi)), i: "⚡", c: t.nmi >= 0 ? "#10b981" : "#ef4444", s: "Remb. " + invFmt(t.tmp) + "/mois", d: invDeltaHtml(t.nmi, t.nmi_prev) }
+    { l: "Capital Brut", v: invFmt(Math.round(t.tp)), i: "💰", c: "#6366f1", c2: "#818cf8", s: portfolioData.platforms.filter(p => (portfolioData.principal[p] || [])[li] > 0).length + " plateformes", d: invDeltaHtml(t.tp, t.tp_prev) },
+    { l: "Capital Net", v: invFmt(Math.round(t.nc)), i: "🏦", c: t.nc >= 0 ? "#10b981" : "#ef4444", c2: t.nc >= 0 ? "#34d399" : "#f87171", s: "Emprunts : " + invFmt(Math.round(t.tl)), d: invDeltaHtml(t.nc, t.nc_prev) },
+    { l: "Intérêts du mois", v: invFmt(Math.round(t.lmi)), i: "📈", c: "#06b6d4", c2: "#22d3ee", s: (t.mc > 0 ? "+" : "") + t.mc + "% vs préc.", d: invDeltaHtml(t.lmi, t.pmi) },
+    { l: "Intérêts cumulés", v: invFmt(Math.round(t.tic)), i: "📊", c: "#f59e0b", c2: "#fbbf24", s: "Moy. " + invFmt(t.am) + "/mois", d: invDeltaHtml(t.tic, t.tic_prev) },
+    { l: "Revenu net/mois", v: invFmt(Math.round(t.nmi)), i: "⚡", c: t.nmi >= 0 ? "#10b981" : "#ef4444", c2: t.nmi >= 0 ? "#34d399" : "#f87171", s: "Remb. " + invFmt(t.tmp) + "/mois", d: invDeltaHtml(t.nmi, t.nmi_prev) }
   ];
   kpis.forEach((k, i) => {
-    h += `<div class="inv-card inv-stat-card" style="animation-delay:${0.5*i}s,${0.5*i}s,${0.1*i}s">`;
-    h += `<div class="inv-flex inv-aic inv-gap2"><div class="inv-kpi-icon" style="background:${k.c}18;color:${k.c}">${k.i}</div><span style="font-size:12px;font-weight:500;color:var(--text-secondary)">${k.l}</span></div>`;
-    h += `<div style="font-size:20px;font-weight:700;margin-top:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${k.v}${k.d || ''}</div>`;
-    h += `<div style="font-size:12px;color:var(--text-secondary);margin-top:2px">${k.s}</div></div>`;
+    h += `<div class="kpi-card">`;
+    h += `<div class="stripe" style="background:linear-gradient(90deg,${k.c},${k.c2||k.c})"></div>`;
+    h += `<div class="label"><span style="margin-right:5px">${k.i}</span>${k.l}</div>`;
+    h += `<div class="value" style="color:${k.c};font-size:1.5rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${k.v}</div>`;
+    h += `${k.d || ''}<div class="sub">${k.s}</div>`;
+    h += `</div>`;
   });
   h += '</div>';
 
@@ -4764,12 +4777,12 @@ function invRenderOverview(t, labels, li) {
   const d = portfolioData;
   let h = '<div class="inv-grid">';
   h += '<div class="inv-grid inv-grid-2">';
-  h += '<div class="inv-chart-card"><h3>Évolution capital brut vs net</h3><div class="inv-canvas-wrap"><canvas id="inv-ch-capital"></canvas></div></div>';
-  h += '<div class="inv-chart-card"><h3>Répartition actuelle</h3><div class="inv-canvas-wrap"><canvas id="inv-ch-pie"></canvas></div></div>';
+  h += '<div class="inv-chart-card"><h3><span class="inv-chart-icon">📈</span>Évolution capital brut vs net</h3><div class="inv-canvas-wrap"><canvas id="inv-ch-capital"></canvas></div></div>';
+  h += '<div class="inv-chart-card"><h3><span class="inv-chart-icon">🥧</span>Répartition actuelle</h3><div class="inv-canvas-wrap"><canvas id="inv-ch-pie"></canvas></div></div>';
   h += '</div>';
   h += '<div class="inv-grid inv-grid-2">';
-  h += '<div class="inv-chart-card"><h3>Intérêts mensuels</h3><div class="inv-canvas-wrap"><canvas id="inv-ch-intbar"></canvas></div></div>';
-  h += '<div class="inv-card"><h3 style="font-size:0.88rem;font-weight:600;margin-bottom:16px">Détails par plateforme</h3><div style="display:flex;flex-direction:column;gap:12px">';
+  h += '<div class="inv-chart-card"><h3><span class="inv-chart-icon">📊</span>Intérêts mensuels</h3><div class="inv-canvas-wrap"><canvas id="inv-ch-intbar"></canvas></div></div>';
+  h += '<div class="inv-card"><h3 style="font-size:1rem;font-weight:600;margin-bottom:20px;display:flex;align-items:center;gap:8px"><span class="inv-chart-icon">💼</span>Détails par plateforme</h3><div style="display:flex;flex-direction:column;gap:12px">';
   d.platforms.forEach((p, i) => {
     const v = invToEur(p, (d.principal[p] || [])[li] || 0);
     const pc = t.tp > 0 ? (v / t.tp * 100).toFixed(1) : 0;
@@ -4807,10 +4820,10 @@ function invBuildOverviewCharts(t, labels, li) {
 function invRenderInterests(t, labels) {
   const d = portfolioData;
   let h = '<div class="inv-grid">';
-  h += '<div class="inv-chart-card"><h3>Intérêts cumulés par plateforme</h3><div class="inv-canvas-wrap" style="height:350px"><canvas id="inv-ch-cumul"></canvas></div></div>';
+  h += '<div class="inv-chart-card"><h3><span class="inv-chart-icon">📈</span>Intérêts cumulés par plateforme</h3><div class="inv-canvas-wrap" style="height:350px"><canvas id="inv-ch-cumul"></canvas></div></div>';
   h += '<div class="inv-grid inv-grid-2">';
-  h += '<div class="inv-chart-card"><h3>Répartition des intérêts</h3><div class="inv-canvas-wrap" style="height:280px"><canvas id="inv-ch-intpie"></canvas></div></div>';
-  h += '<div class="inv-card"><h3 style="font-size:0.88rem;font-weight:600;margin-bottom:16px">Classement par plateforme</h3><div style="display:flex;flex-direction:column;gap:12px">';
+  h += '<div class="inv-chart-card"><h3><span class="inv-chart-icon">🥧</span>Répartition des intérêts</h3><div class="inv-canvas-wrap" style="height:280px"><canvas id="inv-ch-intpie"></canvas></div></div>';
+  h += '<div class="inv-card"><h3 style="font-size:1rem;font-weight:600;margin-bottom:16px;display:flex;align-items:center;gap:8px"><span class="inv-chart-icon">🏆</span>Classement par plateforme</h3><div style="display:flex;flex-direction:column;gap:12px">';
   const n = t.li + 1;
   const sorted = d.platforms.map((p, i) => ({ name: p, total: invIntArr(p, n).reduce((a, b) => a + b, 0), color: invColor(p,i) })).filter(x => x.total > 0).sort((a, b) => b.total - a.total);
   const mx = sorted.length > 0 ? sorted[0].total : 1;
@@ -4819,7 +4832,7 @@ function invRenderInterests(t, labels) {
     h += `<div class="inv-neon-bar"><div class="inv-neon-fill" style="width:${x.total/mx*100}%;background:${x.color}"></div></div></div>`;
   });
   h += '</div></div></div>';
-  h += '<div class="inv-chart-card"><h3>Évolution mensuelle des intérêts</h3><div class="inv-canvas-wrap"><canvas id="inv-ch-intline"></canvas></div></div>';
+  h += '<div class="inv-chart-card"><h3><span class="inv-chart-icon">📊</span>Évolution mensuelle des intérêts</h3><div class="inv-canvas-wrap"><canvas id="inv-ch-intline"></canvas></div></div>';
   h += '</div>';
   return h;
 }
@@ -4847,10 +4860,10 @@ function invBuildInterestCharts(t, labels) {
 // ── Evolution ──
 function invRenderEvolution(t, labels, li) {
   let h = '<div class="inv-grid">';
-  h += '<div class="inv-chart-card"><h3>Capital par plateforme (empilé)</h3><div class="inv-canvas-wrap" style="height:380px"><canvas id="inv-ch-stack"></canvas></div></div>';
+  h += '<div class="inv-chart-card"><h3><span class="inv-chart-icon">📈</span>Capital par plateforme (empilé)</h3><div class="inv-canvas-wrap" style="height:380px"><canvas id="inv-ch-stack"></canvas></div></div>';
   h += '<div class="inv-grid inv-grid-2">';
-  h += '<div class="inv-chart-card"><h3>Variation mensuelle du capital</h3><div class="inv-canvas-wrap"><canvas id="inv-ch-var"></canvas></div></div>';
-  h += '<div class="inv-chart-card"><h3>Mois actuel vs précédent</h3><div class="inv-canvas-wrap"><canvas id="inv-ch-compare"></canvas></div></div>';
+  h += '<div class="inv-chart-card"><h3><span class="inv-chart-icon">📊</span>Variation mensuelle du capital</h3><div class="inv-canvas-wrap"><canvas id="inv-ch-var"></canvas></div></div>';
+  h += '<div class="inv-chart-card"><h3><span class="inv-chart-icon">🔄</span>Mois actuel vs précédent</h3><div class="inv-canvas-wrap"><canvas id="inv-ch-compare"></canvas></div></div>';
   h += '</div></div>';
   return h;
 }
@@ -4912,10 +4925,10 @@ function invRenderLoans(t, labels, li) {
     h += '</div></div>';
   });
   h += '</div>';
-  h += '<div class="inv-chart-card"><h3>Évolution des emprunts</h3><div class="inv-canvas-wrap"><canvas id="inv-ch-loans"></canvas></div></div>';
+  h += '<div class="inv-chart-card"><h3><span class="inv-chart-icon">💳</span>Évolution des emprunts</h3><div class="inv-canvas-wrap"><canvas id="inv-ch-loans"></canvas></div></div>';
   h += '<div class="inv-grid inv-grid-2">';
-  h += '<div class="inv-chart-card"><h3>Capital net vs dette</h3><div class="inv-canvas-wrap"><canvas id="inv-ch-netdebt"></canvas></div></div>';
-  h += '<div class="inv-card"><h3 style="font-size:0.88rem;font-weight:600;margin-bottom:16px">Indicateurs clés</h3><div style="display:flex;flex-direction:column;gap:16px">';
+  h += '<div class="inv-chart-card"><h3><span class="inv-chart-icon">🏦</span>Capital net vs dette</h3><div class="inv-canvas-wrap"><canvas id="inv-ch-netdebt"></canvas></div></div>';
+  h += '<div class="inv-card"><h3 style="font-size:1rem;font-weight:600;margin-bottom:20px;display:flex;align-items:center;gap:8px"><span class="inv-chart-icon">⚡</span>Indicateurs clés</h3><div style="display:flex;flex-direction:column;gap:16px">';
   h += `<div class="inv-ind-card"><div style="font-size:12px;color:var(--text-secondary);margin-bottom:4px">Taux d'endettement</div><div style="font-size:18px;font-weight:700">${t.tp > 0 ? (t.tl / t.tp * 100).toFixed(1) : 0}%</div><div style="font-size:12px;color:var(--text-secondary)">Dette / Capital brut</div></div>`;
   h += `<div class="inv-ind-card"><div style="font-size:12px;color:var(--text-secondary);margin-bottom:4px">Couverture remboursements</div><div style="font-size:18px;font-weight:700;color:${t.lmi >= t.tmp ? '#10b981' : '#ef4444'}">${t.tmp > 0 ? (t.lmi / t.tmp).toFixed(2) + 'x' : 'N/A'}</div><div style="font-size:12px;color:var(--text-secondary)">Intérêts / Mensualités</div></div>`;
   h += `<div class="inv-ind-card"><div style="font-size:12px;color:var(--text-secondary);margin-bottom:4px">Rendement net</div><div style="font-size:18px;font-weight:700;color:${t.nmi >= 0 ? '#10b981' : '#ef4444'}">${t.tp > 0 ? (t.nmi * 12 / t.tp * 100).toFixed(1) : 0}% / an</div><div style="font-size:12px;color:var(--text-secondary)">(Intérêts - Remb.) × 12 / Capital</div></div>`;
@@ -4957,10 +4970,11 @@ function invRenderRepartition(t, li) {
     const pct = totalCap > 0 ? cap / totalCap : 0;
     const memberInt = Math.round(totalInterest * pct);
     const col = INV_MEMBER_COLORS[m];
-    h += `<div class="inv-card inv-stat-card">`;
-    h += `<div class="inv-flex inv-aic inv-gap2"><div class="inv-kpi-icon" style="background:${col}18;color:${col}">👤</div><span style="font-size:12px;font-weight:500;color:var(--text-secondary)">${m}</span></div>`;
-    h += `<div style="font-size:20px;font-weight:700;margin-top:6px">${invFmt(cap)}</div>`;
-    h += `<div class="inv-flex inv-jcsb" style="font-size:12px;color:var(--text-secondary);margin-top:4px"><span>${(pct*100).toFixed(1)}%</span><span class="inv-cg">+${invFmt(memberInt)}/mois</span></div>`;
+    h += `<div class="kpi-card">`;
+    h += `<div class="stripe" style="background:linear-gradient(90deg,${col},${col}99)"></div>`;
+    h += `<div class="label"><span style="margin-right:5px">👤</span>${m}</div>`;
+    h += `<div class="value" style="color:${col};font-size:1.5rem">${invFmt(cap)}</div>`;
+    h += `<div class="sub">${(pct*100).toFixed(1)}% · <span style="color:#10b981">+${invFmt(memberInt)}/mois</span></div>`;
     h += `<div class="inv-neon-bar inv-mt2"><div class="inv-neon-fill" style="width:${pct*100}%;background:${col}"></div></div></div>`;
   });
   h += '</div>';
@@ -4974,12 +4988,12 @@ function invRenderRepartition(t, li) {
 
   // Charts
   h += '<div class="inv-grid inv-grid-2">';
-  h += '<div class="inv-chart-card"><h3>Répartition du capital</h3><div class="inv-canvas-wrap" style="height:250px"><canvas id="inv-ch-rep-pie"></canvas></div></div>';
-  h += '<div class="inv-chart-card"><h3>Répartition des intérêts</h3><div class="inv-canvas-wrap" style="height:250px"><canvas id="inv-ch-rep-int"></canvas></div></div>';
+  h += '<div class="inv-chart-card"><h3><span class="inv-chart-icon">🥧</span>Répartition du capital</h3><div class="inv-canvas-wrap" style="height:250px"><canvas id="inv-ch-rep-pie"></canvas></div></div>';
+  h += '<div class="inv-chart-card"><h3><span class="inv-chart-icon">💰</span>Répartition des intérêts</h3><div class="inv-canvas-wrap" style="height:250px"><canvas id="inv-ch-rep-int"></canvas></div></div>';
   h += '</div>';
 
   // Monthly update section
-  h += '<div class="inv-card"><h3 style="font-size:0.88rem;font-weight:600;margin-bottom:16px">1. Mise à jour mensuelle</h3>';
+  h += '<div class="inv-card"><h3 style="font-size:1rem;font-weight:600;margin-bottom:20px;display:flex;align-items:center;gap:8px"><span class="inv-chart-icon">📅</span>1. Mise à jour mensuelle</h3>';
   h += '<p style="font-size:12px;color:var(--text-secondary);margin-bottom:16px">Entre le nouveau capital total Lendermarket et les intérêts du mois. La croissance et les intérêts sont répartis proportionnellement.</p>';
   if (!invRepMonthlyMode) {
     h += '<button class="inv-btn inv-btn-p" onclick="invStartRepMonthly()">Mettre à jour</button>';
@@ -5016,7 +5030,7 @@ function invRenderRepartition(t, li) {
   h += '</div>';
 
   // Adjustment section
-  h += '<div class="inv-card"><h3 style="font-size:0.88rem;font-weight:600;margin-bottom:16px">2. Ajustement ponctuel (dépôt / retrait)</h3>';
+  h += '<div class="inv-card"><h3 style="font-size:1rem;font-weight:600;margin-bottom:20px;display:flex;align-items:center;gap:8px"><span class="inv-chart-icon">⚡</span>2. Ajustement ponctuel (dépôt / retrait)</h3>';
   h += '<p style="font-size:12px;color:var(--text-secondary);margin-bottom:16px">Ajoute ou retire une somme pour une personne. Les pourcentages se recalculent automatiquement.</p>';
   if (!invRepAdjMode) {
     h += '<button class="inv-btn inv-btn-p" onclick="invStartRepAdj()" style="background:linear-gradient(135deg,#06b6d4,#6366f1)">Ajustement</button>';
@@ -5065,7 +5079,7 @@ function invRenderRepartition(t, li) {
   h += '</div>';
 
   // History
-  h += '<div class="inv-card"><h3 style="font-size:0.88rem;font-weight:600;margin-bottom:16px">Historique des mouvements</h3>';
+  h += '<div class="inv-card"><h3 style="font-size:1rem;font-weight:600;margin-bottom:20px;display:flex;align-items:center;gap:8px"><span class="inv-chart-icon">🕒</span>Historique des mouvements</h3>';
   const hist = (rep.history || []).slice().reverse();
   if (hist.length > 0) {
     h += '<div class="inv-ox"><table class="inv-table"><thead><tr><th>Date</th><th>Mouvement</th><th class="th-r">Moi</th><th class="th-r">Noah</th><th class="th-r">Elie</th><th class="th-r">Total</th></tr></thead><tbody>';
@@ -5204,7 +5218,7 @@ function invRenderUpdate(t, li) {
   let h = '<div class="inv-grid">';
   // Data management
   h += '<div class="inv-card"><div class="inv-flex inv-jcsb inv-aic inv-fw inv-gap4" style="flex-wrap:wrap">';
-  h += '<div><h3 style="font-size:0.88rem;font-weight:600">Gestion des données</h3><p style="font-size:12px;color:var(--text-secondary);margin-top:4px">Sauvegarde automatique. Export JSON pour transférer vers un autre appareil.</p></div>';
+  h += '<div><h3 style="font-size:1rem;font-weight:600;display:flex;align-items:center;gap:8px"><span class="inv-chart-icon">💾</span>Gestion des données</h3><p style="font-size:12px;color:var(--text-secondary);margin-top:6px">Sauvegarde automatique. Export JSON pour transférer vers un autre appareil.</p></div>';
   h += '<div class="inv-flex inv-fw inv-gap2">';
   h += '<button class="inv-btn inv-btn-ok" onclick="invExportJSON()">Exporter JSON</button>';
   h += '<button class="inv-btn inv-btn-s" onclick="document.getElementById(\'invFileInput\').click()">Importer JSON</button>';
@@ -5222,7 +5236,7 @@ function invRenderUpdate(t, li) {
 
   // Monthly update
   h += '<div class="inv-card"><div class="inv-flex inv-jcsb inv-aic inv-fw inv-gap4 inv-mb6" style="flex-wrap:wrap">';
-  h += '<h3 style="font-size:0.88rem;font-weight:600">Mise à jour mensuelle</h3>';
+  h += '<h3 style="font-size:1rem;font-weight:600;display:flex;align-items:center;gap:8px"><span class="inv-chart-icon">✏️</span>Mise à jour mensuelle</h3>';
   h += '<div class="inv-flex inv-aic inv-gap3">';
   h += '<select class="inv-select" onchange="invChangeEditMonth(this.value)" style="width:auto">';
   d.months.forEach((m, i) => { h += `<option value="${i}"${invEditMonth === i ? ' selected' : ''}>${invFmMonth(m)}</option>`; });
