@@ -4643,7 +4643,18 @@ function invCompute() {
   const mc = pmi > 0 ? ((lmi - pmi) / pmi * 100).toFixed(1) : 0;
   const am = numMonths > 0 ? Math.round(tic / numMonths) : 0;
   const tmp = (d.loanNames || []).reduce((s, l) => s + ((d.loanMonthlyPayments || {})[l] || 0), 0);
-  return { tp, tl, nc, tic, lmi, mc, am, tmp, nmi: lmi - tmp, li };
+  // Previous month deltas
+  const tp_prev = li > 0 ? d.platforms.reduce((s, p) => s + invToEur(p, (d.principal[p] || [])[li-1] || 0), 0) : null;
+  const tl_prev = li > 0 ? (d.loanNames || []).reduce((s, l) => s + invLoanToEur(l, (d.loans[l] || [])[li-1] || 0), 0) : null;
+  const nc_prev = tp_prev !== null ? tp_prev - tl_prev : null;
+  const tic_prev = li > 0 ? d.platforms.reduce((s, p) => {
+    const arr = d.interests[p] || [];
+    let sum = 0; for (let i = 0; i < li; i++) sum += invToEur(p, arr[i] || 0);
+    return s + sum;
+  }, 0) : null;
+  const nmi_prev = li > 0 ? pmi - tmp : null;
+  return { tp, tl, nc, tic, lmi, mc, am, tmp, nmi: lmi - tmp, li,
+    tp_prev, tl_prev, nc_prev, tic_prev, nmi_prev, pmi };
 }
 
 function invGetLabels() { const li = invLastCompletedMonth(); return portfolioData.months.slice(0, li + 1).map(invFmShort); }
@@ -4695,18 +4706,29 @@ function renderPortfolioTab(tab) {
   let h = '';
 
   // KPIs (shown on all portfolio tabs)
+  function invDeltaHtml(cur, prev) {
+    if (prev === null || prev === undefined) return '';
+    const diff = cur - prev;
+    const absDiff = Math.abs(Math.round(diff));
+    if (absDiff < 1) return '';
+    const pos = diff >= 0;
+    const color = pos ? '#10b981' : '#ef4444';
+    const arrow = pos ? '▲' : '▼';
+    const sign = pos ? '+' : '−';
+    return `<span style="font-size:11px;font-weight:600;color:${color};margin-left:6px;letter-spacing:0.2px">${arrow} ${sign}${absDiff.toLocaleString('fr-FR')} €</span>`;
+  }
   h += '<div class="inv-grid-kpi">';
   const kpis = [
-    { l: "Capital Brut", v: invFmt(t.tp), i: "💰", c: "#6366f1", s: portfolioData.platforms.filter(p => (portfolioData.principal[p] || [])[li] > 0).length + " plateformes" },
-    { l: "Capital Net", v: invFmt(t.nc), i: "🏦", c: t.nc >= 0 ? "#10b981" : "#ef4444", s: "Emprunts : " + invFmt(t.tl) },
-    { l: "Intérêts du mois", v: invFmt(t.lmi), i: "📈", c: "#06b6d4", s: (t.mc > 0 ? "+" : "") + t.mc + "% vs préc." },
-    { l: "Intérêts cumulés", v: invFmt(t.tic), i: "📊", c: "#f59e0b", s: "Moy. " + invFmt(t.am) + "/mois" },
-    { l: "Revenu net/mois", v: invFmt(t.nmi), i: "⚡", c: t.nmi >= 0 ? "#10b981" : "#ef4444", s: "Remb. " + invFmt(t.tmp) + "/mois" }
+    { l: "Capital Brut", v: invFmt(Math.round(t.tp)), i: "💰", c: "#6366f1", s: portfolioData.platforms.filter(p => (portfolioData.principal[p] || [])[li] > 0).length + " plateformes", d: invDeltaHtml(t.tp, t.tp_prev) },
+    { l: "Capital Net", v: invFmt(Math.round(t.nc)), i: "🏦", c: t.nc >= 0 ? "#10b981" : "#ef4444", s: "Emprunts : " + invFmt(Math.round(t.tl)), d: invDeltaHtml(t.nc, t.nc_prev) },
+    { l: "Intérêts du mois", v: invFmt(Math.round(t.lmi)), i: "📈", c: "#06b6d4", s: (t.mc > 0 ? "+" : "") + t.mc + "% vs préc.", d: invDeltaHtml(t.lmi, t.pmi) },
+    { l: "Intérêts cumulés", v: invFmt(Math.round(t.tic)), i: "📊", c: "#f59e0b", s: "Moy. " + invFmt(t.am) + "/mois", d: invDeltaHtml(t.tic, t.tic_prev) },
+    { l: "Revenu net/mois", v: invFmt(Math.round(t.nmi)), i: "⚡", c: t.nmi >= 0 ? "#10b981" : "#ef4444", s: "Remb. " + invFmt(t.tmp) + "/mois", d: invDeltaHtml(t.nmi, t.nmi_prev) }
   ];
   kpis.forEach((k, i) => {
     h += `<div class="inv-card inv-stat-card" style="animation-delay:${0.5*i}s,${0.5*i}s,${0.1*i}s">`;
     h += `<div class="inv-flex inv-aic inv-gap2"><div class="inv-kpi-icon" style="background:${k.c}18;color:${k.c}">${k.i}</div><span style="font-size:12px;font-weight:500;color:var(--text-secondary)">${k.l}</span></div>`;
-    h += `<div style="font-size:20px;font-weight:700;margin-top:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${k.v}</div>`;
+    h += `<div style="font-size:20px;font-weight:700;margin-top:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${k.v}${k.d || ''}</div>`;
     h += `<div style="font-size:12px;color:var(--text-secondary);margin-top:2px">${k.s}</div></div>`;
   });
   h += '</div>';
