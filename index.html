@@ -4505,6 +4505,7 @@ function invLineLegend(extraOpts) {
         text: ds.label,
         fillStyle: ds.borderColor,
         strokeStyle: ds.borderColor,
+        fontColor: '#8899aa',
         lineWidth: 0,
         borderRadius: 2,
         index: i,
@@ -4823,9 +4824,9 @@ function invBuildOverviewCharts(t, labels, li) {
   const netData = brutData.map((b, i) => b - empData[i]);
 
   invCharts.capital = new Chart(document.getElementById('inv-ch-capital'), { type: 'line', data: { labels, datasets: [
-    { label: 'Capital brut', data: brutData, borderColor: '#6366f1', backgroundColor: invHexToRgba('#6366f1', 0.08), fill: true, borderWidth: 2, tension: 0.3 },
-    { label: 'Emprunts', data: empData, borderColor: '#ef4444', borderDash: [5,5], backgroundColor: 'transparent', fill: false, borderWidth: 1.5, tension: 0.3 },
-    { label: 'Capital net', data: netData, borderColor: '#10b981', backgroundColor: invHexToRgba('#10b981', 0.08), fill: true, borderWidth: 2, tension: 0.3 }
+    { label: 'Capital brut', data: brutData, borderColor: '#6366f1', backgroundColor: invHexToRgba('#6366f1', 0.08), pointBackgroundColor: '#6366f1', pointRadius: 3, pointHoverRadius: 5, fill: true, borderWidth: 2, tension: 0.3 },
+    { label: 'Emprunts', data: empData, borderColor: '#ef4444', borderDash: [5,5], backgroundColor: 'transparent', pointBackgroundColor: '#ef4444', pointRadius: 3, pointHoverRadius: 5, fill: false, borderWidth: 1.5, tension: 0.3 },
+    { label: 'Capital net', data: netData, borderColor: '#10b981', backgroundColor: invHexToRgba('#10b981', 0.08), pointBackgroundColor: '#10b981', pointRadius: 3, pointHoverRadius: 5, fill: true, borderWidth: 2, tension: 0.3 }
   ]}, options: { responsive: true, maintainAspectRatio: false, scales: { x: { ticks: { maxTicksLimit: 8 } }, y: { ticks: { callback: invFmtK } } }, plugins: { legend: invLineLegend(), tooltip: { callbacks: { label: ctx => ' ' + ctx.dataset.label + ': ' + invFmt(ctx.parsed.y) } } } } });
 
   const pieData = d.platforms.map((p, i) => ({ name: p, value: invToEur(p, (d.principal[p] || [])[li] || 0), color: invColor(p,i) })).filter(x => x.value > 0);
@@ -4862,7 +4863,7 @@ function invBuildInterestCharts(t, labels) {
     const cum = []; let total = 0; const idx = d.platforms.indexOf(p);
     const arr = invIntArr(p, n);
     for (let i = 0; i < n; i++) { total += arr[i]; cum.push(total); }
-    return { label: p, data: cum, borderColor: invColor(p,idx), backgroundColor: invHexToRgba(invColor(p,idx), 0.06), fill: true, borderWidth: 1.5, tension: 0.3 };
+    return { label: p, data: cum, borderColor: invColor(p,idx), backgroundColor: invHexToRgba(invColor(p,idx), 0.06), pointBackgroundColor: invColor(p,idx), pointRadius: 2, pointHoverRadius: 4, fill: true, borderWidth: 1.5, tension: 0.3 };
   });
   invCharts.cumul = new Chart(document.getElementById('inv-ch-cumul'), { type: 'line', data: { labels, datasets: cumSets }, options: { responsive: true, maintainAspectRatio: false, scales: { x: { ticks: { maxTicksLimit: 8 } }, y: { ticks: { callback: invFmtK } } }, plugins: { legend: invLineLegend() } } });
 
@@ -4871,7 +4872,7 @@ function invBuildInterestCharts(t, labels) {
 
   const lineSets = d.platforms.filter(p => invIntArr(p, n).some(v => v > 0)).map(p => {
     const idx = d.platforms.indexOf(p);
-    return { label: p, data: invIntArr(p, n), borderColor: invColor(p,idx), backgroundColor: 'transparent', borderWidth: 1.5, tension: 0.3 };
+    return { label: p, data: invIntArr(p, n), borderColor: invColor(p,idx), backgroundColor: 'transparent', pointBackgroundColor: invColor(p,idx), pointRadius: 2, pointHoverRadius: 4, borderWidth: 1.5, tension: 0.3 };
   });
   invCharts.intline = new Chart(document.getElementById('inv-ch-intline'), { type: 'line', data: { labels, datasets: lineSets }, options: { responsive: true, maintainAspectRatio: false, scales: { x: { ticks: { maxTicksLimit: 8 } } }, plugins: { legend: invLineLegend() } } });
 }
@@ -4891,7 +4892,7 @@ function invBuildEvolutionCharts(t, labels, li) {
   const d = portfolioData, n = li + 1;
   const stackSets = d.platforms.filter(p => invPrinArr(p, n).some(v => v > 0)).map(p => {
     const idx = d.platforms.indexOf(p);
-    return { label: p, data: invPrinArr(p, n), borderColor: invColor(p,idx), backgroundColor: invHexToRgba(invColor(p,idx), 0.15), fill: true, borderWidth: 1.5, tension: 0.3 };
+    return { label: p, data: invPrinArr(p, n), borderColor: invColor(p,idx), backgroundColor: invHexToRgba(invColor(p,idx), 0.15), pointBackgroundColor: invColor(p,idx), pointRadius: 2, pointHoverRadius: 4, fill: true, borderWidth: 1.5, tension: 0.3 };
   });
   invCharts.stack = new Chart(document.getElementById('inv-ch-stack'), { type: 'line', data: { labels, datasets: stackSets }, options: { responsive: true, maintainAspectRatio: false, scales: { x: { ticks: { maxTicksLimit: 10 } }, y: { stacked: true, ticks: { callback: invFmtK } } }, plugins: { legend: invLineLegend(), tooltip: { mode: 'index', usePointStyle:false, boxWidth:12, boxHeight:12, boxPadding:6, callbacks: { label: c => c.parsed.y != null ? ' ' + c.dataset.label + ': ' + fmt(Math.round(c.parsed.y)) : '', labelColor: c => ({ borderColor: c.dataset.borderColor, backgroundColor: c.dataset.borderColor, borderWidth: 0, borderRadius: 2 }) } } } } });
 
@@ -4958,7 +4959,7 @@ function invRenderLoans(t, labels, li) {
 function invBuildLoanCharts(t, labels, li) {
   const d = portfolioData, n = li + 1;
   const loanSets = (d.loanNames || []).map((l, i) => ({
-    label: l, data: (d.loans[l] || []).slice(0, n).map(v => invLoanToEur(l, v || 0)), borderColor: INV_LC[i%3], backgroundColor: invHexToRgba(INV_LC[i%3], 0.1), fill: true, borderWidth: 1.5, tension: 0.3
+    label: l, data: (d.loans[l] || []).slice(0, n).map(v => invLoanToEur(l, v || 0)), borderColor: INV_LC[i%3], backgroundColor: invHexToRgba(INV_LC[i%3], 0.1), pointBackgroundColor: INV_LC[i%3], pointRadius: 3, pointHoverRadius: 5, fill: true, borderWidth: 1.5, tension: 0.3
   }));
   invCharts.loans = new Chart(document.getElementById('inv-ch-loans'), { type: 'line', data: { labels, datasets: loanSets }, options: { responsive: true, maintainAspectRatio: false, scales: { x: { ticks: { maxTicksLimit: 8 } }, y: { ticks: { callback: invFmtK } } }, plugins: { legend: invLineLegend() } } });
 
@@ -4966,9 +4967,9 @@ function invBuildLoanCharts(t, labels, li) {
   const empD = Array.from({length: n}, (_, i) => (d.loanNames || []).reduce((s, l) => s + invLoanToEur(l, (d.loans[l] || [])[i] || 0), 0));
   const netD = brutD.map((b, i) => b - empD[i]);
   invCharts.netdebt = new Chart(document.getElementById('inv-ch-netdebt'), { type: 'line', data: { labels, datasets: [
-    { label: 'Capital brut', data: brutD, borderColor: '#6366f1', backgroundColor: invHexToRgba('#6366f1', 0.06), fill: true, borderWidth: 2, tension: 0.3 },
-    { label: 'Emprunts', data: empD, borderColor: '#ef4444', borderDash: [5,5], backgroundColor: 'transparent', borderWidth: 1.5, tension: 0.3 },
-    { label: 'Capital net', data: netD, borderColor: '#10b981', backgroundColor: invHexToRgba('#10b981', 0.06), fill: true, borderWidth: 2, tension: 0.3 }
+    { label: 'Capital brut', data: brutD, borderColor: '#6366f1', backgroundColor: invHexToRgba('#6366f1', 0.06), pointBackgroundColor: '#6366f1', pointRadius: 3, pointHoverRadius: 5, fill: true, borderWidth: 2, tension: 0.3 },
+    { label: 'Emprunts', data: empD, borderColor: '#ef4444', borderDash: [5,5], backgroundColor: 'transparent', pointBackgroundColor: '#ef4444', pointRadius: 3, pointHoverRadius: 5, borderWidth: 1.5, tension: 0.3 },
+    { label: 'Capital net', data: netD, borderColor: '#10b981', backgroundColor: invHexToRgba('#10b981', 0.06), pointBackgroundColor: '#10b981', pointRadius: 3, pointHoverRadius: 5, fill: true, borderWidth: 2, tension: 0.3 }
   ] }, options: { responsive: true, maintainAspectRatio: false, scales: { x: { ticks: { maxTicksLimit: 8 } }, y: { ticks: { callback: invFmtK } } }, plugins: { legend: invLineLegend() } } });
 }
 
