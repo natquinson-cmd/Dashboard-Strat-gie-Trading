@@ -7,6 +7,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 
@@ -5631,16 +5632,21 @@ function loadDataTimestamp() {
 }
 
 // ── INIT ──
-Promise.all([
-  loadTradesFromFirebase(),
-  loadDividendsFromFirebase(),
-  loadDepositsFromFirebase(),
-  loadFeesToFirebase(),
-  loadBacktestFromFirebase(),
-  loadPortfolioFromFirebase(),
-  loadDataTimestamp(),
-  fetchUsdEurRate()
-]).then(() => {
+// Connexion anonyme Firebase → active les règles auth != null
+firebase.auth().signInAnonymously().catch(e => console.warn('Auth anon:', e));
+
+firebase.auth().onAuthStateChanged(user => {
+  if (!user) return; // attendre la connexion avant de charger les données
+  Promise.all([
+    loadTradesFromFirebase(),
+    loadDividendsFromFirebase(),
+    loadDepositsFromFirebase(),
+    loadFeesToFirebase(),
+    loadBacktestFromFirebase(),
+    loadPortfolioFromFirebase(),
+    loadDataTimestamp(),
+    fetchUsdEurRate()
+  ]).then(() => {
   if (realTrades.length > 0) {
     const latest = [...realTrades].sort((a,b) => b[0].localeCompare(a[0]))[0][0];
     calYear = parseInt(latest.substring(0,4));
@@ -5656,7 +5662,8 @@ Promise.all([
   // Render sub-tabs for initial group
   renderSubTabs();
   displayDashTimestamp();
-});
+  });
+}); // onAuthStateChanged
 </script>
 </body>
 </html>
