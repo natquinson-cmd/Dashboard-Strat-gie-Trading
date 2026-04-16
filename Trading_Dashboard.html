@@ -5632,9 +5632,8 @@ function loadDataTimestamp() {
 }
 
 // ── INIT ──
-// Connexion anonyme Firebase → active les règles auth != null
-firebase.auth().signInAnonymously()
-  .then(() => Promise.all([
+function initDashboard() {
+  Promise.all([
     loadTradesFromFirebase(),
     loadDividendsFromFirebase(),
     loadDepositsFromFirebase(),
@@ -5643,8 +5642,7 @@ firebase.auth().signInAnonymously()
     loadPortfolioFromFirebase(),
     loadDataTimestamp(),
     fetchUsdEurRate()
-  ]))
-  .then(() => {
+  ]).then(() => {
     if (realTrades.length > 0) {
       const latest = [...realTrades].sort((a,b) => b[0].localeCompare(a[0]))[0][0];
       calYear = parseInt(latest.substring(0,4));
@@ -5655,8 +5653,13 @@ firebase.auth().signInAnonymously()
     tabRendered.real = true;
     renderSubTabs();
     displayDashTimestamp();
-  })
-  .catch(e => console.error('Erreur init Firebase:', e));
+  }).catch(e => console.error('Erreur chargement:', e));
+}
+
+// Connexion anonyme Firebase → puis chargement (fallback si auth échoue)
+firebase.auth().signInAnonymously()
+  .then(initDashboard)
+  .catch(e => { console.warn('Auth anon échouée, tentative sans auth:', e); initDashboard(); });
 </script>
 </body>
 </html>
