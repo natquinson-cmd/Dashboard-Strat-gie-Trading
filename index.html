@@ -5633,11 +5633,8 @@ function loadDataTimestamp() {
 
 // ── INIT ──
 // Connexion anonyme Firebase → active les règles auth != null
-firebase.auth().signInAnonymously().catch(e => console.warn('Auth anon:', e));
-
-firebase.auth().onAuthStateChanged(user => {
-  if (!user) return; // attendre la connexion avant de charger les données
-  Promise.all([
+firebase.auth().signInAnonymously()
+  .then(() => Promise.all([
     loadTradesFromFirebase(),
     loadDividendsFromFirebase(),
     loadDepositsFromFirebase(),
@@ -5646,24 +5643,20 @@ firebase.auth().onAuthStateChanged(user => {
     loadPortfolioFromFirebase(),
     loadDataTimestamp(),
     fetchUsdEurRate()
-  ]).then(() => {
-  if (realTrades.length > 0) {
-    const latest = [...realTrades].sort((a,b) => b[0].localeCompare(a[0]))[0][0];
-    calYear = parseInt(latest.substring(0,4));
-    calMonth = parseInt(latest.substring(5,7)) - 1;
-  }
-
-  // Sync Trading Auto from real trades (no auto-save — save only on user action)
-  syncRobotTrading();
-
-  renderRealTab();
-  tabRendered.real = true;
-
-  // Render sub-tabs for initial group
-  renderSubTabs();
-  displayDashTimestamp();
-  });
-}); // onAuthStateChanged
+  ]))
+  .then(() => {
+    if (realTrades.length > 0) {
+      const latest = [...realTrades].sort((a,b) => b[0].localeCompare(a[0]))[0][0];
+      calYear = parseInt(latest.substring(0,4));
+      calMonth = parseInt(latest.substring(5,7)) - 1;
+    }
+    syncRobotTrading();
+    renderRealTab();
+    tabRendered.real = true;
+    renderSubTabs();
+    displayDashTimestamp();
+  })
+  .catch(e => console.error('Erreur init Firebase:', e));
 </script>
 </body>
 </html>
