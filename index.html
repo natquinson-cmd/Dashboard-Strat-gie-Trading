@@ -7,7 +7,6 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 
@@ -5632,34 +5631,27 @@ function loadDataTimestamp() {
 }
 
 // ── INIT ──
-function initDashboard() {
-  Promise.all([
-    loadTradesFromFirebase(),
-    loadDividendsFromFirebase(),
-    loadDepositsFromFirebase(),
-    loadFeesToFirebase(),
-    loadBacktestFromFirebase(),
-    loadPortfolioFromFirebase(),
-    loadDataTimestamp(),
-    fetchUsdEurRate()
-  ]).then(() => {
-    if (realTrades.length > 0) {
-      const latest = [...realTrades].sort((a,b) => b[0].localeCompare(a[0]))[0][0];
-      calYear = parseInt(latest.substring(0,4));
-      calMonth = parseInt(latest.substring(5,7)) - 1;
-    }
-    syncRobotTrading();
-    renderRealTab();
-    tabRendered.real = true;
-    renderSubTabs();
-    displayDashTimestamp();
-  }).catch(e => console.error('Erreur chargement:', e));
-}
-
-// Connexion anonyme Firebase → puis chargement (fallback si auth échoue)
-firebase.auth().signInAnonymously()
-  .then(initDashboard)
-  .catch(e => { console.warn('Auth anon échouée, tentative sans auth:', e); initDashboard(); });
+Promise.all([
+  loadTradesFromFirebase(),
+  loadDividendsFromFirebase(),
+  loadDepositsFromFirebase(),
+  loadFeesToFirebase(),
+  loadBacktestFromFirebase(),
+  loadPortfolioFromFirebase(),
+  loadDataTimestamp(),
+  fetchUsdEurRate()
+]).then(() => {
+  if (realTrades.length > 0) {
+    const latest = [...realTrades].sort((a,b) => b[0].localeCompare(a[0]))[0][0];
+    calYear = parseInt(latest.substring(0,4));
+    calMonth = parseInt(latest.substring(5,7)) - 1;
+  }
+  syncRobotTrading();
+  renderRealTab();
+  tabRendered.real = true;
+  renderSubTabs();
+  displayDashTimestamp();
+});
 </script>
 </body>
 </html>
