@@ -1,0 +1,36 @@
+JAVA_HOME is set to : C:\Program Files\Tableau\Tableau Prep Builder 2025.1\scripts\..\Plugins\jre temporarily
+The connection file is in V1 format.
+Preparing to run the flow : C:\Users\quinson\Documents\Mon dossier Tableau Prep\Flux\Perimetre Migration.tfl
+Loading the flow.
+Creating temp directory at C:\Users\quinson\AppData\Local\Temp\prep-cli-11380799679963586543
+Product license verified.
+Loaded the flow.
+Checking the flow document for errors.
+Flow Document has no errors.
+Preparing to execute the flow.
+Flow Execution Status: Running
+Flow Execution Status: Running
+Flow Execution Status: Running
+Flow Execution Status: Running
+Flow Execution Status: Running
+Flow Execution Status: Running
+Flow Execution Status: Running
+Flow Execution Status: Running
+Flow Execution Status: Running
+Flow Execution Status: Running
+Flow Execution Status: Running
+Flow Execution Status: Running
+Flow Execution Status: Running
+Flow Execution Status: Running
+Flow Execution Status: Running
+Flow Execution Status: Running
+Flow Execution Status: Running
+Flow Execution Status: Running
+Flow Execution Status: Running
+Flow Execution Status: Running
+Flow Execution Status: Running
+Flow Execution Status: Running
+Flow Execution Status: Running
+Flow Execution Status: Running
+Flow Execution Status: Running
+Flow Execution Status: Running
