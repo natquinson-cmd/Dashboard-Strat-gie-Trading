@@ -1,0 +1,4218 @@
+﻿{
+  "parameters": {
+    "parameters": {}
+  },
+  "initialNodes": [
+    "d5ae3831-84dd-42f1-a75c-44e1c87ed06f",
+    "b1cb2964-3113-4bf1-8371-906b675b4a04"
+  ],
+  "nodes": {
+    "5b2bdc96-ac1f-42ad-a022-d0427e9fe963": {
+      "nodeType": ".v1.WriteToHyper",
+      "name": "Créer un extrait",
+      "id": "5b2bdc96-ac1f-42ad-a022-d0427e9fe963",
+      "baseType": "output",
+      "nextNodes": [],
+      "serialize": false,
+      "description": null,
+      "hyperOutputFile": "~/My Tableau Prep Repository/Datasources/Global Indicators.hyper",
+      "tdsOutput": "~/My Tableau Prep Repository/Datasources/Global Indicators.tds"
+    },
+    "d5ae3831-84dd-42f1-a75c-44e1c87ed06f": {
+      "nodeType": ".v1.LoadCsvInputUnion",
+      "name": "global_world_indicators_2000",
+      "id": "d5ae3831-84dd-42f1-a75c-44e1c87ed06f",
+      "baseType": "input",
+      "nextNodes": [
+        {
+          "namespace": "Default",
+          "nextNodeId": "19ccc207-c4a9-497e-b4fa-71b9b72d42ee",
+          "nextNamespace": "Default"
+        }
+      ],
+      "serialize": false,
+      "description": null,
+      "connectionId": "f93daacc-dc5b-471c-a3ff-25aacca22769",
+      "connectionAttributes": {},
+      "fields": [
+        {
+          "name": "Taux d'imposition des entreprises",
+          "type": "string",
+          "collation": "LEN_RUS",
+          "caption": null,
+          "ordinal": null
+        },
+        {
+          "name": "Facilité de faire des affaires",
+          "type": "string",
+          "collation": "LEN_RUS",
+          "caption": null,
+          "ordinal": null
+        },
+        {
+          "name": "Consommation énergétique",
+          "type": "integer",
+          "collation": null,
+          "caption": null,
+          "ordinal": null
+        },
+        {
+          "name": "Utilisation d'Internet",
+          "type": "real",
+          "collation": null,
+          "caption": null,
+          "ordinal": null
+        },
+        {
+          "name": "Espérance de vie hommes",
+          "type": "integer",
+          "collation": null,
+          "caption": null,
+          "ordinal": null
+        },
+        {
+          "name": "Heures nécessaires à la déclaration fiscale",
+          "type": "string",
+          "collation": "LEN_RUS",
+          "caption": null,
+          "ordinal": null
+        },
+        {
+          "name": "PIB",
+          "type": "real",
+          "collation": null,
+          "caption": null,
+          "ordinal": null
+        },
+        {
+          "name": "Taux de natalité",
+          "type": "real",
+          "collation": null,
+          "caption": null,
+          "ordinal": null
+        },
+        {
+          "name": "Population 65+ ans",
+          "type": "real",
+          "collation": null,
+          "caption": null,
+          "ordinal": null
+        },
+        {
+          "name": "Population urbaine",
+          "type": "real",
+          "collation": null,
+          "caption": null,
+          "ordinal": null
+        },
+        {
+          "name": "Population 15-64 ans",
+          "type": "real",
+          "collation": null,
+          "caption": null,
+          "ordinal": null
+        },
+        {
+          "name": "File Paths",
+          "type": "string",
+          "collation": "binary",
+          "caption": null,
+          "ordinal": null
+        },
+        {
+          "name": "Population totale",
+          "type": "integer",
+          "collation": null,
+          "caption": null,
+          "ordinal": null
+        },
+        {
+          "name": "Tourisme sortant",
+          "type": "real",
+          "collation": null,
+          "caption": null,
+          "ordinal": null
+        },
+        {
+          "name": "Taux de mortalité infantile",
+          "type": "real",
+          "collation": null,
+          "caption": null,
+          "ordinal": null
+        },
+        {
+          "name": "Taux d'emprunt",
+          "type": "real",
+          "collation": null,
+          "caption": null,
+          "ordinal": null
+        },
+        {
+          "name": "Espérance de vie femmes",
+          "type": "integer",
+          "collation": null,
+          "caption": null,
+          "ordinal": null
+        },
+        {
+          "name": "Facilité de faire des affaires (clusters)",
+          "type": "string",
+          "collation": "LEN_RUS",
+          "caption": null,
+          "ordinal": null
+        },
+        {
+          "name": "Émissions de CO2",
+          "type": "string",
+          "collation": "LEN_RUS",
+          "caption": null,
+          "ordinal": null
+        },
+        {
+          "name": "Tourisme entrant",
+          "type": "real",
+          "collation": null,
+          "caption": null,
+          "ordinal": null
+        },
+        {
+          "name": "Année",
+          "type": "date",
+          "collation": null,
+          "caption": null,
+          "ordinal": null
+        },
+        {
+          "name": "Dépenses de santé par habitant",
+          "type": "integer",
+          "collation": null,
+          "caption": null,
+          "ordinal": null
+        },
+        {
+          "name": "Utilisation téléphone mobile",
+          "type": "real",
+          "collation": null,
+          "caption": null,
+          "ordinal": null
+        },
+        {
+          "name": "Zone géographique",
+          "type": "string",
+          "collation": "LEN_RUS",
+          "caption": null,
+          "ordinal": null
+        },
+        {
+          "name": "Dépenses de santé en % du PIB",
+          "type": "real",
+          "collation": null,
+          "caption": null,
+          "ordinal": null
+        },
+        {
+          "name": "Pays/région",
+          "type": "string",
+          "collation": "LEN_RUS",
+          "caption": null,
+          "ordinal": null
+        },
+        {
+          "name": "Jours pour créer une entreprise",
+          "type": "string",
+          "collation": "LEN_RUS",
+          "caption": null,
+          "ordinal": null
+        },
+        {
+          "name": "Population 0-14 ans",
+          "type": "real",
+          "collation": null,
+          "caption": null,
+          "ordinal": null
+        }
+      ],
+      "actions": [],
+      "debugModeRowLimit": null,
+      "originalDataTypes": {},
+      "randomSampling": null,
+      "updateTimestamp": null,
+      "restrictedFields": {},
+      "userRenamedFields": {},
+      "selectedFields": null,
+      "filters": null,
+      "generatedInputs": [
+        {
+          "inputUnionInputType": ".FileInputUnionInput",
+          "inputNode": {
+            "nodeType": ".v1.LoadCsv",
+            "name": "global_world_indicators_2000",
+            "id": "c112f134-f909-463c-b4b3-3c59c91bd235",
+            "baseType": "input",
+            "nextNodes": [],
+            "serialize": false,
+            "description": null,
+            "connectionId": "f93daacc-dc5b-471c-a3ff-25aacca22769",
+            "connectionAttributes": {
+              "filename": "global_world_indicators_2000.csv",
+              "class": "textscan"
+            },
+            "fields": [
+              {
+                "name": "Taux de natalité",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Taux d'imposition des entreprises",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Émissions de CO2",
+                "type": "integer",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Facilité de faire des affaires (clusters)",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Pays/région",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Jours pour créer une entreprise",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Facilité de faire des affaires",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Consommation énergétique",
+                "type": "integer",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "PIB",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Dépenses de santé en % du PIB",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Dépenses de santé par habitant",
+                "type": "integer",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Heures nécessaires à la déclaration fiscale",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Taux de mortalité infantile",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Utilisation d'Internet",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Taux d'emprunt",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Espérance de vie femmes",
+                "type": "integer",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Espérance de vie hommes",
+                "type": "integer",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Utilisation téléphone mobile",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Population 0-14 ans",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Population 15-64 ans",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Population 65+ ans",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Population totale",
+                "type": "integer",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Population urbaine",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Zone géographique",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Tourisme entrant",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Tourisme sortant",
+                "type": "integer",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Année",
+                "type": "date",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              }
+            ],
+            "actions": [],
+            "debugModeRowLimit": null,
+            "originalDataTypes": {},
+            "randomSampling": null,
+            "updateTimestamp": null,
+            "restrictedFields": null,
+            "userRenamedFields": {},
+            "selectedFields": null,
+            "filters": null,
+            "separator": ",",
+            "locale": "en_US",
+            "charSet": "UTF-8",
+            "containsHeaders": true,
+            "textQualifier": "A"
+          },
+          "filePath": "global_world_indicators_2000.csv"
+        },
+        {
+          "inputUnionInputType": ".FileInputUnionInput",
+          "inputNode": {
+            "nodeType": ".v1.LoadCsv",
+            "name": "global_world_indicators_2000",
+            "id": "ae118816-4e85-4c77-9a15-214553623631",
+            "baseType": "input",
+            "nextNodes": [],
+            "serialize": false,
+            "description": null,
+            "connectionId": "f93daacc-dc5b-471c-a3ff-25aacca22769",
+            "connectionAttributes": {
+              "filename": "global_world_indicators_2001.csv",
+              "class": "textscan"
+            },
+            "fields": [
+              {
+                "name": "Taux de natalité",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Taux d'imposition des entreprises",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Émissions de CO2",
+                "type": "integer",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Facilité de faire des affaires (clusters)",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Pays/région",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Jours pour créer une entreprise",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Facilité de faire des affaires",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Consommation énergétique",
+                "type": "integer",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "PIB",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Dépenses de santé en % du PIB",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Dépenses de santé par habitant",
+                "type": "integer",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Heures nécessaires à la déclaration fiscale",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Taux de mortalité infantile",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Utilisation d'Internet",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Taux d'emprunt",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Espérance de vie femmes",
+                "type": "integer",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Espérance de vie hommes",
+                "type": "integer",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Utilisation téléphone mobile",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Population 0-14 ans",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Population 15-64 ans",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Population 65+ ans",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Population totale",
+                "type": "integer",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Population urbaine",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Zone géographique",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Tourisme entrant",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Tourisme sortant",
+                "type": "integer",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Année",
+                "type": "date",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              }
+            ],
+            "actions": [],
+            "debugModeRowLimit": null,
+            "originalDataTypes": {},
+            "randomSampling": null,
+            "updateTimestamp": null,
+            "restrictedFields": null,
+            "userRenamedFields": {},
+            "selectedFields": null,
+            "filters": null,
+            "separator": ",",
+            "locale": "en_US",
+            "charSet": "UTF-8",
+            "containsHeaders": true,
+            "textQualifier": "A"
+          },
+          "filePath": "global_world_indicators_2001.csv"
+        },
+        {
+          "inputUnionInputType": ".FileInputUnionInput",
+          "inputNode": {
+            "nodeType": ".v1.LoadCsv",
+            "name": "global_world_indicators_2000",
+            "id": "54c6bc50-9aea-446f-b408-b038011209ce",
+            "baseType": "input",
+            "nextNodes": [],
+            "serialize": false,
+            "description": null,
+            "connectionId": "f93daacc-dc5b-471c-a3ff-25aacca22769",
+            "connectionAttributes": {
+              "filename": "global_world_indicators_2002.csv",
+              "class": "textscan"
+            },
+            "fields": [
+              {
+                "name": "Taux de natalité",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Taux d'imposition des entreprises",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Émissions de CO2",
+                "type": "integer",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Facilité de faire des affaires (clusters)",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Pays/région",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Jours pour créer une entreprise",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Facilité de faire des affaires",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Consommation énergétique",
+                "type": "integer",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "PIB",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Dépenses de santé en % du PIB",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Dépenses de santé par habitant",
+                "type": "integer",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Heures nécessaires à la déclaration fiscale",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Taux de mortalité infantile",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Utilisation d'Internet",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Taux d'emprunt",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Espérance de vie femmes",
+                "type": "integer",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Espérance de vie hommes",
+                "type": "integer",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Utilisation téléphone mobile",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Population 0-14 ans",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Population 15-64 ans",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Population 65+ ans",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Population totale",
+                "type": "integer",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Population urbaine",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Zone géographique",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Tourisme entrant",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Tourisme sortant",
+                "type": "integer",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Année",
+                "type": "date",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              }
+            ],
+            "actions": [],
+            "debugModeRowLimit": null,
+            "originalDataTypes": {},
+            "randomSampling": null,
+            "updateTimestamp": null,
+            "restrictedFields": null,
+            "userRenamedFields": {},
+            "selectedFields": null,
+            "filters": null,
+            "separator": ",",
+            "locale": "en_US",
+            "charSet": "UTF-8",
+            "containsHeaders": true,
+            "textQualifier": "A"
+          },
+          "filePath": "global_world_indicators_2002.csv"
+        },
+        {
+          "inputUnionInputType": ".FileInputUnionInput",
+          "inputNode": {
+            "nodeType": ".v1.LoadCsv",
+            "name": "global_world_indicators_2000",
+            "id": "86fb1c58-6582-4590-b722-7f10611bb3a9",
+            "baseType": "input",
+            "nextNodes": [],
+            "serialize": false,
+            "description": null,
+            "connectionId": "f93daacc-dc5b-471c-a3ff-25aacca22769",
+            "connectionAttributes": {
+              "filename": "global_world_indicators_2003.csv",
+              "class": "textscan"
+            },
+            "fields": [
+              {
+                "name": "Taux de natalité",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Taux d'imposition des entreprises",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Émissions de CO2",
+                "type": "integer",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Facilité de faire des affaires (clusters)",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Pays/région",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Jours pour créer une entreprise",
+                "type": "integer",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Facilité de faire des affaires",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Consommation énergétique",
+                "type": "integer",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "PIB",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Dépenses de santé en % du PIB",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Dépenses de santé par habitant",
+                "type": "integer",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Heures nécessaires à la déclaration fiscale",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Taux de mortalité infantile",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Utilisation d'Internet",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Taux d'emprunt",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Espérance de vie femmes",
+                "type": "integer",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Espérance de vie hommes",
+                "type": "integer",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Utilisation téléphone mobile",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Population 0-14 ans",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Population 15-64 ans",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Population 65+ ans",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Population totale",
+                "type": "integer",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Population urbaine",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Zone géographique",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Tourisme entrant",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Tourisme sortant",
+                "type": "integer",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Année",
+                "type": "date",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              }
+            ],
+            "actions": [],
+            "debugModeRowLimit": null,
+            "originalDataTypes": {},
+            "randomSampling": null,
+            "updateTimestamp": null,
+            "restrictedFields": null,
+            "userRenamedFields": {},
+            "selectedFields": null,
+            "filters": null,
+            "separator": ",",
+            "locale": "en_US",
+            "charSet": "UTF-8",
+            "containsHeaders": true,
+            "textQualifier": "A"
+          },
+          "filePath": "global_world_indicators_2003.csv"
+        },
+        {
+          "inputUnionInputType": ".FileInputUnionInput",
+          "inputNode": {
+            "nodeType": ".v1.LoadCsv",
+            "name": "global_world_indicators_2000",
+            "id": "9de5ddf1-1518-4d7f-8bea-7f66742f8f3a",
+            "baseType": "input",
+            "nextNodes": [],
+            "serialize": false,
+            "description": null,
+            "connectionId": "f93daacc-dc5b-471c-a3ff-25aacca22769",
+            "connectionAttributes": {
+              "filename": "global_world_indicators_2004.csv",
+              "class": "textscan"
+            },
+            "fields": [
+              {
+                "name": "Taux de natalité",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Taux d'imposition des entreprises",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Émissions de CO2",
+                "type": "integer",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Facilité de faire des affaires (clusters)",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Pays/région",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Jours pour créer une entreprise",
+                "type": "integer",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Facilité de faire des affaires",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Consommation énergétique",
+                "type": "integer",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "PIB",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Dépenses de santé en % du PIB",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Dépenses de santé par habitant",
+                "type": "integer",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Heures nécessaires à la déclaration fiscale",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Taux de mortalité infantile",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Utilisation d'Internet",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Taux d'emprunt",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Espérance de vie femmes",
+                "type": "integer",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Espérance de vie hommes",
+                "type": "integer",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Utilisation téléphone mobile",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Population 0-14 ans",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Population 15-64 ans",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Population 65+ ans",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Population totale",
+                "type": "integer",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Population urbaine",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Zone géographique",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Tourisme entrant",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Tourisme sortant",
+                "type": "integer",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Année",
+                "type": "date",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              }
+            ],
+            "actions": [],
+            "debugModeRowLimit": null,
+            "originalDataTypes": {},
+            "randomSampling": null,
+            "updateTimestamp": null,
+            "restrictedFields": null,
+            "userRenamedFields": {},
+            "selectedFields": null,
+            "filters": null,
+            "separator": ",",
+            "locale": "en_US",
+            "charSet": "UTF-8",
+            "containsHeaders": true,
+            "textQualifier": "A"
+          },
+          "filePath": "global_world_indicators_2004.csv"
+        },
+        {
+          "inputUnionInputType": ".FileInputUnionInput",
+          "inputNode": {
+            "nodeType": ".v1.LoadCsv",
+            "name": "global_world_indicators_2000",
+            "id": "b73de925-662d-413f-b082-21ee34e933f3",
+            "baseType": "input",
+            "nextNodes": [],
+            "serialize": false,
+            "description": null,
+            "connectionId": "f93daacc-dc5b-471c-a3ff-25aacca22769",
+            "connectionAttributes": {
+              "filename": "global_world_indicators_2005.csv",
+              "class": "textscan"
+            },
+            "fields": [
+              {
+                "name": "Taux de natalité",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Taux d'imposition des entreprises",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Émissions de CO2",
+                "type": "integer",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Facilité de faire des affaires (clusters)",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Pays/région",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Jours pour créer une entreprise",
+                "type": "integer",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Facilité de faire des affaires",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Consommation énergétique",
+                "type": "integer",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "PIB",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Dépenses de santé en % du PIB",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Dépenses de santé par habitant",
+                "type": "integer",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Heures nécessaires à la déclaration fiscale",
+                "type": "integer",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Taux de mortalité infantile",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Utilisation d'Internet",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Taux d'emprunt",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Espérance de vie femmes",
+                "type": "integer",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Espérance de vie hommes",
+                "type": "integer",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Utilisation téléphone mobile",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Population 0-14 ans",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Population 15-64 ans",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Population 65+ ans",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Population totale",
+                "type": "integer",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Population urbaine",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Zone géographique",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Tourisme entrant",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Tourisme sortant",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Année",
+                "type": "date",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              }
+            ],
+            "actions": [],
+            "debugModeRowLimit": null,
+            "originalDataTypes": {},
+            "randomSampling": null,
+            "updateTimestamp": null,
+            "restrictedFields": null,
+            "userRenamedFields": {},
+            "selectedFields": null,
+            "filters": null,
+            "separator": ",",
+            "locale": "en_US",
+            "charSet": "UTF-8",
+            "containsHeaders": true,
+            "textQualifier": "A"
+          },
+          "filePath": "global_world_indicators_2005.csv"
+        },
+        {
+          "inputUnionInputType": ".FileInputUnionInput",
+          "inputNode": {
+            "nodeType": ".v1.LoadCsv",
+            "name": "global_world_indicators_2000",
+            "id": "52675f4b-5e42-4bf8-8515-89c924476f87",
+            "baseType": "input",
+            "nextNodes": [],
+            "serialize": false,
+            "description": null,
+            "connectionId": "f93daacc-dc5b-471c-a3ff-25aacca22769",
+            "connectionAttributes": {
+              "filename": "global_world_indicators_2006.csv",
+              "class": "textscan"
+            },
+            "fields": [
+              {
+                "name": "Taux de natalité",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Taux d'imposition des entreprises",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Émissions de CO2",
+                "type": "integer",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Facilité de faire des affaires (clusters)",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Pays/région",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Jours pour créer une entreprise",
+                "type": "integer",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Facilité de faire des affaires",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Consommation énergétique",
+                "type": "integer",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "PIB",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Dépenses de santé en % du PIB",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Dépenses de santé par habitant",
+                "type": "integer",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Heures nécessaires à la déclaration fiscale",
+                "type": "integer",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Taux de mortalité infantile",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Utilisation d'Internet",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Taux d'emprunt",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Espérance de vie femmes",
+                "type": "integer",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Espérance de vie hommes",
+                "type": "integer",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Utilisation téléphone mobile",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Population 0-14 ans",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Population 15-64 ans",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Population 65+ ans",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Population totale",
+                "type": "integer",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Population urbaine",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Zone géographique",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Tourisme entrant",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Tourisme sortant",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Année",
+                "type": "date",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              }
+            ],
+            "actions": [],
+            "debugModeRowLimit": null,
+            "originalDataTypes": {},
+            "randomSampling": null,
+            "updateTimestamp": null,
+            "restrictedFields": null,
+            "userRenamedFields": {},
+            "selectedFields": null,
+            "filters": null,
+            "separator": ",",
+            "locale": "en_US",
+            "charSet": "UTF-8",
+            "containsHeaders": true,
+            "textQualifier": "A"
+          },
+          "filePath": "global_world_indicators_2006.csv"
+        },
+        {
+          "inputUnionInputType": ".FileInputUnionInput",
+          "inputNode": {
+            "nodeType": ".v1.LoadCsv",
+            "name": "global_world_indicators_2000",
+            "id": "84682da8-6617-4ec3-ac25-e9be3ef9ada3",
+            "baseType": "input",
+            "nextNodes": [],
+            "serialize": false,
+            "description": null,
+            "connectionId": "f93daacc-dc5b-471c-a3ff-25aacca22769",
+            "connectionAttributes": {
+              "filename": "global_world_indicators_2007.csv",
+              "class": "textscan"
+            },
+            "fields": [
+              {
+                "name": "Taux de natalité",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Taux d'imposition des entreprises",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Émissions de CO2",
+                "type": "integer",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Facilité de faire des affaires (clusters)",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Pays/région",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Jours pour créer une entreprise",
+                "type": "integer",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Facilité de faire des affaires",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Consommation énergétique",
+                "type": "integer",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "PIB",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Dépenses de santé en % du PIB",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Dépenses de santé par habitant",
+                "type": "integer",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Heures nécessaires à la déclaration fiscale",
+                "type": "integer",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Taux de mortalité infantile",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Utilisation d'Internet",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Taux d'emprunt",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Espérance de vie femmes",
+                "type": "integer",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Espérance de vie hommes",
+                "type": "integer",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Utilisation téléphone mobile",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Population 0-14 ans",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Population 15-64 ans",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Population 65+ ans",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Population totale",
+                "type": "integer",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Population urbaine",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Zone géographique",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Tourisme entrant",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Tourisme sortant",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Année",
+                "type": "date",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              }
+            ],
+            "actions": [],
+            "debugModeRowLimit": null,
+            "originalDataTypes": {},
+            "randomSampling": null,
+            "updateTimestamp": null,
+            "restrictedFields": null,
+            "userRenamedFields": {},
+            "selectedFields": null,
+            "filters": null,
+            "separator": ",",
+            "locale": "en_US",
+            "charSet": "UTF-8",
+            "containsHeaders": true,
+            "textQualifier": "A"
+          },
+          "filePath": "global_world_indicators_2007.csv"
+        },
+        {
+          "inputUnionInputType": ".FileInputUnionInput",
+          "inputNode": {
+            "nodeType": ".v1.LoadCsv",
+            "name": "global_world_indicators_2000",
+            "id": "bbd4ffe4-32ec-4227-a085-7aa164c8b1c1",
+            "baseType": "input",
+            "nextNodes": [],
+            "serialize": false,
+            "description": null,
+            "connectionId": "f93daacc-dc5b-471c-a3ff-25aacca22769",
+            "connectionAttributes": {
+              "filename": "global_world_indicators_2008.csv",
+              "class": "textscan"
+            },
+            "fields": [
+              {
+                "name": "Taux de natalité",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Taux d'imposition des entreprises",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Émissions de CO2",
+                "type": "integer",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Facilité de faire des affaires (clusters)",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Pays/région",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Jours pour créer une entreprise",
+                "type": "integer",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Facilité de faire des affaires",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Consommation énergétique",
+                "type": "integer",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "PIB",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Dépenses de santé en % du PIB",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Dépenses de santé par habitant",
+                "type": "integer",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Heures nécessaires à la déclaration fiscale",
+                "type": "integer",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Taux de mortalité infantile",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Utilisation d'Internet",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Taux d'emprunt",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Espérance de vie femmes",
+                "type": "integer",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Espérance de vie hommes",
+                "type": "integer",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Utilisation téléphone mobile",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Population 0-14 ans",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Population 15-64 ans",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Population 65+ ans",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Population totale",
+                "type": "integer",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Population urbaine",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Zone géographique",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Tourisme entrant",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Tourisme sortant",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Année",
+                "type": "date",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              }
+            ],
+            "actions": [],
+            "debugModeRowLimit": null,
+            "originalDataTypes": {},
+            "randomSampling": null,
+            "updateTimestamp": null,
+            "restrictedFields": null,
+            "userRenamedFields": {},
+            "selectedFields": null,
+            "filters": null,
+            "separator": ",",
+            "locale": "en_US",
+            "charSet": "UTF-8",
+            "containsHeaders": true,
+            "textQualifier": "A"
+          },
+          "filePath": "global_world_indicators_2008.csv"
+        },
+        {
+          "inputUnionInputType": ".FileInputUnionInput",
+          "inputNode": {
+            "nodeType": ".v1.LoadCsv",
+            "name": "global_world_indicators_2000",
+            "id": "478ce817-8bfa-46e4-9781-ada4e62b255a",
+            "baseType": "input",
+            "nextNodes": [],
+            "serialize": false,
+            "description": null,
+            "connectionId": "f93daacc-dc5b-471c-a3ff-25aacca22769",
+            "connectionAttributes": {
+              "filename": "global_world_indicators_2009.csv",
+              "class": "textscan"
+            },
+            "fields": [
+              {
+                "name": "Taux de natalité",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Taux d'imposition des entreprises",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Émissions de CO2",
+                "type": "integer",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Facilité de faire des affaires (clusters)",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Pays/région",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Jours pour créer une entreprise",
+                "type": "integer",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Facilité de faire des affaires",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Consommation énergétique",
+                "type": "integer",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "PIB",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Dépenses de santé en % du PIB",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Dépenses de santé par habitant",
+                "type": "integer",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Heures nécessaires à la déclaration fiscale",
+                "type": "integer",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Taux de mortalité infantile",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Utilisation d'Internet",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Taux d'emprunt",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Espérance de vie femmes",
+                "type": "integer",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Espérance de vie hommes",
+                "type": "integer",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Utilisation téléphone mobile",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Population 0-14 ans",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Population 15-64 ans",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Population 65+ ans",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Population totale",
+                "type": "integer",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Population urbaine",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Zone géographique",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Tourisme entrant",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Tourisme sortant",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Année",
+                "type": "date",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              }
+            ],
+            "actions": [],
+            "debugModeRowLimit": null,
+            "originalDataTypes": {},
+            "randomSampling": null,
+            "updateTimestamp": null,
+            "restrictedFields": null,
+            "userRenamedFields": {},
+            "selectedFields": null,
+            "filters": null,
+            "separator": ",",
+            "locale": "en_US",
+            "charSet": "UTF-8",
+            "containsHeaders": true,
+            "textQualifier": "A"
+          },
+          "filePath": "global_world_indicators_2009.csv"
+        },
+        {
+          "inputUnionInputType": ".FileInputUnionInput",
+          "inputNode": {
+            "nodeType": ".v1.LoadCsv",
+            "name": "global_world_indicators_2000",
+            "id": "f7593449-6d1a-4fab-9689-04bb3def728e",
+            "baseType": "input",
+            "nextNodes": [],
+            "serialize": false,
+            "description": null,
+            "connectionId": "f93daacc-dc5b-471c-a3ff-25aacca22769",
+            "connectionAttributes": {
+              "filename": "global_world_indicators_2010.csv",
+              "class": "textscan"
+            },
+            "fields": [
+              {
+                "name": "Taux de natalité",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Taux d'imposition des entreprises",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Émissions de CO2",
+                "type": "integer",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Facilité de faire des affaires (clusters)",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Pays/région",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Jours pour créer une entreprise",
+                "type": "integer",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Facilité de faire des affaires",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Consommation énergétique",
+                "type": "integer",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "PIB",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Dépenses de santé en % du PIB",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Dépenses de santé par habitant",
+                "type": "integer",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Heures nécessaires à la déclaration fiscale",
+                "type": "integer",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Taux de mortalité infantile",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Utilisation d'Internet",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Taux d'emprunt",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Espérance de vie femmes",
+                "type": "integer",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Espérance de vie hommes",
+                "type": "integer",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Utilisation téléphone mobile",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Population 0-14 ans",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Population 15-64 ans",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Population 65+ ans",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Population totale",
+                "type": "integer",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Population urbaine",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Zone géographique",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Tourisme entrant",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Tourisme sortant",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Année",
+                "type": "date",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              }
+            ],
+            "actions": [],
+            "debugModeRowLimit": null,
+            "originalDataTypes": {},
+            "randomSampling": null,
+            "updateTimestamp": null,
+            "restrictedFields": null,
+            "userRenamedFields": {},
+            "selectedFields": null,
+            "filters": null,
+            "separator": ",",
+            "locale": "en_US",
+            "charSet": "UTF-8",
+            "containsHeaders": true,
+            "textQualifier": "A"
+          },
+          "filePath": "global_world_indicators_2010.csv"
+        },
+        {
+          "inputUnionInputType": ".FileInputUnionInput",
+          "inputNode": {
+            "nodeType": ".v1.LoadCsv",
+            "name": "global_world_indicators_2000",
+            "id": "694f17fc-6c30-42f0-a9ec-5b0ae8ae1d42",
+            "baseType": "input",
+            "nextNodes": [],
+            "serialize": false,
+            "description": null,
+            "connectionId": "f93daacc-dc5b-471c-a3ff-25aacca22769",
+            "connectionAttributes": {
+              "filename": "global_world_indicators_2011.csv",
+              "class": "textscan"
+            },
+            "fields": [
+              {
+                "name": "Taux de natalité",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Taux d'imposition des entreprises",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Émissions de CO2",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Facilité de faire des affaires (clusters)",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Pays/région",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Jours pour créer une entreprise",
+                "type": "integer",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Facilité de faire des affaires",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Consommation énergétique",
+                "type": "integer",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "PIB",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Dépenses de santé en % du PIB",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Dépenses de santé par habitant",
+                "type": "integer",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Heures nécessaires à la déclaration fiscale",
+                "type": "integer",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Taux de mortalité infantile",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Utilisation d'Internet",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Taux d'emprunt",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Espérance de vie femmes",
+                "type": "integer",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Espérance de vie hommes",
+                "type": "integer",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Utilisation téléphone mobile",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Population 0-14 ans",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Population 15-64 ans",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Population 65+ ans",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Population totale",
+                "type": "integer",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Population urbaine",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Zone géographique",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Tourisme entrant",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Tourisme sortant",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Année",
+                "type": "date",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              }
+            ],
+            "actions": [],
+            "debugModeRowLimit": null,
+            "originalDataTypes": {},
+            "randomSampling": null,
+            "updateTimestamp": null,
+            "restrictedFields": null,
+            "userRenamedFields": {},
+            "selectedFields": null,
+            "filters": null,
+            "separator": ",",
+            "locale": "en_US",
+            "charSet": "UTF-8",
+            "containsHeaders": true,
+            "textQualifier": "A"
+          },
+          "filePath": "global_world_indicators_2011.csv"
+        },
+        {
+          "inputUnionInputType": ".FileInputUnionInput",
+          "inputNode": {
+            "nodeType": ".v1.LoadCsv",
+            "name": "global_world_indicators_2000",
+            "id": "31b9d9b9-25a7-40dc-9649-0a5fdb51b21e",
+            "baseType": "input",
+            "nextNodes": [],
+            "serialize": false,
+            "description": null,
+            "connectionId": "f93daacc-dc5b-471c-a3ff-25aacca22769",
+            "connectionAttributes": {
+              "filename": "global_world_indicators_2012.csv",
+              "class": "textscan"
+            },
+            "fields": [
+              {
+                "name": "Taux de natalité",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Taux d'imposition des entreprises",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Émissions de CO2",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Facilité de faire des affaires (clusters)",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Pays/région",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Jours pour créer une entreprise",
+                "type": "integer",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Facilité de faire des affaires",
+                "type": "integer",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Consommation énergétique",
+                "type": "integer",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "PIB",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Dépenses de santé en % du PIB",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Dépenses de santé par habitant",
+                "type": "integer",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Heures nécessaires à la déclaration fiscale",
+                "type": "integer",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Taux de mortalité infantile",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Utilisation d'Internet",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Taux d'emprunt",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Espérance de vie femmes",
+                "type": "integer",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Espérance de vie hommes",
+                "type": "integer",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Utilisation téléphone mobile",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Population 0-14 ans",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Population 15-64 ans",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Population 65+ ans",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Population totale",
+                "type": "integer",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Population urbaine",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Zone géographique",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Tourisme entrant",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Tourisme sortant",
+                "type": "real",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              },
+              {
+                "name": "Année",
+                "type": "date",
+                "collation": null,
+                "caption": null,
+                "ordinal": null
+              }
+            ],
+            "actions": [],
+            "debugModeRowLimit": null,
+            "originalDataTypes": {},
+            "randomSampling": null,
+            "updateTimestamp": null,
+            "restrictedFields": null,
+            "userRenamedFields": {},
+            "selectedFields": null,
+            "filters": null,
+            "separator": ",",
+            "locale": "en_US",
+            "charSet": "UTF-8",
+            "containsHeaders": true,
+            "textQualifier": "A"
+          },
+          "filePath": "global_world_indicators_2012.csv"
+        }
+      ],
+      "filePattern": "global_world_indicators*",
+      "inclusiveFilePattern": true,
+      "includeSubDirectory": false,
+      "containsHeaders": true,
+      "pathNameField": "File Paths",
+      "errorOnLoadFiles": {},
+      "excludedFiles": [],
+      "matchedFiles": [
+        "global_world_indicators_2000.csv",
+        "global_world_indicators_2001.csv",
+        "global_world_indicators_2002.csv",
+        "global_world_indicators_2003.csv",
+        "global_world_indicators_2004.csv",
+        "global_world_indicators_2005.csv",
+        "global_world_indicators_2006.csv",
+        "global_world_indicators_2007.csv",
+        "global_world_indicators_2008.csv",
+        "global_world_indicators_2009.csv",
+        "global_world_indicators_2010.csv",
+        "global_world_indicators_2011.csv",
+        "global_world_indicators_2012.csv"
+      ],
+      "separator": ",",
+      "locale": "en_US",
+      "charSet": "UTF-8",
+      "textQualifier": ""
+    },
+    "b1cb2964-3113-4bf1-8371-906b675b4a04": {
+      "nodeType": ".v1.LoadCsv",
+      "name": "ConsumerPriceIndices",
+      "id": "b1cb2964-3113-4bf1-8371-906b675b4a04",
+      "baseType": "input",
+      "nextNodes": [
+        {
+          "namespace": "Default",
+          "nextNodeId": "29d74644-3383-4756-9fed-5b84dd9da3eb",
+          "nextNamespace": "Default"
+        }
+      ],
+      "serialize": false,
+      "description": null,
+      "connectionId": "13aa17b9-8beb-4d86-ad22-d20ecfaeab4b",
+      "connectionAttributes": {
+        "class": "textscan",
+        "filename": "ConsumerPriceIndices_E_All_Data.csv"
+      },
+      "fields": [
+        {
+          "name": "Indicatif régional",
+          "type": "integer",
+          "collation": null,
+          "caption": null,
+          "ordinal": null
+        },
+        {
+          "name": "Pays/région",
+          "type": "string",
+          "collation": "LEN_RUS",
+          "caption": null,
+          "ordinal": null
+        },
+        {
+          "name": "Code article",
+          "type": "integer",
+          "collation": null,
+          "caption": null,
+          "ordinal": null
+        },
+        {
+          "name": "Articles",
+          "type": "string",
+          "collation": "LEN_RUS",
+          "caption": null,
+          "ordinal": null
+        },
+        {
+          "name": "Code mois",
+          "type": "integer",
+          "collation": null,
+          "caption": null,
+          "ordinal": null
+        },
+        {
+          "name": "Mois",
+          "type": "string",
+          "collation": "LEN_RUS",
+          "caption": null,
+          "ordinal": null
+        },
+        {
+          "name": "Unité",
+          "type": "string",
+          "collation": "LEN_RUS",
+          "caption": null,
+          "ordinal": null
+        },
+        {
+          "name": "Année 2000",
+          "type": "real",
+          "collation": null,
+          "caption": null,
+          "ordinal": null
+        },
+        {
+          "name": "Année 2001",
+          "type": "real",
+          "collation": null,
+          "caption": null,
+          "ordinal": null
+        },
+        {
+          "name": "Année 2002",
+          "type": "real",
+          "collation": null,
+          "caption": null,
+          "ordinal": null
+        },
+        {
+          "name": "Année 2003",
+          "type": "real",
+          "collation": null,
+          "caption": null,
+          "ordinal": null
+        },
+        {
+          "name": "Année 2004",
+          "type": "real",
+          "collation": null,
+          "caption": null,
+          "ordinal": null
+        },
+        {
+          "name": "Année 2005",
+          "type": "real",
+          "collation": null,
+          "caption": null,
+          "ordinal": null
+        },
+        {
+          "name": "Année 2006",
+          "type": "real",
+          "collation": null,
+          "caption": null,
+          "ordinal": null
+        },
+        {
+          "name": "Année 2007",
+          "type": "real",
+          "collation": null,
+          "caption": null,
+          "ordinal": null
+        },
+        {
+          "name": "Année 2008",
+          "type": "real",
+          "collation": null,
+          "caption": null,
+          "ordinal": null
+        },
+        {
+          "name": "Année 2009",
+          "type": "real",
+          "collation": null,
+          "caption": null,
+          "ordinal": null
+        },
+        {
+          "name": "Année 2010",
+          "type": "real",
+          "collation": null,
+          "caption": null,
+          "ordinal": null
+        },
+        {
+          "name": "Année 2011",
+          "type": "real",
+          "collation": null,
+          "caption": null,
+          "ordinal": null
+        },
+        {
+          "name": "Année 2012",
+          "type": "real",
+          "collation": null,
+          "caption": null,
+          "ordinal": null
+        },
+        {
+          "name": "Année 2013",
+          "type": "real",
+          "collation": null,
+          "caption": null,
+          "ordinal": null
+        },
+        {
+          "name": "Année 2014",
+          "type": "real",
+          "collation": null,
+          "caption": null,
+          "ordinal": null
+        },
+        {
+          "name": "Année 2015",
+          "type": "real",
+          "collation": null,
+          "caption": null,
+          "ordinal": null
+        },
+        {
+          "name": "Année 2016",
+          "type": "real",
+          "collation": null,
+          "caption": null,
+          "ordinal": null
+        }
+      ],
+      "actions": [],
+      "debugModeRowLimit": null,
+      "originalDataTypes": {},
+      "randomSampling": null,
+      "updateTimestamp": 1614121072887,
+      "restrictedFields": {},
+      "userRenamedFields": {},
+      "selectedFields": null,
+      "filters": [],
+      "separator": ",",
+      "locale": "en_US",
+      "charSet": "UTF-8",
+      "containsHeaders": true,
+      "textQualifier": "A"
+    },
+    "a6a59a67-d853-4113-b56b-d1ec76bb2ef8": {
+      "nodeType": ".v2018_2_3.SuperAggregate",
+      "name": "Mois --> Années",
+      "id": "a6a59a67-d853-4113-b56b-d1ec76bb2ef8",
+      "baseType": "superNode",
+      "nextNodes": [
+        {
+          "namespace": "Default",
+          "nextNodeId": "6623f6bc-3401-45e1-aa83-808d52fa789c",
+          "nextNamespace": "Default"
+        }
+      ],
+      "serialize": false,
+      "description": null,
+      "beforeActionAnnotations": [],
+      "afterActionAnnotations": [],
+      "actionNode": {
+        "nodeType": ".v1.Aggregate",
+        "name": "Agréger 1",
+        "id": "ff0ee88f-832c-4c4a-b713-03e09eb93a7d",
+        "baseType": "transform",
+        "nextNodes": [],
+        "serialize": false,
+        "description": null,
+        "groupByFields": [
+          {
+            "columnName": "Année",
+            "function": null,
+            "newColumnName": null,
+            "specialFieldType": null
+          },
+          {
+            "columnName": "Pays/région",
+            "function": "GroupBy",
+            "newColumnName": null,
+            "specialFieldType": null
+          }
+        ],
+        "aggregateFields": [
+          {
+            "columnName": "Indice des prix à la consommation",
+            "function": "SUM",
+            "newColumnName": null,
+            "specialFieldType": null
+          },
+          {
+            "columnName": "Nombre de lignes (agrégé)",
+            "function": "SUM",
+            "newColumnName": null,
+            "specialFieldType": "NumRecordsType"
+          }
+        ]
+      }
+    },
+    "19ccc207-c4a9-497e-b4fa-71b9b72d42ee": {
+      "nodeType": ".v1.Container",
+      "name": "Nettoyer 1",
+      "id": "19ccc207-c4a9-497e-b4fa-71b9b72d42ee",
+      "baseType": "container",
+      "nextNodes": [
+        {
+          "namespace": "Default",
+          "nextNodeId": "375fe4bb-464d-4075-aa06-0761cf774447",
+          "nextNamespace": "Right"
+        }
+      ],
+      "serialize": false,
+      "description": null,
+      "loomContainer": {
+        "parameters": {
+          "parameters": {}
+        },
+        "initialNodes": [
+          "34ad4620-6be5-49b6-9203-0c0ae5697fca"
+        ],
+        "nodes": {
+          "2c28dee4-31eb-4f8e-9b05-20c9a46410f1": {
+            "nodeType": ".v1.RemoveColumns",
+            "name": "Supprimer Année 1",
+            "id": "2c28dee4-31eb-4f8e-9b05-20c9a46410f1",
+            "baseType": "transform",
+            "nextNodes": [
+              {
+                "namespace": "Default",
+                "nextNodeId": "5f787649-8675-4cf7-a6e8-e4f0d1c9a01c",
+                "nextNamespace": "Default"
+              }
+            ],
+            "serialize": false,
+            "description": null,
+            "columnNames": [
+              "Année"
+            ]
+          },
+          "5f787649-8675-4cf7-a6e8-e4f0d1c9a01c": {
+            "nodeType": ".v1.RemoveColumns",
+            "name": "Supprimer Jours pour créer une entreprise 1",
+            "id": "5f787649-8675-4cf7-a6e8-e4f0d1c9a01c",
+            "baseType": "transform",
+            "nextNodes": [
+              {
+                "namespace": "Default",
+                "nextNodeId": "80bb482f-b2ae-4ecf-92ea-6bd849c76d7e",
+                "nextNamespace": "Default"
+              }
+            ],
+            "serialize": false,
+            "description": null,
+            "columnNames": [
+              "Jours pour créer une entreprise"
+            ]
+          },
+          "5255756e-995f-43bc-af4f-c2746079c3c0": {
+            "nodeType": ".v1.ChangeColumnType",
+            "fields": {
+              "Année": {
+                "type": "integer",
+                "calc": null
+              }
+            },
+            "name": "Utiliser un nombre (entier) pour l’année 1",
+            "id": "5255756e-995f-43bc-af4f-c2746079c3c0",
+            "baseType": "transform",
+            "nextNodes": [
+              {
+                "namespace": "Default",
+                "nextNodeId": "1afb58f0-af94-4a4e-9143-c9f3a8c590e1",
+                "nextNamespace": "Default"
+              }
+            ],
+            "serialize": false,
+            "description": null
+          },
+          "1afb58f0-af94-4a4e-9143-c9f3a8c590e1": {
+            "nodeType": ".v1.Remap",
+            "name": "Nettoyer 3",
+            "id": "1afb58f0-af94-4a4e-9143-c9f3a8c590e1",
+            "baseType": "transform",
+            "nextNodes": [],
+            "serialize": false,
+            "description": null,
+            "columnName": "Pays/région",
+            "values": {
+              "\"Kirghizistan\"": [
+                "\"Kirghizistan\"",
+                "\"République du Kirghizistan\""
+              ],
+              "\"États-Unis\"": [
+                "\"États-Unis\"",
+                "\"États-Unis d’Amérique\""
+              ]
+            }
+          },
+          "f3e2c07e-bb8a-4524-b607-e1bbb798e43d": {
+            "nodeType": ".v1.AddColumn",
+            "columnName": "Calcul1",
+            "expression": "LEFT([Année], 4)",
+            "name": "Ajouter un calcul1",
+            "id": "f3e2c07e-bb8a-4524-b607-e1bbb798e43d",
+            "baseType": "transform",
+            "nextNodes": [
+              {
+                "namespace": "Default",
+                "nextNodeId": "2c28dee4-31eb-4f8e-9b05-20c9a46410f1",
+                "nextNamespace": "Default"
+              }
+            ],
+            "serialize": false,
+            "description": null
+          },
+          "34ad4620-6be5-49b6-9203-0c0ae5697fca": {
+            "nodeType": ".v1.ChangeColumnType",
+            "fields": {
+              "Année": {
+                "type": "string",
+                "calc": null
+              }
+            },
+            "name": "Modifier une année en chaîne 1",
+            "id": "34ad4620-6be5-49b6-9203-0c0ae5697fca",
+            "baseType": "transform",
+            "nextNodes": [
+              {
+                "namespace": "Default",
+                "nextNodeId": "f3e2c07e-bb8a-4524-b607-e1bbb798e43d",
+                "nextNamespace": "Default"
+              }
+            ],
+            "serialize": false,
+            "description": null
+          },
+          "80bb482f-b2ae-4ecf-92ea-6bd849c76d7e": {
+            "nodeType": ".v1.RenameColumn",
+            "columnName": "Calcul1",
+            "rename": "Année",
+            "name": "Calcul1 renommé en Année 1",
+            "id": "80bb482f-b2ae-4ecf-92ea-6bd849c76d7e",
+            "baseType": "transform",
+            "nextNodes": [
+              {
+                "namespace": "Default",
+                "nextNodeId": "5255756e-995f-43bc-af4f-c2746079c3c0",
+                "nextNamespace": "Default"
+              }
+            ],
+            "serialize": false,
+            "description": null
+          }
+        },
+        "connections": {},
+        "connectionIds": [],
+        "nodeProperties": {},
+        "extensibility": null
+      },
+      "namespacesToInput": {
+        "Default": {
+          "nodeId": "34ad4620-6be5-49b6-9203-0c0ae5697fca",
+          "namespace": "Default"
+        }
+      },
+      "namespacesToOutput": {
+        "Default": {
+          "nodeId": "1afb58f0-af94-4a4e-9143-c9f3a8c590e1",
+          "namespace": "Default"
+        }
+      },
+      "providedParameters": null
+    },
+    "29d74644-3383-4756-9fed-5b84dd9da3eb": {
+      "nodeType": ".v2018_2_3.SuperUnpivot",
+      "name": "Années en Lignes",
+      "id": "29d74644-3383-4756-9fed-5b84dd9da3eb",
+      "baseType": "superNode",
+      "nextNodes": [
+        {
+          "namespace": "Default",
+          "nextNodeId": "a6a59a67-d853-4113-b56b-d1ec76bb2ef8",
+          "nextNamespace": "Default"
+        }
+      ],
+      "serialize": false,
+      "description": null,
+      "beforeActionAnnotations": [
+        {
+          "namespace": "Default",
+          "annotationNode": {
+            "nodeType": ".v1.FilterOperation",
+            "name": "Filtrer",
+            "id": "3fd1e8d6-a8c8-4793-a672-12810ea0a239",
+            "baseType": "transform",
+            "nextNodes": [],
+            "serialize": false,
+            "description": null,
+            "filterExpression": "(([Articles] == \"Prix à la consommation, indices alimentation (2010 = 100)\"))"
+          }
+        },
+        {
+          "namespace": "Default",
+          "annotationNode": {
+            "nodeType": ".v1.RemoveColumns",
+            "name": "Supprimer Code article + 4 supplémentaires 1",
+            "id": "3a6c17a0-f421-4108-92e6-cc66b2d611bf",
+            "baseType": "transform",
+            "nextNodes": [],
+            "serialize": false,
+            "description": null,
+            "columnNames": [
+              "Code article",
+              "Articles",
+              "Code mois",
+              "Mois",
+              "Unité"
+            ]
+          }
+        }
+      ],
+      "afterActionAnnotations": [],
+      "actionNode": {
+        "nodeType": ".v1.Unpivot",
+        "name": "Permuter 1",
+        "id": "87b264a7-7cdc-416a-b29a-2a0203b90eaa",
+        "baseType": "transform",
+        "nextNodes": [],
+        "serialize": false,
+        "description": null,
+        "usesSmartDefaults": true,
+        "unpivotGroups": [
+          {
+            "expressions": [
+              {
+                "bindings": [
+                  {
+                    "bindingType": "literal",
+                    "newColumnName": "Année",
+                    "groupName": "2000"
+                  },
+                  {
+                    "bindingType": "column",
+                    "newColumnName": "Indice des prix à la consommation",
+                    "columnName": "Année 2000"
+                  }
+                ]
+              },
+              {
+                "bindings": [
+                  {
+                    "bindingType": "literal",
+                    "newColumnName": "Année",
+                    "groupName": "2001"
+                  },
+                  {
+                    "bindingType": "column",
+                    "newColumnName": "Indice des prix à la consommation",
+                    "columnName": "Année 2001"
+                  }
+                ]
+              },
+              {
+                "bindings": [
+                  {
+                    "bindingType": "literal",
+                    "newColumnName": "Année",
+                    "groupName": "2002"
+                  },
+                  {
+                    "bindingType": "column",
+                    "newColumnName": "Indice des prix à la consommation",
+                    "columnName": "Année 2002"
+                  }
+                ]
+              },
+              {
+                "bindings": [
+                  {
+                    "bindingType": "literal",
+                    "newColumnName": "Année",
+                    "groupName": "2003"
+                  },
+                  {
+                    "bindingType": "column",
+                    "newColumnName": "Indice des prix à la consommation",
+                    "columnName": "Année 2003"
+                  }
+                ]
+              },
+              {
+                "bindings": [
+                  {
+                    "bindingType": "literal",
+                    "newColumnName": "Année",
+                    "groupName": "2004"
+                  },
+                  {
+                    "bindingType": "column",
+                    "newColumnName": "Indice des prix à la consommation",
+                    "columnName": "Année 2004"
+                  }
+                ]
+              },
+              {
+                "bindings": [
+                  {
+                    "bindingType": "literal",
+                    "newColumnName": "Année",
+                    "groupName": "2005"
+                  },
+                  {
+                    "bindingType": "column",
+                    "newColumnName": "Indice des prix à la consommation",
+                    "columnName": "Année 2005"
+                  }
+                ]
+              },
+              {
+                "bindings": [
+                  {
+                    "bindingType": "literal",
+                    "newColumnName": "Année",
+                    "groupName": "2006"
+                  },
+                  {
+                    "bindingType": "column",
+                    "newColumnName": "Indice des prix à la consommation",
+                    "columnName": "Année 2006"
+                  }
+                ]
+              },
+              {
+                "bindings": [
+                  {
+                    "bindingType": "literal",
+                    "newColumnName": "Année",
+                    "groupName": "2007"
+                  },
+                  {
+                    "bindingType": "column",
+                    "newColumnName": "Indice des prix à la consommation",
+                    "columnName": "Année 2007"
+                  }
+                ]
+              },
+              {
+                "bindings": [
+                  {
+                    "bindingType": "literal",
+                    "newColumnName": "Année",
+                    "groupName": "2008"
+                  },
+                  {
+                    "bindingType": "column",
+                    "newColumnName": "Indice des prix à la consommation",
+                    "columnName": "Année 2008"
+                  }
+                ]
+              },
+              {
+                "bindings": [
+                  {
+                    "bindingType": "literal",
+                    "newColumnName": "Année",
+                    "groupName": "2009"
+                  },
+                  {
+                    "bindingType": "column",
+                    "newColumnName": "Indice des prix à la consommation",
+                    "columnName": "Année 2009"
+                  }
+                ]
+              },
+              {
+                "bindings": [
+                  {
+                    "bindingType": "literal",
+                    "newColumnName": "Année",
+                    "groupName": "2010"
+                  },
+                  {
+                    "bindingType": "column",
+                    "newColumnName": "Indice des prix à la consommation",
+                    "columnName": "Année 2010"
+                  }
+                ]
+              },
+              {
+                "bindings": [
+                  {
+                    "bindingType": "literal",
+                    "newColumnName": "Année",
+                    "groupName": "2011"
+                  },
+                  {
+                    "bindingType": "column",
+                    "newColumnName": "Indice des prix à la consommation",
+                    "columnName": "Année 2011"
+                  }
+                ]
+              },
+              {
+                "bindings": [
+                  {
+                    "bindingType": "literal",
+                    "newColumnName": "Année",
+                    "groupName": "2012"
+                  },
+                  {
+                    "bindingType": "column",
+                    "newColumnName": "Indice des prix à la consommation",
+                    "columnName": "Année 2012"
+                  }
+                ]
+              },
+              {
+                "bindings": [
+                  {
+                    "bindingType": "literal",
+                    "newColumnName": "Année",
+                    "groupName": "2013"
+                  },
+                  {
+                    "bindingType": "column",
+                    "newColumnName": "Indice des prix à la consommation",
+                    "columnName": "Année 2013"
+                  }
+                ]
+              },
+              {
+                "bindings": [
+                  {
+                    "bindingType": "literal",
+                    "newColumnName": "Année",
+                    "groupName": "2014"
+                  },
+                  {
+                    "bindingType": "column",
+                    "newColumnName": "Indice des prix à la consommation",
+                    "columnName": "Année 2014"
+                  }
+                ]
+              },
+              {
+                "bindings": [
+                  {
+                    "bindingType": "literal",
+                    "newColumnName": "Année",
+                    "groupName": "2015"
+                  },
+                  {
+                    "bindingType": "column",
+                    "newColumnName": "Indice des prix à la consommation",
+                    "columnName": "Année 2015"
+                  }
+                ]
+              },
+              {
+                "bindings": [
+                  {
+                    "bindingType": "literal",
+                    "newColumnName": "Année",
+                    "groupName": "2016"
+                  },
+                  {
+                    "bindingType": "column",
+                    "newColumnName": "Indice des prix à la consommation",
+                    "columnName": "Année 2016"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "6623f6bc-3401-45e1-aa83-808d52fa789c": {
+      "nodeType": ".v1.Container",
+      "name": "Nettoyer Pays/régions",
+      "id": "6623f6bc-3401-45e1-aa83-808d52fa789c",
+      "baseType": "container",
+      "nextNodes": [
+        {
+          "namespace": "Default",
+          "nextNodeId": "375fe4bb-464d-4075-aa06-0761cf774447",
+          "nextNamespace": "Left"
+        }
+      ],
+      "serialize": false,
+      "description": null,
+      "loomContainer": {
+        "parameters": {
+          "parameters": {}
+        },
+        "initialNodes": [
+          "f1b4a478-7e2e-41a8-b5b3-ae8cba5427e2"
+        ],
+        "nodes": {
+          "624e5441-93c4-4a84-985d-3bf39c460683": {
+            "nodeType": ".v1.ChangeColumnType",
+            "fields": {
+              "Année": {
+                "type": "integer",
+                "calc": null
+              }
+            },
+            "name": "Utiliser un nombre (entier) pour l’année 1",
+            "id": "624e5441-93c4-4a84-985d-3bf39c460683",
+            "baseType": "transform",
+            "nextNodes": [
+              {
+                "namespace": "Default",
+                "nextNodeId": "01161489-78b7-4907-9157-486b65a09eb9",
+                "nextNamespace": "Default"
+              }
+            ],
+            "serialize": false,
+            "description": null
+          },
+          "01161489-78b7-4907-9157-486b65a09eb9": {
+            "nodeType": ".v1.Remap",
+            "name": "Nettoyer 3",
+            "id": "01161489-78b7-4907-9157-486b65a09eb9",
+            "baseType": "transform",
+            "nextNodes": [],
+            "serialize": false,
+            "description": null,
+            "columnName": "Pays/région",
+            "values": {
+              "\"Iran\"": [
+                "\"Iran\"",
+                "\"République islamique d’Iran\""
+              ],
+              "\"République bolivarienne du Venezuela\"": [
+                "\"République bolivarienne du Venezuela\"",
+                "\"Venezuela\""
+              ],
+              "\"États-Unis\"": [
+                "\"États-Unis d’Amérique\"",
+                "\"États-Unis\""
+              ],
+              "\"Corée du Sud\"": [
+                "\"République de Corée\"",
+                "\"Corée du Sud\""
+              ],
+              "\"Moldavie\"": [
+                "\"République de Moldavie\"",
+                "\"Moldavie\""
+              ],
+              "\"Laos\"": [
+                "\"Lao, République démocratique populaire\"",
+                "\"Laos\""
+              ]
+            }
+          },
+          "f1b4a478-7e2e-41a8-b5b3-ae8cba5427e2": {
+            "nodeType": ".v1.ChangeColumnType",
+            "fields": {
+              "Indice des prix à la consommation": {
+                "type": "integer",
+                "calc": null
+              }
+            },
+            "name": "Modifier l'indice des prix à la consommation en nombre (entier) 1",
+            "id": "f1b4a478-7e2e-41a8-b5b3-ae8cba5427e2",
+            "baseType": "transform",
+            "nextNodes": [
+              {
+                "namespace": "Default",
+                "nextNodeId": "919fb33b-0155-4261-a3a8-4fd8d574807f",
+                "nextNamespace": "Default"
+              }
+            ],
+            "serialize": false,
+            "description": null
+          },
+          "919fb33b-0155-4261-a3a8-4fd8d574807f": {
+            "nodeType": ".v1.RangeFilter",
+            "name": "Exclure Indice des prix à la consommation:null 1",
+            "id": "919fb33b-0155-4261-a3a8-4fd8d574807f",
+            "baseType": "transform",
+            "nextNodes": [
+              {
+                "namespace": "Default",
+                "nextNodeId": "624e5441-93c4-4a84-985d-3bf39c460683",
+                "nextNamespace": "Default"
+              }
+            ],
+            "serialize": false,
+            "description": null,
+            "ranges": {
+              "Indice des prix à la consommation": [
+                {
+                  "startValue": null,
+                  "includeStart": true,
+                  "endValue": null,
+                  "includeEnd": true
+                }
+              ]
+            },
+            "exclude": true
+          }
+        },
+        "connections": {},
+        "connectionIds": [],
+        "nodeProperties": {},
+        "extensibility": null
+      },
+      "namespacesToInput": {
+        "Default": {
+          "nodeId": "f1b4a478-7e2e-41a8-b5b3-ae8cba5427e2",
+          "namespace": "Default"
+        }
+      },
+      "namespacesToOutput": {
+        "Default": {
+          "nodeId": "01161489-78b7-4907-9157-486b65a09eb9",
+          "namespace": "Default"
+        }
+      },
+      "providedParameters": null
+    },
+    "375fe4bb-464d-4075-aa06-0761cf774447": {
+      "nodeType": ".v2018_2_3.SuperJoin",
+      "name": "Indicateurs+Indices",
+      "id": "375fe4bb-464d-4075-aa06-0761cf774447",
+      "baseType": "superNode",
+      "nextNodes": [
+        {
+          "namespace": "Default",
+          "nextNodeId": "5016af77-190a-42a7-b741-5e199a7477a3",
+          "nextNamespace": "Default"
+        }
+      ],
+      "serialize": false,
+      "description": null,
+      "beforeActionAnnotations": [],
+      "afterActionAnnotations": [],
+      "actionNode": {
+        "nodeType": ".v1.SimpleJoin",
+        "name": "Lier 1",
+        "id": "d5e218c1-97b7-4e2c-9dd7-62b419921ed0",
+        "baseType": "transform",
+        "nextNodes": [],
+        "serialize": false,
+        "description": null,
+        "conditions": [
+          {
+            "leftExpression": "[Pays/région]",
+            "rightExpression": "[Pays/région]",
+            "comparator": "=="
+          },
+          {
+            "leftExpression": "[Année]",
+            "rightExpression": "[Année]",
+            "comparator": "=="
+          }
+        ],
+        "joinType": "right"
+      }
+    },
+    "5016af77-190a-42a7-b741-5e199a7477a3": {
+      "nodeType": ".v1.Container",
+      "name": "Nettoyage de champ",
+      "id": "5016af77-190a-42a7-b741-5e199a7477a3",
+      "baseType": "container",
+      "nextNodes": [
+        {
+          "namespace": "Default",
+          "nextNodeId": "5b2bdc96-ac1f-42ad-a022-d0427e9fe963",
+          "nextNamespace": "Default"
+        }
+      ],
+      "serialize": false,
+      "description": null,
+      "loomContainer": {
+        "parameters": {
+          "parameters": {}
+        },
+        "initialNodes": [
+          "c4dbd44a-a4a4-4a99-9fd4-d0ec99f86947"
+        ],
+        "nodes": {
+          "593f0014-b7eb-4500-ac32-64ed4a0053a6": {
+            "nodeType": ".v1.RemoveColumns",
+            "name": "Supprimer File Paths 1",
+            "id": "593f0014-b7eb-4500-ac32-64ed4a0053a6",
+            "baseType": "transform",
+            "nextNodes": [],
+            "serialize": false,
+            "description": null,
+            "columnNames": [
+              "File Paths"
+            ]
+          },
+          "c4dbd44a-a4a4-4a99-9fd4-d0ec99f86947": {
+            "nodeType": ".v1.RemoveColumns",
+            "name": "Supprimer Nombre de lignes (agrégé) + 2 supplémentaires 1",
+            "id": "c4dbd44a-a4a4-4a99-9fd4-d0ec99f86947",
+            "baseType": "transform",
+            "nextNodes": [
+              {
+                "namespace": "Default",
+                "nextNodeId": "c65c99ac-afdb-436e-8b17-a02920d99038",
+                "nextNamespace": "Default"
+              }
+            ],
+            "serialize": false,
+            "description": null,
+            "columnNames": [
+              "Nombre de lignes (agrégé)",
+              "Année-1",
+              "Pays/région-1"
+            ]
+          },
+          "c65c99ac-afdb-436e-8b17-a02920d99038": {
+            "nodeType": ".v1.RenameColumn",
+            "columnName": "Indice des prix à la consommation",
+            "rename": "ICP",
+            "name": "Indice des prix à la consommation renommé en ICP 1",
+            "id": "c65c99ac-afdb-436e-8b17-a02920d99038",
+            "baseType": "transform",
+            "nextNodes": [
+              {
+                "namespace": "Default",
+                "nextNodeId": "593f0014-b7eb-4500-ac32-64ed4a0053a6",
+                "nextNamespace": "Default"
+              }
+            ],
+            "serialize": false,
+            "description": null
+          }
+        },
+        "connections": {},
+        "connectionIds": [],
+        "nodeProperties": {},
+        "extensibility": null
+      },
+      "namespacesToInput": {
+        "Default": {
+          "nodeId": "c4dbd44a-a4a4-4a99-9fd4-d0ec99f86947",
+          "namespace": "Default"
+        }
+      },
+      "namespacesToOutput": {
+        "Default": {
+          "nodeId": "593f0014-b7eb-4500-ac32-64ed4a0053a6",
+          "namespace": "Default"
+        }
+      },
+      "providedParameters": null
+    }
+  },
+  "connections": {
+    "13aa17b9-8beb-4d86-ad22-d20ecfaeab4b": {
+      "connectionType": ".v1.SqlConnection",
+      "id": "13aa17b9-8beb-4d86-ad22-d20ecfaeab4b",
+      "name": "ConsumerPriceIndices_E_All_Data.csv",
+      "isPackaged": true,
+      "connectionAttributes": {
+        "filename": "ConsumerPriceIndices_E_All_Data.csv",
+        "class": "textscan"
+      }
+    },
+    "f93daacc-dc5b-471c-a3ff-25aacca22769": {
+      "connectionType": ".v1.SqlConnection",
+      "id": "f93daacc-dc5b-471c-a3ff-25aacca22769",
+      "name": "global_world_indicators_2000.csv",
+      "isPackaged": true,
+      "connectionAttributes": {
+        "filename": "global_world_indicators_2000.csv",
+        "class": "textscan"
+      }
+    }
+  },
+  "connectionIds": [
+    "13aa17b9-8beb-4d86-ad22-d20ecfaeab4b",
+    "f93daacc-dc5b-471c-a3ff-25aacca22769"
+  ],
+  "nodeProperties": {},
+  "extensibility": {},
+  "selection": [],
+  "majorVersion": 1,
+  "minorVersion": 3,
+  "documentId": "3e03a10f-217c-4d79-a5ec-85653083a111",
+  "obfuscatorId": null
+}

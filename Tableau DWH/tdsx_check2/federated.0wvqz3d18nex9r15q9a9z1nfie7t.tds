@@ -1,0 +1,973 @@
+<?xml version='1.0' encoding='utf-8' ?>
+
+<!-- build 20251.25.0724.1105                               -->
+<datasource formatted-name='federated.0wvqz3d18nex9r15q9a9z1nfie7t' inline='true' source-platform='win' version='18.1' xml:base='https://tableau.epfl.ch' xmlns:user='http://www.tableausoftware.com/xml/user'>
+  <document-format-change-manifest>
+    <ObjectModelEncapsulateLegacy />
+    <ObjectModelTableType />
+    <SchemaViewerObjectModel />
+  </document-format-change-manifest>
+  <repository-location id='Perimetre_MigrationPerimetre_Migration-StockageFinaleDataPrep' path='/datasources' revision='1.0' />
+  <connection class='federated'>
+    <named-connections>
+      <named-connection caption='Perimetre_Migration - Stockage Finale DataPrep' name='excel-direct.1239lh80ji868s1dwdsv20hzowwn'>
+        <connection class='excel-direct' cleaning='no' compat='no' dataRefreshTime='' filename='Data/flatfiles/Perimetre_Migration - Stockage Finale DataPrep.xlsx' interpretationMode='0' server='' validate='no' workgroup-auth-mode='as-is' />
+      </named-connection>
+    </named-connections>
+    <relation connection='excel-direct.1239lh80ji868s1dwdsv20hzowwn' name='Perimetre_Migration' table='[Perimetre_Migration$]' type='table'>
+      <columns gridOrigin='A1:AY10001:no:A1:AY10001:0' header='yes' outcome='2'>
+        <column datatype='date' name='DateDujour' ordinal='0' />
+        <column datatype='string' name='Nom dataset' ordinal='1' />
+        <column datatype='string' name='Type source' ordinal='2' />
+        <column datatype='string' name='Nom source' ordinal='3' />
+        <column datatype='string' name='Description source' ordinal='4' />
+        <column datatype='string' name='Chemin source' ordinal='5' />
+        <column datatype='string' name='Type rapport' ordinal='6' />
+        <column datatype='string' name='Nom rapport' ordinal='7' />
+        <column datatype='string' name='Description rapport' ordinal='8' />
+        <column datatype='string' name='Chemin rapport' ordinal='9' />
+        <column datatype='string' name='Projet' ordinal='10' />
+        <column datatype='string' name='Domaine' ordinal='11' />
+        <column datatype='string' name='Sous-domaine' ordinal='12' />
+        <column datatype='string' name='Métier' ordinal='13' />
+        <column datatype='string' name='PO métier' ordinal='14' />
+        <column datatype='string' name='Utilisation 2023' ordinal='15' />
+        <column datatype='string' name='REF BI01' ordinal='16' />
+        <column datatype='string' name='REF BI02' ordinal='17' />
+        <column datatype='string' name='# Ouverture 2024 (Hors DEV BI)' ordinal='18' />
+        <column datatype='string' name='# Ouverture 2024 (Manual Edition)' ordinal='19' />
+        <column datatype='string' name='# Ouverture 2025 (Hors DEV BI)' ordinal='20' />
+        <column datatype='string' name='# Ouverture 2025 (Manual Edition)' ordinal='21' />
+        <column datatype='string' name='# Utilisateurs 2025 ( Hors Dev BI)' ordinal='22' />
+        <column datatype='string' name='# Utilisateurs 2025 (Manual Edition)' ordinal='23' />
+        <column datatype='integer' name='Utilisateurs' ordinal='24' />
+        <column datatype='string' name='Pertinence de reprise dans le cadre du projet' ordinal='25' />
+        <column datatype='string' name='Commentaire Pertinence' ordinal='26' />
+        <column datatype='string' name='Cibles' ordinal='27' />
+        <column datatype='string' name='Commentaire Cibles' ordinal='28' />
+        <column datatype='string' name='Flux cible BI' ordinal='29' />
+        <column datatype='string' name='Rapport cible BI' ordinal='30' />
+        <column datatype='string' name='Temporalité nécessaire' ordinal='31' />
+        <column datatype='string' name='Temporalité présente dans système source' ordinal='32' />
+        <column datatype='string' name='Rapport cible embedded' ordinal='33' />
+        <column datatype='string' name='Charge' ordinal='34' />
+        <column datatype='date' name='Date d&apos;échéance' ordinal='35' />
+        <column datatype='string' name='Echéance' ordinal='36' />
+        <column datatype='string' name='Priorité' ordinal='37' />
+        <column datatype='string' name='Stratégique' ordinal='38' />
+        <column datatype='string' name='Complexité flux' ordinal='39' />
+        <column datatype='string' name='Complexité viz' ordinal='40' />
+        <column datatype='string' name='Commentaire Complexité' ordinal='41' />
+        <column datatype='string' name='Statut Cadrage conception' ordinal='42' />
+        <column datatype='string' name='Statut Conception' ordinal='43' />
+        <column datatype='string' name='Statut flux' ordinal='44' />
+        <column datatype='string' name='Statut reporting' ordinal='45' />
+        <column datatype='string' name='Date début réalisation' ordinal='46' />
+        <column datatype='string' name='Date de fin livraison Flux' ordinal='47' />
+        <column datatype='date' name='Date de fin de livraison VIZ' ordinal='48' />
+        <column datatype='real' name='F50' ordinal='49' />
+        <column datatype='string' name='Num Semaine' ordinal='50' />
+      </columns>
+    </relation>
+    <metadata-records>
+      <metadata-record class='capability'>
+        <remote-name />
+        <remote-type>0</remote-type>
+        <parent-name>[Perimetre_Migration]</parent-name>
+        <remote-alias />
+        <aggregation>Count</aggregation>
+        <contains-null>true</contains-null>
+        <attributes>
+          <attribute datatype='integer' name='context'>0</attribute>
+          <attribute datatype='string' name='gridOrigin'>&quot;A1:AY10001:no:A1:AY10001:0&quot;</attribute>
+          <attribute datatype='boolean' name='header'>true</attribute>
+          <attribute datatype='integer' name='outcome'>2</attribute>
+        </attributes>
+      </metadata-record>
+      <metadata-record class='column'>
+        <remote-name>DateDujour</remote-name>
+        <remote-type>7</remote-type>
+        <local-name>[DateDujour]</local-name>
+        <parent-name>[Perimetre_Migration]</parent-name>
+        <remote-alias>DateDujour</remote-alias>
+        <ordinal>0</ordinal>
+        <local-type>date</local-type>
+        <aggregation>Year</aggregation>
+        <contains-null>true</contains-null>
+        <attributes>
+          <attribute datatype='string' name='DebugRemoteType'>&quot;DATE&quot;</attribute>
+        </attributes>
+        <object-id>[Perimetre!Migration_64BE9083485F4177BA9F33BFE465B02B]</object-id>
+      </metadata-record>
+      <metadata-record class='column'>
+        <remote-name>Nom dataset</remote-name>
+        <remote-type>130</remote-type>
+        <local-name>[Nom dataset]</local-name>
+        <parent-name>[Perimetre_Migration]</parent-name>
+        <remote-alias>Nom dataset</remote-alias>
+        <ordinal>1</ordinal>
+        <local-type>string</local-type>
+        <aggregation>Count</aggregation>
+        <contains-null>true</contains-null>
+        <collation flag='1' name='LFR_RCH_S2' />
+        <attributes>
+          <attribute datatype='string' name='DebugRemoteType'>&quot;WSTR&quot;</attribute>
+        </attributes>
+        <object-id>[Perimetre!Migration_64BE9083485F4177BA9F33BFE465B02B]</object-id>
+      </metadata-record>
+      <metadata-record class='column'>
+        <remote-name>Type source</remote-name>
+        <remote-type>130</remote-type>
+        <local-name>[Type source]</local-name>
+        <parent-name>[Perimetre_Migration]</parent-name>
+        <remote-alias>Type source</remote-alias>
+        <ordinal>2</ordinal>
+        <local-type>string</local-type>
+        <aggregation>Count</aggregation>
+        <contains-null>true</contains-null>
+        <collation flag='1' name='LFR_RCH_S2' />
+        <attributes>
+          <attribute datatype='string' name='DebugRemoteType'>&quot;WSTR&quot;</attribute>
+        </attributes>
+        <object-id>[Perimetre!Migration_64BE9083485F4177BA9F33BFE465B02B]</object-id>
+      </metadata-record>
+      <metadata-record class='column'>
+        <remote-name>Nom source</remote-name>
+        <remote-type>130</remote-type>
+        <local-name>[Nom source]</local-name>
+        <parent-name>[Perimetre_Migration]</parent-name>
+        <remote-alias>Nom source</remote-alias>
+        <ordinal>3</ordinal>
+        <local-type>string</local-type>
+        <aggregation>Count</aggregation>
+        <contains-null>true</contains-null>
+        <collation flag='1' name='LFR_RCH_S2' />
+        <attributes>
+          <attribute datatype='string' name='DebugRemoteType'>&quot;WSTR&quot;</attribute>
+        </attributes>
+        <object-id>[Perimetre!Migration_64BE9083485F4177BA9F33BFE465B02B]</object-id>
+      </metadata-record>
+      <metadata-record class='column'>
+        <remote-name>Description source</remote-name>
+        <remote-type>130</remote-type>
+        <local-name>[Description source]</local-name>
+        <parent-name>[Perimetre_Migration]</parent-name>
+        <remote-alias>Description source</remote-alias>
+        <ordinal>4</ordinal>
+        <local-type>string</local-type>
+        <aggregation>Count</aggregation>
+        <contains-null>true</contains-null>
+        <collation flag='1' name='LFR_RCH_S2' />
+        <attributes>
+          <attribute datatype='string' name='DebugRemoteType'>&quot;WSTR&quot;</attribute>
+        </attributes>
+        <object-id>[Perimetre!Migration_64BE9083485F4177BA9F33BFE465B02B]</object-id>
+      </metadata-record>
+      <metadata-record class='column'>
+        <remote-name>Chemin source</remote-name>
+        <remote-type>130</remote-type>
+        <local-name>[Chemin source]</local-name>
+        <parent-name>[Perimetre_Migration]</parent-name>
+        <remote-alias>Chemin source</remote-alias>
+        <ordinal>5</ordinal>
+        <local-type>string</local-type>
+        <aggregation>Count</aggregation>
+        <contains-null>true</contains-null>
+        <collation flag='1' name='LFR_RCH_S2' />
+        <attributes>
+          <attribute datatype='string' name='DebugRemoteType'>&quot;WSTR&quot;</attribute>
+        </attributes>
+        <object-id>[Perimetre!Migration_64BE9083485F4177BA9F33BFE465B02B]</object-id>
+      </metadata-record>
+      <metadata-record class='column'>
+        <remote-name>Type rapport</remote-name>
+        <remote-type>130</remote-type>
+        <local-name>[Type rapport]</local-name>
+        <parent-name>[Perimetre_Migration]</parent-name>
+        <remote-alias>Type rapport</remote-alias>
+        <ordinal>6</ordinal>
+        <local-type>string</local-type>
+        <aggregation>Count</aggregation>
+        <contains-null>true</contains-null>
+        <collation flag='1' name='LFR_RCH_S2' />
+        <attributes>
+          <attribute datatype='string' name='DebugRemoteType'>&quot;WSTR&quot;</attribute>
+        </attributes>
+        <object-id>[Perimetre!Migration_64BE9083485F4177BA9F33BFE465B02B]</object-id>
+      </metadata-record>
+      <metadata-record class='column'>
+        <remote-name>Nom rapport</remote-name>
+        <remote-type>130</remote-type>
+        <local-name>[Nom rapport]</local-name>
+        <parent-name>[Perimetre_Migration]</parent-name>
+        <remote-alias>Nom rapport</remote-alias>
+        <ordinal>7</ordinal>
+        <local-type>string</local-type>
+        <aggregation>Count</aggregation>
+        <contains-null>true</contains-null>
+        <collation flag='1' name='LFR_RCH_S2' />
+        <attributes>
+          <attribute datatype='string' name='DebugRemoteType'>&quot;WSTR&quot;</attribute>
+        </attributes>
+        <object-id>[Perimetre!Migration_64BE9083485F4177BA9F33BFE465B02B]</object-id>
+      </metadata-record>
+      <metadata-record class='column'>
+        <remote-name>Description rapport</remote-name>
+        <remote-type>130</remote-type>
+        <local-name>[Description rapport]</local-name>
+        <parent-name>[Perimetre_Migration]</parent-name>
+        <remote-alias>Description rapport</remote-alias>
+        <ordinal>8</ordinal>
+        <local-type>string</local-type>
+        <aggregation>Count</aggregation>
+        <contains-null>true</contains-null>
+        <collation flag='1' name='LFR_RCH_S2' />
+        <attributes>
+          <attribute datatype='string' name='DebugRemoteType'>&quot;WSTR&quot;</attribute>
+        </attributes>
+        <object-id>[Perimetre!Migration_64BE9083485F4177BA9F33BFE465B02B]</object-id>
+      </metadata-record>
+      <metadata-record class='column'>
+        <remote-name>Chemin rapport</remote-name>
+        <remote-type>130</remote-type>
+        <local-name>[Chemin rapport]</local-name>
+        <parent-name>[Perimetre_Migration]</parent-name>
+        <remote-alias>Chemin rapport</remote-alias>
+        <ordinal>9</ordinal>
+        <local-type>string</local-type>
+        <aggregation>Count</aggregation>
+        <contains-null>true</contains-null>
+        <collation flag='1' name='LFR_RCH_S2' />
+        <attributes>
+          <attribute datatype='string' name='DebugRemoteType'>&quot;WSTR&quot;</attribute>
+        </attributes>
+        <object-id>[Perimetre!Migration_64BE9083485F4177BA9F33BFE465B02B]</object-id>
+      </metadata-record>
+      <metadata-record class='column'>
+        <remote-name>Projet</remote-name>
+        <remote-type>130</remote-type>
+        <local-name>[Projet]</local-name>
+        <parent-name>[Perimetre_Migration]</parent-name>
+        <remote-alias>Projet</remote-alias>
+        <ordinal>10</ordinal>
+        <local-type>string</local-type>
+        <aggregation>Count</aggregation>
+        <contains-null>true</contains-null>
+        <collation flag='1' name='LFR_RCH_S2' />
+        <attributes>
+          <attribute datatype='string' name='DebugRemoteType'>&quot;WSTR&quot;</attribute>
+        </attributes>
+        <object-id>[Perimetre!Migration_64BE9083485F4177BA9F33BFE465B02B]</object-id>
+      </metadata-record>
+      <metadata-record class='column'>
+        <remote-name>Domaine</remote-name>
+        <remote-type>130</remote-type>
+        <local-name>[Domaine]</local-name>
+        <parent-name>[Perimetre_Migration]</parent-name>
+        <remote-alias>Domaine</remote-alias>
+        <ordinal>11</ordinal>
+        <local-type>string</local-type>
+        <aggregation>Count</aggregation>
+        <contains-null>true</contains-null>
+        <collation flag='1' name='LFR_RCH_S2' />
+        <attributes>
+          <attribute datatype='string' name='DebugRemoteType'>&quot;WSTR&quot;</attribute>
+        </attributes>
+        <object-id>[Perimetre!Migration_64BE9083485F4177BA9F33BFE465B02B]</object-id>
+      </metadata-record>
+      <metadata-record class='column'>
+        <remote-name>Sous-domaine</remote-name>
+        <remote-type>130</remote-type>
+        <local-name>[Sous-domaine]</local-name>
+        <parent-name>[Perimetre_Migration]</parent-name>
+        <remote-alias>Sous-domaine</remote-alias>
+        <ordinal>12</ordinal>
+        <local-type>string</local-type>
+        <aggregation>Count</aggregation>
+        <contains-null>true</contains-null>
+        <collation flag='1' name='LFR_RCH_S2' />
+        <attributes>
+          <attribute datatype='string' name='DebugRemoteType'>&quot;WSTR&quot;</attribute>
+        </attributes>
+        <object-id>[Perimetre!Migration_64BE9083485F4177BA9F33BFE465B02B]</object-id>
+      </metadata-record>
+      <metadata-record class='column'>
+        <remote-name>Métier</remote-name>
+        <remote-type>130</remote-type>
+        <local-name>[Métier]</local-name>
+        <parent-name>[Perimetre_Migration]</parent-name>
+        <remote-alias>Métier</remote-alias>
+        <ordinal>13</ordinal>
+        <local-type>string</local-type>
+        <aggregation>Count</aggregation>
+        <contains-null>true</contains-null>
+        <collation flag='1' name='LFR_RCH_S2' />
+        <attributes>
+          <attribute datatype='string' name='DebugRemoteType'>&quot;WSTR&quot;</attribute>
+        </attributes>
+        <object-id>[Perimetre!Migration_64BE9083485F4177BA9F33BFE465B02B]</object-id>
+      </metadata-record>
+      <metadata-record class='column'>
+        <remote-name>PO métier</remote-name>
+        <remote-type>130</remote-type>
+        <local-name>[PO métier]</local-name>
+        <parent-name>[Perimetre_Migration]</parent-name>
+        <remote-alias>PO métier</remote-alias>
+        <ordinal>14</ordinal>
+        <local-type>string</local-type>
+        <aggregation>Count</aggregation>
+        <contains-null>true</contains-null>
+        <collation flag='1' name='LFR_RCH_S2' />
+        <attributes>
+          <attribute datatype='string' name='DebugRemoteType'>&quot;WSTR&quot;</attribute>
+        </attributes>
+        <object-id>[Perimetre!Migration_64BE9083485F4177BA9F33BFE465B02B]</object-id>
+      </metadata-record>
+      <metadata-record class='column'>
+        <remote-name>Utilisation 2023</remote-name>
+        <remote-type>130</remote-type>
+        <local-name>[Utilisation 2023]</local-name>
+        <parent-name>[Perimetre_Migration]</parent-name>
+        <remote-alias>Utilisation 2023</remote-alias>
+        <ordinal>15</ordinal>
+        <local-type>string</local-type>
+        <aggregation>Count</aggregation>
+        <contains-null>true</contains-null>
+        <collation flag='1' name='LFR_RCH_S2' />
+        <attributes>
+          <attribute datatype='string' name='DebugRemoteType'>&quot;WSTR&quot;</attribute>
+        </attributes>
+        <object-id>[Perimetre!Migration_64BE9083485F4177BA9F33BFE465B02B]</object-id>
+      </metadata-record>
+      <metadata-record class='column'>
+        <remote-name>REF BI01</remote-name>
+        <remote-type>130</remote-type>
+        <local-name>[REF BI01]</local-name>
+        <parent-name>[Perimetre_Migration]</parent-name>
+        <remote-alias>REF BI01</remote-alias>
+        <ordinal>16</ordinal>
+        <local-type>string</local-type>
+        <aggregation>Count</aggregation>
+        <contains-null>true</contains-null>
+        <collation flag='1' name='LFR_RCH_S2' />
+        <attributes>
+          <attribute datatype='string' name='DebugRemoteType'>&quot;WSTR&quot;</attribute>
+        </attributes>
+        <object-id>[Perimetre!Migration_64BE9083485F4177BA9F33BFE465B02B]</object-id>
+      </metadata-record>
+      <metadata-record class='column'>
+        <remote-name>REF BI02</remote-name>
+        <remote-type>130</remote-type>
+        <local-name>[REF BI02]</local-name>
+        <parent-name>[Perimetre_Migration]</parent-name>
+        <remote-alias>REF BI02</remote-alias>
+        <ordinal>17</ordinal>
+        <local-type>string</local-type>
+        <aggregation>Count</aggregation>
+        <contains-null>true</contains-null>
+        <collation flag='1' name='LFR_RCH_S2' />
+        <attributes>
+          <attribute datatype='string' name='DebugRemoteType'>&quot;WSTR&quot;</attribute>
+        </attributes>
+        <object-id>[Perimetre!Migration_64BE9083485F4177BA9F33BFE465B02B]</object-id>
+      </metadata-record>
+      <metadata-record class='column'>
+        <remote-name># Ouverture 2024 (Hors DEV BI)</remote-name>
+        <remote-type>130</remote-type>
+        <local-name>[# Ouverture 2024 (Hors DEV BI)]</local-name>
+        <parent-name>[Perimetre_Migration]</parent-name>
+        <remote-alias># Ouverture 2024 (Hors DEV BI)</remote-alias>
+        <ordinal>18</ordinal>
+        <local-type>string</local-type>
+        <aggregation>Count</aggregation>
+        <contains-null>true</contains-null>
+        <collation flag='1' name='LFR_RCH_S2' />
+        <attributes>
+          <attribute datatype='string' name='DebugRemoteType'>&quot;WSTR&quot;</attribute>
+        </attributes>
+        <object-id>[Perimetre!Migration_64BE9083485F4177BA9F33BFE465B02B]</object-id>
+      </metadata-record>
+      <metadata-record class='column'>
+        <remote-name># Ouverture 2024 (Manual Edition)</remote-name>
+        <remote-type>130</remote-type>
+        <local-name>[# Ouverture 2024 (Manual Edition)]</local-name>
+        <parent-name>[Perimetre_Migration]</parent-name>
+        <remote-alias># Ouverture 2024 (Manual Edition)</remote-alias>
+        <ordinal>19</ordinal>
+        <local-type>string</local-type>
+        <aggregation>Count</aggregation>
+        <contains-null>true</contains-null>
+        <collation flag='1' name='LFR_RCH_S2' />
+        <attributes>
+          <attribute datatype='string' name='DebugRemoteType'>&quot;WSTR&quot;</attribute>
+        </attributes>
+        <object-id>[Perimetre!Migration_64BE9083485F4177BA9F33BFE465B02B]</object-id>
+      </metadata-record>
+      <metadata-record class='column'>
+        <remote-name># Ouverture 2025 (Hors DEV BI)</remote-name>
+        <remote-type>130</remote-type>
+        <local-name>[# Ouverture 2025 (Hors DEV BI)]</local-name>
+        <parent-name>[Perimetre_Migration]</parent-name>
+        <remote-alias># Ouverture 2025 (Hors DEV BI)</remote-alias>
+        <ordinal>20</ordinal>
+        <local-type>string</local-type>
+        <aggregation>Count</aggregation>
+        <contains-null>true</contains-null>
+        <collation flag='1' name='LFR_RCH_S2' />
+        <attributes>
+          <attribute datatype='string' name='DebugRemoteType'>&quot;WSTR&quot;</attribute>
+        </attributes>
+        <object-id>[Perimetre!Migration_64BE9083485F4177BA9F33BFE465B02B]</object-id>
+      </metadata-record>
+      <metadata-record class='column'>
+        <remote-name># Ouverture 2025 (Manual Edition)</remote-name>
+        <remote-type>130</remote-type>
+        <local-name>[# Ouverture 2025 (Manual Edition)]</local-name>
+        <parent-name>[Perimetre_Migration]</parent-name>
+        <remote-alias># Ouverture 2025 (Manual Edition)</remote-alias>
+        <ordinal>21</ordinal>
+        <local-type>string</local-type>
+        <aggregation>Count</aggregation>
+        <contains-null>true</contains-null>
+        <collation flag='1' name='LFR_RCH_S2' />
+        <attributes>
+          <attribute datatype='string' name='DebugRemoteType'>&quot;WSTR&quot;</attribute>
+        </attributes>
+        <object-id>[Perimetre!Migration_64BE9083485F4177BA9F33BFE465B02B]</object-id>
+      </metadata-record>
+      <metadata-record class='column'>
+        <remote-name># Utilisateurs 2025 ( Hors Dev BI)</remote-name>
+        <remote-type>130</remote-type>
+        <local-name>[# Utilisateurs 2025 ( Hors Dev BI)]</local-name>
+        <parent-name>[Perimetre_Migration]</parent-name>
+        <remote-alias># Utilisateurs 2025 ( Hors Dev BI)</remote-alias>
+        <ordinal>22</ordinal>
+        <local-type>string</local-type>
+        <aggregation>Count</aggregation>
+        <contains-null>true</contains-null>
+        <collation flag='1' name='LFR_RCH_S2' />
+        <attributes>
+          <attribute datatype='string' name='DebugRemoteType'>&quot;WSTR&quot;</attribute>
+        </attributes>
+        <object-id>[Perimetre!Migration_64BE9083485F4177BA9F33BFE465B02B]</object-id>
+      </metadata-record>
+      <metadata-record class='column'>
+        <remote-name># Utilisateurs 2025 (Manual Edition)</remote-name>
+        <remote-type>130</remote-type>
+        <local-name>[# Utilisateurs 2025 (Manual Edition)]</local-name>
+        <parent-name>[Perimetre_Migration]</parent-name>
+        <remote-alias># Utilisateurs 2025 (Manual Edition)</remote-alias>
+        <ordinal>23</ordinal>
+        <local-type>string</local-type>
+        <aggregation>Count</aggregation>
+        <contains-null>true</contains-null>
+        <collation flag='1' name='LFR_RCH_S2' />
+        <attributes>
+          <attribute datatype='string' name='DebugRemoteType'>&quot;WSTR&quot;</attribute>
+        </attributes>
+        <object-id>[Perimetre!Migration_64BE9083485F4177BA9F33BFE465B02B]</object-id>
+      </metadata-record>
+      <metadata-record class='column'>
+        <remote-name>Utilisateurs</remote-name>
+        <remote-type>20</remote-type>
+        <local-name>[Utilisateurs]</local-name>
+        <parent-name>[Perimetre_Migration]</parent-name>
+        <remote-alias>Utilisateurs</remote-alias>
+        <ordinal>24</ordinal>
+        <local-type>integer</local-type>
+        <aggregation>Sum</aggregation>
+        <contains-null>true</contains-null>
+        <attributes>
+          <attribute datatype='string' name='DebugRemoteType'>&quot;I8&quot;</attribute>
+        </attributes>
+        <object-id>[Perimetre!Migration_64BE9083485F4177BA9F33BFE465B02B]</object-id>
+      </metadata-record>
+      <metadata-record class='column'>
+        <remote-name>Pertinence de reprise dans le cadre du projet</remote-name>
+        <remote-type>130</remote-type>
+        <local-name>[Pertinence de reprise dans le cadre du projet]</local-name>
+        <parent-name>[Perimetre_Migration]</parent-name>
+        <remote-alias>Pertinence de reprise dans le cadre du projet</remote-alias>
+        <ordinal>25</ordinal>
+        <local-type>string</local-type>
+        <aggregation>Count</aggregation>
+        <contains-null>true</contains-null>
+        <collation flag='1' name='LFR_RCH_S2' />
+        <attributes>
+          <attribute datatype='string' name='DebugRemoteType'>&quot;WSTR&quot;</attribute>
+        </attributes>
+        <object-id>[Perimetre!Migration_64BE9083485F4177BA9F33BFE465B02B]</object-id>
+      </metadata-record>
+      <metadata-record class='column'>
+        <remote-name>Commentaire Pertinence</remote-name>
+        <remote-type>130</remote-type>
+        <local-name>[Commentaire Pertinence]</local-name>
+        <parent-name>[Perimetre_Migration]</parent-name>
+        <remote-alias>Commentaire Pertinence</remote-alias>
+        <ordinal>26</ordinal>
+        <local-type>string</local-type>
+        <aggregation>Count</aggregation>
+        <contains-null>true</contains-null>
+        <collation flag='1' name='LFR_RCH_S2' />
+        <attributes>
+          <attribute datatype='string' name='DebugRemoteType'>&quot;WSTR&quot;</attribute>
+        </attributes>
+        <object-id>[Perimetre!Migration_64BE9083485F4177BA9F33BFE465B02B]</object-id>
+      </metadata-record>
+      <metadata-record class='column'>
+        <remote-name>Cibles</remote-name>
+        <remote-type>130</remote-type>
+        <local-name>[Cibles]</local-name>
+        <parent-name>[Perimetre_Migration]</parent-name>
+        <remote-alias>Cibles</remote-alias>
+        <ordinal>27</ordinal>
+        <local-type>string</local-type>
+        <aggregation>Count</aggregation>
+        <contains-null>true</contains-null>
+        <collation flag='1' name='LFR_RCH_S2' />
+        <attributes>
+          <attribute datatype='string' name='DebugRemoteType'>&quot;WSTR&quot;</attribute>
+        </attributes>
+        <object-id>[Perimetre!Migration_64BE9083485F4177BA9F33BFE465B02B]</object-id>
+      </metadata-record>
+      <metadata-record class='column'>
+        <remote-name>Commentaire Cibles</remote-name>
+        <remote-type>130</remote-type>
+        <local-name>[Commentaire Cibles]</local-name>
+        <parent-name>[Perimetre_Migration]</parent-name>
+        <remote-alias>Commentaire Cibles</remote-alias>
+        <ordinal>28</ordinal>
+        <local-type>string</local-type>
+        <aggregation>Count</aggregation>
+        <contains-null>true</contains-null>
+        <collation flag='1' name='LFR_RCH_S2' />
+        <attributes>
+          <attribute datatype='string' name='DebugRemoteType'>&quot;WSTR&quot;</attribute>
+        </attributes>
+        <object-id>[Perimetre!Migration_64BE9083485F4177BA9F33BFE465B02B]</object-id>
+      </metadata-record>
+      <metadata-record class='column'>
+        <remote-name>Flux cible BI</remote-name>
+        <remote-type>130</remote-type>
+        <local-name>[Flux cible BI]</local-name>
+        <parent-name>[Perimetre_Migration]</parent-name>
+        <remote-alias>Flux cible BI</remote-alias>
+        <ordinal>29</ordinal>
+        <local-type>string</local-type>
+        <aggregation>Count</aggregation>
+        <contains-null>true</contains-null>
+        <collation flag='1' name='LFR_RCH_S2' />
+        <attributes>
+          <attribute datatype='string' name='DebugRemoteType'>&quot;WSTR&quot;</attribute>
+        </attributes>
+        <object-id>[Perimetre!Migration_64BE9083485F4177BA9F33BFE465B02B]</object-id>
+      </metadata-record>
+      <metadata-record class='column'>
+        <remote-name>Rapport cible BI</remote-name>
+        <remote-type>130</remote-type>
+        <local-name>[Rapport cible BI]</local-name>
+        <parent-name>[Perimetre_Migration]</parent-name>
+        <remote-alias>Rapport cible BI</remote-alias>
+        <ordinal>30</ordinal>
+        <local-type>string</local-type>
+        <aggregation>Count</aggregation>
+        <contains-null>true</contains-null>
+        <collation flag='1' name='LFR_RCH_S2' />
+        <attributes>
+          <attribute datatype='string' name='DebugRemoteType'>&quot;WSTR&quot;</attribute>
+        </attributes>
+        <object-id>[Perimetre!Migration_64BE9083485F4177BA9F33BFE465B02B]</object-id>
+      </metadata-record>
+      <metadata-record class='column'>
+        <remote-name>Temporalité nécessaire</remote-name>
+        <remote-type>130</remote-type>
+        <local-name>[Temporalité nécessaire]</local-name>
+        <parent-name>[Perimetre_Migration]</parent-name>
+        <remote-alias>Temporalité nécessaire</remote-alias>
+        <ordinal>31</ordinal>
+        <local-type>string</local-type>
+        <aggregation>Count</aggregation>
+        <contains-null>true</contains-null>
+        <collation flag='1' name='LFR_RCH_S2' />
+        <attributes>
+          <attribute datatype='string' name='DebugRemoteType'>&quot;WSTR&quot;</attribute>
+        </attributes>
+        <object-id>[Perimetre!Migration_64BE9083485F4177BA9F33BFE465B02B]</object-id>
+      </metadata-record>
+      <metadata-record class='column'>
+        <remote-name>Temporalité présente dans système source</remote-name>
+        <remote-type>130</remote-type>
+        <local-name>[Temporalité présente dans système source]</local-name>
+        <parent-name>[Perimetre_Migration]</parent-name>
+        <remote-alias>Temporalité présente dans système source</remote-alias>
+        <ordinal>32</ordinal>
+        <local-type>string</local-type>
+        <aggregation>Count</aggregation>
+        <contains-null>true</contains-null>
+        <collation flag='1' name='LFR_RCH_S2' />
+        <attributes>
+          <attribute datatype='string' name='DebugRemoteType'>&quot;WSTR&quot;</attribute>
+        </attributes>
+        <object-id>[Perimetre!Migration_64BE9083485F4177BA9F33BFE465B02B]</object-id>
+      </metadata-record>
+      <metadata-record class='column'>
+        <remote-name>Rapport cible embedded</remote-name>
+        <remote-type>130</remote-type>
+        <local-name>[Rapport cible embedded]</local-name>
+        <parent-name>[Perimetre_Migration]</parent-name>
+        <remote-alias>Rapport cible embedded</remote-alias>
+        <ordinal>33</ordinal>
+        <local-type>string</local-type>
+        <aggregation>Count</aggregation>
+        <contains-null>true</contains-null>
+        <collation flag='1' name='LFR_RCH_S2' />
+        <attributes>
+          <attribute datatype='string' name='DebugRemoteType'>&quot;WSTR&quot;</attribute>
+        </attributes>
+        <object-id>[Perimetre!Migration_64BE9083485F4177BA9F33BFE465B02B]</object-id>
+      </metadata-record>
+      <metadata-record class='column'>
+        <remote-name>Charge</remote-name>
+        <remote-type>130</remote-type>
+        <local-name>[Charge]</local-name>
+        <parent-name>[Perimetre_Migration]</parent-name>
+        <remote-alias>Charge</remote-alias>
+        <ordinal>34</ordinal>
+        <local-type>string</local-type>
+        <aggregation>Count</aggregation>
+        <contains-null>true</contains-null>
+        <collation flag='1' name='LFR_RCH_S2' />
+        <attributes>
+          <attribute datatype='string' name='DebugRemoteType'>&quot;WSTR&quot;</attribute>
+        </attributes>
+        <object-id>[Perimetre!Migration_64BE9083485F4177BA9F33BFE465B02B]</object-id>
+      </metadata-record>
+      <metadata-record class='column'>
+        <remote-name>Date d&apos;échéance</remote-name>
+        <remote-type>7</remote-type>
+        <local-name>[Date d&apos;échéance]</local-name>
+        <parent-name>[Perimetre_Migration]</parent-name>
+        <remote-alias>Date d&apos;échéance</remote-alias>
+        <ordinal>35</ordinal>
+        <local-type>date</local-type>
+        <aggregation>Year</aggregation>
+        <contains-null>true</contains-null>
+        <attributes>
+          <attribute datatype='string' name='DebugRemoteType'>&quot;DATE&quot;</attribute>
+        </attributes>
+        <object-id>[Perimetre!Migration_64BE9083485F4177BA9F33BFE465B02B]</object-id>
+      </metadata-record>
+      <metadata-record class='column'>
+        <remote-name>Echéance</remote-name>
+        <remote-type>130</remote-type>
+        <local-name>[Echéance]</local-name>
+        <parent-name>[Perimetre_Migration]</parent-name>
+        <remote-alias>Echéance</remote-alias>
+        <ordinal>36</ordinal>
+        <local-type>string</local-type>
+        <aggregation>Count</aggregation>
+        <contains-null>true</contains-null>
+        <collation flag='1' name='LFR_RCH_S2' />
+        <attributes>
+          <attribute datatype='string' name='DebugRemoteType'>&quot;WSTR&quot;</attribute>
+        </attributes>
+        <object-id>[Perimetre!Migration_64BE9083485F4177BA9F33BFE465B02B]</object-id>
+      </metadata-record>
+      <metadata-record class='column'>
+        <remote-name>Priorité</remote-name>
+        <remote-type>130</remote-type>
+        <local-name>[Priorité]</local-name>
+        <parent-name>[Perimetre_Migration]</parent-name>
+        <remote-alias>Priorité</remote-alias>
+        <ordinal>37</ordinal>
+        <local-type>string</local-type>
+        <aggregation>Count</aggregation>
+        <contains-null>true</contains-null>
+        <collation flag='1' name='LFR_RCH_S2' />
+        <attributes>
+          <attribute datatype='string' name='DebugRemoteType'>&quot;WSTR&quot;</attribute>
+        </attributes>
+        <object-id>[Perimetre!Migration_64BE9083485F4177BA9F33BFE465B02B]</object-id>
+      </metadata-record>
+      <metadata-record class='column'>
+        <remote-name>Stratégique</remote-name>
+        <remote-type>130</remote-type>
+        <local-name>[Stratégique]</local-name>
+        <parent-name>[Perimetre_Migration]</parent-name>
+        <remote-alias>Stratégique</remote-alias>
+        <ordinal>38</ordinal>
+        <local-type>string</local-type>
+        <aggregation>Count</aggregation>
+        <contains-null>true</contains-null>
+        <collation flag='1' name='LFR_RCH_S2' />
+        <attributes>
+          <attribute datatype='string' name='DebugRemoteType'>&quot;WSTR&quot;</attribute>
+        </attributes>
+        <object-id>[Perimetre!Migration_64BE9083485F4177BA9F33BFE465B02B]</object-id>
+      </metadata-record>
+      <metadata-record class='column'>
+        <remote-name>Complexité flux</remote-name>
+        <remote-type>130</remote-type>
+        <local-name>[Complexité flux]</local-name>
+        <parent-name>[Perimetre_Migration]</parent-name>
+        <remote-alias>Complexité flux</remote-alias>
+        <ordinal>39</ordinal>
+        <local-type>string</local-type>
+        <aggregation>Count</aggregation>
+        <contains-null>true</contains-null>
+        <collation flag='1' name='LFR_RCH_S2' />
+        <attributes>
+          <attribute datatype='string' name='DebugRemoteType'>&quot;WSTR&quot;</attribute>
+        </attributes>
+        <object-id>[Perimetre!Migration_64BE9083485F4177BA9F33BFE465B02B]</object-id>
+      </metadata-record>
+      <metadata-record class='column'>
+        <remote-name>Complexité viz</remote-name>
+        <remote-type>130</remote-type>
+        <local-name>[Complexité viz]</local-name>
+        <parent-name>[Perimetre_Migration]</parent-name>
+        <remote-alias>Complexité viz</remote-alias>
+        <ordinal>40</ordinal>
+        <local-type>string</local-type>
+        <aggregation>Count</aggregation>
+        <contains-null>true</contains-null>
+        <collation flag='1' name='LFR_RCH_S2' />
+        <attributes>
+          <attribute datatype='string' name='DebugRemoteType'>&quot;WSTR&quot;</attribute>
+        </attributes>
+        <object-id>[Perimetre!Migration_64BE9083485F4177BA9F33BFE465B02B]</object-id>
+      </metadata-record>
+      <metadata-record class='column'>
+        <remote-name>Commentaire Complexité</remote-name>
+        <remote-type>130</remote-type>
+        <local-name>[Commentaire Complexité]</local-name>
+        <parent-name>[Perimetre_Migration]</parent-name>
+        <remote-alias>Commentaire Complexité</remote-alias>
+        <ordinal>41</ordinal>
+        <local-type>string</local-type>
+        <aggregation>Count</aggregation>
+        <contains-null>true</contains-null>
+        <collation flag='1' name='LFR_RCH_S2' />
+        <attributes>
+          <attribute datatype='string' name='DebugRemoteType'>&quot;WSTR&quot;</attribute>
+        </attributes>
+        <object-id>[Perimetre!Migration_64BE9083485F4177BA9F33BFE465B02B]</object-id>
+      </metadata-record>
+      <metadata-record class='column'>
+        <remote-name>Statut Cadrage conception</remote-name>
+        <remote-type>130</remote-type>
+        <local-name>[Statut Cadrage conception]</local-name>
+        <parent-name>[Perimetre_Migration]</parent-name>
+        <remote-alias>Statut Cadrage conception</remote-alias>
+        <ordinal>42</ordinal>
+        <local-type>string</local-type>
+        <aggregation>Count</aggregation>
+        <contains-null>true</contains-null>
+        <collation flag='1' name='LFR_RCH_S2' />
+        <attributes>
+          <attribute datatype='string' name='DebugRemoteType'>&quot;WSTR&quot;</attribute>
+        </attributes>
+        <object-id>[Perimetre!Migration_64BE9083485F4177BA9F33BFE465B02B]</object-id>
+      </metadata-record>
+      <metadata-record class='column'>
+        <remote-name>Statut Conception</remote-name>
+        <remote-type>130</remote-type>
+        <local-name>[Statut Conception]</local-name>
+        <parent-name>[Perimetre_Migration]</parent-name>
+        <remote-alias>Statut Conception</remote-alias>
+        <ordinal>43</ordinal>
+        <local-type>string</local-type>
+        <aggregation>Count</aggregation>
+        <contains-null>true</contains-null>
+        <collation flag='1' name='LFR_RCH_S2' />
+        <attributes>
+          <attribute datatype='string' name='DebugRemoteType'>&quot;WSTR&quot;</attribute>
+        </attributes>
+        <object-id>[Perimetre!Migration_64BE9083485F4177BA9F33BFE465B02B]</object-id>
+      </metadata-record>
+      <metadata-record class='column'>
+        <remote-name>Statut flux</remote-name>
+        <remote-type>130</remote-type>
+        <local-name>[Statut flux]</local-name>
+        <parent-name>[Perimetre_Migration]</parent-name>
+        <remote-alias>Statut flux</remote-alias>
+        <ordinal>44</ordinal>
+        <local-type>string</local-type>
+        <aggregation>Count</aggregation>
+        <contains-null>true</contains-null>
+        <collation flag='1' name='LFR_RCH_S2' />
+        <attributes>
+          <attribute datatype='string' name='DebugRemoteType'>&quot;WSTR&quot;</attribute>
+        </attributes>
+        <object-id>[Perimetre!Migration_64BE9083485F4177BA9F33BFE465B02B]</object-id>
+      </metadata-record>
+      <metadata-record class='column'>
+        <remote-name>Statut reporting</remote-name>
+        <remote-type>130</remote-type>
+        <local-name>[Statut reporting]</local-name>
+        <parent-name>[Perimetre_Migration]</parent-name>
+        <remote-alias>Statut reporting</remote-alias>
+        <ordinal>45</ordinal>
+        <local-type>string</local-type>
+        <aggregation>Count</aggregation>
+        <contains-null>true</contains-null>
+        <collation flag='1' name='LFR_RCH_S2' />
+        <attributes>
+          <attribute datatype='string' name='DebugRemoteType'>&quot;WSTR&quot;</attribute>
+        </attributes>
+        <object-id>[Perimetre!Migration_64BE9083485F4177BA9F33BFE465B02B]</object-id>
+      </metadata-record>
+      <metadata-record class='column'>
+        <remote-name>Date début réalisation</remote-name>
+        <remote-type>130</remote-type>
+        <local-name>[Date début réalisation]</local-name>
+        <parent-name>[Perimetre_Migration]</parent-name>
+        <remote-alias>Date début réalisation</remote-alias>
+        <ordinal>46</ordinal>
+        <local-type>string</local-type>
+        <aggregation>Count</aggregation>
+        <contains-null>true</contains-null>
+        <collation flag='1' name='LFR_RCH_S2' />
+        <attributes>
+          <attribute datatype='string' name='DebugRemoteType'>&quot;WSTR&quot;</attribute>
+        </attributes>
+        <object-id>[Perimetre!Migration_64BE9083485F4177BA9F33BFE465B02B]</object-id>
+      </metadata-record>
+      <metadata-record class='column'>
+        <remote-name>Date de fin livraison Flux</remote-name>
+        <remote-type>130</remote-type>
+        <local-name>[Date de fin livraison Flux]</local-name>
+        <parent-name>[Perimetre_Migration]</parent-name>
+        <remote-alias>Date de fin livraison Flux</remote-alias>
+        <ordinal>47</ordinal>
+        <local-type>string</local-type>
+        <aggregation>Count</aggregation>
+        <contains-null>true</contains-null>
+        <collation flag='1' name='LFR_RCH_S2' />
+        <attributes>
+          <attribute datatype='string' name='DebugRemoteType'>&quot;WSTR&quot;</attribute>
+        </attributes>
+        <object-id>[Perimetre!Migration_64BE9083485F4177BA9F33BFE465B02B]</object-id>
+      </metadata-record>
+      <metadata-record class='column'>
+        <remote-name>Date de fin de livraison VIZ</remote-name>
+        <remote-type>7</remote-type>
+        <local-name>[Date de fin de livraison VIZ]</local-name>
+        <parent-name>[Perimetre_Migration]</parent-name>
+        <remote-alias>Date de fin de livraison VIZ</remote-alias>
+        <ordinal>48</ordinal>
+        <local-type>date</local-type>
+        <aggregation>Year</aggregation>
+        <contains-null>true</contains-null>
+        <attributes>
+          <attribute datatype='string' name='DebugRemoteType'>&quot;DATE&quot;</attribute>
+        </attributes>
+        <object-id>[Perimetre!Migration_64BE9083485F4177BA9F33BFE465B02B]</object-id>
+      </metadata-record>
+      <metadata-record class='column'>
+        <remote-name>F50</remote-name>
+        <remote-type>5</remote-type>
+        <local-name>[F50]</local-name>
+        <parent-name>[Perimetre_Migration]</parent-name>
+        <remote-alias>F50</remote-alias>
+        <ordinal>49</ordinal>
+        <local-type>real</local-type>
+        <aggregation>Sum</aggregation>
+        <contains-null>true</contains-null>
+        <attributes>
+          <attribute datatype='string' name='DebugRemoteType'>&quot;R8&quot;</attribute>
+        </attributes>
+        <object-id>[Perimetre!Migration_64BE9083485F4177BA9F33BFE465B02B]</object-id>
+      </metadata-record>
+      <metadata-record class='column'>
+        <remote-name>Num Semaine</remote-name>
+        <remote-type>130</remote-type>
+        <local-name>[Num Semaine]</local-name>
+        <parent-name>[Perimetre_Migration]</parent-name>
+        <remote-alias>Num Semaine</remote-alias>
+        <ordinal>50</ordinal>
+        <local-type>string</local-type>
+        <aggregation>Count</aggregation>
+        <contains-null>true</contains-null>
+        <collation flag='1' name='LFR_RCH_S2' />
+        <attributes>
+          <attribute datatype='string' name='DebugRemoteType'>&quot;WSTR&quot;</attribute>
+        </attributes>
+        <object-id>[Perimetre!Migration_64BE9083485F4177BA9F33BFE465B02B]</object-id>
+      </metadata-record>
+    </metadata-records>
+  </connection>
+  <aliases enabled='yes' />
+  <column caption='Date Dujour' datatype='date' name='[DateDujour]' role='dimension' type='ordinal' />
+  <column caption='Ref Bi01' datatype='string' name='[REF BI01]' role='dimension' type='nominal' />
+  <column caption='Ref Bi02' datatype='string' name='[REF BI02]' role='dimension' type='nominal' />
+  <column caption='Perimetre_Migration' datatype='table' name='[__tableau_internal_object_id__].[Perimetre!Migration_64BE9083485F4177BA9F33BFE465B02B]' role='measure' type='quantitative' />
+  <layout dim-ordering='alphabetic' measure-ordering='alphabetic' show-structure='true' />
+  <semantic-values>
+    <semantic-value key='[Country].[Name]' value='&quot;Switzerland&quot;' />
+  </semantic-values>
+  <date-options start-of-week='monday' />
+  <object-graph>
+    <objects>
+      <object caption='Perimetre_Migration' id='Perimetre!Migration_64BE9083485F4177BA9F33BFE465B02B'>
+        <properties context=''>
+          <relation connection='excel-direct.1239lh80ji868s1dwdsv20hzowwn' name='Perimetre_Migration' table='[Perimetre_Migration$]' type='table'>
+            <columns gridOrigin='A1:AY10001:no:A1:AY10001:0' header='yes' outcome='2'>
+              <column datatype='date' name='DateDujour' ordinal='0' />
+              <column datatype='string' name='Nom dataset' ordinal='1' />
+              <column datatype='string' name='Type source' ordinal='2' />
+              <column datatype='string' name='Nom source' ordinal='3' />
+              <column datatype='string' name='Description source' ordinal='4' />
+              <column datatype='string' name='Chemin source' ordinal='5' />
+              <column datatype='string' name='Type rapport' ordinal='6' />
+              <column datatype='string' name='Nom rapport' ordinal='7' />
+              <column datatype='string' name='Description rapport' ordinal='8' />
+              <column datatype='string' name='Chemin rapport' ordinal='9' />
+              <column datatype='string' name='Projet' ordinal='10' />
+              <column datatype='string' name='Domaine' ordinal='11' />
+              <column datatype='string' name='Sous-domaine' ordinal='12' />
+              <column datatype='string' name='Métier' ordinal='13' />
+              <column datatype='string' name='PO métier' ordinal='14' />
+              <column datatype='string' name='Utilisation 2023' ordinal='15' />
+              <column datatype='string' name='REF BI01' ordinal='16' />
+              <column datatype='string' name='REF BI02' ordinal='17' />
+              <column datatype='string' name='# Ouverture 2024 (Hors DEV BI)' ordinal='18' />
+              <column datatype='string' name='# Ouverture 2024 (Manual Edition)' ordinal='19' />
+              <column datatype='string' name='# Ouverture 2025 (Hors DEV BI)' ordinal='20' />
+              <column datatype='string' name='# Ouverture 2025 (Manual Edition)' ordinal='21' />
+              <column datatype='string' name='# Utilisateurs 2025 ( Hors Dev BI)' ordinal='22' />
+              <column datatype='string' name='# Utilisateurs 2025 (Manual Edition)' ordinal='23' />
+              <column datatype='integer' name='Utilisateurs' ordinal='24' />
+              <column datatype='string' name='Pertinence de reprise dans le cadre du projet' ordinal='25' />
+              <column datatype='string' name='Commentaire Pertinence' ordinal='26' />
+              <column datatype='string' name='Cibles' ordinal='27' />
+              <column datatype='string' name='Commentaire Cibles' ordinal='28' />
+              <column datatype='string' name='Flux cible BI' ordinal='29' />
+              <column datatype='string' name='Rapport cible BI' ordinal='30' />
+              <column datatype='string' name='Temporalité nécessaire' ordinal='31' />
+              <column datatype='string' name='Temporalité présente dans système source' ordinal='32' />
+              <column datatype='string' name='Rapport cible embedded' ordinal='33' />
+              <column datatype='string' name='Charge' ordinal='34' />
+              <column datatype='date' name='Date d&apos;échéance' ordinal='35' />
+              <column datatype='string' name='Echéance' ordinal='36' />
+              <column datatype='string' name='Priorité' ordinal='37' />
+              <column datatype='string' name='Stratégique' ordinal='38' />
+              <column datatype='string' name='Complexité flux' ordinal='39' />
+              <column datatype='string' name='Complexité viz' ordinal='40' />
+              <column datatype='string' name='Commentaire Complexité' ordinal='41' />
+              <column datatype='string' name='Statut Cadrage conception' ordinal='42' />
+              <column datatype='string' name='Statut Conception' ordinal='43' />
+              <column datatype='string' name='Statut flux' ordinal='44' />
+              <column datatype='string' name='Statut reporting' ordinal='45' />
+              <column datatype='string' name='Date début réalisation' ordinal='46' />
+              <column datatype='string' name='Date de fin livraison Flux' ordinal='47' />
+              <column datatype='date' name='Date de fin de livraison VIZ' ordinal='48' />
+              <column datatype='real' name='F50' ordinal='49' />
+              <column datatype='string' name='Num Semaine' ordinal='50' />
+            </columns>
+          </relation>
+        </properties>
+      </object>
+    </objects>
+  </object-graph>
+</datasource>

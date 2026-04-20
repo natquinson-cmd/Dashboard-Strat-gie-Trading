@@ -1,0 +1,16 @@
+name = "contact-form-handler"
+main = "src/index.js"
+compatibility_date = "2025-10-01"
+
+# Route custom: https://emilie-quinson.com/api/contact
+# Le Worker intercepte ce chemin. Tout le reste va vers Cloudflare Pages.
+routes = [
+  { pattern = "emilie-quinson.com/api/contact", zone_name = "emilie-quinson.com" }
+]
+
+[vars]
+NOTIFY_EMAILS = "natquinson@gmail.com,mimi.deco7@gmail.com"
+FROM_EMAIL = "contact@emilie-quinson.com"
+FROM_NAME = "Emilie Quinson - Choisis la vie"
+
+# BREVO_API_KEY is set via: wrangler secret put BREVO_API_KEY

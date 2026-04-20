@@ -1,0 +1,35 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "QI_Test",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["http-server", ".", "-p", "8090", "-c-1"],
+      "port": 8090
+    },
+    {
+      "name": "ProfilPsy",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["http-server", ".", "-p", "8091", "-c-1"],
+      "port": 8091
+    },
+    {
+      "name": "SongBook",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["http-server", ".", "-p", "8092", "-c-1"],
+      "port": 8092
+    },
+    {
+      "name": "KairosInsider",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["http-server", "./kairos-insider", "-p", "8093", "-c-1"],
+      "port": 8093
+    },
+    {
+      "name": "emilie-static",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["http-server", "./site-static", "-p", "8094", "-c-1"],
+      "port": 8094
+    }
+  ]
+}

@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NeuroTest — Test de QI</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧠</text></svg>">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Patrick+Hand&family=Poppins:wght@400;500;600;700;800;900&display=swap');
+        *{margin:0;padding:0;box-sizing:border-box}
+        :root{
+            --bg:#fafafa;--card-bg:#fff;--text:#2d3436;--text2:#636e72;
+            --accent:#6c5ce7;--accent2:#a29bfe;--success:#00b894;--danger:#e17055;
+            --warning:#fdcb6e;--blue:#74b9ff;--pink:#fd79a8;--green:#55efc4;--orange:#fab1a0;
+            --shadow:0 4px 20px rgba(0,0,0,0.08);--shadow-lg:0 8px 30px rgba(0,0,0,0.12);
+            --border:#e0e0e0;--doodle:'Patrick Hand',cursive;
+        }
+        body{font-family:'Poppins',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
+        .doodle-border{position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:0;overflow:hidden}
+        .doodle-item{position:absolute;font-size:2em;opacity:.18;animation:dFloat 20s ease-in-out infinite}
+        @keyframes dFloat{0%,100%{transform:translateY(0) rotate(0deg)}25%{transform:translateY(-8px) rotate(5deg)}75%{transform:translateY(8px) rotate(-5deg)}}
+        .container{position:relative;z-index:1;max-width:780px;margin:0 auto;padding:25px 20px;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center}
+        .screen{display:none;width:100%;animation:fadeIn .5s ease}
+        .screen.active{display:flex;flex-direction:column;align-items:center}
+        @keyframes fadeIn{from{opacity:0;transform:translateY(15px)}to{opacity:1;transform:translateY(0)}}
+        @keyframes slideIn{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}}
+        @keyframes scaleIn{from{opacity:0;transform:scale(.85)}to{opacity:1;transform:scale(1)}}
+        @keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.08)}}
+        @keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+        @keyframes bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+        @keyframes countUp{from{opacity:0;transform:scale(.5)}to{opacity:1;transform:scale(1)}}
+        @keyframes gradSlide{0%{background-position:0% 0}100%{background-position:200% 0}}
+        .logo{font-size:4.5em;animation:bounce 2s ease infinite;filter:drop-shadow(2px 4px 6px rgba(0,0,0,.1))}
+        .title{font-family:var(--doodle);font-size:3.2em;color:var(--text);text-align:center;text-shadow:2px 2px 0 rgba(108,92,231,.15)}
+        .subtitle{color:var(--text2);font-family:var(--doodle);font-size:1.25em;margin-bottom:30px;text-align:center}
+        .mode-cards{display:grid;grid-template-columns:1fr 1fr;gap:20px;width:100%;max-width:580px}
+        .mode-card{background:var(--card-bg);border:3px dashed var(--border);border-radius:24px;padding:30px 20px;text-align:center;cursor:pointer;transition:all .3s ease;box-shadow:var(--shadow);position:relative;overflow:hidden}
+        .mode-card::after{content:'';position:absolute;top:0;left:0;width:100%;height:6px;border-radius:24px 24px 0 0}
+        .mode-card:first-child::after{background:linear-gradient(90deg,var(--accent),var(--blue))}
+        .mode-card:last-child::after{background:linear-gradient(90deg,var(--pink),var(--orange))}
+        .mode-card:hover{transform:translateY(-6px);box-shadow:var(--shadow-lg);border-color:var(--accent2)}
+        .mode-card .mode-icon{font-size:3.2em;margin-bottom:12px}
+        .mode-card .mode-title{font-family:var(--doodle);font-size:1.5em;margin-bottom:8px}
+        .mode-card .mode-desc{color:var(--text2);font-size:.82em;line-height:1.6}
+        .btn{background:var(--accent);color:#fff;border:3px solid var(--accent);padding:14px 38px;border-radius:50px;font-family:var(--doodle);font-size:1.2em;cursor:pointer;transition:all .3s;box-shadow:0 4px 15px rgba(108,92,231,.3)}
+        .btn:hover{transform:translateY(-2px);box-shadow:0 6px 25px rgba(108,92,231,.4);background:#5a4bd1}
+        .btn-secondary{background:transparent;border:3px dashed var(--accent);color:var(--accent);padding:12px 32px;border-radius:50px;font-family:var(--doodle);font-size:1.1em;cursor:pointer;transition:all .3s}
+        .btn-secondary:hover{background:rgba(108,92,231,.08)}
+        .quiz-header{width:100%;margin-bottom:20px}
+        .quiz-top-bar{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+        .quiz-category{display:inline-flex;align-items:center;gap:8px;background:rgba(108,92,231,.1);border:2px dashed var(--accent2);padding:6px 16px;border-radius:50px;font-family:var(--doodle);font-size:1em;color:var(--accent);font-weight:600}
+        .quiz-counter{color:var(--text2);font-family:var(--doodle);font-size:1.05em}
+        .quiz-counter span{color:var(--accent);font-weight:700}
+        .progress-container{width:100%;height:12px;background:#eee;border-radius:10px;overflow:hidden;border:2px solid #ddd}
+        .progress-bar{height:100%;background:linear-gradient(90deg,var(--accent),var(--pink),var(--blue));border-radius:10px;transition:width .5s;background-size:200% 100%;animation:gradSlide 3s linear infinite}
+        .timer-container{display:flex;align-items:center;gap:10px}
+        .timer-bar-wrap{width:110px;height:10px;background:#eee;border-radius:10px;overflow:hidden;border:2px solid #ddd}
+        .timer-bar{height:100%;border-radius:10px;transition:width .1s linear;background:var(--success)}
+        .timer-bar.warning{background:var(--warning)}.timer-bar.danger{background:var(--danger)}
+        .timer-text{font-size:1.1em;font-weight:700;min-width:35px;text-align:right;font-family:var(--doodle)}
+        .question-card{background:var(--card-bg);border:3px solid var(--border);border-radius:24px;padding:32px;width:100%;box-shadow:var(--shadow);animation:slideIn .4s ease;position:relative}
+        .question-card::before{content:'✏️';position:absolute;top:-12px;right:20px;font-size:1.3em}
+        .question-card::after{content:'💡';position:absolute;bottom:-10px;left:20px;font-size:1.2em}
+        .question-difficulty{display:inline-block;padding:4px 14px;border-radius:20px;font-family:var(--doodle);font-size:.95em;font-weight:600;margin-bottom:12px;border:2px dashed}
+        .diff-easy{background:rgba(0,184,148,.1);color:#00b894;border-color:#00b894}
+        .diff-medium{background:rgba(253,203,110,.2);color:#e17055;border-color:#fdcb6e}
+        .diff-hard{background:rgba(225,112,85,.1);color:#e17055;border-color:#e17055}
+        .question-text{font-size:1.15em;font-weight:600;line-height:1.7;margin-bottom:22px}
+        .question-hint{color:var(--text2);font-size:.85em;margin-bottom:18px;font-style:italic;font-family:var(--doodle);font-size:1em}
+        .options{display:grid;gap:10px;width:100%}
+        .option{background:#fafafa;border:3px solid #e8e8e8;border-radius:16px;padding:15px 18px;cursor:pointer;transition:all .3s;font-family:inherit;font-size:1em;color:var(--text);text-align:left;display:flex;align-items:center;gap:12px}
+        .option:hover:not(.disabled){border-color:var(--accent);background:rgba(108,92,231,.04);transform:translateX(6px)}
+        .option.correct{border-color:var(--success)!important;background:rgba(0,184,148,.1)!important}
+        .option.wrong{border-color:var(--danger)!important;background:rgba(225,112,85,.1)!important;animation:shake .4s}
+        .option.disabled{pointer-events:none;opacity:.65}
+        .option-letter{width:36px;height:36px;border-radius:12px;background:#f0efff;border:2px solid var(--accent2);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.9em;flex-shrink:0;color:var(--accent);font-family:var(--doodle);font-size:1.1em}
+        .option.correct .option-letter{background:var(--success);color:#fff;border-color:var(--success)}
+        .option.wrong .option-letter{background:var(--danger);color:#fff;border-color:var(--danger)}
+        .feedback{display:none;align-items:center;gap:10px;margin-top:15px;padding:12px 18px;border-radius:14px;font-weight:500;animation:scaleIn .3s;font-family:var(--doodle);font-size:1.1em;border:2px dashed}
+        .feedback.show{display:flex}.feedback.correct{background:rgba(0,184,148,.1);color:#00b894;border-color:#00b894}
+        .feedback.wrong{background:rgba(225,112,85,.1);color:#e17055;border-color:#e17055}
+        .memory-display{display:flex;justify-content:center;gap:12px;margin:20px 0;flex-wrap:wrap}
+        .memory-item{width:58px;height:58px;background:var(--accent);border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:1.6em;font-weight:700;color:#fff;animation:scaleIn .3s;box-shadow:0 4px 12px rgba(108,92,231,.3);border:3px solid rgba(255,255,255,.3);font-family:var(--doodle)}
+        .memory-countdown{font-size:1.8em;color:var(--accent);text-align:center;margin:15px 0;animation:pulse 1s ease infinite;font-family:var(--doodle)}
+        .memory-input{width:100%;padding:14px 18px;border-radius:14px;background:#fafafa;border:3px solid var(--border);color:var(--text);font-family:var(--doodle);font-size:1.4em;text-align:center;letter-spacing:6px;outline:none;transition:border-color .3s}
+        .memory-input:focus{border-color:var(--accent)}
+        .memory-input::placeholder{letter-spacing:normal;color:var(--text2);opacity:.5}
+        .validate-btn{margin-top:15px;width:100%}
+        .matrix-grid{display:inline-grid;gap:4px;margin:10px auto 20px;padding:12px;background:rgba(108,92,231,.05);border:2px dashed var(--accent2);border-radius:16px}
+        .matrix-cell{width:55px;height:55px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:1.5em;background:#fff;border:2px solid #e8e8e8}
+        .matrix-cell.highlight{background:rgba(253,203,110,.25);border-color:var(--warning);border-style:dashed}
+        .results-container{width:100%;text-align:center}
+        .iq-display{margin:25px 0;padding:35px;background:var(--card-bg);border:4px dashed var(--accent2);border-radius:30px;box-shadow:var(--shadow-lg);position:relative}
+        .iq-display::before{content:'🏆';position:absolute;top:-18px;left:50%;transform:translateX(-50%);font-size:2em}
+        .iq-label{font-family:var(--doodle);font-size:1.3em;color:var(--text2);margin-bottom:8px}
+        .iq-number{font-size:6em;font-weight:900;color:var(--accent);animation:countUp 1s;font-family:var(--doodle);text-shadow:3px 3px 0 rgba(108,92,231,.15)}
+        .iq-range{font-size:1.5em;font-family:var(--doodle);margin-top:8px;color:var(--text)}
+        .iq-percentile{color:var(--text2);font-family:var(--doodle);font-size:1.1em;margin-top:6px}
+        .iq-margin{color:var(--text2);font-family:var(--doodle);font-size:.95em;margin-top:4px;font-style:italic}
+        .bell-curve-container{margin:25px 0;padding:20px}
+        .bell-curve-container h3{margin-bottom:12px;font-family:var(--doodle);font-size:1.5em}
+        .bell-svg{width:100%;max-width:500px;margin:0 auto;display:block}
+        .categories-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:20px 0;text-align:left}
+        .cat-card{background:var(--card-bg);border:2px dashed var(--border);border-radius:16px;padding:16px;box-shadow:0 2px 10px rgba(0,0,0,.05)}
+        .cat-header{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+        .cat-icon{font-size:1.3em}.cat-name{font-weight:600;font-family:var(--doodle);font-size:1.05em}
+        .cat-bar-bg{width:100%;height:10px;background:#eee;border-radius:10px;overflow:hidden;border:2px solid #ddd}
+        .cat-bar-fill{height:100%;border-radius:10px;transition:width 1.5s}
+        .cat-score{font-size:.82em;color:var(--text2);margin-top:5px;font-family:var(--doodle);font-size:.95em}
+        .stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin:22px 0}
+        .stat-card{background:var(--card-bg);border:2px dashed var(--border);border-radius:16px;padding:16px;text-align:center;box-shadow:0 2px 10px rgba(0,0,0,.05)}
+        .stat-value{font-size:2.2em;font-weight:800;color:var(--accent);font-family:var(--doodle)}
+        .stat-label{font-size:.78em;color:var(--text2);margin-top:4px;font-family:var(--doodle);font-size:.9em}
+        .disclaimer{background:rgba(253,203,110,.15);border:2px dashed #fdcb6e;border-radius:14px;padding:15px;margin-top:18px;font-size:.82em;color:#e17055;line-height:1.6;text-align:left}
+        .info-text{color:var(--text2);margin-top:25px;text-align:center;max-width:520px;line-height:1.6;font-family:var(--doodle);font-size:1em;background:rgba(108,92,231,.05);padding:14px 20px;border-radius:14px;border:2px dashed rgba(108,92,231,.2)}
+        .btn-quit{background:transparent;border:2px dashed var(--danger);color:var(--danger);padding:6px 16px;border-radius:50px;font-family:var(--doodle);font-size:.9em;cursor:pointer;transition:all .3s}
+        .btn-quit:hover{background:rgba(225,112,85,.1)}
+        .modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.6);backdrop-filter:blur(6px);z-index:1000;display:flex;align-items:center;justify-content:center;animation:fadeIn .25s}
+        .modal-box{background:var(--card-bg);border:3px dashed var(--danger);border-radius:24px;padding:35px;max-width:420px;width:90%;text-align:center;animation:scaleIn .3s;box-shadow:var(--shadow-lg)}
+        .modal-box h3{font-family:var(--doodle);font-size:1.4em;margin-bottom:10px}
+        .modal-box p{color:var(--text2);font-size:.9em;margin-bottom:20px;line-height:1.5}
+        .modal-actions{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+        .badge-semi{display:inline-block;background:linear-gradient(135deg,var(--accent),#9333ea);color:#fff;padding:3px 12px;border-radius:20px;font-size:.8em;font-family:var(--doodle);margin-bottom:8px}
+        @media(max-width:600px){
+            .mode-cards,.categories-grid{grid-template-columns:1fr}
+            .stats-grid{grid-template-columns:1fr 1fr}
+            .title{font-size:2.4em}.iq-number{font-size:4em!important}
+            .question-text{font-size:1em}.memory-item{width:46px;height:46px;font-size:1.2em}
+            .doodle-item{font-size:1.4em}.matrix-cell{width:42px;height:42px;font-size:1.1em}
+        }
+    </style>
+</head>
+<body>
+<div class="doodle-border" id="doodle-border"></div>
+<div class="container">
+    <!-- WELCOME -->
+    <div class="screen active" id="screen-welcome">
+        <div class="logo">🧠</div>
+        <div class="title">NeuroTest</div>
+        <div class="subtitle">Découvre le pouvoir de ton cerveau !</div>
+        <div class="mode-cards">
+            <div class="mode-card" onclick="selectMode('adult')">
+                <div class="mode-icon">🎓</div>
+                <div class="mode-title">Mode Adulte</div>
+                <div class="mode-desc"><span class="badge-semi">Semi-pro</span><br>90 questions • 8 catégories<br>Mémoire inversée + Matrices<br>~40 minutes</div>
+            </div>
+            <div class="mode-card" onclick="selectMode('child')">
+                <div class="mode-icon">🌟</div>
+                <div class="mode-title">Mode Enfant</div>
+                <div class="mode-desc"><span class="badge-semi">Semi-pro</span><br>65 questions • 8 catégories<br>Adapté 8-14 ans<br>~30 minutes</div>
+            </div>
+        </div>
+        <div class="info-text">
+            8 dimensions cognitives : logique numérique, verbal, mémoire (directe + inversée),
+            calcul, abstraction, déduction, matrices visuelles et vitesse de traitement.<br>
+            ⏱️ Le chronomètre influence le score — répondez vite ET juste !<br>
+            📊 Marge d'erreur estimée : <strong>±5 points</strong>
+        </div>
+    </div>
+    <!-- QUIZ -->
+    <div class="screen" id="screen-quiz">
+        <div class="quiz-header">
+            <div class="quiz-top-bar">
+                <div class="quiz-category" id="quiz-category"></div>
+                <div style="display:flex;align-items:center;gap:12px">
+                    <div class="timer-container">
+                        <div class="timer-bar-wrap"><div class="timer-bar" id="timer-bar"></div></div>
+                        <div class="timer-text" id="timer-text">30s</div>
+                    </div>
+                    <button class="btn-quit" onclick="confirmQuit()">✕ Quitter</button>
+                </div>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+                <div class="quiz-counter">Question <span id="q-current">1</span> / <span id="q-total">90</span></div>
+                <div style="color:var(--accent);font-weight:700;font-family:var(--doodle);font-size:1.1em" id="score-display">⭐ 0 pts</div>
+            </div>
+            <div class="progress-container"><div class="progress-bar" id="progress-bar" style="width:0%"></div></div>
+        </div>
+        <div class="question-card" id="question-card">
+            <div class="question-difficulty diff-easy" id="q-difficulty">Facile</div>
+            <div class="question-text" id="q-text"></div>
+            <div class="question-hint" id="q-hint" style="display:none"></div>
+            <div id="matrix-zone" style="display:none"></div>
+            <div id="memory-zone" style="display:none">
+                <div class="memory-display" id="memory-display"></div>
+                <div class="memory-countdown" id="memory-countdown"></div>
+                <input type="text" class="memory-input" id="memory-input" placeholder="Entrez la séquence..." style="display:none" autocomplete="off">
+                <button class="btn validate-btn" id="memory-validate" style="display:none" onclick="validateMemory()">✅ Valider</button>
+            </div>
+            <div class="options" id="options-zone"></div>
+            <div class="feedback" id="feedback"><span id="feedback-icon"></span><span id="feedback-text"></span></div>
+        </div>
+    </div>
+    <!-- QUIT MODAL -->
+    <div id="quit-modal" class="modal-overlay" style="display:none;">
+        <div class="modal-box">
+            <div style="font-size:2.5em;margin-bottom:12px">⚠️</div>
+            <h3>Quitter le test ?</h3>
+            <p>Votre progression sera perdue et vos réponses ne seront pas sauvegardées.</p>
+            <div class="modal-actions">
+                <button class="btn-secondary" onclick="closeQuit()">Continuer le test</button>
+                <button class="btn-quit" style="padding:12px 28px;font-size:1em" onclick="quitTest()">Quitter</button>
+            </div>
+        </div>
+    </div>
+    <!-- RESULTS -->
+    <div class="screen" id="screen-results">
+        <div class="results-container">
+            <div class="logo">🧠</div>
+            <div class="title" style="font-size:2em">Résultats</div>
+            <div class="iq-display">
+                <div class="iq-label">Votre QI estimé</div>
+                <div class="iq-number" id="iq-number">100</div>
+                <div class="iq-range" id="iq-range"></div>
+                <div class="iq-percentile" id="iq-percentile"></div>
+                <div class="iq-margin" id="iq-margin"></div>
+            </div>
+            <div class="bell-curve-container">
+                <h3>📊 Distribution du QI</h3>
+                <svg class="bell-svg" viewBox="0 0 500 200" id="bell-svg"></svg>
+            </div>
+            <div class="stats-grid">
+                <div class="stat-card"><div class="stat-value" id="stat-correct">0</div><div class="stat-label">Bonnes réponses</div></div>
+                <div class="stat-card"><div class="stat-value" id="stat-time">0s</div><div class="stat-label">Temps moyen</div></div>
+                <div class="stat-card"><div class="stat-value" id="stat-accuracy">0%</div><div class="stat-label">Précision</div></div>
+                <div class="stat-card"><div class="stat-value" id="stat-speed">0</div><div class="stat-label">Score vitesse</div></div>
+            </div>
+            <h3 style="margin-bottom:5px;font-family:var(--doodle);font-size:1.5em">📋 Performance par catégorie</h3>
+            <div class="categories-grid" id="categories-grid"></div>
+            <div class="disclaimer">
+                ⚠️ <strong>Avertissement :</strong> Ce test semi-professionnel (90 questions, 8 catégories, marge ±5 pts) offre une bonne estimation mais ne remplace pas une évaluation psychométrique clinique (WAIS-IV, WISC-V). Pour un diagnostic officiel, consultez un psychologue qualifié.
+            </div>
+            <div style="margin-top:25px;display:flex;gap:15px;justify-content:center;flex-wrap:wrap">
+                <button class="btn" onclick="location.reload()">🔄 Recommencer</button>
+                <button class="btn-secondary" onclick="shareWhatsApp()">💬 WhatsApp</button>
+                <button class="btn-secondary" onclick="shareEmail()">📧 Email</button>
+                <button class="btn-secondary" onclick="copyResults()">📋 Copier</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// ===== DOODLES =====
+const DL=['🧠','🔬','🧪','📐','📏','🔢','💡','⚡','🎯','📊','🧮','🔭','📖','✏️','🎨','⚙️','🧲','🌡️','💊','🔋','📝','🗂️','📌','🏆','⭐','🎲','🧩','🔍','💭','📎','🌀','⚛️','🧬','🔑','📚','🎓','🏅','✨','🌈','🎪'];
+!function(){const c=document.getElementById('doodle-border'),p=[];
+for(let i=0;i<13;i++)p.push({l:`${4+i*7.5}%`,t:`${Math.random()*5+1}%`});
+for(let i=0;i<13;i++)p.push({l:`${4+i*7.5}%`,t:`${93+Math.random()*5}%`});
+for(let i=0;i<7;i++)p.push({l:`${Math.random()*5+1}%`,t:`${12+i*12}%`});
+for(let i=0;i<7;i++)p.push({l:`${94+Math.random()*4}%`,t:`${12+i*12}%`});
+p.forEach((v,i)=>{const e=document.createElement('div');e.className='doodle-item';e.textContent=DL[i%DL.length];e.style.left=v.l;e.style.top=v.t;e.style.animationDelay=Math.random()*5+'s';e.style.animationDuration=(15+Math.random()*10)+'s';e.style.transform=`rotate(${Math.random()*40-20}deg)`;c.appendChild(e)})}();
+
+// ===== CATEGORIES =====
+const CATS={
+    numeric:{name:'Suites numériques',icon:'🔢',color:'#6c5ce7'},
+    verbal:{name:'Logique verbale',icon:'📝',color:'#74b9ff'},
+    memory:{name:'Mémoire de travail',icon:'🧩',color:'#fd79a8'},
+    calcul:{name:'Calcul mental',icon:'🧮',color:'#e17055'},
+    abstract:{name:'Raisonnement abstrait',icon:'🔷',color:'#00b894'},
+    deduction:{name:'Déduction logique',icon:'🔍',color:'#e84393'},
+    matrices:{name:'Matrices visuelles',icon:'🔲',color:'#0984e3'},
+    speed:{name:'Vitesse de traitement',icon:'⚡',color:'#fdcb6e'}
+};
+
+// ===== ADULT QUESTIONS (90) =====
+const ADULT_Q=[
+// --- NUMERIC (12) ---
+{cat:'numeric',d:1,text:'Quel nombre complète la suite ?\n2,  6,  18,  54,  ?',opts:['108','162','148','216'],ans:1,hint:'Rapport entre chaque terme.'},
+{cat:'numeric',d:1,text:'Quel nombre complète la suite ?\n4,  9,  16,  25,  36,  ?',opts:['42','47','49','51'],ans:2,hint:'Pensez aux carrés.'},
+{cat:'numeric',d:1,text:'Quel nombre complète la suite ?\n1000,  500,  250,  125,  ?',opts:['75','62.5','50','100'],ans:1,hint:'On divise par 2.'},
+{cat:'numeric',d:2,text:'Quel nombre complète la suite ?\n1,  1,  2,  3,  5,  8,  ?',opts:['11','12','13','15'],ans:2,hint:'Somme des 2 précédents.'},
+{cat:'numeric',d:2,text:'Quel nombre complète la suite ?\n3,  5,  9,  17,  33,  ?',opts:['49','57','65','61'],ans:2,hint:'×2 puis −1 ?'},
+{cat:'numeric',d:2,text:'Quel nombre complète la suite ?\n2,  3,  5,  7,  11,  13,  ?',opts:['15','17','19','21'],ans:1,hint:'Nombres premiers.'},
+{cat:'numeric',d:2,text:'Quel nombre complète la suite ?\n2,  5,  10,  17,  26,  ?',opts:['35','37','39','41'],ans:1,hint:'Les écarts augmentent de 2.'},
+{cat:'numeric',d:3,text:'Quel nombre complète la suite ?\n100,  81,  64,  49,  36,  ?',opts:['16','20','25','30'],ans:2,hint:'Carrés parfaits décroissants.'},
+{cat:'numeric',d:3,text:'Quel nombre complète la suite ?\n1,  3,  6,  10,  15,  21,  ?',opts:['25','27','28','30'],ans:2,hint:'Nombres triangulaires.'},
+{cat:'numeric',d:3,text:'Quel nombre complète la suite ?\n8,  27,  64,  125,  ?',opts:['196','200','216','225'],ans:2,hint:'Cubes parfaits.'},
+{cat:'numeric',d:3,text:'Quel nombre complète la suite ?\n1,  2,  6,  24,  120,  ?',opts:['240','600','720','840'],ans:2,hint:'Factorielles.'},
+{cat:'numeric',d:3,text:'Quel nombre complète la suite ?\n0,  1,  3,  7,  15,  31,  ?',opts:['47','55','63','71'],ans:2,hint:'×2 puis +1.'},
+
+// --- VERBAL (12) ---
+{cat:'verbal',d:1,text:'Complétez l\'analogie :\nChaud est à Froid ce que Lumineux est à ... ?',opts:['Brillant','Sombre','Clair','Éteint'],ans:1,hint:'Antonyme.'},
+{cat:'verbal',d:1,text:'Complétez l\'analogie :\nLivre est à Bibliothèque ce que Tableau est à ... ?',opts:['Galerie','Musée','Peinture','Cadre'],ans:1,hint:'Lieu de collection.'},
+{cat:'verbal',d:1,text:'Complétez :\nCouteau est à Couper ce que Marteau est à ... ?',opts:['Frapper','Clou','Construire','Bois'],ans:0,hint:'Outil → action.'},
+{cat:'verbal',d:1,text:'Complétez :\nEau est à Liquide ce que Glace est à ... ?',opts:['Froid','Solide','Transparent','Dur'],ans:1,hint:'État de la matière.'},
+{cat:'verbal',d:2,text:'Quel mot n\'appartient PAS au groupe ?\nPomme, Banane, Carotte, Orange, Fraise',opts:['Pomme','Banane','Carotte','Fraise'],ans:2,hint:'Intrus par catégorie.'},
+{cat:'verbal',d:2,text:'Complétez :\nArbre est à Forêt ce que Étoile est à ... ?',opts:['Ciel','Galaxie','Lune','Constellation'],ans:1,hint:'Élément → ensemble.'},
+{cat:'verbal',d:2,text:'Complétez :\nAbeille est à Ruche ce que Fourmi est à ... ?',opts:['Fourmilière','Terrier','Nid','Colonie'],ans:0,hint:'Habitat.'},
+{cat:'verbal',d:2,text:'Quel est l\'intrus ?\nPiano, Violon, Trompette, Guitare, Harpe',opts:['Piano','Trompette','Guitare','Harpe'],ans:1,hint:'Famille d\'instruments.'},
+{cat:'verbal',d:2,text:'Quel est le synonyme le plus proche de "Éphémère" ?',opts:['Éternel','Temporaire','Fragile','Invisible'],ans:1,hint:'Qui ne dure pas.'},
+{cat:'verbal',d:3,text:'Quel est l\'intrus si on ajoute Pluton à : Mercure, Vénus, Mars ?',opts:['Mercure (trop petit)','Vénus (pas de lune)','Pluton (planète naine)','Mars (trop loin)'],ans:2,hint:'Statut astronomique.'},
+{cat:'verbal',d:3,text:'Complétez :\nChirurgien est à Scalpel ce que Peintre est à ... ?',opts:['Toile','Couleur','Pinceau','Chevalet'],ans:2,hint:'Outil principal.'},
+{cat:'verbal',d:3,text:'Quel mot a un lien avec les trois autres ?\nFeuille — Courant — Chute',opts:['Arbre','Eau','Automne','Électricité'],ans:1,hint:'Un mot peut accompagner les trois.'},
+
+// --- MEMORY DIRECT (5) ---
+{cat:'memory',d:1,type:'memory',seq:[3,7,1,9],dt:4000,text:'Mémorisez cette séquence puis reproduisez-la.',ans:'3719'},
+{cat:'memory',d:2,type:'memory',seq:[5,2,8,4,6],dt:5000,text:'Mémorisez cette séquence de 5 chiffres.',ans:'52846'},
+{cat:'memory',d:2,type:'memory',seq:[8,1,4,7,3],dt:5000,text:'Mémorisez cette séquence puis reproduisez-la.',ans:'81473'},
+{cat:'memory',d:3,type:'memory',seq:[9,3,7,1,5,8],dt:5000,text:'Mémorisez cette séquence de 6 chiffres.',ans:'937158'},
+{cat:'memory',d:3,type:'memory',seq:[4,1,8,2,6,9,3],dt:6000,text:'Mémorisez cette séquence de 7 chiffres.',ans:'4182693'},
+// --- MEMORY INVERSE (5) ---
+{cat:'memory',d:2,type:'memory',sub:'reverse',seq:[6,2,9],dt:4000,text:'Mémorisez cette séquence puis reproduisez-la À L\'ENVERS.',ans:'926'},
+{cat:'memory',d:2,type:'memory',sub:'reverse',seq:[4,7,1,5],dt:5000,text:'Mémorisez puis écrivez À L\'ENVERS (du dernier au premier).',ans:'5174'},
+{cat:'memory',d:3,type:'memory',sub:'reverse',seq:[3,8,1,5,2],dt:5000,text:'Mémorisez puis reproduisez À L\'ENVERS.',ans:'25183'},
+{cat:'memory',d:3,type:'memory',sub:'reverse',seq:[7,2,9,4,1,6],dt:6000,text:'Mémorisez ces 6 chiffres puis écrivez-les À L\'ENVERS.',ans:'614927'},
+{cat:'memory',d:3,type:'memory',seq:[6,2,9,5,1,7,3,8],dt:7000,text:'Mémorisez cette séquence de 8 chiffres !',ans:'62951738'},
+
+// --- CALCUL (11) ---
+{cat:'calcul',d:1,text:'Calculez mentalement :\n17 × 6 = ?',opts:['96','102','108','112'],ans:1},
+{cat:'calcul',d:1,text:'Calculez :\n135 + 67 = ?',opts:['192','202','212','198'],ans:1},
+{cat:'calcul',d:1,text:'Si 3 articles coûtent 15€, combien coûtent 7 articles ?',opts:['30€','35€','40€','45€'],ans:1},
+{cat:'calcul',d:2,text:'Calculez :\n248 + 175 − 89 = ?',opts:['324','334','344','314'],ans:1},
+{cat:'calcul',d:2,text:'Un article coûte 80€ avec 15% de réduction.\nQuel est le prix ?',opts:['65€','68€','70€','72€'],ans:1},
+{cat:'calcul',d:2,text:'Calculez :\n3/4 de 240 = ?',opts:['160','170','180','190'],ans:2},
+{cat:'calcul',d:2,text:'Calculez :\n1,5 × 2,4 = ?',opts:['3,2','3,4','3,6','3,8'],ans:2},
+{cat:'calcul',d:2,text:'25% de 360 = ?',opts:['72','80','90','100'],ans:2},
+{cat:'calcul',d:3,text:'Calculez :\n(144 ÷ 12) + (13 × 7) = ?',opts:['99','101','103','105'],ans:2},
+{cat:'calcul',d:3,text:'Placement de 1000€ à 5%/an, intérêts composés.\nAprès 2 ans ?',opts:['1100€','1102,50€','1105€','1110,25€'],ans:1},
+{cat:'calcul',d:3,text:'Calculez :\n√144 + √81 = ?',opts:['19','21','23','25'],ans:1},
+
+// --- ABSTRACT (10) ---
+{cat:'abstract',d:1,text:'Quelle figure complète la séquence ?\n○  ●  ○  ●  ○  ?',opts:['○','●','◐','◑'],ans:1,hint:'Alternance.'},
+{cat:'abstract',d:1,text:'Quelle suite ?\n↑  →  ↓  ←  ↑  →  ?',opts:['↑','↓','←','→'],ans:1,hint:'Rotation horaire.'},
+{cat:'abstract',d:2,text:'Quelle figure ?\n▲  ▲▲  ▲▲▲  ▲▲▲▲  ?',opts:['▲▲▲▲▲','▲▲▲','▲▲▲▲▲▲','▲▲▲▲'],ans:0,hint:'Comptez.'},
+{cat:'abstract',d:2,text:'Quel motif ?\n🔴🔵🟢  →  🔵🟢🔴  →  🟢🔴🔵  →  ?',opts:['🔴🔵🟢','🟢🔵🔴','🔵🔴🟢','🔴🟢🔵'],ans:0,hint:'Rotation.'},
+{cat:'abstract',d:2,text:'Quel motif ?\n🔺  🔺🔻  🔺🔻🔺  🔺🔻🔺🔻  ?',opts:['🔺🔻🔺🔻🔺','🔻🔺🔻🔺🔻','🔺🔺🔻🔻🔺','🔻🔺🔺🔻🔺'],ans:0,hint:'Alternance croissante.'},
+{cat:'abstract',d:2,text:'Quel symbole ?\n♠  ♥  ♦  ♣  ♠  ♥  ?',opts:['♠','♥','♦','♣'],ans:2,hint:'Cycle de 4.'},
+{cat:'abstract',d:3,text:'Trouvez la règle :\nA=1, C=3, F=6, J=10 → lettre suivante ?',opts:['M','N','O','P'],ans:2,hint:'Écarts croissants.'},
+{cat:'abstract',d:3,text:'Quelle suite ?\n1, 11, 21, 1211, ?',opts:['111221','1231','2211','13211'],ans:0,hint:'Décrivez chaque nombre à voix haute.'},
+{cat:'abstract',d:3,text:'Motif ?\n🔵(1) → 🔴(2) → 🔵(3) → 🔴(4) → 🔵(?) ',opts:['4','5','6','7'],ans:1,hint:'Couleur alterne, nombre +1.'},
+{cat:'abstract',d:3,text:'Suite :\n○● → ○○●● → ○○○●●● → ?',opts:['○○○○●●●●','○●○●○●○●','○○●●○○●●','●●●●○○○○'],ans:0,hint:'n cercles vides + n cercles pleins.'},
+
+// --- DEDUCTION (10) ---
+{cat:'deduction',d:1,text:'Tous les chats ont des moustaches.\nFelix est un chat.\nConclusion ?',opts:['Felix n\'a peut-être pas de moustaches','Felix a des moustaches','Tous les animaux à moustaches sont des chats','Felix est un félin'],ans:1},
+{cat:'deduction',d:1,text:'Tous les carrés sont des rectangles.\nTous les rectangles ont 4 côtés.\nConclusion ?',opts:['Tous les carrés ont 4 côtés','Tous les rectangles sont des carrés','Les triangles sont des rectangles','Rien'],ans:0},
+{cat:'deduction',d:2,text:'Alice > Bob en taille. Bob > Claire.\nDavid > Alice.\nQui est le plus petit ?',opts:['Alice','Bob','Claire','David'],ans:2,hint:'Classez-les.'},
+{cat:'deduction',d:2,text:'Si tous les médecins sont diplômés, et certains diplômés sont chercheurs, certains médecins sont-ils chercheurs ?',opts:['Oui forcément','Pas nécessairement','Oui tous','Impossible à dire'],ans:1,hint:'Attention au syllogisme.'},
+{cat:'deduction',d:2,text:'Lundi il pleut. Mardi il fait beau. Mercredi il pleut.\nSi le motif continue, quel temps jeudi ?',opts:['Pluie','Beau','Neige','On ne sait pas'],ans:1,hint:'Alternance.'},
+{cat:'deduction',d:2,text:'3 amis : chat, chien, poisson.\nPaul n\'a ni chat ni chien. Marie n\'a pas de chien.\nQui a le chien ?',opts:['Paul','Marie','Léo','On ne sait pas'],ans:2,hint:'Élimination.'},
+{cat:'deduction',d:3,text:'A devant B, C derrière D,\nB devant D, E entre A et B.\nQui est dernier ?',opts:['B','C','D','E'],ans:1,hint:'Reconstituez l\'ordre.'},
+{cat:'deduction',d:3,text:'Dans un groupe : certains portent des lunettes, tous ceux qui portent des lunettes lisent beaucoup, certains qui lisent beaucoup sont professeurs.\nPeut-on dire que certains porteurs de lunettes sont professeurs ?',opts:['Oui forcément','Pas nécessairement','Oui tous','Non jamais'],ans:1},
+{cat:'deduction',d:3,text:'5 maisons de couleurs différentes en ligne.\nLa rouge est à gauche de la bleue. La verte est au milieu.\nLa jaune est à côté de la verte. La blanche est à droite.\nOù est la rouge ?',opts:['Position 1','Position 2','Position 3','Position 4'],ans:0,hint:'Procédez par déduction.'},
+{cat:'deduction',d:3,text:'A dit la vérité, B ment toujours.\nA dit : "B dirait que je suis un menteur."\nEst-ce cohérent ?',opts:['Oui, c\'est cohérent','Non, c\'est contradictoire','On manque d\'info','A ment aussi'],ans:0,hint:'Si A dit vrai, que dirait B ?'},
+
+// --- MATRICES (10) ---
+{cat:'matrices',d:1,text:'Quelle forme remplace le ❓ ?',matrix:{cols:3,cells:['⬛','⬜','⬛','⬜','⬛','⬜','⬛','⬜','❓']},opts:['⬛','⬜','🔲','⬛⬜'],ans:0,hint:'Damier.'},
+{cat:'matrices',d:1,text:'Quelle forme remplace le ❓ ?',matrix:{cols:3,cells:['●','●','○','●','○','○','○','○','❓']},opts:['●','○','◐','◑'],ans:1,hint:'● décroît par ligne.'},
+{cat:'matrices',d:1,text:'Quelle forme remplace le ❓ ?',matrix:{cols:3,cells:['🔴','🔴','🔴','🔵','🔵','🔵','🟢','🟢','❓']},opts:['🔴','🔵','🟢','🟡'],ans:2,hint:'Chaque ligne = même couleur.'},
+{cat:'matrices',d:2,text:'Quelle forme remplace le ❓ ?',matrix:{cols:3,cells:['🔴','🔵','🟢','🔵','🟢','🔴','🟢','🔴','❓']},opts:['🔴','🔵','🟢','🟡'],ans:1,hint:'Chaque couleur 1× par ligne et colonne.'},
+{cat:'matrices',d:2,text:'Quelle forme remplace le ❓ ?',matrix:{cols:3,cells:['▲','▲▲','▲▲▲','▲▲','▲▲▲','▲▲▲▲','▲▲▲','▲▲▲▲','❓']},opts:['▲▲▲▲','▲▲▲▲▲','▲▲▲','▲▲'],ans:1,hint:'Nombre croissant.'},
+{cat:'matrices',d:2,text:'Quel nombre remplace le ❓ ?',matrix:{cols:3,cells:['2','4','6','3','6','9','4','8','❓']},opts:['10','12','14','16'],ans:1,hint:'Observez les lignes.'},
+{cat:'matrices',d:2,text:'Quelle forme remplace le ❓ ?',matrix:{cols:3,cells:['○','●','○','●','○','●','○','●','❓']},opts:['●','○','◐','◑'],ans:0,hint:'Damier.'},
+{cat:'matrices',d:3,text:'Quel nombre remplace le ❓ ?',matrix:{cols:3,cells:['1','2','3','2','4','6','3','6','❓']},opts:['7','8','9','12'],ans:2,hint:'Produit ou motif.'},
+{cat:'matrices',d:3,text:'Quelle forme remplace le ❓ ?',matrix:{cols:3,cells:['⬛⬛','⬛⬜','⬜⬜','⬛⬜','⬜⬜','⬜⬛','⬜⬜','⬜⬛','❓']},opts:['⬛⬛','⬛⬜','⬜⬛','⬜⬜'],ans:0,hint:'Transformation par ligne.'},
+{cat:'matrices',d:3,text:'Quel nombre remplace le ❓ ?',matrix:{cols:3,cells:['5','3','8','7','2','9','4','6','❓']},opts:['8','10','11','12'],ans:1,hint:'Relation entre colonnes.'},
+
+// --- SPEED (12) ---
+{cat:'speed',d:1,text:'⚡ VITESSE ⚡\n37 est-il pair ou impair ?',opts:['Pair','Impair'],ans:1,time:8},
+{cat:'speed',d:1,text:'⚡ VITESSE ⚡\nQuel est le plus grand : 847 ou 874 ?',opts:['847','874'],ans:1,time:8},
+{cat:'speed',d:1,text:'⚡ VITESSE ⚡\n6 + 7 = ?',opts:['12','13','14','15'],ans:1,time:6},
+{cat:'speed',d:1,text:'⚡ VITESSE ⚡\nQuelle lettre vient après M ?',opts:['L','N','O','K'],ans:1,time:6},
+{cat:'speed',d:2,text:'⚡ VITESSE ⚡\n15 + 28 = ?',opts:['42','43','44','45'],ans:1,time:10},
+{cat:'speed',d:2,text:'⚡ VITESSE ⚡\nCombien de voyelles dans "ALGORITHME" ?',opts:['3','4','5','6'],ans:1,time:12},
+{cat:'speed',d:2,text:'⚡ VITESSE ⚡\nJour après mercredi + 2 jours ?',opts:['Jeudi','Vendredi','Samedi','Dimanche'],ans:1,time:8},
+{cat:'speed',d:2,text:'⚡ VITESSE ⚡\n12 × 9 = ?',opts:['98','108','118','96'],ans:1,time:8},
+{cat:'speed',d:2,text:'⚡ VITESSE ⚡\n"POMME" épelé à l\'envers ?',opts:['EMMOP','EMPOM','EPMOM','EPMMO'],ans:0,time:10},
+{cat:'speed',d:3,text:'⚡ VITESSE ⚡\nSi A=1, B=2... C + D = ?',opts:['5','6','7','8'],ans:2,time:10},
+{cat:'speed',d:3,text:'⚡ VITESSE ⚡\n256 est-il un carré parfait ?',opts:['Oui','Non'],ans:0,time:8},
+{cat:'speed',d:3,text:'⚡ VITESSE ⚡\nCombien font 3² + 4² ?',opts:['20','24','25','7'],ans:2,time:10},
+// extra speed
+{cat:'speed',d:1,text:'⚡ VITESSE ⚡\nRouge + Jaune = quelle couleur ?',opts:['Violet','Orange','Vert','Marron'],ans:1,time:6},
+{cat:'speed',d:2,text:'⚡ VITESSE ⚡\nCombien de côtés a un hexagone ?',opts:['5','6','7','8'],ans:1,time:6},
+{cat:'speed',d:2,text:'⚡ VITESSE ⚡\nMoitié de 78 ?',opts:['36','38','39','42'],ans:2,time:8},
+{cat:'speed',d:3,text:'⚡ VITESSE ⚡\n7 × 8 − 6 = ?',opts:['48','50','52','56'],ans:1,time:10},
+];
+
+// ===== CHILD QUESTIONS (65) =====
+const CHILD_Q=[
+// NUMERIC (9)
+{cat:'numeric',d:1,text:'Quel nombre vient après ?\n2,  4,  6,  8,  ?',opts:['9','10','11','12'],ans:1,hint:'On ajoute toujours le même.'},
+{cat:'numeric',d:1,text:'Complète :\n5,  10,  15,  20,  ?',opts:['22','25','30','35'],ans:1,hint:'Table de 5 !'},
+{cat:'numeric',d:1,text:'Complète :\n3,  6,  9,  12,  ?',opts:['14','15','16','18'],ans:1,hint:'Table de 3 !'},
+{cat:'numeric',d:1,text:'Complète :\n10,  20,  30,  40,  ?',opts:['45','50','55','60'],ans:1,hint:'On ajoute 10.'},
+{cat:'numeric',d:2,text:'Complète :\n1,  2,  4,  8,  ?',opts:['10','12','14','16'],ans:3,hint:'On double.'},
+{cat:'numeric',d:2,text:'Complète :\n1,  4,  9,  16,  ?',opts:['20','24','25','32'],ans:2,hint:'1×1, 2×2, 3×3...'},
+{cat:'numeric',d:2,text:'Complète :\n100,  90,  80,  70,  ?',opts:['50','55','60','65'],ans:2,hint:'On retire 10.'},
+{cat:'numeric',d:2,text:'Complète :\n1,  3,  5,  7,  9,  ?',opts:['10','11','12','13'],ans:1,hint:'Nombres impairs.'},
+{cat:'numeric',d:3,text:'Complète :\n2,  3,  5,  7,  11,  ?',opts:['12','13','14','15'],ans:1,hint:'Nombres premiers.'},
+
+// VERBAL (9)
+{cat:'verbal',d:1,text:'Complète :\nChien est à Niche ce que Oiseau est à ... ?',opts:['Arbre','Nid','Plume','Ciel'],ans:1,hint:'Où habite l\'oiseau ?'},
+{cat:'verbal',d:1,text:'Quel est l\'intrus ?\nChien, Chat, Poisson, Table, Hamster',opts:['Chien','Poisson','Table','Hamster'],ans:2,hint:'Pas un animal.'},
+{cat:'verbal',d:1,text:'Complète :\nOeil est à Voir ce que Oreille est à ... ?',opts:['Parler','Sentir','Entendre','Toucher'],ans:2,hint:'Fonction de l\'organe.'},
+{cat:'verbal',d:1,text:'Complète :\nPomme est à Fruit ce que Salade est à ... ?',opts:['Vert','Légume','Jardin','Repas'],ans:1,hint:'Catégorie.'},
+{cat:'verbal',d:2,text:'Complète :\nDoigt est à Main ce que Orteil est à ... ?',opts:['Jambe','Chaussure','Pied','Genou'],ans:2,hint:'Où sont les orteils ?'},
+{cat:'verbal',d:2,text:'Intrus ?\nRouge, Bleu, Grand, Vert, Jaune',opts:['Rouge','Bleu','Grand','Vert'],ans:2,hint:'Pas une couleur.'},
+{cat:'verbal',d:2,text:'Complète :\nRoi est à Reine ce que Prince est à ... ?',opts:['Château','Princesse','Couronne','Royaume'],ans:1,hint:'Version féminine.'},
+{cat:'verbal',d:2,text:'Intrus ?\nVoiture, Bus, Avion, Train, Vélo',opts:['Voiture','Bus','Avion','Vélo'],ans:2,hint:'Pas sur la route ou les rails.'},
+{cat:'verbal',d:3,text:'Complète :\nChapeau est à Tête ce que Chaussure est à ... ?',opts:['Marcher','Pied','Lacet','Sol'],ans:1,hint:'Où le met-on ?'},
+
+// MEMORY (7)
+{cat:'memory',d:1,type:'memory',seq:[3,7,2],dt:4000,text:'Mémorise ces chiffres !',ans:'372'},
+{cat:'memory',d:1,type:'memory',seq:[5,1,8],dt:4000,text:'Mémorise ces 3 chiffres !',ans:'518'},
+{cat:'memory',d:2,type:'memory',seq:[5,1,8,4],dt:5000,text:'Mémorise ces 4 chiffres !',ans:'5184'},
+{cat:'memory',d:2,type:'memory',seq:[6,3,9,2,7],dt:6000,text:'Mémorise ces 5 chiffres !',ans:'63927'},
+{cat:'memory',d:2,type:'memory',sub:'reverse',seq:[4,7,2],dt:4000,text:'Mémorise puis écris À L\'ENVERS !',ans:'274'},
+{cat:'memory',d:3,type:'memory',sub:'reverse',seq:[3,8,1,5],dt:5000,text:'Mémorise puis écris À L\'ENVERS !',ans:'5183'},
+{cat:'memory',d:3,type:'memory',seq:[2,8,5,1,4,7],dt:6000,text:'Mémorise ces 6 chiffres !',ans:'285147'},
+
+// CALCUL (8)
+{cat:'calcul',d:1,text:'7 × 8 = ?',opts:['54','56','58','64'],ans:1},
+{cat:'calcul',d:1,text:'45 + 28 = ?',opts:['63','73','83','71'],ans:1},
+{cat:'calcul',d:1,text:'100 − 37 = ?',opts:['67','63','73','57'],ans:1},
+{cat:'calcul',d:1,text:'Combien font 6 × 9 ?',opts:['45','52','54','56'],ans:2},
+{cat:'calcul',d:2,text:'50€ − un jeu à 27€ = ?',opts:['33€','23€','27€','13€'],ans:1},
+{cat:'calcul',d:2,text:'Gâteau coupé en 8. Tu manges 3.\nFraction restante ?',opts:['3/8','5/8','4/8','6/8'],ans:1},
+{cat:'calcul',d:2,text:'3 bonbons coûtent 6€.\nCombien pour 9 bonbons ?',opts:['12€','15€','18€','21€'],ans:2},
+{cat:'calcul',d:3,text:'La moitié de 150 + le double de 25 = ?',opts:['100','115','125','130'],ans:2},
+
+// ABSTRACT (7)
+{cat:'abstract',d:1,text:'Suite ?\n⭐  ⭐⭐  ⭐⭐⭐  ?',opts:['⭐⭐⭐⭐','⭐⭐⭐','⭐⭐','⭐⭐⭐⭐⭐'],ans:0,hint:'Compte !'},
+{cat:'abstract',d:1,text:'Suite ?\n🔴  🔵  🔴  🔵  🔴  ?',opts:['🔴','🔵','🟢','🟡'],ans:1,hint:'Alternance.'},
+{cat:'abstract',d:1,text:'Suite ?\n↑  →  ↓  ←  ↑  →  ?',opts:['↑','↓','←','→'],ans:1,hint:'Ça tourne !'},
+{cat:'abstract',d:2,text:'Suite ?\n🟡  🟡🔵  🟡🔵🟡  🟡🔵🟡🔵  ?',opts:['🟡🔵🟡🔵🟡','🔵🟡🔵🟡🔵','🟡🟡🔵🔵🟡','🔵🟡🟡🔵🟡'],ans:0,hint:'Ça s\'allonge.'},
+{cat:'abstract',d:2,text:'Suite ?\n♠  ♥  ♦  ♣  ♠  ♥  ?',opts:['♠','♥','♦','♣'],ans:2,hint:'Cycle de 4.'},
+{cat:'abstract',d:2,text:'Suite ?\n○  ●●  ○○○  ●●●●  ?',opts:['○○○○○','●●●●●','○●○●○','●○●○●'],ans:0,hint:'Alternance + croissance.'},
+{cat:'abstract',d:3,text:'Suite ?\n🔴(1) → 🔵(3) → 🔴(5) → 🔵(?) ',opts:['6','7','8','9'],ans:1,hint:'Couleur alterne, nombre +2.'},
+
+// DEDUCTION (7)
+{cat:'deduction',d:1,text:'Tous les oiseaux ont des plumes.\nUn aigle est un oiseau.\nConclusion ?',opts:['Pas de plumes','Les aigles ont des plumes','Tous à plumes sont des aigles','Rien'],ans:1},
+{cat:'deduction',d:1,text:'3 fruits : pomme, banane, orange.\nTu prends banane et orange.\nQue reste-t-il ?',opts:['Banane','Orange','Pomme','Rien'],ans:2},
+{cat:'deduction',d:1,text:'Il fait jour. Le soleil brille quand il fait jour.\nLe soleil brille-t-il ?',opts:['Oui','Non','Peut-être','On ne sait pas'],ans:0},
+{cat:'deduction',d:2,text:'Emma > Lucas en taille. Lucas > Chloé.\nPlus petit(e) ?',opts:['Emma','Lucas','Chloé','On ne sait pas'],ans:2,hint:'Range-les.'},
+{cat:'deduction',d:2,text:'Tom a plus de billes que Léa.\nLéa a 8, Hugo a 5.\nTom en a au moins... ?',opts:['7','8','9','10'],ans:2,hint:'Plus que Léa.'},
+{cat:'deduction',d:2,text:'Tous les chiens aboient.\nMédor aboie.\nMédor est-il un chien ?',opts:['Oui forcément','Pas forcément','Oui sûrement','Non'],ans:1,hint:'D\'autres animaux peuvent aboyer !'},
+{cat:'deduction',d:3,text:'A aime B. B aime C. C aime A.\nSi on retire B, qui est triste ?',opts:['A','C','A et C','Personne'],ans:0,hint:'Qui aimait B ?'},
+
+// MATRICES (7)
+{cat:'matrices',d:1,text:'Remplace le ❓ :',matrix:{cols:3,cells:['⬛','⬜','⬛','⬜','⬛','⬜','⬛','⬜','❓']},opts:['⬛','⬜','🔲','⬛⬜'],ans:0,hint:'Damier.'},
+{cat:'matrices',d:1,text:'Remplace le ❓ :',matrix:{cols:3,cells:['🔴','🔴','🔴','🔵','🔵','🔵','🟢','🟢','❓']},opts:['🔴','🔵','🟢','🟡'],ans:2,hint:'Même couleur par ligne.'},
+{cat:'matrices',d:1,text:'Remplace le ❓ :',matrix:{cols:3,cells:['1','2','3','4','5','6','7','8','❓']},opts:['9','10','11','12'],ans:0,hint:'Suite logique.'},
+{cat:'matrices',d:2,text:'Remplace le ❓ :',matrix:{cols:3,cells:['🔴','🔵','🟢','🔵','🟢','🔴','🟢','🔴','❓']},opts:['🔴','🔵','🟢','🟡'],ans:1,hint:'1× par ligne et colonne.'},
+{cat:'matrices',d:2,text:'Remplace le ❓ :',matrix:{cols:3,cells:['●','●','○','●','○','○','○','○','❓']},opts:['●','○','◐','◑'],ans:1,hint:'● décroît.'},
+{cat:'matrices',d:2,text:'Remplace le ❓ :',matrix:{cols:3,cells:['2','4','6','3','6','9','4','8','❓']},opts:['10','12','14','16'],ans:1,hint:'Observe les lignes.'},
+{cat:'matrices',d:3,text:'Remplace le ❓ :',matrix:{cols:3,cells:['1','1','2','1','2','3','2','3','❓']},opts:['4','5','6','3'],ans:1,hint:'Somme diagonale ?'},
+
+// SPEED (7)
+{cat:'speed',d:1,text:'⚡ VITESSE ⚡\n12 est pair ou impair ?',opts:['Pair','Impair'],ans:0,time:8},
+{cat:'speed',d:1,text:'⚡ VITESSE ⚡\nPlus grand : 56 ou 65 ?',opts:['56','65'],ans:1,time:8},
+{cat:'speed',d:1,text:'⚡ VITESSE ⚡\n6 + 7 = ?',opts:['12','13','14','15'],ans:1,time:6},
+{cat:'speed',d:1,text:'⚡ VITESSE ⚡\nRouge + Bleu = ?',opts:['Orange','Vert','Violet','Marron'],ans:2,time:6},
+{cat:'speed',d:2,text:'⚡ VITESSE ⚡\nPattes d\'une araignée ?',opts:['6','8','10','12'],ans:1,time:8},
+{cat:'speed',d:2,text:'⚡ VITESSE ⚡\nMoitié de 50 ?',opts:['20','24','25','30'],ans:2,time:6},
+{cat:'speed',d:2,text:'⚡ VITESSE ⚡\nCombien de jours en février (année normale) ?',opts:['28','29','30','31'],ans:0,time:8},
+// extra child speed
+{cat:'speed',d:1,text:'⚡ VITESSE ⚡\n3 + 4 = ?',opts:['6','7','8','9'],ans:1,time:6},
+{cat:'speed',d:2,text:'⚡ VITESSE ⚡\nLettre après G ?',opts:['F','H','I','J'],ans:1,time:6},
+{cat:'speed',d:2,text:'⚡ VITESSE ⚡\nCombien de côtés a un triangle ?',opts:['2','3','4','5'],ans:1,time:6},
+{cat:'speed',d:2,text:'⚡ VITESSE ⚡\n5 × 5 = ?',opts:['20','25','30','35'],ans:1,time:6},
+];
+
+// ===== ENGINE =====
+let mode,questions,curQ,score,totalMax,timerI,timeLeft,qStart,results,catScores;
+
+function selectMode(m){
+    mode=m;questions=interleave(m==='adult'?[...ADULT_Q]:[...CHILD_Q]);
+    curQ=0;score=0;totalMax=0;results=[];catScores={};
+    for(const c in CATS)catScores[c]={ok:0,n:0,pts:0,max:0};
+    showScreen('screen-quiz');
+    document.getElementById('q-total').textContent=questions.length;
+    loadQ();
+}
+function interleave(qs){
+    const bc={};qs.forEach(q=>{if(!bc[q.cat])bc[q.cat]=[];bc[q.cat].push(q)});
+    for(const c in bc)shuf(bc[c]);
+    const r=[],cats=Object.keys(bc),mx=Math.max(...Object.values(bc).map(a=>a.length));
+    for(let i=0;i<mx;i++)for(const c of cats)if(i<bc[c].length)r.push(bc[c][i]);
+    return r;
+}
+function shuf(a){for(let i=a.length-1;i>0;i--){const j=0|Math.random()*(i+1);[a[i],a[j]]=[a[j],a[i]]}return a}
+function showScreen(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active')}
+
+function getTime(q){
+    if(q.time)return q.time;
+    if(q.type==='memory')return 0;
+    const base=mode==='child'?40:30;
+    return base+(q.d-1)*(mode==='child'?10:8);
+}
+
+function loadQ(){
+    if(curQ>=questions.length){showResults();return}
+    const q=questions[curQ],ci=CATS[q.cat];
+    document.getElementById('quiz-category').innerHTML=`${ci.icon} ${ci.name}`;
+    document.getElementById('q-current').textContent=curQ+1;
+    document.getElementById('progress-bar').style.width=`${(curQ/questions.length)*100}%`;
+    document.getElementById('score-display').textContent=`⭐ ${Math.round(score)} pts`;
+    const de=document.getElementById('q-difficulty');
+    const dm={1:['Facile','diff-easy'],2:['Moyen','diff-medium'],3:['Difficile','diff-hard']};
+    de.textContent=dm[q.d][0];de.className='question-difficulty '+dm[q.d][1];
+    document.getElementById('q-text').innerHTML=q.text.replace(/\n/g,'<br>');
+    const hi=document.getElementById('q-hint');
+    if(q.hint){hi.textContent='💡 '+q.hint;hi.style.display='block'}else hi.style.display='none';
+    document.getElementById('feedback').classList.remove('show','correct','wrong');
+    const oz=document.getElementById('options-zone'),mz=document.getElementById('memory-zone'),xz=document.getElementById('matrix-zone');
+    if(q.matrix){xz.style.display='block';const m=q.matrix;xz.innerHTML=`<div class="matrix-grid" style="grid-template-columns:repeat(${m.cols},1fr)">${m.cells.map(c=>`<div class="matrix-cell${c==='❓'?' highlight':''}">${c}</div>`).join('')}</div>`}else xz.style.display='none';
+    if(q.type==='memory'){oz.style.display='none';mz.style.display='block';startMem(q)}
+    else{oz.style.display='grid';mz.style.display='none';renderOpts(q);startTimer(q)}
+    const card=document.getElementById('question-card');
+    card.style.animation='none';card.offsetHeight;card.style.animation='slideIn .4s ease';
+    qStart=Date.now();
+}
+
+function renderOpts(q){
+    const L='ABCDEF';
+    document.getElementById('options-zone').innerHTML=q.opts.map((o,i)=>
+        `<button class="option" onclick="selAns(${i})"><span class="option-letter">${L[i]}</span><span>${o}</span></button>`).join('');
+}
+function startTimer(q){
+    clearInterval(timerI);const t=getTime(q);timeLeft=t;updTimer(t);
+    timerI=setInterval(()=>{timeLeft-=.1;if(timeLeft<=0){timeLeft=0;clearInterval(timerI);onTimeout()}updTimer(t)},100);
+}
+function updTimer(t){
+    const p=(timeLeft/t)*100,b=document.getElementById('timer-bar');
+    b.style.width=p+'%';b.className='timer-bar'+(p<25?' danger':p<50?' warning':'');
+    document.getElementById('timer-text').textContent=Math.ceil(timeLeft)+'s';
+}
+function onTimeout(){
+    const q=questions[curQ],el=(Date.now()-qStart)/1000;
+    document.querySelectorAll('.option').forEach(o=>o.classList.add('disabled'));
+    if(q.type!=='memory')document.querySelectorAll('.option')[q.ans].classList.add('correct');
+    showFB(false,q.type==='memory'?q.ans:q.opts[q.ans]);
+    record(q,false,el);setTimeout(()=>{curQ++;loadQ()},1500);
+}
+function selAns(i){
+    clearInterval(timerI);const q=questions[curQ],el=(Date.now()-qStart)/1000,ok=i===q.ans;
+    document.querySelectorAll('.option').forEach(o=>o.classList.add('disabled'));
+    document.querySelectorAll('.option')[i].classList.add(ok?'correct':'wrong');
+    if(!ok)document.querySelectorAll('.option')[q.ans].classList.add('correct');
+    showFB(ok);record(q,ok,el);setTimeout(()=>{curQ++;loadQ()},ok?1000:1800);
+}
+function record(q,ok,el){
+    const t=getTime(q)||30,base=q.d*2;
+    const bonus=ok?Math.max(0,(1-el/t))*q.d:0;
+    const pts=ok?base+Math.round(bonus*10)/10:0;
+    score+=Math.round(pts*10)/10;totalMax+=base+q.d;
+    catScores[q.cat].n++;catScores[q.cat].max+=base+q.d;
+    if(ok){catScores[q.cat].ok++;catScores[q.cat].pts+=pts}
+    results.push({q,ok,time:el,pts});
+    document.getElementById('score-display').textContent=`⭐ ${Math.round(score)} pts`;
+}
+function showFB(ok,corr){
+    const f=document.getElementById('feedback');f.classList.remove('correct','wrong');f.classList.add('show',ok?'correct':'wrong');
+    document.getElementById('feedback-icon').textContent=ok?'✅':'❌';
+    const ms=ok?(mode==='child'?['Super ! 🎉','Bravo ! 💪','Excellent ! ⭐','Génial ! 🌟','Bien joué ! 🎯']:['Correct !','Bonne réponse !','Exact !','Bien joué !','Parfait !']):(mode==='child'?['Pas grave ! 💪','Presque ! 🌟','Continue ! 😊']:['Incorrect.','Raté.','Pas la bonne réponse.']);
+    let m=ms[0|Math.random()*ms.length];if(!ok&&corr)m+=` Réponse : ${corr}`;
+    document.getElementById('feedback-text').textContent=m;
+}
+
+// ===== MEMORY =====
+function startMem(q){
+    const md=document.getElementById('memory-display'),mc=document.getElementById('memory-countdown');
+    const mi=document.getElementById('memory-input'),mv=document.getElementById('memory-validate');
+    mi.style.display='none';mv.style.display='none';mi.value='';mc.textContent='';
+    md.innerHTML=q.seq.map((n,i)=>`<div class="memory-item" style="animation-delay:${i*.15}s">${n}</div>`).join('');
+    if(q.sub==='reverse')mc.innerHTML=`<span style="color:var(--danger)">🔄 À L'ENVERS !</span>`;
+    let cd=q.dt/1000;mc.innerHTML=(q.sub==='reverse'?'<span style="color:var(--danger)">🔄 À L\'ENVERS !</span> — ':'')+ `👀 Mémorisez... ${cd}s`;
+    const ci=setInterval(()=>{cd--;if(cd<=0){clearInterval(ci);
+        md.innerHTML=q.seq.map(()=>`<div class="memory-item" style="background:var(--border);color:var(--text2)">?</div>`).join('');
+        mc.innerHTML=(q.sub==='reverse'?'<span style="color:var(--danger)">🔄 À L\'ENVERS !</span> — ':'')+'✍️ Entrez la séquence !';
+        mi.style.display='block';mv.style.display='block';mi.focus();
+        qStart=Date.now();startTimer({...q,type:'choice',d:q.d});
+    }else mc.innerHTML=(q.sub==='reverse'?'<span style="color:var(--danger)">🔄 À L\'ENVERS !</span> — ':'')+ `👀 Mémorisez... ${cd}s`},1000);
+}
+function validateMemory(){
+    clearInterval(timerI);const q=questions[curQ],inp=document.getElementById('memory-input').value.replace(/\s/g,'');
+    const el=(Date.now()-qStart)/1000,ok=inp===q.ans;
+    document.getElementById('memory-input').style.display='none';
+    document.getElementById('memory-validate').style.display='none';
+    const dispSeq=q.sub==='reverse'?[...q.seq].reverse():q.seq;
+    document.getElementById('memory-display').innerHTML=dispSeq.map((n,i)=>{
+        const g=inp[i]===String(n);
+        return `<div class="memory-item" style="background:${g?'var(--success)':'var(--danger)'}">${n}</div>`;
+    }).join('');
+    showFB(ok,q.ans.split('').join(' '));record(q,ok,el);
+    setTimeout(()=>{curQ++;loadQ()},1800);
+}
+document.getElementById('memory-input').addEventListener('keydown',e=>{if(e.key==='Enter')validateMemory()});
+
+// ===== RESULTS =====
+function showResults(){
+    clearInterval(timerI);showScreen('screen-results');
+    const N=questions.length,nOk=results.filter(r=>r.ok).length;
+    const acc=(nOk/N)*100,avg=results.reduce((s,r)=>s+r.time,0)/N;
+
+    // Weighted scoring (g-loading)
+    const W={numeric:1,verbal:1.1,memory:1.1,calcul:.9,abstract:1.1,deduction:1.2,matrices:1.3,speed:.8};
+    let wS=0,wM=0;
+    for(const c in catScores){const w=W[c]||1;wS+=catScores[c].pts*w;wM+=catScores[c].max*w}
+    const wP=wM>0?wS/wM:0;
+    // Better calibration for ~90 questions (tighter SD)
+    const z=(wP-0.5)/0.155;
+    const iq=Math.round(100+z*15),cIQ=Math.max(55,Math.min(160,iq));
+
+    animNum(document.getElementById('iq-number'),cIQ);
+    const ranges=[[0,69,'Déficience intellectuelle'],[70,79,'Limite (Borderline)'],[80,89,'Normal faible'],[90,109,'Moyenne'],[110,119,'Normal fort'],[120,129,'Supérieur'],[130,144,'Très supérieur (Doué)'],[145,999,'Exceptionnellement doué']];
+    const rng=ranges.find(r=>cIQ>=r[0]&&cIQ<=r[1]);
+    document.getElementById('iq-range').textContent=rng?rng[2]:'';
+    const perc=normCDF(z)*100;
+    document.getElementById('iq-percentile').textContent=`Vous êtes au-dessus de ${Math.round(perc)}% de la population`;
+    document.getElementById('iq-margin').textContent=`Intervalle de confiance : ${Math.max(55,cIQ-5)} — ${Math.min(160,cIQ+5)} (±5 pts)`;
+    document.getElementById('stat-correct').textContent=`${nOk}/${N}`;
+    document.getElementById('stat-time').textContent=`${avg.toFixed(1)}s`;
+    document.getElementById('stat-accuracy').textContent=`${Math.round(acc)}%`;
+    const spQ=results.filter(r=>r.q.cat==='speed'),spOk=spQ.filter(r=>r.ok).length;
+    document.getElementById('stat-speed').textContent=`${spOk}/${spQ.length}`;
+    renderCats();renderBell(cIQ);
+}
+function animNum(el,t){let c=60;const s=()=>{c+=Math.ceil((t-c)/8);if(c>=t){el.textContent=t;return}el.textContent=c;requestAnimationFrame(s)};s()}
+function normCDF(z){const a1=.254829592,a2=-.284496736,a3=1.421413741,a4=-1.453152027,a5=1.061405429,p=.3275911;const sg=z<0?-1:1;z=Math.abs(z)/Math.sqrt(2);const t=1/(1+p*z);return .5*(1+sg*(1-(((((a5*t+a4)*t)+a3)*t+a2)*t+a1)*t*Math.exp(-z*z)))}
+function renderCats(){
+    const g=document.getElementById('categories-grid');let h='';
+    for(const c in catScores){const cs=catScores[c];if(!cs.n)continue;
+        const p=cs.max>0?(cs.pts/cs.max)*100:0,ci=CATS[c];
+        h+=`<div class="cat-card"><div class="cat-header"><span class="cat-icon">${ci.icon}</span><span class="cat-name">${ci.name}</span></div>
+        <div class="cat-bar-bg"><div class="cat-bar-fill" style="width:${p}%;background:${ci.color}"></div></div>
+        <div class="cat-score">${cs.ok}/${cs.n} correct — ${Math.round(p)}%</div></div>`}
+    g.innerHTML=h;
+}
+function renderBell(uIQ){
+    const svg=document.getElementById('bell-svg'),w=500,h=200,m=30;
+    let path='M';const pts=[];
+    for(let iq=40;iq<=160;iq++){const z=(iq-100)/15,y=Math.exp(-.5*z*z)/(15*Math.sqrt(2*Math.PI));
+        const x=m+((iq-40)/120)*(w-2*m),py=h-m-(y/.027)*(h-2*m);pts.push({x,y:py});path+=`${x},${py} L`}
+    path=path.slice(0,-2);
+    const fp=pts[0],lp=pts[pts.length-1],fill=path+` L${lp.x},${h-m} L${fp.x},${h-m} Z`;
+    const uz=(uIQ-100)/15,uy=Math.exp(-.5*uz*uz)/(15*Math.sqrt(2*Math.PI));
+    const ux=m+((uIQ-40)/120)*(w-2*m),upy=h-m-(uy/.027)*(h-2*m);
+    const lbs=[55,70,85,100,115,130,145];
+    svg.innerHTML=`<defs><linearGradient id="bg" x1="0%" y1="0%" x2="0%" y2="100%">
+        <stop offset="0%" style="stop-color:#6c5ce7;stop-opacity:.25"/><stop offset="100%" style="stop-color:#6c5ce7;stop-opacity:.03"/></linearGradient></defs>
+        <path d="${fill}" fill="url(#bg)"/><path d="${path}" fill="none" stroke="#6c5ce7" stroke-width="2.5" stroke-linecap="round"/>
+        <line x1="${m}" y1="${h-m}" x2="${w-m}" y2="${h-m}" stroke="#ccc" stroke-width="1"/>
+        ${lbs.map(iq=>{const lx=m+((iq-40)/120)*(w-2*m);return`<text x="${lx}" y="${h-8}" text-anchor="middle" fill="#999" font-size="11" font-family="Poppins">${iq}</text><line x1="${lx}" y1="${h-m}" x2="${lx}" y2="${h-m+5}" stroke="#bbb" stroke-width="1"/>`}).join('')}
+        <line x1="${ux}" y1="${upy}" x2="${ux}" y2="${h-m}" stroke="#fd79a8" stroke-width="2" stroke-dasharray="5,5"/>
+        <circle cx="${ux}" cy="${upy}" r="7" fill="#fd79a8" stroke="white" stroke-width="2.5"/>
+        <text x="${ux}" y="${upy-16}" text-anchor="middle" fill="#e17055" font-size="13" font-weight="700" font-family="Patrick Hand">Vous: ${uIQ}</text>`;
+}
+// ===== QUIT TEST =====
+function confirmQuit(){clearInterval(timerI);document.getElementById('quit-modal').style.display='flex'}
+function closeQuit(){document.getElementById('quit-modal').style.display='none';const q=questions[curQ];if(q&&q.type!=='memory')startTimer(q)}
+function quitTest(){document.getElementById('quit-modal').style.display='none';clearInterval(timerI);showScreen('screen-welcome')}
+function getShareText(){
+    const iq=document.getElementById('iq-number').textContent;
+    const range=document.getElementById('iq-range').textContent;
+    const acc=document.getElementById('stat-accuracy').textContent;
+    return `🧠 NeuroTest — Mon QI estimé : ${iq} (${range})\n📊 Précision : ${acc}\nTest semi-pro : 91 questions, 8 catégories cognitives.\n\n👉 Passe le test : https://natquinson-cmd.github.io/NeuroTest-QI/`;
+}
+function shareWhatsApp(){window.open('https://wa.me/?text='+encodeURIComponent(getShareText()),'_blank')}
+function shareEmail(){window.open('mailto:?subject='+encodeURIComponent('🧠 Mon résultat NeuroTest')+'&body='+encodeURIComponent(getShareText()))}
+function copyResults(){navigator.clipboard.writeText(getShareText()).then(()=>{const b=event.target;b.textContent='✅ Copié !';setTimeout(()=>b.textContent='📋 Copier',2000)})}
+</script>
+</body>
+</html>

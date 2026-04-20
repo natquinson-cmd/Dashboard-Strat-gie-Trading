@@ -1,0 +1,24 @@
+{
+  "majorVersion" : 1,
+  "minorVersion" : 0,
+  "flowEntryName" : "flow",
+  "displaySettingsEntryName" : "displaySettings",
+  "isPackagedMaestroDocument" : false,
+  "documentFeaturesUsedInDocument" : [ {
+    "id" : "document.v2018_2_3.Flow",
+    "featureName" : "",
+    "firstSoftwareVersionSupportedIn" : {
+      "year" : 2018,
+      "quarterOfYear" : 2,
+      "versionString" : "2018.2.3",
+      "indexOfRelease" : 3
+    },
+    "notSupportedMessages" : [ "it_IT::Azioni nelle fasi di input (supportato nelle versioni 2018.2.3 e successive)", "fr_CA::Actions dans les étapes des données entrantes (pris en charge dans la version 2018.2.3 et versions ultérieures)", "sv_SE::Åtgärder i Inmatningssteg (stöds i version 2018.2.3 och senare)", "pt_BR::Ações em etapas de entrada (suportado na versão 2018.2.3 e posteriores)", "th_TH::การดำเนินการในขั้นตอนการป้อนข้อมูล (รองรับในเวอร์ชัน 2018.2.3 และใหม่กว่า)", "fr_FR::Actions dans les étapes des données entrantes (pris en charge dans la version 2018.2.3 et versions ultérieures)", "ja_JP::インプット ステップ内のアクション (バージョン 2018.2.3 以降でサポートされています)", "de_DE::Aktionen in Eingabeschritte (unterstützt in Version 2018.2.3 und höher)", "en_GB::Actions in Input Steps (supported in version 2018.2.3 and later)", "zh_TW::輸入步驟中的操作 (版本 2018.2.3 及更高版本中支援)", "ko_KR::입력 단계 작업 수(버전 2018.2.3 이상에서 지원됨)", "en_US::Actions in Input Steps (supported in version 2018.2.3 and later)", "ga_IE::33c5-表:fe70-表:Actions in Input Steps|桜 (supported in version 2018.2.3 and later)|桜", "es_ES::Acciones en pasos de entrada (admitido en la versión 2018.2.3 y posteriores)", "zh_CN::输入步骤中的操作 (版本 2018.2.3 及更高版本中支持)", "nl_NL::Acties in invoerstappen (ondersteund in versie 2018.2.3 en later)" ],
+    "minimumCompatibleSoftwareVersion" : {
+      "year" : 2018,
+      "quarterOfYear" : 1,
+      "versionString" : "2018.1.1",
+      "indexOfRelease" : 1
+    }
+  } ]
+}

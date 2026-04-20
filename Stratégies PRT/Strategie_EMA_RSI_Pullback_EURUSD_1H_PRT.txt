@@ -1,0 +1,119 @@
+// ============================================================
+// STRATÉGIE : EMA Trend + RSI Pullback — EUR/USD 1H
+// ============================================================
+// Plateforme : ProRealTime (ProBuilder / ProOrder)
+// Instrument : EUR/USD Mini (IG Markets)
+// Timeframe  : 1 heure
+// ============================================================
+// Logique :
+//   - Identifier la tendance via EMA(50) vs EMA(100)
+//   - Entrer en pullback quand RSI(14) atteint une zone extrême
+//     dans le SENS de la tendance (achat du dip en uptrend,
+//     vente du rally en downtrend)
+//   - Sortie sur retournement de tendance ou RSI opposé
+//   - Stop-loss fixe à 50 pips + timeout 25 barres
+//
+// Backtest Python (2019-2026, spread 0.8-1.5 pip) :
+//   183 trades (26/an), PF 1.16-1.24, 5/8 années positives
+//   Walk-forward: 5/7 folds positifs
+// ============================================================
+
+DEFPARAM CumulateOrders = false
+
+// --- PARAMÈTRES ---
+ONCE EMAFastPeriod = 50
+ONCE EMASlowPeriod = 100
+ONCE RSIPeriod = 14
+ONCE RSIEntryLow = 25    // Seuil RSI pour achat (pullback haussier)
+ONCE RSIEntryHigh = 75   // Seuil RSI pour vente (pullback baissier)
+
+// --- STOP-LOSS (hardcodé en prix, 50 pips = 0.0050) ---
+// NE PAS utiliser PipSize/PointValue (bug IG EUR-USD Mini)
+ONCE StopDistance = 0.0050
+
+// --- TIMEOUT ---
+ONCE MaxBars = 25         // Sortie forcée après 25 barres (25h)
+
+// --- MIN HOLD ---
+ONCE MinHoldBars = 2      // Rester minimum 2 barres en position
+
+// --- FILTRE SESSION (7h-20h UTC) ---
+ONCE SessionStart = 70000  // 07:00:00
+ONCE SessionEnd = 200000   // 20:00:00
+
+// --- INDICATEURS ---
+EMAFast = ExponentialAverage[EMAFastPeriod](Close)
+EMASlow = ExponentialAverage[EMASlowPeriod](Close)
+MyRSI = RSI[RSIPeriod](Close)
+
+// --- TENDANCE ---
+UpTrend = EMAFast > EMASlow
+DownTrend = EMAFast < EMASlow
+
+// --- FILTRE SESSION ---
+SessionOK = (Time >= SessionStart) AND (Time < SessionEnd)
+
+// --- COMPTEUR DE BARRES EN POSITION ---
+IF OnMarket THEN
+    BarsInTrade = BarsInTrade + 1
+ELSE
+    BarsInTrade = 0
+ENDIF
+
+// =====================================================
+//   ENTRÉES
+// =====================================================
+
+// --- ENTRÉE LONG : tendance haussière + RSI en survente (pullback) ---
+IF NOT OnMarket AND UpTrend AND MyRSI < RSIEntryLow AND SessionOK THEN
+    BUY 1 CONTRACTS AT MARKET
+    BarsInTrade = 0
+ENDIF
+
+// --- ENTRÉE SHORT : tendance baissière + RSI en surachat (pullback) ---
+IF NOT OnMarket AND DownTrend AND MyRSI > RSIEntryHigh AND SessionOK THEN
+    SELLSHORT 1 CONTRACTS AT MARKET
+    BarsInTrade = 0
+ENDIF
+
+// =====================================================
+//   SORTIES
+// =====================================================
+
+// --- STOP-LOSS LONG (après la barre d'entrée) ---
+IF LongOnMarket AND BarsInTrade > 0 THEN
+    IF Close <= TRADEPRICE - StopDistance THEN
+        SELL AT MARKET
+    ENDIF
+ENDIF
+
+// --- STOP-LOSS SHORT (après la barre d'entrée) ---
+IF ShortOnMarket AND BarsInTrade > 0 THEN
+    IF Close >= TRADEPRICE + StopDistance THEN
+        EXITSHORT AT MARKET
+    ENDIF
+ENDIF
+
+// --- TIMEOUT ---
+IF OnMarket AND BarsInTrade >= MaxBars THEN
+    IF LongOnMarket THEN
+        SELL AT MARKET
+    ENDIF
+    IF ShortOnMarket THEN
+        EXITSHORT AT MARKET
+    ENDIF
+ENDIF
+
+// --- SORTIE LONG : retournement de tendance OU RSI > 75 ---
+IF LongOnMarket AND BarsInTrade >= MinHoldBars THEN
+    IF DownTrend OR MyRSI > RSIEntryHigh THEN
+        SELL AT MARKET
+    ENDIF
+ENDIF
+
+// --- SORTIE SHORT : retournement de tendance OU RSI < 25 ---
+IF ShortOnMarket AND BarsInTrade >= MinHoldBars THEN
+    IF UpTrend OR MyRSI < RSIEntryLow THEN
+        EXITSHORT AT MARKET
+    ENDIF
+ENDIF

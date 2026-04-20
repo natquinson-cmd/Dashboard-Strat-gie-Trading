@@ -1,0 +1,396 @@
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+body { font-family: Calibri, sans-serif; font-size: 11pt; margin: 40px; }
+h1 { font-size: 18pt; color: #1F4E79; border-bottom: 2px solid #1F4E79; padding-bottom: 5px; page-break-before: always; }
+h2 { font-size: 14pt; color: #2E75B6; }
+h3 { font-size: 12pt; color: #2E75B6; }
+table { border-collapse: collapse; width: 100%; margin: 4px 0; border-spacing: 0; }
+th, td { border: 1px solid #999; padding: 1px 4px; text-align: left; font-size: 11pt; line-height: 1.0; margin: 0; }
+th { background-color: #2E75B6; color: white; }
+.cover { text-align: center; margin-top: 60px; margin-bottom: 60px; }
+.cover h1 { font-size: 24pt; border: none; page-break-before: avoid; }
+.cover h2 { font-size: 16pt; color: #333; }
+.cover p { font-size: 12pt; color: #666; }
+ul { margin: 5px 0; }
+li { margin: 3px 0; }
+.highlight { background-color: #FFF2CC; padding: 8px; border-left: 4px solid #F0AD4E; margin: 10px 0; }
+.new { background-color: #E8F5E9; padding: 8px; border-left: 4px solid #4CAF50; margin: 10px 0; }
+</style>
+</head>
+<body>
+
+<div class="cover">
+<img src="logo-epfl.png" alt="Logo EPFL" style="height: 28px; margin-bottom: 15px;">
+<h1>EPFL</h1>
+<h2>Migration SAP BW 7.5 &rarr; BW/4HANA</h2>
+<h2>POC Migration Achat</h2>
+<h2>Chargements de donn&eacute;es</h2>
+<p>Version 2.0 - Mars 2026</p>
+<p>Syst&egrave;mes : BFD (Dev) / BFQ (Qual) / BFP (Prod)</p>
+<p>Deadline POC : Fin mars 2026</p>
+</div>
+
+<h1>Sommaire</h1>
+<ol>
+<li>Contexte et objectifs
+  <ol>
+    <li>Objectifs du POC</li>
+    <li>P&eacute;rim&egrave;tre fonctionnel</li>
+  </ol>
+</li>
+<li>InfoProviders source BW 7.5</li>
+<li>DataSources ECC identifi&eacute;es - Correspondance S/4HANA</li>
+<li>Architecture cible BW/4HANA
+  <ol>
+    <li>Strat&eacute;gie de reprise des donn&eacute;es</li>
+    <li>Architecture ADSO en 2 niveaux</li>
+    <li>Plan de chargement des Master Data</li>
+  </ol>
+</li>
+<li>Plan d'action d&eacute;taill&eacute;</li>
+<li>Suivi des probl&egrave;mes et blocages</li>
+<li>Suivi du temps pass&eacute;</li>
+<li>Risques identifi&eacute;s</li>
+<li>Livrables attendus</li>
+</ol>
+
+<h1>1. Contexte et objectifs</h1>
+<p>Ce document constitue le plan d'action pour le POC (Proof of Concept) de la partie Achat dans le cadre de la migration de SAP BW 7.5 on HANA vers SAP BW/4HANA en approche Greenfield.</p>
+
+<h2>1.1 Objectifs du POC</h2>
+<ul>
+<li>Valider la faisabilit&eacute; de la reprise des donn&eacute;es historiques depuis les InfoProviders BW 7.5</li>
+<li>Tester les extracteurs standards (CDS views S/4HANA et/ou extracteurs 2LIS)</li>
+<li>Mettre en place l'architecture cible sur 4 couches (A, W, D, R)</li>
+<li>Valider la conversion de devises (devise EPFL / devise Achat) et la gestion multilingue</li>
+<li>D&eacute;ployer la cha&icirc;ne compl&egrave;te jusqu'en Production (BFP)</li>
+<li>Tracer le temps, les probl&egrave;mes et les points de blocage</li>
+</ul>
+
+<h2>1.2 P&eacute;rim&egrave;tre fonctionnel</h2>
+
+<p><strong>Dimensions (axes d'analyse)</strong></p>
+<table>
+<tr><th>InfoObject</th><th>Description</th><th>Master Data</th><th>Compound</th></tr>
+<tr><td>0VENDOR</td><td>Fournisseur</td><td>Oui</td><td>&ndash;</td></tr>
+<tr><td>0MATL_GROUP</td><td>Cat&eacute;gorie produit</td><td>Oui</td><td>&ndash;</td></tr>
+<tr><td>0FISCPER</td><td>P&eacute;riode comptable / Exercice</td><td>Non</td><td>&ndash;</td></tr>
+<tr><td>0GL_ACCOUNT</td><td>Comptes g&eacute;n&eacute;raux</td><td>Oui</td><td>0CHRT_ACCTS (Plan comptable)</td></tr>
+<tr><td>0WBS_ELEMT</td><td>OTP (WBS)</td><td>Oui</td><td>&ndash;</td></tr>
+<tr><td>0FUND</td><td>Fonds</td><td>Oui</td><td>0FM_AREA (P&eacute;rim&egrave;tre financier)</td></tr>
+<tr><td>0PURCH_ORG</td><td>Organisation d'achat</td><td>Oui</td><td>&ndash;</td></tr>
+</table>
+
+<p><strong>Indicateurs (KPI)</strong></p>
+<table>
+<tr><th>InfoObject</th><th>Description</th></tr>
+<tr><td>0ORDER_VAL</td><td>Montant commande</td></tr>
+<tr><td>0PO_QTY</td><td>Quantit&eacute; command&eacute;e</td></tr>
+</table>
+
+<p><strong>Table de mapping</strong></p>
+<p>Pr&eacute;voir une table de mapping Fonds &rarr; OTP pour les donn&eacute;es historiques, l'OTP devenant la r&eacute;f&eacute;rence dans S/4HANA.</p>
+
+<h1>2. InfoProviders source BW 7.5</h1>
+<p>Liste des InfoProviders identifi&eacute;s dans le syst&egrave;me BW 7.5 existant pour la partie Achat :</p>
+<table>
+<tr><th>InfoProvider</th><th>Description</th></tr>
+<tr><td>RZPUR_C01</td><td>Donn&eacute;es SRM (MultiProvider/Reporting)</td></tr>
+<tr><td>0PUR_O01</td><td>Postes de commande d'achat (ODS)</td></tr>
+<tr><td>ZPUR_C01</td><td>Donn&eacute;es SRM (Cube)</td></tr>
+<tr><td>ZEKKN</td><td>Imputation commande - Attributs (InfoObjet)</td></tr>
+<tr><td>ZMMPM</td><td>Donn&eacute;es MM/PM (InfoSet)</td></tr>
+<tr><td>ZPUR_IS01</td><td>Donn&eacute;es Achats (InfoSet)</td></tr>
+<tr><td>ZPM_001</td><td>&Eacute;quipements (ODS)</td></tr>
+<tr><td>ZV_EKPO</td><td>Poste MM (ODS)</td></tr>
+<tr><td>0EQUIPMENT</td><td>N&deg; Equipement (InfoObjet)</td></tr>
+</table>
+
+<h1>3. DataSources ECC identifi&eacute;es - Correspondance S/4HANA</h1>
+<p>Tableau de correspondance entre les DataSources ECC utilis&eacute;es dans BW 7.5 et les CDS Views ou DataSources disponibles dans S/4HANA. R&eacute;f&eacute;rence : SAP Note 2500202 et vue I_DataExtractionEnabledView (SE16, table IXTRCTNENBLDVW).</p>
+
+<p><strong>DataSources standards SAP</strong></p>
+<table>
+<tr><th>DataSource ECC</th><th>Description</th><th>CDS View / DS S/4HANA</th><th>Statut / Remarques</th></tr>
+<tr><td>2LIS_02_ITM</td><td>Donn&eacute;es achats (niveau poste)</td><td>C_PurchaseOrderItemDEX</td><td>CDS delta (CDC). DDIC : CMMPOITMDX. Remplacement recommand&eacute; par SAP.</td></tr>
+<tr><td>2LIS_02_SCL</td><td>Donn&eacute;es achats (&eacute;ch&eacute;ancier)</td><td>2LIS_02_SCL (whitelisted)</td><td>Whitelisted S/4 (Note 2500202). Pas de CDS 1:1 connue.</td></tr>
+<tr><td>0FI_GL_4</td><td>Grand livre : postes individuels</td><td>0FI_ACDOCA_10 / I_JournalEntryItem</td><td>Bas&eacute; sur ACDOCA en S/4. Nouveau mod&egrave;le comptable universel.</td></tr>
+<tr><td>0PU_IS_PS_32</td><td>Postes indiv. FI comptabilit&eacute;</td><td>0FI_ACDOCA_10</td><td>V&eacute;rifier Note 2500202. Possible via ACDOCA.</td></tr>
+<tr><td>0EQUIPMENT_ATTR</td><td>Attributs &eacute;quipement</td><td>I_Equipment</td><td>&Agrave; v&eacute;rifier dans votre syst&egrave;me S/4. CDS EAM disponible.</td></tr>
+<tr><td>0EQUIPMENT_TEXT</td><td>Textes &eacute;quipement</td><td>I_EquipmentText</td><td>&Agrave; v&eacute;rifier. CDS texte &eacute;quipement EAM.</td></tr>
+<tr><td>0SRM_TD_PO</td><td>Donn&eacute;es SRM Purchase Order</td><td>Pas d'&eacute;quivalent direct</td><td>SRM obsol&egrave;te en S/4. Mapper vers C_PurchaseOrderItemDEX ou CDS custom.</td></tr>
+<tr><td>80EQUIPMENTM</td><td>N&deg; d'&eacute;quipement (master)</td><td>I_Equipment</td><td>&Agrave; confirmer. Donn&eacute;es ma&icirc;tre &eacute;quipement.</td></tr>
+<tr><td>1CL_0EQU001 &agrave; 004</td><td>Classification &eacute;quipement (mandants 100/340)</td><td>&Agrave; v&eacute;rifier en S/4</td><td>V&eacute;rifier disponibilit&eacute; classification CDS. Possible CDS custom.</td></tr>
+</table>
+
+<p><strong>DataSources custom (Z*)</strong></p>
+<p>Ces DataSources n'ont pas d'&eacute;quivalent standard en S/4HANA. Elles n&eacute;cessitent la cr&eacute;ation de CDS Views custom ou l'adaptation de la logique d'extraction.</p>
+<table>
+<tr><th>DataSource ECC</th><th>Description</th><th>Tables source ECC</th><th>Action S/4HANA</th></tr>
+<tr><td>ZEKKN</td><td>Imputations SRM</td><td>EKKN</td><td>CDS custom &agrave; cr&eacute;er sur EKKN</td></tr>
+<tr><td>ZEKPO</td><td>Postes Ivalua</td><td>EKPO</td><td>CDS custom. V&eacute;rifier int&eacute;gration Ivalua en S/4.</td></tr>
+<tr><td>Z_EKPO_EKBE</td><td>Jonction postes / historique</td><td>EKPO + EKBE</td><td>CDS custom avec jointure EKPO/EKBE</td></tr>
+<tr><td>Z_EKPO_EKBE_2</td><td>Jonction postes / historique (v2)</td><td>EKPO + EKBE</td><td>CDS custom. Consolider avec Z_EKPO_EKBE.</td></tr>
+<tr><td>ZBI_ADDR_LIVR</td><td>Adresse Livraison</td><td>ADRC / LFA1</td><td>CDS custom sur tables adresse S/4</td></tr>
+<tr><td>ZBKPF</td><td>Ent&ecirc;te pi&egrave;ce comptable</td><td>BKPF</td><td>I_JournalEntry ou CDS custom sur BKPF/ACDOCA</td></tr>
+<tr><td>ZFMFJHD</td><td>En-t&ecirc;te FM (Funds Mgmt)</td><td>FMFJHD</td><td>CDS custom. V&eacute;rifier &eacute;volution FM en S/4.</td></tr>
+<tr><td>ZTOA01</td><td>Attachments (Ixos/ArchiveLink)</td><td>TOA01</td><td>CDS custom. V&eacute;rifier ArchiveLink S/4.</td></tr>
+<tr><td>ZEQ_ATTACH</td><td>Attachments &eacute;quipement</td><td>Custom</td><td>CDS custom &agrave; cr&eacute;er</td></tr>
+<tr><td>Z_BW_EQUIP_STAT</td><td>Status &eacute;quipement</td><td>JEST / TJ02T</td><td>CDS custom sur tables statut S/4</td></tr>
+</table>
+
+<p><strong>R&eacute;f&eacute;rences et outils de v&eacute;rification</strong></p>
+<ul>
+<li>SAP Note 2500202 - Liste des extracteurs BW support&eacute;s / obsol&egrave;tes en S/4HANA</li>
+<li>SAP Note 2690104 - FAQ : LO Data Extraction en S/4HANA</li>
+<li>I_DataExtractionEnabledView (SE16, table IXTRCTNENBLDVW) - Liste compl&egrave;te des CDS extracteurs disponibles dans votre syst&egrave;me S/4</li>
+<li>Table DHCDCVCDSEXTRE (SE16) - Recherche d'extracteurs CDS par nom (sensible &agrave; la casse)</li>
+</ul>
+
+<h1>4. Architecture cible BW/4HANA</h1>
+<p>Le mod&egrave;le de donn&eacute;es BW/4HANA suit une architecture en 4 couches :</p>
+<table>
+<tr><th>Couche</th><th>Nom</th><th>Description</th></tr>
+<tr><td>A</td><td>Acquisition</td><td>ADSO d'acquisition : reprise int&eacute;grale des donn&eacute;es 7.5 + flux S/4</td></tr>
+<tr><td>W</td><td>Warehousing</td><td>Transformation, nettoyage, mapping Fonds&rarr;OTP, conversion devises</td></tr>
+<tr><td>D</td><td>Datamart</td><td>Mod&egrave;le dimensionnel optimis&eacute; (7 dimensions + 2 KPI)</td></tr>
+<tr><td>R</td><td>Reporting</td><td>CompositeProviders / Queries pour la restitution</td></tr>
+</table>
+
+<h2>4.1 Strat&eacute;gie de reprise des donn&eacute;es</h2>
+
+<div class="new">
+<p><strong>Approche retenue : double flux (historique 7.5 + courant S/4)</strong></p>
+<p>Les donn&eacute;es Achats sont aliment&eacute;es par deux flux distincts, unifi&eacute;s dans une Calculation View pour le reporting :</p>
+<ul>
+<li><strong>Flux historique BW 7.5</strong> : reprise du cube 0PUR_C01 depuis BWQ via DataSource ODP custom (ODP_BW / BWQCLNT100)</li>
+<li><strong>Flux courant S/4HANA</strong> : extraction via CDS views extraction-enabled depuis SFDCLNT223 (ODP_CDS), avec delta CDC</li>
+</ul>
+</div>
+
+<h3>4.1.1 Flux historique &ndash; Reprise BW 7.5</h3>
+<p>Connexion RFC directe entre BW/4HANA (BFD) et BW 7.5 (BWQ) via le syst&egrave;me source BWQCLNT100 (type ODP_BW).</p>
+
+<div class="highlight">
+<p><strong>Point technique :</strong> La DataSource d'export standard 80PUR_C01 est une DataSource 3.x, incompatible avec le protocole ODP utilis&eacute; par BW/4HANA. La transaction RODPS_OS_MIGRATE n'&eacute;tant pas disponible sur BWQ (niveau de Support Pack insuffisant), la solution retenue est la cr&eacute;ation d'une <strong>DataSource ODP custom directement dans BFD</strong>, qui acc&egrave;de au cube 0PUR_C01 de BWQ via la connexion ODP_BW / BWQCLNT100.</p>
+</div>
+
+<p><strong>Flux :</strong></p>
+<div class="highlight">
+<code>BWQ [0PUR_C01] &mdash;RFC (ODP_BW / BWQCLNT100)&mdash;&rarr; BFD [DataSource ODP custom] &rarr; Transfo &rarr; DTP &rarr; <strong>A750PURC1</strong> (ADSO Acquisition)</code>
+</div>
+
+<h3>4.1.2 Flux courant &ndash; CDS views S/4HANA</h3>
+<p>Deux CDS views extraction-enabled ont &eacute;t&eacute; identifi&eacute;es sur le syst&egrave;me S/4HANA (SFDCLNT223) pour couvrir le p&eacute;rim&egrave;tre POC :</p>
+
+<table>
+<tr><th>CDS View</th><th>Nom DDIC</th><th>DataSource BFD</th><th>ADSO cible</th><th>Description</th><th>Table S/4</th><th>Delta</th></tr>
+<tr><td>C_PurOrdAcctAssgmtDEX</td><td>CMMPURORDAADEX</td><td>HA_CMMPURORDAADEX</td><td><strong>WMMPU002</strong></td><td>Imputations commande d'achat</td><td>EKKN</td><td>CDC</td></tr>
+<tr><td>C_PurchaseOrderItemDEX</td><td>CMMPOITMDEX</td><td>HA_CMMPOITMDEX</td><td><strong>WMMPU001</strong></td><td>Postes commande d'achat</td><td>EKKO / EKPO</td><td>CDC</td></tr>
+</table>
+
+<div class="highlight">
+<p><strong>Pourquoi 2 CDS views :</strong> La CDS CMMPOITMDEX (postes EKPO) est la <strong>source principale</strong> : elle contient le fournisseur (SUPPLIER), le groupe de marchandises (MATERIALGROUP), l'organisation d'achat, ainsi que les montants et quantit&eacute;s de r&eacute;f&eacute;rence au niveau poste. La CDS CMMPURORDAADEX (imputations EKKN) apporte en compl&eacute;ment les dimensions d'imputation comptable (GL_ACCOUNT, WBS_ELEMT, FUND) qui n'existent pas au niveau poste. Un LEFT JOIN entre les deux ADSOs est n&eacute;cessaire dans la vue de reporting.</p>
+<p><strong>Important :</strong> Les montants et quantit&eacute;s doivent &ecirc;tre pris depuis WMMPU001 (postes) et non depuis WMMPU002 (imputations), car les valeurs dans EKKN sont ventil&eacute;es par ligne d'imputation (split accounting) et ne repr&eacute;sentent que des fractions du montant total du poste.</p>
+</div>
+
+<div class="new">
+<p><strong>Convention BW/4HANA &ndash; CDS views et nommage :</strong></p>
+<ul>
+<li><strong>I_*</strong> (Interface views) : usage applicatif (Fiori, OData, ABAP) &mdash; <em>non visibles dans Eclipse BW</em></li>
+<li><strong>C_*DEX</strong> (Extraction views) : annot&eacute;es <code>@Analytics.dataExtraction.enabled: true</code> &mdash; <em>visibles comme DataSource ODP_CDS</em></li>
+<li><strong>CMM*</strong> : nom DDIC runtime des CDS extracteurs (utilis&eacute; dans les tables IXTRCTNENBLDVW et RSODPABAPCDSVIEW)</li>
+</ul>
+<p>Pour identifier les CDS extracteurs disponibles : <code>SE16 &rarr; IXTRCTNENBLDVW</code> sur SFDCLNT223.</p>
+</div>
+
+<p><strong>Flux S/4 :</strong></p>
+<div class="highlight">
+<code>SFD [CMMPURORDAADEX] &mdash;ODP_CDS / SFDCLNT223&mdash;&rarr; BFD [HA_CMMPURORDAADEX] &rarr; Transfo &rarr; DTP &rarr; <strong>WMMPU002</strong><br>
+SFD [CMMPOITMDEX] &mdash;ODP_CDS / SFDCLNT223&mdash;&rarr; BFD [HA_CMMPOITMDEX] &rarr; Transfo &rarr; DTP &rarr; <strong>WMMPU001</strong></code>
+</div>
+
+<h2>4.2 Architecture des ADSOs</h2>
+
+<h3>ADSO A750PURC1 &ndash; Acquisition historique BW 7.5 (couche A)</h3>
+<p>Cet ADSO reprend la <strong>structure compl&egrave;te</strong> du cube source 0PUR_C01 avec toutes ses dimensions et tous ses indicateurs. Il sert de zone de staging fid&egrave;le &agrave; la source, sans transformation ni filtrage.</p>
+<p><strong>Type</strong> : Standard DataStore Object, Write Change Log activ&eacute;, Unique Data Records d&eacute;sactiv&eacute; (0REQTSN comme cl&eacute; technique).</p>
+
+<h3>ADSO WMMPU001 &ndash; Postes commande d'achat S/4 (couche W) &mdash; TABLE PILOTE</h3>
+<p>ADSO aliment&eacute; par la CDS CMMPOITMDEX. C'est la <strong>source principale</strong> pour le flux S/4 : elle contient les donn&eacute;es poste (SUPPLIER, MATERIALGROUP, PURCH_ORG) ainsi que les montants (NETAMOUNT) et quantit&eacute;s (ORDERQUANTITY) de r&eacute;f&eacute;rence au niveau poste. Les KPIs doivent &ecirc;tre pris prioritairement depuis cet ADSO.</p>
+<p><strong>Source</strong> : SFDCLNT223 via ODP_CDS &bull; <strong>Delta</strong> : CDC automatique.</p>
+
+<h3>ADSO WMMPU002 &ndash; Imputations commande d'achat S/4 (couche W) &mdash; ENRICHISSEMENT</h3>
+<p>ADSO aliment&eacute; par la CDS CMMPURORDAADEX. Apporte en compl&eacute;ment les dimensions d'<strong>imputation comptable</strong> (GL_ACCOUNT, WBS_ELEMT, FUND, FM_AREA) qui n'existent pas au niveau poste. Joint &agrave; WMMPU001 via un LEFT JOIN sur EBELN + EBELP.</p>
+<p><strong>Source</strong> : SFDCLNT223 via ODP_CDS &bull; <strong>Delta</strong> : CDC automatique.</p>
+<p><strong>Attention</strong> : ne pas utiliser les montants/quantit&eacute;s de WMMPU002 car ils sont ventil&eacute;s par ligne d'imputation (split accounting).</p>
+
+<h3>Vue unifi&eacute;e &ndash; CV_ACHAT_UNIFIED (couche R)</h3>
+<p>Calculation View ou CompositeProvider qui unifie les donn&eacute;es historiques (A750PURC1) et courantes (WMMPU002 + WMMPU001) sur les <strong>7 dimensions + 2 KPIs</strong> du p&eacute;rim&egrave;tre POC.</p>
+
+<p><strong>Architecture de la vue :</strong></p>
+<table>
+<tr><th>N&oelig;ud</th><th>Type</th><th>Description</th></tr>
+<tr><td>1. LEFT JOIN</td><td>Join</td><td><strong>WMMPU001 (postes, base)</strong> + WMMPU002 (imputations, enrichissement) sur EBELN + EBELP &rarr; r&eacute;cup&eacute;rer GL_ACCOUNT, WBS_ELEMT, FUND</td></tr>
+<tr><td>2. UNION</td><td>Union</td><td>A750PURC1 (historique 7.5) + r&eacute;sultat du JOIN (flux S/4) + champ calcul&eacute; SOURCE_SYSTEM</td></tr>
+<tr><td>3. Projection</td><td>Projection</td><td>7 dimensions + 2 KPIs + SOURCE_SYSTEM</td></tr>
+</table>
+
+<p><strong>Mapping des champs dans le UNION :</strong></p>
+<table>
+<tr><th>Type</th><th>Champ cible</th><th>InfoObject</th><th>A750PURC1 (BW 7.5)</th><th>WMMPU001 (postes, base)</th><th>WMMPU002 (imputations, JOIN)</th><th>Compound</th></tr>
+<tr><td>Dimension</td><td>Fournisseur</td><td><strong>0VENDOR</strong></td><td>0VENDOR</td><td>SUPPLIER</td><td>&ndash;</td><td>&ndash;</td></tr>
+<tr><td>Dimension</td><td>Cat&eacute;gorie produit</td><td><strong>0MATL_GROUP</strong></td><td>0MATL_GROUP</td><td>MATERIALGROUP</td><td>&ndash;</td><td>&ndash;</td></tr>
+<tr><td>Dimension</td><td>P&eacute;riode comptable</td><td><strong>0FISCPER</strong></td><td>0FISCPER</td><td>D&eacute;riv&eacute; de PURCHASEORDERDATE</td><td>&ndash;</td><td>&ndash;</td></tr>
+<tr><td>Dimension</td><td>Compte g&eacute;n&eacute;ral</td><td><strong>0GL_ACCOUNT</strong></td><td>0GL_ACCOUNT</td><td>&ndash;</td><td>GLACCOUNT</td><td>0CHRT_ACCTS</td></tr>
+<tr><td>Dimension</td><td>OTP (WBS)</td><td><strong>0WBS_ELEMT</strong></td><td>0WBS_ELEMT</td><td>&ndash;</td><td>WBSELEMENTINTERNALID</td><td>&ndash;</td></tr>
+<tr><td>Dimension</td><td>Fonds</td><td><strong>0FUND</strong></td><td>0FUND</td><td>&ndash;</td><td>FUND</td><td>0FM_AREA</td></tr>
+<tr><td>Dimension</td><td>Organisation d'achat</td><td><strong>0PURCH_ORG</strong></td><td>0PURCH_ORG</td><td>PURCHASINGORGANIZATION</td><td>&ndash;</td><td>&ndash;</td></tr>
+<tr><td>Indicateur</td><td>Montant commande</td><td><strong>0ORDER_VAL</strong></td><td>0ORDER_VAL</td><td>NETAMOUNT</td><td>&ndash; (ne pas utiliser)</td><td>&ndash;</td></tr>
+<tr><td>Indicateur</td><td>Quantit&eacute; command&eacute;e</td><td><strong>0PO_QTY</strong></td><td>0PO_QTY</td><td>ORDERQUANTITY</td><td>&ndash; (ne pas utiliser)</td><td>&ndash;</td></tr>
+<tr><td>Technique</td><td>Syst&egrave;me source</td><td><strong>SOURCE_SYSTEM</strong></td><td>'BW75' (constante)</td><td colspan="2">'BW4' (constante)</td><td>&ndash;</td></tr>
+</table>
+
+<div class="highlight">
+<p><strong>Point d'attention &ndash; Imputations multiples :</strong> Une commande d'achat peut avoir plusieurs lignes d'imputation (split accounting). Le champ MULTIPLEACCTASSGMTDISTRPERCENT dans WMMPU002 indique le pourcentage de r&eacute;partition. Les KPIs sont d&eacute;j&agrave; ventil&eacute;s au niveau imputation.</p>
+</div>
+
+<div class="highlight">
+<p><strong>R&egrave;gle de d&eacute;doublonnage :</strong> D&eacute;finir une date de cutover (ex : 01.01.2026). A750PURC1 &rarr; FISCPER &le; 2025012 | WMMPU002 &rarr; PURCHASEORDERDATE &ge; 01.01.2026.</p>
+</div>
+
+<h2>4.3 Plan de chargement des Master Data</h2>
+
+<p>Les master data doivent &ecirc;tre charg&eacute;es <strong>AVANT</strong> les donn&eacute;es transactionnelles. Seuls les InfoObjects du p&eacute;rim&egrave;tre POC sont concern&eacute;s.</p>
+
+<p><strong>Phase MD1 &ndash; Master Data simples (textes seuls) :</strong></p>
+<table>
+<tr><th>InfoObject</th><th>Description</th><th>&Agrave; charger</th><th>Compound</th></tr>
+<tr><td>0MATL_GROUP</td><td>Cat&eacute;gorie produit</td><td>Textes</td><td>&ndash;</td></tr>
+<tr><td>0PURCH_ORG</td><td>Organisation d'achat</td><td>Textes</td><td>&ndash;</td></tr>
+</table>
+
+<p><strong>Phase MD2 &ndash; Master Data avec attributs :</strong></p>
+<table>
+<tr><th>InfoObject</th><th>Description</th><th>&Agrave; charger</th><th>Compound</th></tr>
+<tr><td>0VENDOR</td><td>Fournisseur</td><td>Attributs + Textes</td><td>&ndash;</td></tr>
+<tr><td>0GL_ACCOUNT</td><td>Comptes g&eacute;n&eacute;raux</td><td>Attributs + Textes</td><td>0CHRT_ACCTS (Plan comptable)</td></tr>
+<tr><td>0WBS_ELEMT</td><td>OTP (WBS)</td><td>Attributs + Textes</td><td>&ndash;</td></tr>
+<tr><td>0FUND</td><td>Fonds</td><td>Attributs + Textes</td><td>0FM_AREA (P&eacute;rim&egrave;tre financier)</td></tr>
+</table>
+
+<p><strong>Proc&eacute;dure pour chaque InfoObject :</strong></p>
+<ol>
+<li>V&eacute;rifier/cr&eacute;er l'InfoObject dans BW/4HANA</li>
+<li>R&eacute;pliquer la DataSource master data depuis le SourceSystem BW 7.5</li>
+<li>Cr&eacute;er Transformation + DTP</li>
+<li>Charger : Attributs puis Textes</li>
+<li>Contr&ocirc;ler le nombre d'enregistrements charg&eacute;s vs source</li>
+</ol>
+
+<h1>5. Plan d'action d&eacute;taill&eacute;</h1>
+<p>Estimation globale : environ 24 jours ouvr&eacute;s, soit 5 semaines. Deadline : fin mars 2026.</p>
+
+<table>
+<tr><th>#</th><th>T&acirc;che</th><th>Estim&eacute; (j)</th><th>R&eacute;el (j)</th><th>Statut / Remarques</th></tr>
+
+<tr><td colspan="5" style="background-color:#D6E4F0; font-weight:bold;">Phase 0 &ndash; Pr&eacute;paration (Semaine 1)</td></tr>
+<tr><td>0.1</td><td>Valider l'acc&egrave;s aux syst&egrave;mes BFD, BFQ, BFP et connexion RFC S/4</td><td>0.5</td><td></td><td></td></tr>
+<tr><td>0.2</td><td>Documenter les InfoProviders source 7.5 (structure, volume)</td><td>1</td><td></td><td></td></tr>
+<tr><td>0.3</td><td>Identifier les 7 dimensions + 2 KPI et valider avec le m&eacute;tier</td><td>0.5</td><td></td><td></td></tr>
+<tr><td>0.4</td><td>Cr&eacute;er la table de mapping Fonds &rarr; OTP</td><td>1</td><td></td><td></td></tr>
+<tr><td>0.5</td><td>D&eacute;finir les r&egrave;gles de conversion de devises et les langues</td><td>0.5</td><td></td><td></td></tr>
+
+<tr><td colspan="5" style="background-color:#D6E4F0; font-weight:bold;">Phase 1 &ndash; Couche Acquisition / Reprise 7.5 (Semaines 1-2)</td></tr>
+<tr><td>1.0</td><td>Cr&eacute;er la connexion RFC BW/4HANA vers BW 7.5 (SM59) et le SourceSystem</td><td>0.5</td><td></td><td></td></tr>
+<tr><td>1.1</td><td>Charger les Master Data &ndash; Phase MD1 (0MATL_GROUP, 0PURCH_ORG, 0FUND)</td><td>1</td><td></td><td></td></tr>
+<tr><td>1.2</td><td>Charger les Master Data &ndash; Phase MD2 (0VENDOR, 0GL_ACCOUNT, 0WBS_ELEMT)</td><td>1.5</td><td></td><td></td></tr>
+<tr><td>1.3</td><td>Cr&eacute;er une DataSource ODP custom directement dans BFD, pointant sur le cube 0PUR_C01 de BWQ via ODP_BW (la DS export 80PUR_C01 en 3.x n'est pas compatible ODP)</td><td>0.5</td><td></td><td></td></tr>
+<tr><td>1.4</td><td>Cr&eacute;er l'ADSO Acquisition (image compl&egrave;te du cube 0PUR_C01)</td><td>1</td><td></td><td></td></tr>
+<tr><td>1.5</td><td>Cr&eacute;er Transformation + DTP : DataSource ODP vers ADSO Acquisition</td><td>1</td><td></td><td></td></tr>
+<tr><td>1.6</td><td>Ex&eacute;cuter la reprise historique (chargement par ann&eacute;e comptable)</td><td>1.5</td><td></td><td></td></tr>
+<tr><td>1.7</td><td>Cr&eacute;er l'ADSO Warehousing (7 dimensions POC + 2 KPI)</td><td>1</td><td></td><td></td></tr>
+<tr><td>1.8</td><td>Cr&eacute;er Transformation + DTP : ADSO Acquisition vers ADSO Warehousing</td><td>1</td><td></td><td></td></tr>
+<tr><td>1.9</td><td>Contr&ocirc;ler la qualit&eacute; des donn&eacute;es (volumes, coh&eacute;rence, totaux source vs cible)</td><td>1</td><td></td><td></td></tr>
+
+<tr><td colspan="5" style="background-color:#D6E4F0; font-weight:bold;">Phase 2 &ndash; Extraction S/4HANA (Semaines 2-3)</td></tr>
+<tr><td>2.1</td><td>Identifier les CDS views standard disponibles pour les Achats</td><td>0.5</td><td></td><td></td></tr>
+<tr><td>2.2</td><td>Activer les extracteurs (CDS views ou 2LIS si n&eacute;cessaire)</td><td>1</td><td></td><td></td></tr>
+<tr><td>2.3</td><td>Configurer les DataSources et InfoPackages dans BFD</td><td>1</td><td></td><td></td></tr>
+<tr><td>2.4</td><td>Tester le chargement initial (full load) depuis S/4</td><td>1</td><td></td><td></td></tr>
+<tr><td>2.5</td><td>Tester le chargement delta</td><td>0.5</td><td></td><td></td></tr>
+<tr><td>2.6</td><td>Comparer donn&eacute;es S/4 vs donn&eacute;es reprises 7.5 (recoupement)</td><td>1</td><td></td><td></td></tr>
+
+<tr><td colspan="5" style="background-color:#D6E4F0; font-weight:bold;">Phase 3 &ndash; Couches W, D, R (Semaines 3-4)</td></tr>
+<tr><td>3.1</td><td>Cr&eacute;er les ADSO de la couche W (transformations, mapping Fonds&rarr;OTP)</td><td>1.5</td><td></td><td></td></tr>
+<tr><td>3.2</td><td>Impl&eacute;menter la conversion de devises (devise EPFL / devise Achat)</td><td>1</td><td></td><td></td></tr>
+<tr><td>3.3</td><td>Impl&eacute;menter la gestion multilingue</td><td>0.5</td><td></td><td></td></tr>
+<tr><td>3.4</td><td>Cr&eacute;er les ADSO Datamart (couche D) &ndash; mod&egrave;le 7 dim. + 2 KPI</td><td>1</td><td></td><td></td></tr>
+<tr><td>3.5</td><td>Cr&eacute;er les CompositeProviders (couche R)</td><td>0.5</td><td></td><td></td></tr>
+<tr><td>3.6</td><td>Configurer les DTP inter-couches et ex&eacute;cuter le flux complet</td><td>1</td><td></td><td></td></tr>
+<tr><td>3.7</td><td>Cr&eacute;er une Query de test pour validation fonctionnelle</td><td>0.5</td><td></td><td></td></tr>
+
+<tr><td colspan="5" style="background-color:#D6E4F0; font-weight:bold;">Phase 4 &ndash; Validation et transport (Semaines 4-5)</td></tr>
+<tr><td>4.1</td><td>Valider les donn&eacute;es de bout en bout (source &rarr; reporting)</td><td>1</td><td></td><td></td></tr>
+<tr><td>4.2</td><td>Corriger les anomalies identifi&eacute;es</td><td>1</td><td></td><td></td></tr>
+<tr><td>4.3</td><td>Transporter vers BFQ (Qualit&eacute;) et tester</td><td>1</td><td></td><td></td></tr>
+<tr><td>4.4</td><td>Transporter vers BFP (Production) et valider</td><td>1</td><td></td><td></td></tr>
+<tr><td>4.5</td><td>R&eacute;diger le compte-rendu POC (temps, probl&egrave;mes, blocages, conclusions)</td><td>1</td><td></td><td></td></tr>
+<tr><td>4.6</td><td>Pr&eacute;sentation BRP de fin d'incr&eacute;ment Nexus</td><td>0.5</td><td></td><td></td></tr>
+</table>
+
+<h1>6. Suivi des probl&egrave;mes et blocages</h1>
+<p>Remplir ce tableau au fil du POC pour tracer chaque probl&egrave;me rencontr&eacute; :</p>
+<table>
+<tr><th>#</th><th>Date</th><th>Description du probl&egrave;me / blocage</th><th>Impact</th><th>Phase</th><th>R&eacute;solution / Action</th></tr>
+<tr><td>1</td><td></td><td></td><td></td><td></td><td></td></tr>
+<tr><td>2</td><td></td><td></td><td></td><td></td><td></td></tr>
+<tr><td>3</td><td></td><td></td><td></td><td></td><td></td></tr>
+<tr><td>4</td><td></td><td></td><td></td><td></td><td></td></tr>
+<tr><td>5</td><td></td><td></td><td></td><td></td><td></td></tr>
+</table>
+<p>Impact : Bloquant / Majeur / Mineur</p>
+
+<h1>7. Suivi du temps pass&eacute;</h1>
+<p>Journal quotidien pour tracer le temps consacr&eacute; &agrave; chaque t&acirc;che :</p>
+<table>
+<tr><th>#</th><th>Date</th><th>T&acirc;che r&eacute;alis&eacute;e</th><th>Dur&eacute;e (h)</th><th>Phase</th><th>Commentaire</th></tr>
+<tr><td>1</td><td></td><td></td><td></td><td></td><td></td></tr>
+<tr><td>2</td><td></td><td></td><td></td><td></td><td></td></tr>
+<tr><td>3</td><td></td><td></td><td></td><td></td><td></td></tr>
+<tr><td>4</td><td></td><td></td><td></td><td></td><td></td></tr>
+<tr><td>5</td><td></td><td></td><td></td><td></td><td></td></tr>
+<tr><td>6</td><td></td><td></td><td></td><td></td><td></td></tr>
+<tr><td>7</td><td></td><td></td><td></td><td></td><td></td></tr>
+<tr><td>8</td><td></td><td></td><td></td><td></td><td></td></tr>
+<tr><td>9</td><td></td><td></td><td></td><td></td><td></td></tr>
+<tr><td>10</td><td></td><td></td><td></td><td></td><td></td></tr>
+</table>
+
+<h1>8. Risques identifi&eacute;s</h1>
+<table>
+<tr><th>Risque</th><th>Probabilit&eacute;</th><th>Mitigation</th></tr>
+<tr><td>CDS views pas encore disponibles dans S/4 (migration en cours)</td><td>Moyenne</td><td>Fallback sur extracteurs 2LIS classiques</td></tr>
+<tr><td>Incoh&eacute;rences de donn&eacute;es entre reprise 7.5 et flux S/4</td><td>Haute</td><td>Phase de recoupement d&eacute;di&eacute;e (t&acirc;che 2.6)</td></tr>
+<tr><td>Table de mapping Fonds&rarr;OTP incompl&egrave;te</td><td>Moyenne</td><td>Impliquer l'&eacute;quipe fonctionnelle pour validation en phase 0</td></tr>
+<tr><td>Probl&egrave;mes de conversion de devises (taux historiques)</td><td>Moyenne</td><td>Valider les types de cours et tables de taux d&egrave;s la phase 0</td></tr>
+<tr><td>D&eacute;lais de transport vers BFQ/BFP (d&eacute;pendance infra)</td><td>Faible</td><td>Anticiper les demandes de transport d&egrave;s la phase 3</td></tr>
+<tr><td>Temps insuffisant pour couvrir toutes les phases avant fin mars</td><td>Moyenne</td><td>Prioriser phases 0-2, couches W/D/R en version minimale</td></tr>
+</table>
+
+<h1>9. Livrables attendus</h1>
+<ul>
+<li>Architecture cible document&eacute;e (mod&egrave;le 4 couches A/W/D/R)</li>
+<li>Reprise des donn&eacute;es historiques valid&eacute;e dans la couche A</li>
+<li>Flux d'extraction S/4 op&eacute;rationnel (CDS ou 2LIS)</li>
+<li>Cha&icirc;ne de chargement compl&egrave;te A &rarr; W &rarr; D &rarr; R fonctionnelle</li>
+<li>Conversion de devises et gestion multilingue valid&eacute;es</li>
+<li>Table de mapping Fonds &rarr; OTP en place</li>
+<li>D&eacute;ploiement en Production (BFP)</li>
+<li>Compte-rendu POC (temps, probl&egrave;mes, blocages, recommandations)</li>
+</ul>
+
+</body>
+</html>

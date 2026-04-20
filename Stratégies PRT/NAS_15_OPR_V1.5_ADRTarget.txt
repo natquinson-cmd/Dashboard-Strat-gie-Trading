@@ -1,0 +1,145 @@
+//-------------------------------------------------------------------------
+// NAS 15 OPR R2.2 réinv V1.5 — Target adapté au range journalier (ADR)
+//-------------------------------------------------------------------------
+// Modification vs V1.2 :
+//   - Le Target est capé au ADR (Average Daily Range sur 10 jours)
+//     multiplié par un coefficient (défaut 0.7 = 70% du range moyen)
+//     → 2019 (ADR ~80 pts) : target capé à ~56 pts au lieu de 187
+//     → 2024 (ADR ~250 pts) : target = 187 pts (non capé, TargetMult s'applique)
+//   - Le stop reste IDENTIQUE à V1.2 (ATR*3.2, bornes 85/185)
+//   - Tout le reste est IDENTIQUE à V1.2
+//-------------------------------------------------------------------------
+
+DEFPARAM CUMULATEORDERS = FALSE
+DEFPARAM PRELOADBARS = 2000
+
+// --- 1. PARAMÈTRES ---
+ONCE CoeffBE = 1.2
+ONCE CoeffStop = 3.2
+ONCE Coeflockprofit = 0.3
+ONCE TargetMult = 2.2
+
+// Nouveau : coefficient ADR pour caper le target
+ONCE ADRPeriod = 10           // Moyenne du range journalier sur 10 jours
+ONCE ADRTargetCoeff = 0.70    // Target max = 70% du range journalier moyen
+
+MonATR = AverageTrueRange[14](close)
+StopDyn = ROUND(MAX(85, MIN(185, MonATR * CoeffStop)))
+
+// --- CALCUL DU ADR (Average Daily Range) ---
+DailyRange = DHigh(0) - DLow(0)
+IF DailyRange = 0 THEN
+    DailyRange = DHigh(1) - DLow(1)
+ENDIF
+// Moyenne sur les 10 derniers jours via les ranges précédents
+ADR = (DHigh(1)-DLow(1) + DHigh(2)-DLow(2) + DHigh(3)-DLow(3) + DHigh(4)-DLow(4) + DHigh(5)-DLow(5) + DHigh(6)-DLow(6) + DHigh(7)-DLow(7) + DHigh(8)-DLow(8) + DHigh(9)-DLow(9) + DHigh(10)-DLow(10)) / 10
+
+// Target = minimum entre le multiple classique et le % du ADR
+TargetClassique = ROUND(StopDyn * TargetMult)
+TargetADR = ROUND(ADR * ADRTargetCoeff)
+TargetDyn = MIN(TargetClassique, TargetADR)
+
+// Sécurité : target minimum = stop (R:R >= 1:1)
+TargetDyn = MAX(TargetDyn, StopDyn)
+
+// --- 2. GESTION DU CAPITAL ---
+ONCE CapInit = 5300
+Risque = 2.2
+Reinvestir = 1
+
+IF Reinvestir = 1 THEN
+    CapActuel = CapInit + StrategyProfit
+ELSE
+    CapActuel = CapInit
+ENDIF
+
+IF StopDyn > 0 THEN
+    RawSize = (CapActuel * (Risque / 100)) / (StopDyn * PipValue)
+    PosSize = ROUND(MAX(0.01, RawSize), 2)
+ELSE
+    PosSize = 0.5
+ENDIF
+
+// --- 3. INITIALISATION ---
+IF Date <> Date[1] THEN
+    TodayTrade = 0
+    DailyProfit = STRATEGYPROFIT
+    NiveauStop = 0
+    StaticTargetPrix = 0
+ENDIF
+
+// --- 4. OPR (15h30) ---
+IF time = 153000 THEN
+    OPRHigh = High
+    OPRLow = Low
+ENDIF
+
+IF STRATEGYPROFIT <> DailyProfit OR ONMARKET THEN
+    TodayTrade = 1
+ENDIF
+
+// --- 5. CONDITIONS D'ENTRÉE ---
+IF TodayTrade = 0 AND time > 153000 AND time <= 173000 THEN
+    IF close > OPRHigh THEN
+        BUY PosSize CONTRACTS AT MARKET
+        NiveauStop = close - StopDyn
+        StaticBETrigger = MonATR * CoeffBE
+        StaticLockTrigger = TargetDyn * 0.6
+        StaticLockProfit = TargetDyn * Coeflockprofit
+        StaticTargetPrix = close + TargetDyn
+    ELSIF close < OPRLow THEN
+        SELLSHORT PosSize CONTRACTS AT MARKET
+        NiveauStop = close + StopDyn
+        StaticBETrigger = MonATR * CoeffBE
+        StaticLockTrigger = TargetDyn * 0.6
+        StaticLockProfit = TargetDyn * Coeflockprofit
+        StaticTargetPrix = close - TargetDyn
+    ENDIF
+ENDIF
+
+// --- 6. GESTION DES SORTIES ---
+IF ONMARKET THEN
+    SET STOP pLOSS StopDyn
+    SET TARGET pPROFIT TargetDyn
+
+    // PALIER 1 : Breakeven
+    IF LONGONMARKET AND (close - tradeprice) > StaticBETrigger THEN
+        NouvStop = tradeprice + 5
+        NiveauStop = MAX(NiveauStop, NouvStop)
+    ENDIF
+    IF SHORTONMARKET AND (tradeprice - close) > StaticBETrigger THEN
+        NouvStop = tradeprice - 5
+        IF NiveauStop = 0 THEN
+            NiveauStop = NouvStop
+        ELSE
+            NiveauStop = MIN(NiveauStop, NouvStop)
+        ENDIF
+    ENDIF
+
+    // PALIER 2 : Verrouillage
+    IF LONGONMARKET AND (close - tradeprice) > StaticLockTrigger THEN
+        NouvStop = tradeprice + StaticLockProfit
+        NiveauStop = MAX(NiveauStop, NouvStop)
+    ENDIF
+    IF SHORTONMARKET AND (tradeprice - close) > StaticLockTrigger THEN
+        NouvStop = tradeprice - StaticLockProfit
+        IF NiveauStop = 0 THEN
+            NiveauStop = NouvStop
+        ELSE
+            NiveauStop = MIN(NiveauStop, NouvStop)
+        ENDIF
+    ENDIF
+
+    // APPLICATION DU STOP
+    IF LONGONMARKET THEN
+        SELL AT NiveauStop STOP
+    ELSIF SHORTONMARKET THEN
+        EXITSHORT AT NiveauStop STOP
+    ENDIF
+ENDIF
+
+// Clôture fin de journée
+IF time >= 215500 THEN
+    SELL AT MARKET
+    EXITSHORT AT MARKET
+ENDIF

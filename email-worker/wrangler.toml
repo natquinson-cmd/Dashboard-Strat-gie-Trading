@@ -1,0 +1,7 @@
+name = "email-contact-forwarder"
+main = "src/index.js"
+compatibility_date = "2025-10-01"
+
+[[send_email]]
+name = "SEB"
+allowed_destination_addresses = ["natquinson@gmail.com", "mimi.deco7@gmail.com"]

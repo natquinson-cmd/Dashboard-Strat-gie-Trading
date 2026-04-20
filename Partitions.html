@@ -1,0 +1,2629 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#7c3aed">
+    <title>SongBook</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700;900&family=Nunito:wght@400;600;700&family=Roboto+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎵</text></svg>">
+    <!-- PDF.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <!-- Mammoth.js for Word -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+    <!-- Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    <!-- Sortable.js for drag & drop -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
+    <style>
+        :root {
+            --bg-primary: #f4f4f8;
+            --bg-secondary: #ffffff;
+            --bg-card: #ffffff;
+            --bg-input: #f0f0f6;
+            --text-primary: #18172e;
+            --text-secondary: #6b6a80;
+            --accent: #7c3aed;
+            --accent-hover: #6d28d9;
+            --accent2: #ede9fe;
+            --grad: linear-gradient(135deg, #7c3aed 0%, #c026d3 60%, #f43f5e 100%);
+            --grad-hover: linear-gradient(135deg, #6d28d9 0%, #a21caf 60%, #e11d48 100%);
+            --chord-color: #e11d48;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --border: rgba(124,58,237,0.12);
+            --shadow: 0 2px 16px rgba(124,58,237,0.10);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Nunito', 'Lato', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* ====== NAV BAR ====== */
+        .navbar {
+            position: fixed; top: 0; left: 0; right: 0;
+            height: 60px;
+            background: #ffffff;
+            border-bottom: 1px solid rgba(124,58,237,0.10);
+            box-shadow: 0 2px 20px rgba(124,58,237,0.08);
+            display: flex; align-items: center;
+            padding: 0 20px;
+            z-index: 100;
+            gap: 12px;
+        }
+        .navbar .logo {
+            font-size: 1.35em; font-weight: 800;
+            display: flex; align-items: center; gap: 10px;
+            background: var(--grad);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .navbar .logo span { background: var(--grad); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+        .nav-tabs { display: flex; gap: 4px; margin-left: auto; }
+        .nav-tab {
+            padding: 8px 18px; border-radius: 20px;
+            background: transparent; border: none;
+            color: var(--text-secondary); cursor: pointer;
+            font-size: 0.9em; font-weight: 600; transition: all 0.2s;
+        }
+        .nav-tab:hover { background: var(--accent2); color: var(--accent); }
+        .nav-tab.active { background: var(--grad); color: white; }
+        .nav-tab .tab-icon { display: none; }
+
+        @media (max-width: 600px) {
+            .nav-tab .tab-text { display: none; }
+            .nav-tab .tab-icon { display: inline; font-size: 1.2em; }
+            .nav-tab { padding: 8px 12px; }
+        }
+
+        /* ====== MAIN CONTENT ====== */
+        .main { padding-top: 72px; padding-bottom: 20px; max-width: 900px; margin: 0 auto; padding-left: 16px; padding-right: 16px; }
+
+        /* ====== VIEWS ====== */
+        .view { display: none; }
+        .view.active { display: block; }
+
+        /* ====== LIBRARY VIEW ====== */
+        .search-bar {
+            display: flex; gap: 8px; margin-bottom: 16px;
+        }
+        .search-bar input {
+            flex: 1; padding: 12px 18px; border-radius: 24px;
+            background: white; border: 1.5px solid rgba(124,58,237,0.15);
+            color: var(--text-primary); font-size: 1em;
+            outline: none; box-shadow: 0 2px 8px rgba(124,58,237,0.06);
+            font-family: 'Nunito', sans-serif;
+        }
+        .search-bar input:focus { border-color: var(--accent); box-shadow: 0 2px 12px rgba(124,58,237,0.18); }
+
+        .btn {
+            padding: 10px 22px; border-radius: 24px; border: none;
+            cursor: pointer; font-size: 0.95em; font-weight: 700;
+            transition: all 0.2s; display: inline-flex;
+            align-items: center; gap: 6px; letter-spacing: 0.2px;
+        }
+        .btn-primary { background: var(--grad); color: white; box-shadow: 0 4px 14px rgba(124,58,237,0.35); }
+        .btn-primary:hover { background: var(--grad-hover); transform: translateY(-2px); box-shadow: 0 6px 20px rgba(124,58,237,0.45); }
+        .btn-secondary { background: #fff; color: var(--accent); border: 1.5px solid var(--border); }
+        .btn-secondary:hover { background: var(--accent2); border-color: var(--accent); }
+        .btn-danger { background: linear-gradient(135deg, #e11d48, #be123c); color: white; box-shadow: 0 4px 14px rgba(225,29,72,0.3); }
+        .btn-danger:hover { transform: translateY(-1px); }
+        .btn-sm { padding: 6px 14px; font-size: 0.85em; }
+        .btn-icon {
+            width: 40px; height: 40px; padding: 0;
+            display: flex; align-items: center; justify-content: center;
+            border-radius: 12px; border: none; cursor: pointer;
+            background: var(--accent2); color: var(--accent);
+            font-size: 1.1em; transition: all 0.2s;
+        }
+        .btn-icon:hover { background: var(--grad); color: white; }
+
+        .song-list { display: flex; flex-direction: column; gap: 8px; }
+        .song-card {
+            background: #ffffff; border-radius: 16px;
+            padding: 18px 16px; cursor: pointer;
+            border: 1.5px solid rgba(124,58,237,0.10);
+            box-shadow: 0 2px 10px rgba(124,58,237,0.06);
+            transition: all 0.2s;
+            display: flex; align-items: center; gap: 12px;
+        }
+        .song-card:hover { border-color: var(--accent); box-shadow: 0 6px 24px rgba(124,58,237,0.18); transform: translateY(-2px); }
+        .song-card .song-icon {
+            width: 42px; height: 42px; border-radius: 12px; flex-shrink: 0;
+            background: var(--grad); display: flex; align-items: center; justify-content: center;
+            font-size: 1.2em; color: white;
+        }
+        .song-card .song-info { flex: 1; min-width: 0; }
+        .song-card .song-title { font-weight: 700; font-size: 0.98em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .song-card .song-meta { color: var(--text-secondary); font-size: 0.82em; margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .song-card .song-key {
+            background: var(--grad); color: white;
+            padding: 4px 10px; border-radius: 20px; font-weight: 800;
+            font-size: 0.85em; min-width: 32px; text-align: center; flex-shrink: 0;
+        }
+        .song-card .song-actions { display: flex; gap: 4px; flex-shrink: 0; }
+        .song-card .song-actions button {
+            background: var(--accent2); border: none; color: var(--accent);
+            cursor: pointer; padding: 6px 9px; border-radius: 10px;
+            font-size: 0.95em; transition: 0.2s; font-weight: 700;
+        }
+        .song-card .song-actions button:hover { background: var(--grad); color: white; }
+        .song-card .song-actions button.btn-delete { background: #fff0f3; color: #e11d48; }
+        .song-card .song-actions button.btn-delete:hover { background: linear-gradient(135deg, #e11d48, #be123c); color: white; }
+
+        .tags-row { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+        .tag {
+            padding: 2px 10px; border-radius: 4px; font-size: 0.75em;
+            font-weight: 600; letter-spacing: 0.3px;
+        }
+        .tag-celebration { background: linear-gradient(135deg,#f59e0b,#ef4444); color: white; border: none; }
+        .tag-combat { background: linear-gradient(135deg,#f43f5e,#be123c); color: white; border: none; }
+        .tag-louange { background: linear-gradient(135deg,#10b981,#0891b2); color: white; border: none; }
+        .tag-adoration { background: var(--grad); color: white; border: none; }
+
+        .tag-selector { display: flex; gap: 8px; flex-wrap: wrap; }
+        .tag-toggle {
+            padding: 8px 16px; border-radius: 8px; border: 2px solid var(--border);
+            background: transparent; cursor: pointer; font-size: 0.9em;
+            font-weight: 600; transition: all 0.2s; opacity: 0.5;
+        }
+        .tag-toggle.active { opacity: 1; }
+        .tag-toggle[data-tag="Célébration"] { color: #e65100; border-color: #ffd600; }
+        .tag-toggle[data-tag="Célébration"].active { background: #ffd600; border-color: #ffd600; color: #5c3800; }
+        .tag-toggle[data-tag="Combat"] { color: #ff1744; border-color: #ff1744; }
+        .tag-toggle[data-tag="Combat"].active { background: #ff1744; border-color: #ff1744; color: white; }
+        .tag-toggle[data-tag="Louange"] { color: #00c853; border-color: #00c853; }
+        .tag-toggle[data-tag="Louange"].active { background: #00c853; border-color: #00c853; color: white; }
+        .tag-toggle[data-tag="Adoration"] { color: #651fff; border-color: #651fff; }
+        .tag-toggle[data-tag="Adoration"].active { background: #651fff; border-color: #651fff; color: white; }
+
+        .filter-bar { display: flex; gap: 6px; margin-bottom: 14px; flex-wrap: wrap; }
+        .filter-btn {
+            padding: 6px 16px; border-radius: 20px; border: 1.5px solid rgba(124,58,237,0.15);
+            background: white; cursor: pointer; font-size: 0.83em;
+            font-weight: 700; transition: all 0.2s; color: var(--text-secondary);
+        }
+        .filter-btn[data-filter="all"].active { background: var(--grad); border-color: transparent; color: white; box-shadow: 0 3px 12px rgba(124,58,237,0.3); }
+        .filter-btn[data-filter="Célébration"] { color: #b45309; border-color: #fbbf24; }
+        .filter-btn[data-filter="Célébration"].active { background: linear-gradient(135deg,#f59e0b,#ef4444); border-color: transparent; color: white; }
+        .filter-btn[data-filter="Combat"] { color: #e11d48; border-color: #fda4af; }
+        .filter-btn[data-filter="Combat"].active { background: linear-gradient(135deg,#f43f5e,#be123c); border-color: transparent; color: white; }
+        .filter-btn[data-filter="Louange"] { color: #059669; border-color: #6ee7b7; }
+        .filter-btn[data-filter="Louange"].active { background: linear-gradient(135deg,#10b981,#0891b2); border-color: transparent; color: white; }
+        .filter-btn[data-filter="Adoration"] { color: #7c3aed; border-color: #c4b5fd; }
+        .filter-btn[data-filter="Adoration"].active { background: var(--grad); border-color: transparent; color: white; }
+
+        .empty-state {
+            text-align: center; padding: 60px 20px;
+            color: var(--text-secondary);
+        }
+        .empty-state .empty-icon { font-size: 3em; margin-bottom: 16px; opacity: 0.5; }
+
+        /* ====== EDITOR VIEW ====== */
+        .editor-section {
+            background: var(--bg-card); border-radius: 12px;
+            padding: 20px; margin-bottom: 16px;
+            border: 1px solid var(--border);
+        }
+        .editor-section h3 { margin-bottom: 12px; font-size: 1em; color: var(--text-secondary); }
+
+        .form-row { display: flex; gap: 12px; margin-bottom: 12px; }
+        .form-row > * { flex: 1; }
+        .form-group { margin-bottom: 12px; }
+        .form-group label { display: block; margin-bottom: 6px; font-size: 0.85em; color: var(--text-secondary); }
+        .form-group input, .form-group select, .form-group textarea {
+            width: 100%; padding: 10px 14px; border-radius: 8px;
+            background: var(--bg-input); border: 1px solid var(--border);
+            color: var(--text-primary); font-size: 0.95em; outline: none;
+        }
+        .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+            border-color: var(--accent);
+        }
+        .form-group textarea {
+            font-family: 'Roboto Mono', 'Courier New', monospace;
+            line-height: 1.6; resize: vertical; min-height: 300px;
+        }
+
+        .upload-zone {
+            border: 2px dashed var(--border); border-radius: 12px;
+            padding: 32px; text-align: center; cursor: pointer;
+            transition: all 0.2s; margin-bottom: 16px;
+        }
+        .upload-zone:hover, .upload-zone.dragover {
+            border-color: var(--accent); background: rgba(233,69,96,0.05);
+        }
+        .upload-zone .upload-icon { font-size: 2em; margin-bottom: 8px; }
+        .upload-zone p { color: var(--text-secondary); font-size: 0.9em; }
+        .upload-zone input[type="file"] { display: none; }
+
+        .preview-section {
+            background: var(--bg-input); border-radius: 8px;
+            padding: 20px; margin-top: 12px;
+            font-family: 'Roboto Mono', 'Courier New', monospace;
+            line-height: 2; white-space: pre-wrap;
+            max-height: 400px; overflow-y: auto;
+        }
+        .preview-section .chord {
+            color: var(--chord-color); font-weight: 700;
+            position: relative; cursor: default;
+        }
+
+        .editor-actions {
+            display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px;
+        }
+
+        /* ====== PARTITION VIEW ====== */
+        .partition-header {
+            display: flex; align-items: center; gap: 8px;
+            margin-bottom: 10px; flex-wrap: wrap;
+        }
+        .partition-header .back-btn {
+            background: var(--accent2); border: none; color: var(--accent);
+            width: 38px; height: 38px; border-radius: 12px;
+            cursor: pointer; font-size: 1.1em; display: flex;
+            align-items: center; justify-content: center;
+            font-weight: 700; transition: 0.2s; flex-shrink: 0;
+        }
+        .partition-header .back-btn:hover { background: var(--grad); color: white; }
+        .partition-header h2 { flex: 1; font-size: 1.3em; }
+        .partition-controls {
+            display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+        }
+        .transpose-controls {
+            display: flex; align-items: center; gap: 4px;
+            background: var(--bg-card); border-radius: 10px; padding: 4px;
+        }
+        .transpose-controls button {
+            width: 36px; height: 36px; border: none; border-radius: 8px;
+            background: transparent; color: var(--text-primary);
+            cursor: pointer; font-size: 1.1em; font-weight: 700;
+            transition: 0.2s;
+        }
+        .transpose-controls button:hover { background: var(--grad); color: white; }
+        .transpose-controls .key-display {
+            min-width: 40px; text-align: center; font-weight: 800;
+            background: var(--grad); -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent; background-clip: text;
+            font-size: 1.1em;
+        }
+
+        .font-controls {
+            display: flex; align-items: center; gap: 4px;
+            background: var(--bg-card); border-radius: 10px; padding: 4px;
+        }
+        .font-controls button {
+            width: 36px; height: 36px; border: none; border-radius: 8px;
+            background: transparent; color: var(--text-primary);
+            cursor: pointer; font-weight: 700; transition: 0.2s;
+        }
+        .font-controls button:hover { background: var(--accent); }
+
+        .partition-content {
+            background: #ffffff; border-radius: 14px;
+            padding: 12px 16px; border: 1px solid rgba(79,0,255,0.12);
+            box-shadow: 0 2px 16px rgba(79,0,255,0.08);
+            font-family: 'Roboto Mono', 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.35;
+            color: #13122a;
+        }
+        .partition-content .chord-pair {
+            display: block;
+            margin: 0;
+            padding: 0;
+        }
+        .partition-content .chord-line {
+            display: block;
+            line-height: 1.2;
+            font-size: 14px;
+            color: var(--chord-color); font-weight: 700;
+            letter-spacing: 0px;
+            margin-top: 4px;
+            margin-bottom: 0;
+            white-space: pre;
+        }
+        .partition-content .lyric-line {
+            display: block;
+            line-height: 1.35;
+            font-size: 14px;
+            margin-bottom: 0;
+            color: var(--text-primary);
+            white-space: pre;
+        }
+        .partition-content .section-marker {
+            color: var(--warning); font-weight: 700;
+            font-style: italic; margin-top: 4px;
+            display: block; line-height: 1.4;
+        }
+        .partition-content .inline-chord {
+            color: var(--chord-color); font-weight: 700;
+        }
+        .partition-content.two-columns {
+            column-count: 2;
+            column-gap: 2em;
+            white-space: normal;
+        }
+        .partition-content.two-columns .chord-pair {
+            break-inside: avoid;
+        }
+        #columnToggle.active, #liveColumnToggle.active {
+            background: var(--accent);
+            color: white;
+        }
+
+        .wake-lock-indicator {
+            position: fixed; bottom: 16px; right: 16px;
+            background: var(--success); color: white;
+            padding: 6px 12px; border-radius: 20px;
+            font-size: 0.8em; font-weight: 600;
+            opacity: 0.8; z-index: 50;
+        }
+
+        /* ====== SETLIST VIEW ====== */
+        .setlist-header { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+        .setlist-header h2 { flex: 1; }
+
+        .setlist-card {
+            background: var(--bg-card); border-radius: 12px;
+            padding: 16px; margin-bottom: 8px;
+            border: 1px solid var(--border);
+            cursor: pointer; transition: all 0.2s;
+            display: flex; align-items: center; gap: 12px;
+        }
+        .setlist-card:hover { border-color: var(--accent); }
+        .setlist-card .setlist-info { flex: 1; }
+        .setlist-card .setlist-name { font-weight: 600; }
+        .setlist-card .setlist-meta { color: var(--text-secondary); font-size: 0.85em; margin-top: 4px; }
+        .setlist-card .setlist-count {
+            background: var(--accent2); padding: 4px 10px;
+            border-radius: 6px; font-size: 0.85em;
+        }
+
+        /* setlist detail */
+        .setlist-detail-header {
+            display: flex; align-items: center; gap: 12px; margin-bottom: 16px;
+        }
+        .setlist-song-item {
+            background: var(--bg-card); border-radius: 10px;
+            padding: 12px 16px; margin-bottom: 6px;
+            border: 1px solid var(--border);
+            display: flex; align-items: center; gap: 12px;
+            cursor: grab;
+        }
+        .setlist-song-item:active { cursor: grabbing; }
+        .setlist-song-item .drag-handle {
+            color: var(--text-secondary); cursor: grab;
+            font-size: 1.2em;
+        }
+        .setlist-song-item .song-info { flex: 1; }
+        .setlist-song-item .mini-transpose {
+            display: flex; align-items: center; gap: 2px;
+        }
+        .setlist-song-item .mini-transpose button {
+            width: 28px; height: 28px; border: none; border-radius: 6px;
+            background: var(--bg-input); color: var(--text-primary);
+            cursor: pointer; font-weight: 700; font-size: 0.9em;
+        }
+        .setlist-song-item .mini-transpose button:hover { background: var(--accent); }
+        .setlist-song-item .mini-transpose .transpose-val {
+            min-width: 30px; text-align: center; font-size: 0.85em;
+            color: var(--accent);
+        }
+        .setlist-song-item .remove-btn {
+            background: none; border: none; color: var(--text-secondary);
+            cursor: pointer; font-size: 1.1em; padding: 4px;
+        }
+        .setlist-song-item .remove-btn:hover { color: #e74c3c; }
+
+        .add-song-to-setlist {
+            border: 2px dashed var(--border); border-radius: 10px;
+            padding: 12px; text-align: center; cursor: pointer;
+            color: var(--text-secondary); transition: 0.2s;
+            margin-top: 8px;
+        }
+        .add-song-to-setlist:hover { border-color: var(--accent); color: var(--accent); }
+
+        /* ====== SETLIST LIVE VIEW ====== */
+        .live-nav {
+            position: fixed; bottom: 0; left: 0; right: 0;
+            height: 60px; background: var(--bg-secondary);
+            border-top: 1px solid var(--border);
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 0 20px; z-index: 100;
+        }
+        .live-nav button {
+            padding: 10px 24px; border: none; border-radius: 10px;
+            background: var(--bg-card); color: var(--text-primary);
+            cursor: pointer; font-weight: 600; font-size: 1em;
+            transition: 0.2s;
+        }
+        .live-nav button:hover { background: var(--accent); }
+        .live-nav .song-counter { color: var(--text-secondary); font-size: 0.9em; }
+        .view-live .main { padding-bottom: 80px; }
+
+        /* ====== MODAL ====== */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.6); z-index: 200;
+            display: flex; align-items: center; justify-content: center;
+            padding: 20px;
+        }
+        .modal-overlay.hidden { display: none; }
+        .modal {
+            background: var(--bg-secondary); border-radius: 16px;
+            padding: 24px; max-width: 500px; width: 100%;
+            max-height: 80vh; overflow-y: auto;
+            border: 1px solid var(--border);
+        }
+        .modal h3 { margin-bottom: 16px; }
+        .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
+
+        .song-picker-item {
+            padding: 10px 12px; border-radius: 8px; cursor: pointer;
+            display: flex; align-items: center; gap: 10px;
+            transition: 0.2s; margin-bottom: 4px;
+        }
+        .song-picker-item:hover { background: var(--bg-card); }
+        .song-picker-item.selected { background: var(--accent2); border: 1px solid var(--accent); }
+        .song-picker-item .pick-title { flex: 1; }
+        .song-picker-item .pick-key { color: var(--accent); font-weight: 700; font-size: 0.9em; }
+
+        /* ====== TOAST ====== */
+        .toast {
+            position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+            background: var(--bg-card); color: var(--text-primary);
+            padding: 12px 24px; border-radius: 10px;
+            border: 1px solid var(--border);
+            z-index: 300; opacity: 0; transition: opacity 0.3s;
+            pointer-events: none;
+        }
+        .toast.show { opacity: 1; }
+
+        /* ====== VERSION TABS ====== */
+        .version-tabs {
+            display: flex; gap: 4px; align-items: center; flex-wrap: wrap;
+            margin-bottom: 12px;
+        }
+        .version-tab {
+            padding: 6px 14px; border-radius: 8px 8px 0 0; border: 1px solid var(--border);
+            border-bottom: none; background: var(--bg-input); color: var(--text-secondary);
+            cursor: pointer; font-size: 0.85em; transition: all 0.2s;
+            display: flex; align-items: center; gap: 6px;
+        }
+        .version-tab.active { background: var(--bg-card); color: var(--text-primary); font-weight: 600; }
+        .version-tab:hover { color: var(--text-primary); }
+        .version-tab .version-remove {
+            width: 16px; height: 16px; border-radius: 50%; border: none;
+            background: transparent; color: var(--text-secondary); cursor: pointer;
+            font-size: 0.8em; display: flex; align-items: center; justify-content: center;
+            transition: 0.2s; padding: 0; line-height: 1;
+        }
+        .version-tab .version-remove:hover { background: #e74c3c; color: white; }
+        .version-add-btn {
+            width: 28px; height: 28px; border-radius: 8px; border: 1px dashed var(--border);
+            background: transparent; color: var(--text-secondary); cursor: pointer;
+            font-size: 1.1em; display: flex; align-items: center; justify-content: center;
+            transition: 0.2s;
+        }
+        .version-add-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+        .version-selector {
+            display: flex; gap: 4px; align-items: center;
+            background: var(--bg-card); border-radius: 10px; padding: 4px;
+        }
+        .version-selector button {
+            padding: 6px 12px; border: none; border-radius: 6px;
+            background: transparent; color: var(--text-secondary);
+            cursor: pointer; font-size: 0.85em; transition: 0.2s;
+        }
+        .version-selector button.active { background: var(--accent); color: white; font-weight: 600; }
+        .version-selector button:hover:not(.active) { color: var(--text-primary); }
+
+        /* ====== SCROLLBAR ====== */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--text-secondary); }
+
+        /* Sortable ghost */
+        .sortable-ghost { opacity: 0.4; }
+        .sortable-chosen { box-shadow: 0 0 0 2px var(--accent); }
+
+        /* ====== LOADING ====== */
+        .loading-spinner {
+            display: inline-block; width: 20px; height: 20px;
+            border: 2px solid var(--border); border-top-color: var(--accent);
+            border-radius: 50%; animation: spin 0.6s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav class="navbar">
+    <div class="logo">
+        <svg width="34" height="34" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0">
+            <rect width="40" height="40" rx="10" fill="#e94560"/>
+            <!-- Left note head -->
+            <ellipse cx="12.5" cy="27.5" rx="5.5" ry="3.8" fill="white" transform="rotate(-18 12.5 27.5)"/>
+            <!-- Left stem -->
+            <rect x="17" y="11.5" width="2.5" height="17" rx="1.2" fill="white"/>
+            <!-- Right note head -->
+            <ellipse cx="25" cy="30.5" rx="5.5" ry="3.8" fill="white" transform="rotate(-18 25 30.5)"/>
+            <!-- Right stem -->
+            <rect x="29.5" y="14.5" width="2.5" height="17" rx="1.2" fill="white"/>
+            <!-- Beam -->
+            <path d="M17 11.5 L32 14.5 L32 18.5 L17 15.5 Z" fill="white"/>
+        </svg>
+        Song<span>Book</span>
+    </div>
+    <div class="nav-tabs">
+        <button class="nav-tab active" data-view="library">
+            <span class="tab-icon">📚</span>
+            <span class="tab-text">Biblioth&egrave;que</span>
+        </button>
+        <button class="nav-tab" data-view="setlists">
+            <span class="tab-icon">📋</span>
+            <span class="tab-text">Setlists</span>
+        </button>
+    </div>
+</nav>
+
+<!-- LIBRARY VIEW -->
+<div id="view-library" class="view active">
+    <div class="main">
+        <div class="search-bar">
+            <input type="text" id="searchInput" placeholder="Rechercher un chant...">
+            <button class="btn btn-primary" onclick="showEditor()">+ Nouveau</button>
+        </div>
+        <div class="filter-bar">
+            <button class="filter-btn active" data-filter="all" onclick="setFilter('all')">Tous</button>
+            <button class="filter-btn" data-filter="Célébration" onclick="setFilter('Célébration')">Célébration</button>
+            <button class="filter-btn" data-filter="Combat" onclick="setFilter('Combat')">Combat</button>
+            <button class="filter-btn" data-filter="Louange" onclick="setFilter('Louange')">Louange</button>
+            <button class="filter-btn" data-filter="Adoration" onclick="setFilter('Adoration')">Adoration</button>
+        </div>
+        <div id="songList" class="song-list"></div>
+        <div id="emptyState" class="empty-state">
+            <div class="empty-icon">🎵</div>
+            <h3>Aucun chant</h3>
+            <p>Ajoutez votre premier chant en cliquant sur "+ Nouveau"</p>
+        </div>
+    </div>
+</div>
+
+<!-- EDITOR VIEW -->
+<div id="view-editor" class="view">
+    <div class="main">
+        <div class="partition-header">
+            <button class="back-btn" onclick="showLibrary()">&#8592;</button>
+            <h2 id="editorTitle">Nouveau chant</h2>
+        </div>
+
+        <!-- Upload zone -->
+        <div class="upload-zone" id="uploadZone">
+            <div class="upload-icon">📄</div>
+            <p>Glissez un fichier Word ou PDF ici, ou cliquez pour s&eacute;lectionner</p>
+            <p style="font-size:0.8em; margin-top:4px">Formats : .docx, .pdf, .txt</p>
+            <input type="file" id="fileInput" accept=".docx,.pdf,.txt,.onsong,.cho,.chopro,.chordpro">
+        </div>
+
+        <div class="editor-section">
+            <h3>Informations</h3>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Titre</label>
+                    <input type="text" id="songTitleInput" placeholder="Titre du chant">
+                </div>
+                <div class="form-group">
+                    <label>Artiste / Auteur</label>
+                    <input type="text" id="songArtistInput" placeholder="Artiste">
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Tonalit&eacute;</label>
+                    <select id="songKeyInput">
+                        <option value="">Auto-d&eacute;tecter</option>
+                        <option>C</option><option>C#</option><option>Db</option>
+                        <option>D</option><option>D#</option><option>Eb</option>
+                        <option>E</option><option>F</option><option>F#</option>
+                        <option>Gb</option><option>G</option><option>G#</option>
+                        <option>Ab</option><option>A</option><option>A#</option>
+                        <option>Bb</option><option>B</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Capo</label>
+                    <input type="number" id="songCapoInput" min="0" max="12" value="0">
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Style</label>
+                <div class="tag-selector" id="tagSelector">
+                    <button type="button" class="tag-toggle" data-tag="Célébration" onclick="toggleTag(this)">Célébration</button>
+                    <button type="button" class="tag-toggle" data-tag="Combat" onclick="toggleTag(this)">Combat</button>
+                    <button type="button" class="tag-toggle" data-tag="Louange" onclick="toggleTag(this)">Louange</button>
+                    <button type="button" class="tag-toggle" data-tag="Adoration" onclick="toggleTag(this)">Adoration</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="editor-section">
+            <h3>Versions</h3>
+            <p style="font-size:0.85em; color:var(--text-secondary); margin-bottom:12px;">
+                Ajoutez plusieurs versions d'un m&ecirc;me chant (ex: diff&eacute;rentes &eacute;glises).
+            </p>
+            <div class="version-tabs" id="editorVersionTabs"></div>
+            <p style="font-size:0.85em; color:var(--text-secondary); margin-bottom:8px;">
+                Formats accept&eacute;s : accords entre [crochets],
+                accords sur une ligne seule au-dessus des paroles, ou m&eacute;lang&eacute;s dans le texte.
+            </p>
+            <div class="form-group">
+                <textarea id="songContentInput" placeholder="[Am]Amazing [G]grace how [C]sweet the sound&#10;[C]That saved a [Am]wretch like [G]me&#10;&#10;ou&#10;&#10;Am        G           C&#10;Amazing grace how sweet the sound&#10;C              Am       G&#10;That saved a wretch like me"></textarea>
+            </div>
+            <button class="btn btn-secondary btn-sm" onclick="detectAndPreview()">Pr&eacute;visualiser les accords</button>
+            <div id="editorPreview" class="preview-section" style="display:none;"></div>
+        </div>
+
+        <div class="editor-actions">
+            <button class="btn btn-secondary" onclick="showLibrary()">Annuler</button>
+            <button class="btn btn-danger" id="deleteBtn" style="display:none;" onclick="deleteSongFromEditor()">Supprimer</button>
+            <button class="btn btn-primary" onclick="saveSong()">Sauvegarder</button>
+        </div>
+    </div>
+</div>
+
+<!-- PARTITION VIEW -->
+<div id="view-partition" class="view">
+    <div class="main">
+        <div class="partition-header">
+            <button class="back-btn" id="partitionBackBtn" onclick="goBackFromPartition()">&#8592;</button>
+            <h2 id="partitionTitle"></h2>
+            <div class="partition-controls">
+                <div class="transpose-controls">
+                    <button onclick="transposeDown()">-</button>
+                    <span class="key-display" id="currentKeyDisplay">C</span>
+                    <button onclick="transposeUp()">+</button>
+                </div>
+                <div class="font-controls">
+                    <button onclick="changeFontSize(-1)">A-</button>
+                    <button onclick="changeFontSize(1)">A+</button>
+                </div>
+                <button class="btn-icon" id="nashvilleToggle" onclick="toggleNashville()" title="Nashville">N</button>
+                <button class="btn-icon" id="columnToggle" onclick="toggleColumns()" title="2 colonnes">⫿</button>
+                <button class="btn-icon" onclick="editCurrentSong()" title="Modifier">&#9998;</button>
+            </div>
+        </div>
+        <div id="partitionMeta" style="color:var(--text-secondary); font-size:0.9em; margin-bottom:16px;"></div>
+        <div id="partitionVersionSelector" class="version-selector" style="margin-bottom:12px; display:none;"></div>
+        <div id="partitionContent" class="partition-content"></div>
+    </div>
+    <div id="wakeLockIndicator" class="wake-lock-indicator" style="display:none;">
+        &#128274; &Eacute;cran actif
+    </div>
+</div>
+
+<!-- SETLISTS VIEW -->
+<div id="view-setlists" class="view">
+    <div class="main">
+        <div class="setlist-header">
+            <h2>Setlists</h2>
+            <button class="btn btn-primary" onclick="createSetlist()">+ Nouvelle</button>
+        </div>
+        <div id="setlistList"></div>
+        <div id="emptySetlists" class="empty-state">
+            <div class="empty-icon">📋</div>
+            <h3>Aucune setlist</h3>
+            <p>Cr&eacute;ez une setlist pour organiser vos chants</p>
+        </div>
+    </div>
+</div>
+
+<!-- SETLIST DETAIL VIEW -->
+<div id="view-setlist-detail" class="view">
+    <div class="main">
+        <div class="setlist-detail-header">
+            <button class="back-btn" onclick="showSetlists()">&#8592;</button>
+            <h2 id="setlistDetailName" contenteditable="true" style="flex:1; outline:none;"></h2>
+            <button class="btn btn-primary btn-sm" onclick="startSetlistLive()">&#9654; Live</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteSetlist()">Supprimer</button>
+        </div>
+        <div id="setlistSongs"></div>
+        <div class="add-song-to-setlist" onclick="openSongPicker()">+ Ajouter un chant</div>
+    </div>
+</div>
+
+<!-- SETLIST LIVE VIEW -->
+<div id="view-live" class="view view-live">
+    <div class="main">
+        <div class="partition-header">
+            <h2 id="liveSongTitle"></h2>
+            <div class="partition-controls">
+                <div class="transpose-controls">
+                    <button onclick="transposeDown()">-</button>
+                    <span class="key-display" id="liveKeyDisplay">C</span>
+                    <button onclick="transposeUp()">+</button>
+                </div>
+                <div class="font-controls">
+                    <button onclick="changeFontSize(-1)">A-</button>
+                    <button onclick="changeFontSize(1)">A+</button>
+                </div>
+                <button class="btn-icon" id="liveNashvilleToggle" onclick="toggleNashville()" title="Nashville">N</button>
+                <button class="btn-icon" id="liveColumnToggle" onclick="toggleColumns()" title="2 colonnes">⫿</button>
+            </div>
+        </div>
+        <div id="liveContent" class="partition-content"></div>
+    </div>
+    <div class="live-nav">
+        <button onclick="livePrev()">&#8592; Pr&eacute;c.</button>
+        <span class="song-counter" id="liveCounter">1 / 5</span>
+        <button onclick="liveNext()">Suiv. &#8594;</button>
+    </div>
+    <div id="liveWakeLock" class="wake-lock-indicator" style="display:none;">
+        &#128274; &Eacute;cran actif
+    </div>
+</div>
+
+<!-- SONG PICKER MODAL -->
+<div id="songPickerModal" class="modal-overlay hidden">
+    <div class="modal">
+        <h3>Ajouter un chant</h3>
+        <input type="text" id="pickerSearch" placeholder="Rechercher..."
+               style="width:100%; padding:10px; border-radius:8px; background:var(--bg-input); border:1px solid var(--border); color:var(--text-primary); margin-bottom:12px; outline:none;">
+        <div id="pickerList"></div>
+        <div class="modal-actions">
+            <button class="btn btn-secondary" onclick="closeSongPicker()">Fermer</button>
+            <button class="btn btn-primary" onclick="addPickedSongs()">Ajouter</button>
+        </div>
+    </div>
+</div>
+
+<!-- TOAST -->
+<div id="toast" class="toast"></div>
+
+<script>
+// ====== CONFIG ======
+const firebaseConfig = {
+    apiKey: "AIzaSyAFslYBsJFaAN8MERqfbnqCYv0o-59FDec",
+    authDomain: "portfolio-dashboard-f0c69.firebaseapp.com",
+    databaseURL: "https://portfolio-dashboard-f0c69-default-rtdb.firebaseio.com",
+    projectId: "portfolio-dashboard-f0c69"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+// PDF.js worker
+if (typeof pdfjsLib !== 'undefined') {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+}
+
+// ====== STATE ======
+let songs = {};
+let setlists = {};
+let currentEditId = null;
+let currentViewSongId = null;
+let currentTranspose = 0;
+let currentFontSize = 16;
+let currentSetlistId = null;
+let liveSetlistSongs = [];
+let liveIndex = 0;
+let wakeLock = null;
+let pickedSongIds = new Set();
+let returnToView = 'library'; // where to go back from partition view
+let activeFilter = 'all';
+let currentVersionIndex = 0; // active version in editor and partition view
+let nashvilleMode = false; // toggle Nashville number display
+
+const TAG_COLORS = {
+    'Célébration': 'celebration',
+    'Combat': 'combat',
+    'Louange': 'louange',
+    'Adoration': 'adoration'
+};
+
+// ====== CHORD ENGINE ======
+const NOTES_SHARP = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+const NOTES_FLAT  = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'];
+
+// Keys that prefer flats
+const FLAT_KEYS = new Set(['F', 'Bb', 'Eb', 'Ab', 'Db', 'Gb',
+                           'Dm', 'Gm', 'Cm', 'Fm', 'Bbm', 'Ebm']);
+
+// Regex to match a chord token
+// Matches: C, Am, F#m7, Bb, Dsus4, G/B, Cadd9, Cdim, Caug, C7, Cmaj7, etc.
+const CHORD_REGEX = /^([A-G][#b]?)(m|min|maj|dim|aug|sus[24]?|add)?(\d+)?(\/[A-G][#b]?)?$/;
+
+// French solfège chord names: Do Ré Mi Fa Sol La Si (+ accidentals and suffixes)
+const FRENCH_NOTE = /^(Do|Ré|Re|Mi|Fa|Sol|La|Si)[#b]?(m|min|maj|dim|aug|sus[24]?|add)?(\d+)?(\/(?:Do|Ré|Re|Mi|Fa|Sol|La|Si)[#b]?)?$/i;
+const FRENCH_TO_STD = { do:'C', ré:'D', re:'D', mi:'E', fa:'F', sol:'G', la:'A', si:'B' };
+const STD_TO_FRENCH = { C:'Do', D:'Ré', E:'Mi', F:'Fa', G:'Sol', A:'La', B:'Si' };
+
+function isFrenchChord(token) {
+    return FRENCH_NOTE.test(token.trim());
+}
+function frenchChordToStd(chord) {
+    return chord.replace(/^(Do|Ré|Re|Mi|Fa|Sol|La|Si)([#b]?)(.*)/i, (_, note, acc, rest) => {
+        const std = FRENCH_TO_STD[note.toLowerCase()] || note;
+        return std + acc + rest;
+    });
+}
+function stdChordToFrench(chord) {
+    return chord.replace(/^([A-G])([#b]?)(.*?)$/, (_, note, acc, rest) => {
+        return (STD_TO_FRENCH[note] || note) + acc + rest;
+    });
+}
+
+// Full chord regex for detection in text (word boundary aware)
+const CHORD_IN_TEXT = /\b([A-G][#b]?(?:m|min|maj|dim|aug|sus[24]?|add)?(?:\d+)?(?:\/[A-G][#b]?)?)\b/g;
+
+// ChordPro bracket format
+const CHORDPRO_REGEX = /\[([A-G][#b]?(?:m|min|maj|dim|aug|sus[24]?|add)?(?:\d+)?(?:\/[A-G][#b]?)?)\]/g;
+
+function isChord(token) {
+    return CHORD_REGEX.test(token.trim()) || isFrenchChord(token.trim());
+}
+
+function isChordLine(line) {
+    // A line is a chord line if it contains mostly chords and spaces
+    const trimmed = line.trim();
+    if (!trimmed) return false;
+    const tokens = trimmed.split(/\s+/);
+    if (tokens.length === 0) return false;
+    const chordCount = tokens.filter(t => isChord(t)).length;
+    return chordCount / tokens.length >= 0.6 && chordCount >= 1;
+}
+
+function getNoteIndex(note) {
+    let idx = NOTES_SHARP.indexOf(note);
+    if (idx === -1) idx = NOTES_FLAT.indexOf(note);
+    return idx;
+}
+
+function transposeChord(chord, semitones, useFlats) {
+    const match = chord.match(/^([A-G][#b]?)(.*?)(\/([A-G][#b]?)(.*))?$/);
+    if (!match) return chord;
+
+    const root = match[1];
+    const suffix = match[2] || '';
+    const bassNote = match[4];
+    const bassSuffix = match[5] || '';
+
+    const noteSet = useFlats ? NOTES_FLAT : NOTES_SHARP;
+
+    let rootIdx = getNoteIndex(root);
+    if (rootIdx === -1) return chord;
+    const newRoot = noteSet[(rootIdx + semitones + 12) % 12];
+
+    let result = newRoot + suffix;
+
+    if (bassNote) {
+        let bassIdx = getNoteIndex(bassNote);
+        if (bassIdx !== -1) {
+            const newBass = noteSet[(bassIdx + semitones + 12) % 12];
+            result += '/' + newBass + bassSuffix;
+        }
+    }
+
+    return result;
+}
+
+function transposeContent(content, semitones, originalKey) {
+    if (semitones === 0) return content;
+
+    // Determine if target key uses flats
+    const origIdx = getNoteIndex(originalKey || 'C');
+    const targetIdx = (origIdx + semitones + 12) % 12;
+    const targetNote = NOTES_SHARP[targetIdx];
+    const useFlats = FLAT_KEYS.has(targetNote) || FLAT_KEYS.has(targetNote + 'm');
+    const CHORD_TOKEN_RE = /([A-G][#b]?(?:m|min|maj|dim|aug|sus[24]?|add)?(?:\d+)?(?:\/[A-G][#b]?)?)/g;
+
+    return content.split('\n').map(line => {
+        // Inline ChordPro [Am]word
+        if (CHORDPRO_REGEX.test(line)) {
+            return line.replace(new RegExp(CHORDPRO_REGEX.source, 'g'), (match, chord) =>
+                '[' + transposeChord(chord, semitones, useFlats) + ']');
+        }
+        // Standalone chord line — transpose each token, keep spacing
+        if (isChordLine(line)) {
+            const hasFrench = line.split(/\s+/).some(t => t && isFrenchChord(t));
+            if (hasFrench) {
+                return line.replace(/(Do|Ré|Re|Mi|Fa|Sol|La|Si)([#b]?)((?:m|min|maj|dim|aug|sus[24]?|add)?\d*)/gi,
+                    (_, note, acc, suffix) => {
+                        const std = (FRENCH_TO_STD[note.toLowerCase()] || note) + acc + suffix;
+                        const transposed = transposeChord(std, semitones, useFlats);
+                        return transposed.replace(/^([A-G])([#b]?)(.*?)$/, (__, n, a, rest) => (STD_TO_FRENCH[n] || n) + a + rest);
+                    });
+            }
+            return line.replace(CHORD_TOKEN_RE, chord => transposeChord(chord, semitones, useFlats));
+        }
+        // Nashville lines don't transpose (numbers are relative to key)
+        return line;
+    }).join('\n');
+}
+
+function detectKey(content) {
+    const chords = [];
+    let m;
+    const regex = new RegExp(CHORDPRO_REGEX.source, 'g');
+    while ((m = regex.exec(content)) !== null) {
+        chords.push(m[1]);
+    }
+    if (chords.length === 0) return 'C';
+
+    // Simple heuristic: the first chord or the most common chord is likely the key
+    const first = chords[0].match(/^([A-G][#b]?)/);
+    return first ? first[1] : 'C';
+}
+
+// ====== NASHVILLE NUMBER SYSTEM ======
+const NASHVILLE_NUMBERS = ['1', '2', '3', '4', '5', '6', '7'];
+// Intervals from root in semitones for major scale
+const MAJOR_SCALE_INTERVALS = [0, 2, 4, 5, 7, 9, 11];
+
+// Nashville regex: matches 1-7 with optional b/# prefix and suffixes
+const NASHVILLE_CHORD_REGEX = /^([#b]?)([1-7])(m|min|maj|dim|aug|sus[24]?|add)?(\d+)?(\/([#b]?)([1-7]))?$/;
+const NASHVILLE_IN_TEXT = /\b([#b]?[1-7](?:m|min|maj|dim|aug|sus[24]?|add)?(?:\d+)?(?:\/[#b]?[1-7])?)\b/g;
+const NASHVILLE_CHORDPRO = /\[([#b]?[1-7](?:m|min|maj|dim|aug|sus[24]?|add)?(?:\d+)?(?:\/[#b]?[1-7])?)\]/g;
+
+function isNashvilleChord(token) {
+    return NASHVILLE_CHORD_REGEX.test(token.trim());
+}
+
+function isNashvilleLine(line) {
+    const trimmed = line.trim();
+    if (!trimmed) return false;
+    const tokens = trimmed.split(/\s+/);
+    if (tokens.length === 0) return false;
+    const nashCount = tokens.filter(t => isNashvilleChord(t)).length;
+    return nashCount / tokens.length >= 0.6 && nashCount >= 1;
+}
+
+function chordToNashville(chord, key) {
+    const match = chord.match(/^([A-G][#b]?)(.*?)(\/([A-G][#b]?)(.*))?$/);
+    if (!match) return chord;
+
+    const root = match[1];
+    const suffix = match[2] || '';
+    const bassNote = match[4];
+    const bassSuffix = match[5] || '';
+
+    const keyIdx = getNoteIndex(key || 'C');
+    const rootIdx = getNoteIndex(root);
+    if (rootIdx === -1) return chord;
+
+    const interval = (rootIdx - keyIdx + 12) % 12;
+    const degree = MAJOR_SCALE_INTERVALS.indexOf(interval);
+
+    let num;
+    if (degree !== -1) {
+        num = NASHVILLE_NUMBERS[degree];
+    } else {
+        // Chromatic note: find closest scale degree and add #/b
+        const flatInterval = (interval - 1 + 12) % 12;
+        const sharpInterval = (interval + 1) % 12;
+        const flatDegree = MAJOR_SCALE_INTERVALS.indexOf(flatInterval);
+        const sharpDegree = MAJOR_SCALE_INTERVALS.indexOf(sharpInterval);
+
+        if (sharpDegree !== -1) {
+            num = 'b' + NASHVILLE_NUMBERS[sharpDegree];
+        } else if (flatDegree !== -1) {
+            num = '#' + NASHVILLE_NUMBERS[flatDegree];
+        } else {
+            return chord; // fallback
+        }
+    }
+
+    let result = num + suffix;
+
+    if (bassNote) {
+        const bassIdx = getNoteIndex(bassNote);
+        if (bassIdx !== -1) {
+            const bassInterval = (bassIdx - keyIdx + 12) % 12;
+            const bassDegree = MAJOR_SCALE_INTERVALS.indexOf(bassInterval);
+            if (bassDegree !== -1) {
+                result += '/' + NASHVILLE_NUMBERS[bassDegree];
+            } else {
+                result += '/' + bassNote + bassSuffix;
+            }
+        }
+    }
+
+    return result;
+}
+
+function nashvilleToChord(nashville, key) {
+    const match = nashville.match(/^([#b]?)([1-7])(.*?)(\/([#b]?)([1-7])(.*))?$/);
+    if (!match) return nashville;
+
+    const accidental = match[1];
+    const degree = parseInt(match[2]) - 1;
+    const suffix = match[3] || '';
+    const bassAccidental = match[5] || '';
+    const bassDegree = match[6] ? parseInt(match[6]) - 1 : null;
+    const bassSuffix = match[7] || '';
+
+    const keyIdx = getNoteIndex(key || 'C');
+    let semitones = MAJOR_SCALE_INTERVALS[degree];
+    if (accidental === '#') semitones += 1;
+    if (accidental === 'b') semitones -= 1;
+
+    const useFlats = FLAT_KEYS.has(key) || FLAT_KEYS.has(key + 'm');
+    const noteSet = useFlats ? NOTES_FLAT : NOTES_SHARP;
+    const noteIdx = (keyIdx + semitones + 12) % 12;
+    let result = noteSet[noteIdx] + suffix;
+
+    if (bassDegree !== null) {
+        let bassSemitones = MAJOR_SCALE_INTERVALS[bassDegree];
+        if (bassAccidental === '#') bassSemitones += 1;
+        if (bassAccidental === 'b') bassSemitones -= 1;
+        const bassIdx = (keyIdx + bassSemitones + 12) % 12;
+        result += '/' + noteSet[bassIdx] + bassSuffix;
+    }
+
+    return result;
+}
+
+function convertContentNashvilleToChords(content, key) {
+    return content.replace(NASHVILLE_CHORDPRO, (match, nash) => {
+        return '[' + nashvilleToChord(nash, key) + ']';
+    });
+}
+
+function renderChordAsNashville(chordStr, key) {
+    return chordToNashville(chordStr, key);
+}
+
+// Merge Nashville chord line with lyric line using ORIGINAL positions
+function mergeNashvilleAndLyric(nashChordLine, lyricLine, key) {
+    // Extract Nashville chords and their positions from the ORIGINAL line
+    const chordPositions = [];
+    const nashRegex = new RegExp(NASHVILLE_IN_TEXT.source, 'g');
+    let m;
+    while ((m = nashRegex.exec(nashChordLine)) !== null) {
+        chordPositions.push({
+            chord: nashvilleToChord(m[1], key),
+            pos: m.index
+        });
+    }
+
+    if (chordPositions.length === 0) return lyricLine;
+
+    // Build ChordPro result using original positions in the lyric
+    let result = '';
+    let lastPos = 0;
+    const paddedLyric = lyricLine.padEnd(
+        chordPositions[chordPositions.length - 1].pos + 1
+    );
+
+    for (const { chord, pos } of chordPositions) {
+        result += paddedLyric.substring(lastPos, pos);
+        result += '[' + chord + ']';
+        lastPos = pos;
+    }
+    result += paddedLyric.substring(lastPos);
+
+    return result.trimEnd();
+}
+
+// Detect if content is in Nashville format
+function isNashvilleContent(text) {
+    const lines = text.split('\n');
+    let nashLines = 0;
+    let chordLines = 0;
+    for (const line of lines) {
+        if (isNashvilleLine(line)) nashLines++;
+        if (isChordLine(line)) chordLines++;
+    }
+    // Also check ChordPro Nashville: [1], [4m], etc.
+    const nashBrackets = (text.match(NASHVILLE_CHORDPRO) || []).length;
+    const stdBrackets = (text.match(CHORDPRO_REGEX) || []).length;
+    return (nashLines > chordLines) || (nashBrackets > 0 && stdBrackets === 0);
+}
+
+// Parse Nashville text to standard ChordPro
+function parseNashvilleToChordPro(rawText, key) {
+    const lines = rawText.split('\n');
+    let result = [];
+    let i = 0;
+
+    while (i < lines.length) {
+        const line = lines[i];
+
+        // Already Nashville ChordPro [1], [4m]
+        if (NASHVILLE_CHORDPRO.test(line)) {
+            const converted = line.replace(NASHVILLE_CHORDPRO, (m, nash) => '[' + nashvilleToChord(nash, key) + ']');
+            result.push(converted);
+            i++;
+            continue;
+        }
+
+        // Section markers
+        if (/^\s*\{.*\}\s*$/.test(line) || /^\s*\[(Verse|Chorus|Bridge|Intro|Outro|Couplet|Refrain|Pont|Pre-chorus|Interlude|Solo|Tag|Ending)\s*\d*\]\s*$/i.test(line)) {
+            result.push(line);
+            i++;
+            continue;
+        }
+
+        // Nashville chord line above lyric line
+        if (isNashvilleLine(line) && i + 1 < lines.length && !isNashvilleLine(lines[i + 1]) && !isChordLine(lines[i + 1])) {
+            result.push(mergeNashvilleAndLyric(line, lines[i + 1], key));
+            i += 2;
+            continue;
+        }
+
+        // Standalone Nashville chord line
+        if (isNashvilleLine(line)) {
+            // Extract positions and convert each chord individually
+            const nashRegex = new RegExp(NASHVILLE_IN_TEXT.source, 'g');
+            let m2, parts = [], lastIdx = 0;
+            while ((m2 = nashRegex.exec(line)) !== null) {
+                parts.push(line.substring(lastIdx, m2.index));
+                parts.push('[' + nashvilleToChord(m2[1], key) + ']');
+                lastIdx = m2.index + m2[0].length;
+            }
+            parts.push(line.substring(lastIdx));
+            result.push(parts.join(''));
+            i++;
+            continue;
+        }
+
+        result.push(line);
+        i++;
+    }
+
+    return result.join('\n');
+}
+
+// ====== CONTENT PARSER ======
+// Converts various formats to ChordPro [Chord]lyric format
+
+function parseContentToChordPro(rawText, key) {
+    // Detect Nashville and convert first
+    if (isNashvilleContent(rawText)) {
+        return parseNashvilleToChordPro(rawText, key || 'C');
+    }
+    const lines = rawText.split('\n');
+    let result = [];
+    let i = 0;
+
+    while (i < lines.length) {
+        const line = lines[i];
+
+        // Already in ChordPro format?
+        if (CHORDPRO_REGEX.test(line)) {
+            result.push(line);
+            i++;
+            continue;
+        }
+
+        // Section markers like [Verse], [Chorus], {title:}, etc.
+        if (/^\s*\{.*\}\s*$/.test(line) || /^\s*\[(Verse|Chorus|Bridge|Intro|Outro|Couplet|Refrain|Pont|Pre-chorus|Interlude|Solo|Tag|Ending)\s*\d*\]\s*$/i.test(line)) {
+            result.push(line);
+            i++;
+            continue;
+        }
+
+        // Check if this line is a chord line followed by a lyric line
+        if (isChordLine(line) && i + 1 < lines.length && !isChordLine(lines[i + 1])) {
+            const chordLine = line;
+            const lyricLine = lines[i + 1];
+            result.push(mergeChordAndLyric(chordLine, lyricLine));
+            i += 2;
+            continue;
+        }
+
+        // Check if this is a standalone chord line (no lyrics below)
+        if (isChordLine(line)) {
+            // Convert to ChordPro format with chords only
+            const converted = line.replace(/([A-G][#b]?(?:m|min|maj|dim|aug|sus[24]?|add)?(?:\d+)?(?:\/[A-G][#b]?)?)/g, '[$1]');
+            result.push(converted);
+            i++;
+            continue;
+        }
+
+        // Plain lyric line or empty line
+        result.push(line);
+        i++;
+    }
+
+    return result.join('\n');
+}
+
+function mergeChordAndLyric(chordLine, lyricLine) {
+    // Find positions of chords in the chord line
+    const chordPositions = [];
+    const chordRegex = /([A-G][#b]?(?:m|min|maj|dim|aug|sus[24]?|add)?(?:\d+)?(?:\/[A-G][#b]?)?)/g;
+    let m;
+    while ((m = chordRegex.exec(chordLine)) !== null) {
+        chordPositions.push({ chord: m[1], pos: m.index });
+    }
+
+    if (chordPositions.length === 0) return lyricLine;
+
+    // Build result by inserting chords at their positions in the lyric line
+    let result = '';
+    let lastPos = 0;
+
+    // Pad lyric line if needed
+    const paddedLyric = lyricLine.padEnd(chordPositions[chordPositions.length - 1].pos + 1);
+
+    for (const { chord, pos } of chordPositions) {
+        result += paddedLyric.substring(lastPos, pos);
+        result += '[' + chord + ']';
+        lastPos = pos;
+    }
+    result += paddedLyric.substring(lastPos);
+
+    return result.trimEnd();
+}
+
+// ====== RENDER PARTITION ======
+function renderChordPro(content, transpose, originalKey) {
+    // Apply transposition
+    let text = transpose !== 0 ? transposeContent(content, transpose, originalKey) : content;
+
+    // Determine the display key (after transposition)
+    const origIdx = getNoteIndex(originalKey || 'C');
+    const displayKey = NOTES_SHARP[(origIdx + transpose + 12) % 12];
+
+    // Collapse multiple consecutive blank lines into one, strip leading/trailing blanks
+    const lines = text.split('\n').reduce((acc, l) => {
+        if (l.trim() === '' && acc.length > 0 && acc[acc.length-1].trim() === '') return acc;
+        acc.push(l);
+        return acc;
+    }, []).filter((l, i, arr) => !(l.trim() === '' && i === 0));
+    let html = '';
+    const COMBINED_CP = /\[([A-G][#b]?(?:m|min|maj|dim|aug|sus[24]?|add)?(?:\d+)?(?:\/[A-G][#b]?)?|[#b]?[1-7](?:m|min|maj|dim|aug|sus[24]?|add)?(?:\d+)?(?:\/[#b]?[1-7])?)\]/g;
+
+    for (let li = 0; li < lines.length; li++) {
+        const line = lines[li];
+        // Section markers
+        const sectionMatch = line.match(/^\s*\[(Verse|Chorus|Bridge|Intro|Outro|Couplet|Refrain|Pont|Pre-chorus|Interlude|Solo|Tag|Ending)\s*(\d*)\]\s*$/i);
+        if (sectionMatch) {
+            html += `<span class="section-marker">[${sectionMatch[1]}${sectionMatch[2] ? ' ' + sectionMatch[2] : ''}]</span>`;
+            continue;
+        }
+
+        // Standalone chord-only line (standard, French solfège, or Nashville) — no [brackets]
+        const isNash = isNashvilleLine(line);
+        const hasFrenchChords = !isNash && line.split(/\s+/).some(t => t && isFrenchChord(t));
+        if ((isChordLine(line) || isNash) && !COMBINED_CP.test(line)) {
+            let chordHtml;
+            if (isNash) {
+                chordHtml = escapeHtml(line).replace(/([#b]?[1-7](?:m|min|maj|dim|aug|sus[24]?|add)?(?:\d+)?(?:\/[#b]?[1-7])?)/g, '<span class="inline-chord">$1</span>');
+            } else if (hasFrenchChords) {
+                chordHtml = escapeHtml(line).replace(/((?:Do|Ré|Re|Mi|Fa|Sol|La|Si)[#b]?(?:m|min|maj|dim|aug|sus[24]?|add)?\d*)/gi, '<span class="inline-chord">$1</span>');
+            } else {
+                chordHtml = escapeHtml(line).replace(/([A-G][#b]?(?:m|min|maj|dim|aug|sus[24]?|add)?(?:\d+)?(?:\/[A-G][#b]?)?)/g, '<span class="inline-chord">$1</span>');
+            }
+            // Look for next lyric line, skipping blank lines (Word doc format has blank between chord and lyric)
+            let nextLyricIdx = -1;
+            for (let k = li + 1; k < Math.min(li + 3, lines.length); k++) {
+                const l = lines[k];
+                if (l.trim() === '') continue;
+                if (!isChordLine(l) && !isNashvilleLine(l) && !COMBINED_CP.test(l) && !l.match(/^\s*\[(?:Verse|Chorus|Bridge|Intro|Outro|Couplet|Refrain|Pont|Pre-chorus|Interlude|Solo|Tag|Ending)\s*\d*\]\s*$/i)) {
+                    nextLyricIdx = k; break;
+                }
+                break; // next non-blank is another chord/section — don't pair
+            }
+            if (nextLyricIdx >= 0) {
+                html += `<div class="chord-pair"><span class="chord-line">${chordHtml}</span><span class="lyric-line">${escapeHtml(lines[nextLyricIdx])}</span></div>`;
+                li = nextLyricIdx;
+            } else {
+                html += `<div class="chord-pair"><span class="chord-line">${chordHtml}</span></div>`;
+            }
+            continue;
+        }
+
+        // Lines with inline ChordPro chords (standard [Am] or Nashville [6m])
+        if (CHORDPRO_REGEX.test(line) || COMBINED_CP.test(line)) {
+            // Build two lines: chord line and lyric line
+            let chordLine = '';
+            let lyricLine = '';
+            let pos = 0;
+            const regex = /\[([A-G][#b]?(?:m|min|maj|dim|aug|sus[24]?|add)?(?:\d+)?(?:\/[A-G][#b]?)?|[#b]?[1-7](?:m|min|maj|dim|aug|sus[24]?|add)?(?:\d+)?(?:\/[#b]?[1-7])?)\]/g;
+            let match;
+
+            while ((match = regex.exec(line)) !== null) {
+                const before = line.substring(pos, match.index);
+                lyricLine += before;
+                // Pad chord line to match
+                while (chordLine.length < lyricLine.length) chordLine += ' ';
+                // Convert to Nashville if mode active
+                const displayChord = nashvilleMode ? chordToNashville(match[1], displayKey) : match[1];
+                chordLine += displayChord;
+                pos = match.index + match[0].length;
+            }
+            lyricLine += line.substring(pos);
+
+            // Chord highlighting regex depends on mode
+            let chordHtml;
+            if (nashvilleMode) {
+                chordHtml = chordLine.replace(/([#b]?[1-7](?:m|min|maj|dim|aug|sus[24]?|add)?(?:\d+)?(?:\/[#b]?[1-7])?)/g,
+                    '<span class="inline-chord">$1</span>');
+            } else {
+                chordHtml = chordLine.replace(/([A-G][#b]?(?:m|min|maj|dim|aug|sus[24]?|add)?(?:\d+)?(?:\/[A-G][#b]?)?)/g,
+                    '<span class="inline-chord">$1</span>');
+            }
+
+            const lyricHtml = lyricLine.trim() ? `<span class="lyric-line">${escapeHtml(lyricLine)}</span>` : '';
+            html += `<div class="chord-pair"><span class="chord-line">${chordHtml}</span>${lyricHtml}</div>`;
+        } else if (line.trim() === '') {
+            // skip — no blank lines
+        } else {
+            html += `<span class="lyric-line">${escapeHtml(line)}</span>`;
+        }
+    }
+
+    return html;
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// ====== FIREBASE ======
+function loadData() {
+    db.ref('songbook/songs').on('value', snap => {
+        songs = snap.val() || {};
+        renderSongList();
+    });
+    db.ref('songbook/setlists').on('value', snap => {
+        setlists = snap.val() || {};
+        renderSetlists();
+    });
+}
+
+// ====== NAVIGATION ======
+function switchView(viewName) {
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+    document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+
+    const viewEl = document.getElementById('view-' + viewName);
+    if (viewEl) viewEl.classList.add('active');
+
+    const tab = document.querySelector(`.nav-tab[data-view="${viewName}"]`);
+    if (tab) tab.classList.add('active');
+
+    // Release wake lock when leaving partition views
+    if (viewName !== 'partition' && viewName !== 'live') {
+        releaseWakeLock();
+    }
+}
+
+document.querySelectorAll('.nav-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+        const view = tab.dataset.view;
+        if (view === 'library') showLibrary();
+        else if (view === 'setlists') showSetlists();
+    });
+});
+
+function showLibrary() {
+    switchView('library');
+    currentEditId = null;
+}
+
+function showSetlists() {
+    switchView('setlists');
+    renderSetlists();
+}
+
+// ====== SONG LIST ======
+function renderSongList() {
+    const search = document.getElementById('searchInput').value.toLowerCase();
+    const list = document.getElementById('songList');
+    const empty = document.getElementById('emptyState');
+
+    const filtered = Object.entries(songs).filter(([id, s]) => {
+        // Filter by tag
+        if (activeFilter !== 'all') {
+            if (!(s.tags || []).includes(activeFilter)) return false;
+        }
+        if (!search) return true;
+        return (s.title || '').toLowerCase().includes(search) ||
+               (s.artist || '').toLowerCase().includes(search) ||
+               (s.tags || []).some(t => t.toLowerCase().includes(search));
+    });
+
+    if (filtered.length === 0) {
+        list.innerHTML = '';
+        empty.style.display = 'block';
+        return;
+    }
+
+    empty.style.display = 'none';
+
+    // Sort alphabetically
+    filtered.sort((a, b) => (a[1].title || '').localeCompare(b[1].title || ''));
+
+    list.innerHTML = filtered.map(([id, s]) => `
+        <div class="song-card" onclick="viewSong('${id}')">
+            <div class="song-info">
+                <div class="song-title">${escapeHtml(s.title || 'Sans titre')}</div>
+                <div class="song-meta">${escapeHtml(s.artist || '')}${s.capo ? ' · Capo ' + s.capo : ''}</div>
+                ${s.tags && s.tags.length ? `<div class="tags-row">${s.tags.map(t => `<span class="tag tag-${TAG_COLORS[t] || ''}">${escapeHtml(t)}</span>`).join('')}</div>` : ''}
+            </div>
+            <span class="song-key">${escapeHtml(s.key || '?')}</span>
+            <div class="song-actions">
+                <button onclick="event.stopPropagation(); editSong('${id}')" title="Modifier">✏️</button>
+                <button class="btn-delete" onclick="event.stopPropagation(); deleteSong('${id}', '${escapeHtml(s.title || 'ce chant')}')" title="Supprimer">🗑️</button>
+            </div>
+        </div>
+    `).join('');
+}
+
+document.getElementById('searchInput').addEventListener('input', renderSongList);
+
+function setFilter(filter) {
+    activeFilter = filter;
+    document.querySelectorAll('.filter-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.filter === filter);
+    });
+    renderSongList();
+}
+
+function toggleTag(btn) {
+    btn.classList.toggle('active');
+}
+
+function setEditorTags(tags) {
+    document.querySelectorAll('.tag-toggle').forEach(btn => {
+        const tagName = btn.textContent.trim();
+        btn.classList.toggle('active', tags.includes(tagName));
+    });
+}
+
+function getEditorTags() {
+    return Array.from(document.querySelectorAll('.tag-toggle.active')).map(btn => btn.textContent.trim());
+}
+
+// ====== VERSION HELPERS ======
+let editorVersions = []; // [{name, content}]
+
+function getSongVersions(song) {
+    // Backward compat: old songs have content string, new songs have versions array
+    if (song.versions && song.versions.length > 0) {
+        return song.versions;
+    }
+    return [{ name: 'Par défaut', content: song.content || '' }];
+}
+
+function renderEditorVersionTabs() {
+    const container = document.getElementById('editorVersionTabs');
+    container.innerHTML = editorVersions.map((v, i) => `
+        <div class="version-tab ${i === currentVersionIndex ? 'active' : ''}" onclick="switchEditorVersion(${i})">
+            <span ondblclick="renameVersion(${i}, this)">${escapeHtml(v.name)}</span>
+            ${editorVersions.length > 1 ? `<button class="version-remove" onclick="event.stopPropagation(); removeVersion(${i})" title="Supprimer">&times;</button>` : ''}
+        </div>
+    `).join('') + `<button class="version-add-btn" onclick="addVersion()" title="Ajouter une version">+</button>`;
+}
+
+function switchEditorVersion(idx) {
+    // Save current content before switching
+    editorVersions[currentVersionIndex].content = document.getElementById('songContentInput').value;
+    currentVersionIndex = idx;
+    document.getElementById('songContentInput').value = editorVersions[idx].content;
+    document.getElementById('editorPreview').style.display = 'none';
+    renderEditorVersionTabs();
+}
+
+function addVersion() {
+    // Save current
+    editorVersions[currentVersionIndex].content = document.getElementById('songContentInput').value;
+    const name = prompt('Nom de la version :');
+    if (!name) return;
+    editorVersions.push({ name: name.trim(), content: '' });
+    currentVersionIndex = editorVersions.length - 1;
+    document.getElementById('songContentInput').value = '';
+    document.getElementById('editorPreview').style.display = 'none';
+    renderEditorVersionTabs();
+}
+
+function removeVersion(idx) {
+    if (editorVersions.length <= 1) return;
+    if (!confirm(`Supprimer la version "${editorVersions[idx].name}" ?`)) return;
+    editorVersions.splice(idx, 1);
+    if (currentVersionIndex >= editorVersions.length) currentVersionIndex = editorVersions.length - 1;
+    document.getElementById('songContentInput').value = editorVersions[currentVersionIndex].content;
+    document.getElementById('editorPreview').style.display = 'none';
+    renderEditorVersionTabs();
+}
+
+function renameVersion(idx, el) {
+    const name = prompt('Nouveau nom :', editorVersions[idx].name);
+    if (name && name.trim()) {
+        editorVersions[idx].name = name.trim();
+        renderEditorVersionTabs();
+    }
+}
+
+// ====== EDITOR ======
+function showEditor(songId) {
+    switchView('editor');
+    currentEditId = songId || null;
+    currentVersionIndex = 0;
+
+    if (songId && songs[songId]) {
+        const s = songs[songId];
+        document.getElementById('editorTitle').textContent = 'Modifier le chant';
+        document.getElementById('songTitleInput').value = s.title || '';
+        document.getElementById('songArtistInput').value = s.artist || '';
+        document.getElementById('songKeyInput').value = s.key || '';
+        document.getElementById('songCapoInput').value = s.capo || 0;
+        setEditorTags(s.tags || []);
+        editorVersions = getSongVersions(s).map(v => ({...v}));
+        document.getElementById('songContentInput').value = editorVersions[0].content;
+        document.getElementById('deleteBtn').style.display = 'inline-flex';
+    } else {
+        document.getElementById('editorTitle').textContent = 'Nouveau chant';
+        document.getElementById('songTitleInput').value = '';
+        document.getElementById('songArtistInput').value = '';
+        document.getElementById('songKeyInput').value = '';
+        document.getElementById('songCapoInput').value = 0;
+        setEditorTags([]);
+        editorVersions = [{ name: 'Par défaut', content: '' }];
+        document.getElementById('songContentInput').value = '';
+        document.getElementById('deleteBtn').style.display = 'none';
+    }
+    document.getElementById('editorPreview').style.display = 'none';
+    renderEditorVersionTabs();
+}
+
+function editSong(id) {
+    showEditor(id);
+}
+
+function deleteSong(id, title) {
+    if (!confirm(`Supprimer "${title}" ? Cette action est irréversible.`)) return;
+    db.ref(`songbook/songs/${id}`).remove().then(() => {
+        showToast('Chant supprimé');
+    }).catch(e => showToast('Erreur : ' + e.message));
+}
+
+function detectAndPreview() {
+    const raw = document.getElementById('songContentInput').value;
+    const keyInput = document.getElementById('songKeyInput');
+    const nashville = isNashvilleContent(raw);
+    const key = keyInput.value || 'C';
+    const parsed = parseContentToChordPro(raw, key);
+    document.getElementById('songContentInput').value = parsed;
+
+    const preview = document.getElementById('editorPreview');
+    preview.style.display = 'block';
+    preview.innerHTML = renderChordPro(parsed, 0, key);
+
+    // Auto-detect key if not set — Nashville is always C (relative system)
+    if (!keyInput.value) {
+        keyInput.value = nashville ? 'C' : detectKey(parsed);
+    }
+}
+
+function saveSong() {
+    const title = document.getElementById('songTitleInput').value.trim();
+    if (!title) { showToast('Le titre est requis'); return; }
+
+    // Save current version content
+    editorVersions[currentVersionIndex].content = document.getElementById('songContentInput').value;
+
+    // Auto-parse each version
+    const keyForParse = document.getElementById('songKeyInput').value || 'C';
+    let wasNashville = false;
+    for (let v of editorVersions) {
+        if (!CHORDPRO_REGEX.test(v.content)) {
+            if (isNashvilleContent(v.content)) wasNashville = true;
+            v.content = parseContentToChordPro(v.content, keyForParse);
+        }
+    }
+
+    const firstContent = editorVersions[0].content;
+    // Nashville charts are relative (no absolute key) → default C, not auto-detected
+    const key = document.getElementById('songKeyInput').value || (wasNashville ? 'C' : detectKey(firstContent));
+    const tags = getEditorTags();
+
+    const songData = {
+        title: title,
+        artist: document.getElementById('songArtistInput').value.trim(),
+        key: key,
+        capo: parseInt(document.getElementById('songCapoInput').value) || 0,
+        content: firstContent, // backward compat
+        versions: editorVersions,
+        tags: tags,
+        updatedAt: Date.now()
+    };
+
+    if (currentEditId) {
+        db.ref('songbook/songs/' + currentEditId).update(songData);
+        showToast('Chant mis \u00e0 jour');
+    } else {
+        songData.createdAt = Date.now();
+        db.ref('songbook/songs').push(songData);
+        showToast('Chant ajout\u00e9');
+    }
+
+    showLibrary();
+}
+
+function deleteSongFromEditor() {
+    if (!currentEditId) return;
+    if (!confirm('Supprimer ce chant ?')) return;
+    db.ref('songbook/songs/' + currentEditId).remove();
+    showToast('Chant supprim&eacute;');
+    showLibrary();
+}
+
+// ====== FILE IMPORT ======
+const uploadZone = document.getElementById('uploadZone');
+const fileInput = document.getElementById('fileInput');
+
+uploadZone.addEventListener('click', () => fileInput.click());
+uploadZone.addEventListener('dragover', (e) => { e.preventDefault(); uploadZone.classList.add('dragover'); });
+uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('dragover'));
+uploadZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    uploadZone.classList.remove('dragover');
+    if (e.dataTransfer.files.length > 0) handleFile(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener('change', () => {
+    if (fileInput.files.length > 0) handleFile(fileInput.files[0]);
+});
+
+async function handleFile(file) {
+    const ext = file.name.split('.').pop().toLowerCase();
+    let text = '';
+
+    uploadZone.innerHTML = '<div class="loading-spinner"></div><p>Extraction du texte...</p>';
+
+    try {
+        let importedTitle = null, importedKey = null, importedArtist = null;
+        if (ext === 'txt') {
+            text = await file.text();
+        } else if (ext === 'pdf') {
+            text = await extractPDF(file);
+        } else if (ext === 'doc') {
+            showToast('Le format .doc (Word 97-2003) n\'est pas support\u00e9. Ouvrez le fichier dans Word et enregistrez-le en .docx', 5000);
+            resetUploadZone();
+            return;
+        } else if (ext === 'docx') {
+            text = await extractDocx(file);
+        } else if (ext === 'onsong') {
+            const raw = await file.text();
+            const parsed = parseOnSong(raw);
+            text = parsed.content;
+            importedTitle = parsed.title;
+            importedKey = parsed.key;
+            importedArtist = parsed.artist;
+        } else if (['cho', 'chopro', 'chordpro'].includes(ext)) {
+            const raw = await file.text();
+            const parsed = parseChordProFile(raw);
+            text = parsed.content;
+            importedTitle = parsed.title;
+            importedKey = parsed.key;
+            importedArtist = parsed.artist;
+        } else {
+            showToast('Format non support&eacute;');
+            resetUploadZone();
+            return;
+        }
+
+        // Set title from filename or parsed metadata
+        const title = importedTitle || file.name.replace(/\.[^.]+$/, '');
+        document.getElementById('songTitleInput').value = title;
+        if (importedArtist) document.getElementById('songArtistInput') && (document.getElementById('songArtistInput').value = importedArtist);
+
+        // Remove title line from content if it matches (PDF/DOCX often include title as first line)
+        if (title) {
+            const titleNorm = title.trim().toLowerCase();
+            const lines = text.split('\n');
+            // Remove leading lines that are the title or a close variant
+            while (lines.length > 0) {
+                const l = lines[0].trim().toLowerCase().replace(/[^a-z0-9\u00c0-\u017e]/g, ' ').replace(/\s+/g, ' ').trim();
+                const t = titleNorm.replace(/[^a-z0-9\u00c0-\u017e]/g, ' ').replace(/\s+/g, ' ').trim();
+                if (l === t || t.startsWith(l) || l.startsWith(t.slice(0, Math.max(5, t.length * 0.7)))) {
+                    lines.shift();
+                } else break;
+            }
+            text = lines.join('\n');
+        }
+
+        // Parse and set content into current version
+        const importKey = document.getElementById('songKeyInput').value || 'C';
+        const parsed = parseContentToChordPro(text, importKey);
+        editorVersions[currentVersionIndex].content = parsed;
+        document.getElementById('songContentInput').value = parsed;
+
+        // Auto-detect key (use imported metadata first)
+        const key = importedKey || detectKey(parsed);
+        if (key) document.getElementById('songKeyInput').value = key;
+
+        // Show preview
+        detectAndPreview();
+        showToast('Fichier import&eacute;');
+
+    } catch (err) {
+        console.error('Import error:', err);
+        showToast('Erreur d\'import: ' + err.message);
+    }
+
+    resetUploadZone();
+}
+
+function resetUploadZone() {
+    uploadZone.innerHTML = `
+        <div class="upload-icon">📄</div>
+        <p>Glissez un fichier Word ou PDF ici, ou cliquez pour s&eacute;lectionner</p>
+        <p style="font-size:0.8em; margin-top:4px">Formats : .docx, .pdf, .txt, .onsong, .cho, .chopro, .chordpro</p>
+        <input type="file" id="fileInput" accept=".docx,.pdf,.txt,.onsong,.cho,.chopro,.chordpro">
+    `;
+    const newInput = document.getElementById('fileInput');
+    newInput.addEventListener('change', () => {
+        if (newInput.files.length > 0) handleFile(newInput.files[0]);
+    });
+}
+
+async function extractPDF(file) {
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    let text = '';
+
+    for (let p = 1; p <= pdf.numPages; p++) {
+        const page = await pdf.getPage(p);
+        const viewport = page.getViewport({ scale: 1 });
+        const pageWidth = viewport.width;
+        const content = await page.getTextContent();
+        const allItems = content.items.filter(it => it.str && it.str.trim());
+
+        // Detect if page has two columns (find largest horizontal gap in middle zone)
+        const colSplit = detectPDFColumns(allItems, pageWidth);
+        const columns = colSplit
+            ? [allItems.filter(it => it.transform[4] < colSplit),
+               allItems.filter(it => it.transform[4] >= colSplit)]
+            : [allItems];
+
+        for (const colItems of columns) {
+            if (!colItems.length) continue;
+            text += processPDFColumn(colItems) + '\n';
+        }
+    }
+    // Final global cleanup: remove dots-as-spaces (PDF separator style)
+    return text
+        // Multi-dot separators → single space
+        .replace(/\.{2,}/g, ' ')
+        // Dot/colon combos used as separators: .:. .: :. :.
+        .replace(/\s*[.:]+\s*:\s*[.:]*\s*/g, ' ')
+        .replace(/\s*:\s*\.\s*/g, ' ')
+        .replace(/\s*:\.\s*/g, ' ')
+        // Digit.digit chains (Nashville chart): 4.1.3m → 4 1 3m
+        .replace(/(\d)\.(?=\d)/g, '$1 ')
+        // Single dot between various char types
+        .replace(/([a-zA-ZÀ-ÿ\u00C0-\u017E)\]])\.\[/g, '$1 [')
+        .replace(/\]\.([a-zA-ZÀ-ÿ\u00C0-\u017E([])/g, '] $1')
+        .replace(/([a-zA-ZÀ-ÿ\u00C0-\u017E)\]])\.([a-zA-ZÀ-ÿ\u00C0-\u017E(])/g, '$1 $2')
+        .replace(/([a-zA-ZÀ-ÿ\u00C0-\u017E)\]])\.(\d)/g, '$1 $2')
+        .replace(/(\d)\.([a-zA-ZÀ-ÿ\u00C0-\u017E([])/g, '$1 $2')
+        .replace(/\]\.\s*\?/g, ']?')
+        .replace(/,\.([a-zA-ZÀ-ÿ\u00C0-\u017E\["'\u201C\u2019\[])/g, ', $1')
+        // Trailing dots at end of words/lines
+        .replace(/\.\s*$/gm, '')
+        .replace(/\.\s+/g, ' ')
+        // Lines that are only dots, dashes, spaces → remove
+        .replace(/^[\s.\-–—]+$/gm, '')
+        // Collapse multiple spaces
+        .replace(/  +/g, ' ')
+        .replace(/^ /gm, '')
+        // Collapse consecutive blank lines
+        .split('\n').filter((l, i, arr) => {
+            if (l.trim() === '' && i > 0 && arr[i-1].trim() === '') return false;
+            return true;
+        }).join('\n');
+}
+
+function detectPDFColumns(items, pageWidth) {
+    if (!items.length) return null;
+    // Group items by Y line, keeping the full item info
+    const byY = {};
+    for (const it of items) {
+        const y = Math.round(it.transform[5]);
+        if (!byY[y]) byY[y] = [];
+        byY[y].push(it);
+    }
+    // Only use LYRIC lines (not chord-only lines) to vote for column split
+    // A chord-only line has all items with str length <= 3 (e.g. "4", "6m", "Am7")
+    const lyricLines = Object.values(byY).filter(lineItems => {
+        const hasLongStr = lineItems.some(it => it.str.trim().length > 3);
+        return hasLongStr;
+    });
+    if (lyricLines.length < 3) return null;
+
+    // A true 2-column lyric layout: a lyric line must have text on BOTH halves of the page
+    // with a significant gap in the middle (> 25% of page width, centered 30%-70%)
+    const splitVotes = {};
+    for (const lineItems of lyricLines) {
+        const xs = lineItems.map(it => it.transform[4]).sort((a, b) => a - b);
+        if (xs.length < 2) continue;
+        for (let i = 1; i < xs.length; i++) {
+            const gap = xs[i] - xs[i - 1];
+            const midX = (xs[i] + xs[i - 1]) / 2;
+            if (gap > pageWidth * 0.25 && midX > pageWidth * 0.30 && midX < pageWidth * 0.70) {
+                const bucket = Math.round(midX / 30) * 30;
+                splitVotes[bucket] = (splitVotes[bucket] || 0) + 1;
+            }
+        }
+    }
+    if (!Object.keys(splitVotes).length) return null;
+    const best = Object.entries(splitVotes).sort((a, b) => b[1] - a[1])[0];
+    // Must appear in at least 40% of lyric lines to be a real 2-column layout
+    if (best[1] < lyricLines.length * 0.40) return null;
+    return parseInt(best[0]);
+}
+
+function processPDFColumn(items) {
+    // Reference font size = most common (lyric text)
+    const fsSizes = items.map(it => Math.round(Math.abs(it.transform[0]) || 12)).filter(f => f >= 6);
+    const fsFreq = {};
+    for (const fs of fsSizes) fsFreq[fs] = (fsFreq[fs] || 0) + 1;
+    const refFs = fsSizes.length ? parseInt(Object.entries(fsFreq).sort((a, b) => b[1] - a[1])[0][0]) : 12;
+    const refSpW = refFs * 0.55;
+
+    // Group items into lines by Y position
+    const lineGroups = [];
+    for (const item of items) {
+        const y = item.transform[5];
+        const fs = Math.abs(item.transform[0]) || 12;
+        const thresh = fs * 0.6;
+        let group = lineGroups.find(g => Math.abs(g.y - y) <= thresh);
+        if (!group) { group = { y, items: [] }; lineGroups.push(group); }
+        group.items.push(item);
+    }
+    lineGroups.sort((a, b) => b.y - a.y); // top to bottom
+
+    // Build plain text from a group (for detection)
+    function buildGroupText(group) {
+        const sorted = [...group.items].sort((a, b) => a.transform[4] - b.transform[4]);
+        let result = '', lastX = null, lastW = 0;
+        const leftX = Math.min(...group.items.map(it => it.transform[4]));
+        for (const item of sorted) {
+            const x = item.transform[4];
+            if (lastX === null) {
+                const lead = x - leftX;
+                if (lead > refSpW * 0.4) result += ' '.repeat(Math.max(0, Math.round(lead / refSpW)));
+            } else {
+                const gap = x - (lastX + lastW);
+                if (gap > refSpW * 0.3) result += ' '.repeat(Math.max(1, Math.round(gap / refSpW)));
+            }
+            result += item.str;
+            lastX = x;
+            lastW = item.width || item.str.length * refSpW;
+        }
+        return result;
+    }
+
+    // Merge PDF items that are adjacent (e.g. "G"+"sus4" → "Gsus4")
+    function mergeAdjacentItems(sortedItems) {
+        const merged = [];
+        for (const item of sortedItems) {
+            if (merged.length > 0) {
+                const last = merged[merged.length - 1];
+                const lastRight = last.transform[4] + (last.width > 0 ? last.width : last.str.length * refSpW);
+                const gap = item.transform[4] - lastRight;
+                if (gap < refSpW * 0.6) {
+                    last.str += item.str;
+                    last.width = (last.width || 0) + (item.width || item.str.length * refSpW);
+                    continue;
+                }
+            }
+            merged.push(Object.assign({}, item, { str: item.str }));
+        }
+        return merged;
+    }
+
+    // Convert a chord line + lyric line into inline ChordPro [Am]word format
+    // Anchors each chord to the nearest word start by X position — pixel-perfect alignment
+    function toChordPro(chordItems, lyricItems) {
+        const chords = mergeAdjacentItems(
+            [...chordItems].sort((a, b) => a.transform[4] - b.transform[4])
+        );
+        const lyrics = [...lyricItems].sort((a, b) => a.transform[4] - b.transform[4]);
+
+        // Build lyric string + track word-start X positions
+        let lyricStr = '';
+        const wordStarts = []; // {idx, x} — char index and X of each word start
+
+        for (const item of lyrics) {
+            const x = item.transform[4];
+            const charW = item.str.length > 0
+                ? (item.width > 0 ? item.width / item.str.length : refSpW)
+                : refSpW;
+            const base = lyricStr.length;
+            for (let ci = 0; ci < item.str.length; ci++) {
+                const prevChar = ci === 0
+                    ? (lyricStr.length > 0 ? lyricStr[lyricStr.length - 1] : '')
+                    : item.str[ci - 1];
+                const isWordStart =
+                    (base + ci === 0) ||
+                    prevChar === ' ' ||
+                    prevChar === "'" || prevChar === '\u2019'; // apostrophe
+                if (isWordStart && item.str[ci] !== ' ') {
+                    wordStarts.push({ idx: base + ci, x: x + ci * charW });
+                }
+            }
+            lyricStr += item.str;
+        }
+
+        if (!lyricStr.trim()) {
+            // No lyrics: output chord tokens separated by spaces
+            return chords.map(c => c.str).join('  ');
+        }
+        if (wordStarts.length === 0) wordStarts.push({ idx: 0, x: lyrics[0]?.transform[4] || 0 });
+
+        // Assign each chord to the nearest word start
+        const insertions = [];
+        for (const chord of chords) {
+            const cx = chord.transform[4];
+            let best = wordStarts[0], bestDist = Infinity;
+            for (const ws of wordStarts) {
+                const d = Math.abs(ws.x - cx);
+                if (d < bestDist) { bestDist = d; best = ws; }
+            }
+            insertions.push({ idx: best.idx, chord: chord.str });
+        }
+        insertions.sort((a, b) => a.idx - b.idx);
+
+        let result = '', lastIdx = 0;
+        for (const ins of insertions) {
+            result += lyricStr.slice(lastIdx, ins.idx) + '[' + ins.chord + ']';
+            lastIdx = ins.idx;
+        }
+        result += lyricStr.slice(lastIdx);
+        return result.trim();
+    }
+
+    // Process lines: pair chord lines with lyric lines → ChordPro inline
+    const outputLines = [];
+    let i = 0;
+    while (i < lineGroups.length) {
+        const group = lineGroups[i];
+        const lineText = buildGroupText(group);
+        const tokens = lineText.trim().split(/\s+/).filter(t => t);
+        // Check if every token is a chord (standard, French, or Nashville)
+        const isAllChords = tokens.length > 0 &&
+            tokens.every(t => isChord(t) || NASH_TOKEN_RE.test(t));
+
+        if (isAllChords && i + 1 < lineGroups.length) {
+            const nextGroup = lineGroups[i + 1];
+            const yGap = group.y - nextGroup.y;
+            if (yGap < refFs * 3.5) {
+                const nextText = buildGroupText(nextGroup);
+                const nextTokens = nextText.trim().split(/\s+/).filter(t => t);
+                const nextIsChords = nextTokens.length > 0 &&
+                    nextTokens.every(t => isChord(t) || NASH_TOKEN_RE.test(t));
+                if (!nextIsChords) {
+                    outputLines.push(toChordPro(group.items, nextGroup.items));
+                    i += 2;
+                    continue;
+                }
+            }
+        }
+
+        outputLines.push(postProcessPDFText(lineText));
+        i++;
+    }
+
+    return outputLines.join('\n');
+}
+
+// Nashville chord token regex for post-processing detection
+const NASH_TOKEN_RE = /^[#b]?[1-7](m|min|maj|dim|aug|sus[24]?|add)?(\d+)?(\/[#b]?[1-7])?$/;
+
+function postProcessPDFText(text) {
+    const lines = text.split('\n');
+    const processed = [];
+    for (let i = 0; i < lines.length; i++) {
+        let line = lines[i];
+
+        // Fix: Nashville chord lines where dots encode spaces
+        // "1. 5" → "1 5", "6m. 5. 4" → "6m 5 4", ". 5. 4" → "5 4"
+        // Try replacing dots with spaces, accept if result is 70%+ Nashville chords
+        const dotless = line.replace(/\./g, ' ').replace(/\s+/g, ' ').trim();
+        if (dotless && dotless !== line.trim()) {
+            const tokens = dotless.split(' ').filter(t => t.length > 0);
+            if (tokens.length > 0) {
+                const nashCount = tokens.filter(t => NASH_TOKEN_RE.test(t)).length;
+                if (nashCount >= 1 && nashCount / tokens.length >= 0.7) {
+                    line = dotless;
+                }
+            }
+        }
+
+        // Fix: dots used as spaces between letters (font encoding issue)
+        // "Je.suis.un" → "Je suis un" — keeps "VERSE.1" intact (digit after dot)
+        if (/[a-zA-ZÀ-ÿ][\.\·][a-zA-ZÀ-ÿ]/.test(line)) {
+            line = line.replace(/([a-zA-ZÀ-ÿ'\u00C0-\u017E])[\.\·]([a-zA-ZÀ-ÿ'\u00C0-\u017E])/g, '$1 $2');
+        }
+
+        // Fix: chord root ("A","G"...) on its own line followed by modifier ("m","7","maj"...)
+        // Merge them: "A" + "m" → "Am"
+        if (/^[A-G][#b]?$/.test(line.trim()) && i + 1 < lines.length) {
+            const next = lines[i + 1].trim();
+            if (/^(m|min|maj|dim|aug|sus[24]?|add\d*|\d+)$/.test(next)) {
+                processed.push(line.trimEnd() + next);
+                i++;
+                continue;
+            }
+        }
+        processed.push(line);
+    }
+    return processed.join('\n');
+}
+
+async function extractDocx(file) {
+    const arrayBuffer = await file.arrayBuffer();
+    const result = await mammoth.extractRawText({ arrayBuffer });
+    return result.value;
+}
+
+// ====== ONSONG PARSER ======
+// OnSong format: title on line 1, artist on line 2, then metadata (Key: G, Tempo: 120),
+// then sections with [Chord]lyric content
+function parseOnSong(raw) {
+    const lines = raw.split('\n');
+    let title = '', artist = '', key = '', content = '';
+    let headerDone = false;
+    const contentLines = [];
+
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        const trimmed = line.trim();
+
+        if (!headerDone) {
+            // First non-empty line = title
+            if (!title && trimmed && !trimmed.startsWith('{')) {
+                title = trimmed; continue;
+            }
+            // Second non-empty line = artist (if not a metadata key)
+            if (title && !artist && trimmed && !/^[A-Za-z]+\s*:/.test(trimmed) && !trimmed.startsWith('{') && !trimmed.startsWith('[')) {
+                artist = trimmed; continue;
+            }
+            // Metadata lines: Key: G, Tempo: 120, etc.
+            const metaMatch = trimmed.match(/^([A-Za-z]+)\s*:\s*(.+)$/);
+            if (metaMatch) {
+                const k = metaMatch[1].toLowerCase(), v = metaMatch[2].trim();
+                if (k === 'key') key = v.split(' ')[0]; // "G" or "G Minor" → take first token
+                continue;
+            }
+            // ChordPro directives {title:...} {key:...}
+            const dirMatch = trimmed.match(/^\{([a-z_]+):\s*(.+)\}$/i);
+            if (dirMatch) {
+                const dk = dirMatch[1].toLowerCase(), dv = dirMatch[2].trim();
+                if (dk === 'title' || dk === 't') title = dv;
+                else if (dk === 'key') key = dv;
+                else if (dk === 'artist' || dk === 'subtitle' || dk === 'st') artist = dv;
+                continue;
+            }
+            // Section header or blank line = end of header
+            if (trimmed.startsWith('[') || trimmed === '') headerDone = true;
+        }
+        contentLines.push(line);
+    }
+    content = contentLines.join('\n').trim();
+    return { title, artist, key, content };
+}
+
+// ====== CHORDPRO FILE PARSER ======
+// ChordPro format: directives in {braces}, chords in [brackets]
+function parseChordProFile(raw) {
+    const lines = raw.split('\n');
+    let title = '', artist = '', key = '';
+    const contentLines = [];
+
+    for (const line of lines) {
+        const trimmed = line.trim();
+        // Directives
+        const dirMatch = trimmed.match(/^\{([a-z_]+):\s*(.+)\}$/i) ||
+                         trimmed.match(/^\{([a-z_]+)\}$/i);
+        if (dirMatch && dirMatch[2] !== undefined) {
+            const dk = dirMatch[1].toLowerCase(), dv = dirMatch[2].trim();
+            if (dk === 'title' || dk === 't') { title = dv; continue; }
+            if (dk === 'subtitle' || dk === 'st' || dk === 'artist') { artist = dv; continue; }
+            if (dk === 'key') { key = dv; continue; }
+            if (dk === 'comment' || dk === 'c' || dk === 'ci' || dk === 'cb') {
+                contentLines.push('[' + dv + ']'); continue; // convert comment to section marker
+            }
+            continue; // ignore other directives (tempo, capo, etc.)
+        }
+        if (dirMatch && dirMatch[2] === undefined) continue; // bare directive like {soc}
+        // Column directives
+        if (/^\{(soc|eoc|sov|eov|sob|eob|start_of_|end_of_)\b/.test(trimmed)) continue;
+        contentLines.push(line);
+    }
+    const content = contentLines.join('\n').trim();
+    return { title, artist, key, content };
+}
+
+// ====== PARTITION VIEW ======
+function viewSong(id) {
+    if (!songs[id]) return;
+    currentViewSongId = id;
+    currentTranspose = 0;
+    currentVersionIndex = 0;
+    returnToView = 'library';
+    renderPartition();
+    switchView('partition');
+    requestWakeLock();
+}
+
+function switchPartitionVersion(idx) {
+    currentVersionIndex = idx;
+    renderPartition();
+}
+
+function renderPartition() {
+    const s = songs[currentViewSongId];
+    if (!s) return;
+
+    document.getElementById('partitionTitle').textContent = s.title || 'Sans titre';
+
+    let meta = '';
+    if (s.artist) meta += s.artist;
+    if (s.capo) meta += (meta ? ' | ' : '') + 'Capo ' + s.capo;
+    document.getElementById('partitionMeta').textContent = meta;
+
+    // Version selector
+    const versions = getSongVersions(s);
+    const versionSelector = document.getElementById('partitionVersionSelector');
+    if (versionSelector) {
+        if (versions.length > 1) {
+            versionSelector.style.display = 'flex';
+            versionSelector.innerHTML = versions.map((v, i) =>
+                `<button class="${i === currentVersionIndex ? 'active' : ''}" onclick="switchPartitionVersion(${i})">${escapeHtml(v.name)}</button>`
+            ).join('');
+        } else {
+            versionSelector.style.display = 'none';
+        }
+    }
+
+    // Get active version content, strip title/meta lines from top if present
+    const activeVersion = versions[currentVersionIndex] || versions[0];
+    let content = activeVersion ? activeVersion.content : (s.content || '');
+    // Strip leading lines that match title, artist, or copyright/metadata
+    const titleNorm = (s.title || '').trim().toLowerCase();
+    const artistNorm = (s.artist || '').trim().toLowerCase();
+    const contentLines = content.split('\n');
+    while (contentLines.length > 0) {
+        const l = contentLines[0].trim();
+        const lNorm = l.toLowerCase().replace(/[^a-z0-9\u00c0-\u017e]/g, ' ').replace(/\s+/g, ' ').trim();
+        const tNorm = titleNorm.replace(/[^a-z0-9\u00c0-\u017e]/g, ' ').replace(/\s+/g, ' ').trim();
+        const aNorm = artistNorm.replace(/[^a-z0-9\u00c0-\u017e]/g, ' ').replace(/\s+/g, ' ').trim();
+        // Strip title if first 4 chars match (tolerates typos/caps)
+        const isTitle = tNorm.length >= 4 && lNorm.slice(0,4) === tNorm.slice(0,4);
+        const isArtist = aNorm.length >= 4 && lNorm.includes(aNorm.slice(0,6));
+        const isMeta = /^(paroles|musique|©|copyright|\(c\)|words|music|arr\.|capo)/i.test(l);
+        if (isTitle || isArtist || isMeta || l === '') { contentLines.shift(); } else break;
+    }
+    content = contentLines.join('\n');
+
+    // Current key display
+    const origKey = s.key || 'C';
+    const origIdx = getNoteIndex(origKey);
+    const currentIdx = (origIdx + currentTranspose + 12) % 12;
+    const currentKey = NOTES_SHARP[currentIdx];
+
+    document.getElementById('currentKeyDisplay').textContent = currentKey;
+    if (document.getElementById('liveKeyDisplay')) {
+        document.getElementById('liveKeyDisplay').textContent = currentKey;
+    }
+
+    const html = renderChordPro(content, currentTranspose, origKey);
+    document.getElementById('partitionContent').innerHTML = html;
+    document.getElementById('partitionContent').style.fontSize = currentFontSize + 'px';
+
+    if (document.getElementById('liveContent')) {
+        document.getElementById('liveContent').innerHTML = html;
+        document.getElementById('liveContent').style.fontSize = currentFontSize + 'px';
+    }
+}
+
+function transposeUp() {
+    currentTranspose = (currentTranspose + 1) % 12;
+    renderPartition();
+}
+
+function transposeDown() {
+    currentTranspose = (currentTranspose - 1 + 12) % 12;
+    renderPartition();
+}
+
+function toggleNashville() {
+    nashvilleMode = !nashvilleMode;
+    // Update button styles
+    document.querySelectorAll('#nashvilleToggle, #liveNashvilleToggle').forEach(btn => {
+        if (btn) {
+            btn.style.background = nashvilleMode ? 'var(--accent)' : '';
+            btn.style.color = nashvilleMode ? 'white' : '';
+        }
+    });
+    renderPartition();
+}
+
+let twoColumns = false;
+function toggleColumns() {
+    twoColumns = !twoColumns;
+    const content = document.getElementById('partitionContent');
+    const liveContent = document.getElementById('liveContent');
+    const btn = document.getElementById('columnToggle');
+    const liveBtn = document.getElementById('liveColumnToggle');
+    if (content) content.classList.toggle('two-columns', twoColumns);
+    if (liveContent) liveContent.classList.toggle('two-columns', twoColumns);
+    if (btn) btn.classList.toggle('active', twoColumns);
+    if (liveBtn) liveBtn.classList.toggle('active', twoColumns);
+}
+
+function changeFontSize(delta) {
+    currentFontSize = Math.max(10, Math.min(32, currentFontSize + delta));
+    document.getElementById('partitionContent').style.fontSize = currentFontSize + 'px';
+    if (document.getElementById('liveContent')) {
+        document.getElementById('liveContent').style.fontSize = currentFontSize + 'px';
+    }
+}
+
+function editCurrentSong() {
+    if (currentViewSongId) showEditor(currentViewSongId);
+}
+
+function goBackFromPartition() {
+    if (returnToView === 'setlist-detail') {
+        switchView('setlist-detail');
+    } else if (returnToView === 'live') {
+        switchView('live');
+    } else {
+        showLibrary();
+    }
+}
+
+// ====== WAKE LOCK ======
+async function requestWakeLock() {
+    try {
+        if ('wakeLock' in navigator) {
+            wakeLock = await navigator.wakeLock.request('screen');
+            document.getElementById('wakeLockIndicator').style.display = 'block';
+            if (document.getElementById('liveWakeLock')) {
+                document.getElementById('liveWakeLock').style.display = 'block';
+            }
+            wakeLock.addEventListener('release', () => {
+                document.getElementById('wakeLockIndicator').style.display = 'none';
+                if (document.getElementById('liveWakeLock')) {
+                    document.getElementById('liveWakeLock').style.display = 'none';
+                }
+            });
+        }
+    } catch (err) {
+        console.log('Wake Lock error:', err);
+    }
+}
+
+function releaseWakeLock() {
+    if (wakeLock) {
+        wakeLock.release();
+        wakeLock = null;
+    }
+}
+
+// Re-acquire wake lock on visibility change (iPad requirement)
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+        const activeView = document.querySelector('.view.active');
+        if (activeView && (activeView.id === 'view-partition' || activeView.id === 'view-live')) {
+            requestWakeLock();
+        }
+    }
+});
+
+// ====== SETLISTS ======
+function renderSetlists() {
+    const list = document.getElementById('setlistList');
+    const empty = document.getElementById('emptySetlists');
+    const entries = Object.entries(setlists);
+
+    if (entries.length === 0) {
+        list.innerHTML = '';
+        empty.style.display = 'block';
+        return;
+    }
+
+    empty.style.display = 'none';
+    entries.sort((a, b) => (b[1].updatedAt || 0) - (a[1].updatedAt || 0));
+
+    list.innerHTML = entries.map(([id, sl]) => `
+        <div class="setlist-card" onclick="openSetlistDetail('${id}')">
+            <div class="setlist-info">
+                <div class="setlist-name">${escapeHtml(sl.name || 'Sans nom')}</div>
+                <div class="setlist-meta">${sl.date || ''}</div>
+            </div>
+            <span class="setlist-count">${(sl.songs || []).length} chant(s)</span>
+        </div>
+    `).join('');
+}
+
+function createSetlist() {
+    const name = prompt('Nom de la setlist :');
+    if (!name) return;
+    const data = {
+        name: name,
+        date: new Date().toISOString().split('T')[0],
+        songs: [],
+        createdAt: Date.now(),
+        updatedAt: Date.now()
+    };
+    const ref = db.ref('songbook/setlists').push(data);
+    currentSetlistId = ref.key;
+    showToast('Setlist cr&eacute;&eacute;e');
+    openSetlistDetail(ref.key);
+}
+
+function openSetlistDetail(id) {
+    currentSetlistId = id;
+    switchView('setlist-detail');
+    renderSetlistDetail();
+}
+
+function renderSetlistDetail() {
+    const sl = setlists[currentSetlistId];
+    if (!sl) { showSetlists(); return; }
+
+    document.getElementById('setlistDetailName').textContent = sl.name || 'Sans nom';
+
+    const container = document.getElementById('setlistSongs');
+    const slSongs = sl.songs || [];
+
+    if (slSongs.length === 0) {
+        container.innerHTML = '<div class="empty-state" style="padding:30px;"><p>Aucun chant dans cette setlist</p></div>';
+        return;
+    }
+
+    container.innerHTML = slSongs.map((item, idx) => {
+        const song = songs[item.songId];
+        if (!song) return '';
+        const transVal = item.transpose || 0;
+        const origKey = song.key || 'C';
+        const origIdx = getNoteIndex(origKey);
+        const displayKey = NOTES_SHARP[(origIdx + transVal + 12) % 12];
+        return `
+            <div class="setlist-song-item" data-idx="${idx}">
+                <span class="drag-handle">&#9776;</span>
+                <div class="song-info" onclick="viewSongFromSetlist('${item.songId}', ${transVal})">
+                    <div style="font-weight:600;">${escapeHtml(song.title)}</div>
+                    <div style="color:var(--text-secondary); font-size:0.85em;">${escapeHtml(song.artist || '')} - ${displayKey}</div>
+                </div>
+                <div class="mini-transpose">
+                    <button onclick="setlistTranspose(${idx}, -1)">-</button>
+                    <span class="transpose-val">${transVal >= 0 ? '+' : ''}${transVal}</span>
+                    <button onclick="setlistTranspose(${idx}, 1)">+</button>
+                </div>
+                <button class="remove-btn" onclick="removeFromSetlist(${idx})">&#10005;</button>
+            </div>
+        `;
+    }).join('');
+
+    // Init sortable
+    if (typeof Sortable !== 'undefined') {
+        new Sortable(container, {
+            handle: '.drag-handle',
+            animation: 150,
+            ghostClass: 'sortable-ghost',
+            chosenClass: 'sortable-chosen',
+            onEnd: (evt) => {
+                const slSongs = setlists[currentSetlistId].songs || [];
+                const moved = slSongs.splice(evt.oldIndex, 1)[0];
+                slSongs.splice(evt.newIndex, 0, moved);
+                db.ref(`songbook/setlists/${currentSetlistId}/songs`).set(slSongs);
+            }
+        });
+    }
+}
+
+// Save setlist name on blur
+document.getElementById('setlistDetailName').addEventListener('blur', function() {
+    if (currentSetlistId) {
+        db.ref(`songbook/setlists/${currentSetlistId}/name`).set(this.textContent.trim());
+    }
+});
+
+function setlistTranspose(idx, delta) {
+    const sl = setlists[currentSetlistId];
+    if (!sl || !sl.songs[idx]) return;
+    sl.songs[idx].transpose = (sl.songs[idx].transpose || 0) + delta;
+    db.ref(`songbook/setlists/${currentSetlistId}/songs`).set(sl.songs);
+}
+
+function removeFromSetlist(idx) {
+    const sl = setlists[currentSetlistId];
+    if (!sl) return;
+    sl.songs.splice(idx, 1);
+    db.ref(`songbook/setlists/${currentSetlistId}/songs`).set(sl.songs);
+}
+
+function deleteSetlist() {
+    if (!confirm('Supprimer cette setlist ?')) return;
+    db.ref(`songbook/setlists/${currentSetlistId}`).remove();
+    showToast('Setlist supprim&eacute;e');
+    showSetlists();
+}
+
+function viewSongFromSetlist(songId, transpose) {
+    currentViewSongId = songId;
+    currentTranspose = transpose || 0;
+    returnToView = 'setlist-detail';
+    renderPartition();
+    switchView('partition');
+    requestWakeLock();
+}
+
+// ====== SONG PICKER ======
+function openSongPicker() {
+    pickedSongIds.clear();
+    document.getElementById('songPickerModal').classList.remove('hidden');
+    document.getElementById('pickerSearch').value = '';
+    renderPickerList();
+}
+
+function closeSongPicker() {
+    document.getElementById('songPickerModal').classList.add('hidden');
+}
+
+function renderPickerList() {
+    const search = document.getElementById('pickerSearch').value.toLowerCase();
+    const entries = Object.entries(songs).filter(([id, s]) => {
+        if (!search) return true;
+        return (s.title || '').toLowerCase().includes(search);
+    });
+
+    entries.sort((a, b) => (a[1].title || '').localeCompare(b[1].title || ''));
+
+    document.getElementById('pickerList').innerHTML = entries.map(([id, s]) => `
+        <div class="song-picker-item ${pickedSongIds.has(id) ? 'selected' : ''}" onclick="togglePickSong('${id}', this)">
+            <span class="pick-title">${escapeHtml(s.title || 'Sans titre')}</span>
+            <span class="pick-key">${s.key || '?'}</span>
+        </div>
+    `).join('');
+}
+
+document.getElementById('pickerSearch').addEventListener('input', renderPickerList);
+
+function togglePickSong(id, el) {
+    if (pickedSongIds.has(id)) {
+        pickedSongIds.delete(id);
+        el.classList.remove('selected');
+    } else {
+        pickedSongIds.add(id);
+        el.classList.add('selected');
+    }
+}
+
+function addPickedSongs() {
+    if (pickedSongIds.size === 0) return;
+    const sl = setlists[currentSetlistId];
+    if (!sl) return;
+    if (!sl.songs) sl.songs = [];
+
+    for (const songId of pickedSongIds) {
+        sl.songs.push({ songId: songId, transpose: 0 });
+    }
+
+    db.ref(`songbook/setlists/${currentSetlistId}/songs`).set(sl.songs);
+    closeSongPicker();
+    showToast(`${pickedSongIds.size} chant(s) ajout&eacute;(s)`);
+}
+
+// ====== SETLIST LIVE ======
+function startSetlistLive() {
+    const sl = setlists[currentSetlistId];
+    if (!sl || !sl.songs || sl.songs.length === 0) {
+        showToast('Setlist vide');
+        return;
+    }
+
+    liveSetlistSongs = sl.songs.filter(item => songs[item.songId]);
+    if (liveSetlistSongs.length === 0) {
+        showToast('Aucun chant valide');
+        return;
+    }
+
+    liveIndex = 0;
+    switchView('live');
+    renderLiveSong();
+    requestWakeLock();
+}
+
+function renderLiveSong() {
+    const item = liveSetlistSongs[liveIndex];
+    if (!item) return;
+
+    currentViewSongId = item.songId;
+    currentTranspose = item.transpose || 0;
+
+    const s = songs[item.songId];
+    document.getElementById('liveSongTitle').textContent = s.title || 'Sans titre';
+    document.getElementById('liveCounter').textContent = `${liveIndex + 1} / ${liveSetlistSongs.length}`;
+
+    renderPartition();
+}
+
+function liveNext() {
+    if (liveIndex < liveSetlistSongs.length - 1) {
+        liveIndex++;
+        renderLiveSong();
+        window.scrollTo(0, 0);
+    }
+}
+
+function livePrev() {
+    if (liveIndex > 0) {
+        liveIndex--;
+        renderLiveSong();
+        window.scrollTo(0, 0);
+    }
+}
+
+// Swipe support for live view
+let touchStartX = 0;
+let touchStartY = 0;
+
+document.addEventListener('touchstart', (e) => {
+    touchStartX = e.touches[0].clientX;
+    touchStartY = e.touches[0].clientY;
+});
+
+document.addEventListener('touchend', (e) => {
+    const activeView = document.querySelector('.view.active');
+    if (!activeView || activeView.id !== 'view-live') return;
+
+    const deltaX = e.changedTouches[0].clientX - touchStartX;
+    const deltaY = e.changedTouches[0].clientY - touchStartY;
+
+    // Only horizontal swipes
+    if (Math.abs(deltaX) > 80 && Math.abs(deltaX) > Math.abs(deltaY) * 2) {
+        if (deltaX < 0) liveNext();
+        else livePrev();
+    }
+});
+
+// ====== TOAST ======
+function showToast(msg, duration = 2500) {
+    const t = document.getElementById('toast');
+    t.innerHTML = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), duration);
+}
+
+// ====== SERVICE WORKER ======
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('./sw.js').then(reg => {
+        // Force SW update check on every page load
+        reg.update();
+    }).catch(err => console.log('SW:', err));
+}
+
+// ====== INIT ======
+loadData();
+</script>
+<div style="position:fixed;bottom:6px;right:10px;font-size:13px;color:rgba(79,0,255,0.45);font-family:'Nunito',sans-serif;font-weight:700;pointer-events:none;z-index:1">
+  Modifié le 01/04/2026 à 17:13 (Paris)
+</div>
+</body>
+</html>

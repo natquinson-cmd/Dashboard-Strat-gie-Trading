@@ -1,0 +1,142 @@
+//-------------------------------------------------------------------------
+// NAS 15 OPR R2.2 réinv V1.4 — Stop basé sur le range OPR
+//-------------------------------------------------------------------------
+// Modification vs V1.2 :
+//   - Le stop est calculé comme un multiple du range OPR
+//     (OPRHigh - OPRLow) au lieu de l'ATR
+//     → s'adapte naturellement au niveau du Nasdaq
+//     → 2019 (OPR ~12 pts) : stop ~60 pts au lieu de 85
+//     → 2024 (OPR ~40 pts) : stop ~200 pts
+//   - Bornes de sécurité conservées (min 30, max 250)
+//   - Tout le reste est IDENTIQUE à V1.2
+//-------------------------------------------------------------------------
+
+DEFPARAM CUMULATEORDERS = FALSE
+DEFPARAM PRELOADBARS = 2000
+
+// --- 1. PARAMÈTRES ---
+ONCE CoeffBE = 1.2
+ONCE Coeflockprofit = 0.3
+ONCE TargetMult = 2.2
+
+// Multiplicateur du range OPR pour le stop
+ONCE OPRStopMult = 5.0
+
+// Bornes de sécurité en points
+ONCE StopFloor = 30
+ONCE StopCap = 250
+
+MonATR = AverageTrueRange[14](close)
+
+// --- 2. GESTION DU CAPITAL ---
+ONCE CapInit = 5300
+Risque = 2.2
+Reinvestir = 1
+
+IF Reinvestir = 1 THEN
+    CapActuel = CapInit + StrategyProfit
+ELSE
+    CapActuel = CapInit
+ENDIF
+
+// --- 3. INITIALISATION ---
+IF Date <> Date[1] THEN
+    TodayTrade = 0
+    DailyProfit = STRATEGYPROFIT
+    NiveauStop = 0
+    StaticTargetPrix = 0
+    OPRHigh = 0
+    OPRLow = 0
+    OPRRange = 0
+    StopDyn = 0
+    TargetDyn = 0
+ENDIF
+
+// --- 4. OPR (15h30) + calcul du stop basé sur le range ---
+IF time = 153000 THEN
+    OPRHigh = High
+    OPRLow = Low
+    OPRRange = OPRHigh - OPRLow
+
+    // Stop = multiple du range OPR, borné
+    StopDyn = ROUND(MAX(StopFloor, MIN(StopCap, OPRRange * OPRStopMult)))
+    TargetDyn = ROUND(StopDyn * TargetMult)
+ENDIF
+
+// Position sizing (après calcul StopDyn)
+IF StopDyn > 0 THEN
+    RawSize = (CapActuel * (Risque / 100)) / (StopDyn * PipValue)
+    PosSize = ROUND(MAX(0.01, RawSize), 2)
+ELSE
+    PosSize = 0.5
+ENDIF
+
+IF STRATEGYPROFIT <> DailyProfit OR ONMARKET THEN
+    TodayTrade = 1
+ENDIF
+
+// --- 5. CONDITIONS D'ENTRÉE ---
+IF TodayTrade = 0 AND time > 153000 AND time <= 173000 AND StopDyn > 0 THEN
+    IF close > OPRHigh THEN
+        BUY PosSize CONTRACTS AT MARKET
+        NiveauStop = close - StopDyn
+        StaticBETrigger = MonATR * CoeffBE
+        StaticLockTrigger = TargetDyn * 0.6
+        StaticLockProfit = TargetDyn * Coeflockprofit
+        StaticTargetPrix = close + TargetDyn
+    ELSIF close < OPRLow THEN
+        SELLSHORT PosSize CONTRACTS AT MARKET
+        NiveauStop = close + StopDyn
+        StaticBETrigger = MonATR * CoeffBE
+        StaticLockTrigger = TargetDyn * 0.6
+        StaticLockProfit = TargetDyn * Coeflockprofit
+        StaticTargetPrix = close - TargetDyn
+    ENDIF
+ENDIF
+
+// --- 6. GESTION DES SORTIES ---
+IF ONMARKET THEN
+    SET STOP pLOSS StopDyn
+    SET TARGET pPROFIT TargetDyn
+
+    // PALIER 1 : Breakeven
+    IF LONGONMARKET AND (close - tradeprice) > StaticBETrigger THEN
+        NouvStop = tradeprice + 5
+        NiveauStop = MAX(NiveauStop, NouvStop)
+    ENDIF
+    IF SHORTONMARKET AND (tradeprice - close) > StaticBETrigger THEN
+        NouvStop = tradeprice - 5
+        IF NiveauStop = 0 THEN
+            NiveauStop = NouvStop
+        ELSE
+            NiveauStop = MIN(NiveauStop, NouvStop)
+        ENDIF
+    ENDIF
+
+    // PALIER 2 : Verrouillage
+    IF LONGONMARKET AND (close - tradeprice) > StaticLockTrigger THEN
+        NouvStop = tradeprice + StaticLockProfit
+        NiveauStop = MAX(NiveauStop, NouvStop)
+    ENDIF
+    IF SHORTONMARKET AND (tradeprice - close) > StaticLockTrigger THEN
+        NouvStop = tradeprice - StaticLockProfit
+        IF NiveauStop = 0 THEN
+            NiveauStop = NouvStop
+        ELSE
+            NiveauStop = MIN(NiveauStop, NouvStop)
+        ENDIF
+    ENDIF
+
+    // APPLICATION DU STOP
+    IF LONGONMARKET THEN
+        SELL AT NiveauStop STOP
+    ELSIF SHORTONMARKET THEN
+        EXITSHORT AT NiveauStop STOP
+    ENDIF
+ENDIF
+
+// Clôture fin de journée
+IF time >= 215500 THEN
+    SELL AT MARKET
+    EXITSHORT AT MARKET
+ENDIF

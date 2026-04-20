@@ -1,0 +1,2522 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>F1 Academy - Pilote des Maths</title>
+<style>
+:root {
+    --f1-red: #e10600;
+    --f1-dark: #15151e;
+    --f1-darker: #0d0d14;
+    --f1-gold: #ffd700;
+    --f1-silver: #c0c0c0;
+    --f1-bronze: #cd7f32;
+    --f1-green: #00d455;
+    --f1-blue: #0090ff;
+    --f1-white: #f5f5f5;
+    --f1-gray: #38383f;
+    --f1-lightgray: #6e6e78;
+    --success: #00d455;
+    --warning: #ff9500;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: var(--f1-darker);
+    color: var(--f1-white);
+    min-height: 100vh;
+    overflow-x: hidden;
+}
+
+/* ===== ECRAN ACCUEIL ===== */
+#screen-home {
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 20px;
+    background: linear-gradient(135deg, var(--f1-darker) 0%, #1a1a2e 50%, var(--f1-dark) 100%);
+    position: relative;
+    overflow: hidden;
+}
+
+#screen-home::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: repeating-linear-gradient(
+        90deg,
+        transparent,
+        transparent 48%,
+        rgba(255,255,255,0.03) 48%,
+        rgba(255,255,255,0.03) 52%,
+        transparent 52%
+    );
+    pointer-events: none;
+}
+
+.home-title {
+    font-size: clamp(2.5rem, 8vw, 5rem);
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 4px;
+    background: linear-gradient(180deg, var(--f1-white) 0%, var(--f1-red) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-align: center;
+    margin-bottom: 5px;
+    position: relative;
+    z-index: 1;
+}
+
+.home-subtitle {
+    font-size: clamp(1rem, 3vw, 1.5rem);
+    color: var(--f1-lightgray);
+    margin-bottom: 40px;
+    text-align: center;
+    z-index: 1;
+}
+
+.car-animation {
+    font-size: 4rem;
+    margin: 20px 0;
+    animation: driveIn 2s ease-out;
+    z-index: 1;
+    display: inline-block;
+    transform: scaleX(-1);
+}
+
+@keyframes driveIn {
+    from { transform: translateX(-200%) scaleX(-1); opacity: 0; }
+    to { transform: translateX(0) scaleX(-1); opacity: 1; }
+}
+
+.home-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    width: 100%;
+    max-width: 400px;
+    z-index: 1;
+}
+
+.btn {
+    padding: 18px 30px;
+    border: none;
+    border-radius: 12px;
+    font-size: 1.2rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    position: relative;
+    overflow: hidden;
+}
+
+.btn:active { transform: scale(0.97); }
+
+.btn-primary {
+    background: linear-gradient(135deg, var(--f1-red), #ff2020);
+    color: white;
+    box-shadow: 0 4px 20px rgba(225, 6, 0, 0.4);
+}
+
+.btn-primary:hover { box-shadow: 0 6px 30px rgba(225, 6, 0, 0.6); transform: translateY(-2px); }
+
+.btn-secondary {
+    background: var(--f1-gray);
+    color: var(--f1-white);
+    border: 2px solid var(--f1-lightgray);
+}
+
+.btn-secondary:hover { border-color: var(--f1-white); }
+
+.btn-small {
+    padding: 10px 20px;
+    font-size: 0.9rem;
+}
+
+.btn-category {
+    background: var(--f1-dark);
+    color: var(--f1-white);
+    border: 2px solid var(--f1-gray);
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    text-align: left;
+}
+
+.btn-category:hover { border-color: var(--f1-red); background: var(--f1-gray); }
+
+.btn-category .cat-icon { font-size: 2rem; }
+.btn-category .cat-info { flex: 1; }
+.btn-category .cat-name { display: block; font-size: 1.1rem; }
+.btn-category .cat-desc { display: block; font-size: 0.75rem; color: var(--f1-lightgray); font-weight: 400; text-transform: none; letter-spacing: 0; margin-top: 2px; }
+
+/* ===== PROFIL PILOTE ===== */
+.pilot-card {
+    background: var(--f1-dark);
+    border: 2px solid var(--f1-gray);
+    border-radius: 16px;
+    padding: 20px;
+    margin: 20px 0;
+    width: 100%;
+    max-width: 400px;
+    z-index: 1;
+}
+
+.pilot-header {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 15px;
+}
+
+.pilot-avatar {
+    width: 70px;
+    height: 70px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--f1-red), var(--f1-gold));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.8rem;
+    overflow: hidden;
+    padding: 5px;
+}
+.pilot-avatar svg { width: 55px; height: 35px; }
+.pilot-avatar img { width: 60px; height: 60px; object-fit: cover; border-radius: 50%; }
+
+.pilot-name { font-size: 1.3rem; font-weight: 700; }
+.pilot-rank { font-size: 0.85rem; color: var(--f1-gold); }
+
+.pilot-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    text-align: center;
+}
+
+.stat-box {
+    background: var(--f1-darker);
+    border-radius: 8px;
+    padding: 10px 5px;
+}
+
+.stat-value { font-size: 1.4rem; font-weight: 800; color: var(--f1-gold); }
+.stat-label { font-size: 0.65rem; color: var(--f1-lightgray); text-transform: uppercase; }
+
+/* ===== HEADER JEU ===== */
+.game-header {
+    background: var(--f1-dark);
+    padding: 10px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 3px solid var(--f1-red);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+}
+
+.header-left { display: flex; align-items: center; gap: 10px; }
+.header-back { background: none; border: none; color: var(--f1-white); font-size: 1.5rem; cursor: pointer; padding: 5px; }
+
+.header-title { font-size: 1rem; font-weight: 700; text-transform: uppercase; }
+
+.header-right { display: flex; align-items: center; gap: 15px; }
+
+.streak-display {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    background: var(--f1-gray);
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-size: 0.9rem;
+    font-weight: 700;
+}
+
+.xp-display {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    color: var(--f1-gold);
+    font-weight: 700;
+}
+
+/* ===== PISTE DE COURSE (PROGRESSION) ===== */
+.race-track {
+    background: var(--f1-dark);
+    padding: 15px 20px;
+    position: relative;
+}
+
+.track-bar {
+    height: 12px;
+    background: var(--f1-gray);
+    border-radius: 6px;
+    position: relative;
+    overflow: visible;
+}
+
+.track-progress {
+    height: 100%;
+    background: linear-gradient(90deg, var(--f1-red), var(--f1-gold));
+    border-radius: 6px;
+    transition: width 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
+    position: relative;
+}
+
+.track-car {
+    position: absolute;
+    right: -15px;
+    top: 50%;
+    transform: translateY(-50%) scaleX(-1);
+    font-size: 1.5rem;
+    filter: drop-shadow(0 0 8px rgba(225, 6, 0, 0.6));
+    transition: all 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.track-info {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 8px;
+    font-size: 0.75rem;
+    color: var(--f1-lightgray);
+}
+
+.track-checkpoints {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 12px;
+    display: flex;
+    justify-content: space-between;
+    padding: 0 2px;
+    pointer-events: none;
+}
+
+.checkpoint {
+    width: 3px;
+    height: 100%;
+    background: rgba(255,255,255,0.2);
+    border-radius: 2px;
+}
+
+.checkpoint.passed { background: var(--f1-gold); }
+
+/* ===== ZONE EXERCICE ===== */
+.exercise-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    min-height: calc(100vh - 150px);
+}
+
+.exercise-card {
+    background: var(--f1-dark);
+    border-radius: 20px;
+    padding: 30px;
+    width: 100%;
+    max-width: 500px;
+    text-align: center;
+    border: 2px solid var(--f1-gray);
+    position: relative;
+}
+
+.exercise-type {
+    position: absolute;
+    top: -12px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--f1-red);
+    color: white;
+    padding: 4px 16px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    white-space: nowrap;
+}
+
+.exercise-question {
+    font-size: clamp(1.5rem, 5vw, 2.5rem);
+    font-weight: 800;
+    margin: 25px 0;
+    line-height: 1.3;
+}
+
+.exercise-hint {
+    font-size: 0.9rem;
+    color: var(--f1-lightgray);
+    margin-bottom: 20px;
+    font-style: italic;
+}
+
+/* Aide visuelle - blocs */
+.visual-aid {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    margin: 15px 0;
+    flex-wrap: wrap;
+}
+
+.block-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    justify-content: center;
+    max-width: 150px;
+}
+
+.block {
+    width: 24px;
+    height: 24px;
+    border-radius: 4px;
+    background: var(--f1-blue);
+    transition: all 0.3s;
+}
+
+.block.tens {
+    width: 100%;
+    height: 24px;
+    border-radius: 4px;
+    background: var(--f1-red);
+}
+
+.visual-operator {
+    font-size: 2rem;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    color: var(--f1-gold);
+}
+
+/* Réponses */
+.answers-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    margin-top: 20px;
+}
+
+.answer-btn {
+    padding: 18px;
+    border: 2px solid var(--f1-gray);
+    border-radius: 12px;
+    background: var(--f1-darker);
+    color: var(--f1-white);
+    font-size: 1.5rem;
+    font-weight: 800;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.answer-btn:hover { border-color: var(--f1-blue); background: var(--f1-gray); }
+
+.answer-btn.correct {
+    border-color: var(--success);
+    background: rgba(0, 212, 85, 0.2);
+    animation: correctPulse 0.5s ease;
+}
+
+.answer-btn.wrong {
+    border-color: var(--warning);
+    background: rgba(255, 149, 0, 0.1);
+    animation: shake 0.4s ease;
+}
+
+@keyframes correctPulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.08); }
+    100% { transform: scale(1); }
+}
+
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-5px); }
+    75% { transform: translateX(5px); }
+}
+
+/* Input libre */
+.free-input-area {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 20px;
+    align-items: center;
+}
+
+.free-input {
+    width: 120px;
+    padding: 15px;
+    border: 3px solid var(--f1-gray);
+    border-radius: 12px;
+    background: var(--f1-darker);
+    color: var(--f1-white);
+    font-size: 2rem;
+    font-weight: 800;
+    text-align: center;
+    outline: none;
+    transition: border-color 0.3s;
+}
+
+.free-input:focus { border-color: var(--f1-blue); }
+
+.submit-btn {
+    padding: 15px 25px;
+    border: none;
+    border-radius: 12px;
+    background: var(--f1-green);
+    color: var(--f1-dark);
+    font-size: 1.2rem;
+    font-weight: 800;
+    cursor: pointer;
+}
+
+/* ===== FEEDBACK ===== */
+.feedback-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 200;
+    background: rgba(0,0,0,0.6);
+    animation: fadeIn 0.2s;
+    padding: 20px;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.feedback-card {
+    background: var(--f1-dark);
+    border-radius: 20px;
+    padding: 40px 30px;
+    text-align: center;
+    max-width: 400px;
+    width: 100%;
+    border: 3px solid;
+    animation: popIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes popIn {
+    from { transform: scale(0.5); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+}
+
+.feedback-card.success { border-color: var(--success); }
+.feedback-card.retry { border-color: var(--warning); }
+
+.feedback-emoji { font-size: 4rem; margin-bottom: 15px; }
+
+.feedback-title {
+    font-size: 1.5rem;
+    font-weight: 800;
+    margin-bottom: 10px;
+}
+
+.feedback-msg {
+    font-size: 1rem;
+    color: var(--f1-lightgray);
+    margin-bottom: 5px;
+}
+
+.feedback-xp {
+    font-size: 1.1rem;
+    color: var(--f1-gold);
+    font-weight: 700;
+    margin: 10px 0;
+}
+
+.feedback-btn {
+    margin-top: 15px;
+}
+
+/* ===== CATEGORIES ===== */
+#screen-categories {
+    flex-direction: column;
+    min-height: 100vh;
+}
+
+.categories-content {
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    max-width: 500px;
+    margin: 0 auto;
+    width: 100%;
+}
+
+.category-section-title {
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: var(--f1-lightgray);
+    margin-top: 15px;
+    margin-bottom: 5px;
+}
+
+/* ===== ECRAN JEU ===== */
+#screen-game {
+    flex-direction: column;
+    min-height: 100vh;
+}
+
+/* ===== GARAGE (TROPHEES) ===== */
+#screen-garage {
+    flex-direction: column;
+    min-height: 100vh;
+}
+
+.garage-content {
+    padding: 20px;
+    max-width: 500px;
+    margin: 0 auto;
+    width: 100%;
+}
+
+.garage-section {
+    margin-bottom: 30px;
+}
+
+.garage-section h3 {
+    font-size: 1rem;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: var(--f1-lightgray);
+    margin-bottom: 15px;
+}
+
+.cars-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+}
+
+.car-card {
+    background: var(--f1-dark);
+    border: 2px solid var(--f1-gray);
+    border-radius: 12px;
+    padding: 15px 10px;
+    text-align: center;
+    transition: all 0.3s;
+}
+
+.car-card.unlocked { border-color: var(--f1-gold); }
+.car-card.locked { opacity: 0.4; }
+
+.car-card .car-emoji { display: block; margin-bottom: 5px; }
+.car-card .car-emoji img {
+    width: 110px;
+    height: 70px;
+    object-fit: cover;
+    border-radius: 8px;
+    border: 1px solid var(--f1-gray);
+}
+.car-card.locked .car-emoji img {
+    filter: grayscale(1) brightness(0.4);
+}
+.car-card .car-name { font-size: 0.7rem; color: var(--f1-lightgray); }
+.car-card .car-req { font-size: 0.6rem; color: var(--f1-gold); margin-top: 3px; }
+
+.trophies-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+}
+
+.trophy-card {
+    background: var(--f1-dark);
+    border: 2px solid var(--f1-gray);
+    border-radius: 12px;
+    padding: 15px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.trophy-card.earned { border-color: var(--f1-gold); background: rgba(255, 215, 0, 0.05); }
+.trophy-card.locked { opacity: 0.35; }
+
+.trophy-card .trophy-icon { font-size: 2rem; }
+.trophy-card .trophy-name { font-size: 0.8rem; font-weight: 700; }
+.trophy-card .trophy-desc { font-size: 0.65rem; color: var(--f1-lightgray); margin-top: 2px; }
+
+/* ===== LETTRES ===== */
+.letter-display {
+    font-size: 8rem;
+    font-weight: 900;
+    line-height: 1;
+    margin: 10px 0;
+    color: var(--f1-white);
+}
+
+.letter-hint-visual {
+    display: flex;
+    justify-content: center;
+    gap: 30px;
+    margin: 15px 0;
+}
+
+.letter-option {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+}
+
+.letter-option-char {
+    font-size: 4rem;
+    font-weight: 900;
+    padding: 10px 25px;
+    border: 3px solid var(--f1-gray);
+    border-radius: 16px;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: var(--f1-darker);
+}
+
+.letter-option-char:hover { border-color: var(--f1-blue); }
+.letter-option-char.correct { border-color: var(--success); background: rgba(0,212,85,0.15); }
+.letter-option-char.wrong { border-color: var(--warning); background: rgba(255,149,0,0.1); }
+
+.mnemonic {
+    background: var(--f1-gray);
+    border-radius: 12px;
+    padding: 15px;
+    margin: 15px 0;
+    font-size: 0.95rem;
+    line-height: 1.5;
+}
+
+.mnemonic strong { color: var(--f1-gold); }
+
+/* Number line */
+.number-line {
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    gap: 2px;
+    margin: 15px 0;
+    padding: 10px 0;
+    overflow-x: auto;
+}
+
+.nl-tick {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 22px;
+}
+
+.nl-mark {
+    width: 2px;
+    background: var(--f1-lightgray);
+}
+
+.nl-mark.big { height: 20px; }
+.nl-mark.small { height: 10px; }
+
+.nl-num {
+    font-size: 0.65rem;
+    color: var(--f1-lightgray);
+    margin-top: 3px;
+}
+
+.nl-tick.highlight .nl-mark { background: var(--f1-red); width: 4px; }
+.nl-tick.highlight .nl-num { color: var(--f1-red); font-weight: 800; font-size: 0.8rem; }
+
+/* ===== COMPARAISON ===== */
+.comparison-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 15px;
+    margin: 20px 0;
+}
+
+.comp-number {
+    font-size: 3rem;
+    font-weight: 800;
+    background: var(--f1-darker);
+    padding: 15px 25px;
+    border-radius: 12px;
+    border: 2px solid var(--f1-gray);
+}
+
+.comp-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.comp-btn {
+    padding: 12px 25px;
+    border: 2px solid var(--f1-gray);
+    border-radius: 10px;
+    background: var(--f1-darker);
+    color: var(--f1-white);
+    font-size: 2rem;
+    font-weight: 800;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.comp-btn:hover { border-color: var(--f1-blue); }
+
+/* ===== ECRAN FIN DE COURSE ===== */
+#screen-results {
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 20px;
+    background: linear-gradient(135deg, var(--f1-darker), #1a1a2e);
+}
+
+.results-card {
+    background: var(--f1-dark);
+    border: 3px solid var(--f1-gold);
+    border-radius: 20px;
+    padding: 30px;
+    max-width: 400px;
+    width: 100%;
+    text-align: center;
+}
+
+.results-podium { font-size: 4rem; margin-bottom: 10px; }
+
+.results-title {
+    font-size: 1.8rem;
+    font-weight: 900;
+    text-transform: uppercase;
+    margin-bottom: 5px;
+}
+
+.results-subtitle {
+    color: var(--f1-lightgray);
+    margin-bottom: 20px;
+}
+
+.results-stats {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    margin: 20px 0;
+}
+
+.result-stat {
+    background: var(--f1-darker);
+    border-radius: 10px;
+    padding: 12px;
+}
+
+.result-stat .rs-val { font-size: 1.5rem; font-weight: 800; color: var(--f1-gold); }
+.result-stat .rs-label { font-size: 0.7rem; color: var(--f1-lightgray); text-transform: uppercase; }
+
+.results-message {
+    background: rgba(0, 212, 85, 0.1);
+    border: 1px solid var(--success);
+    border-radius: 10px;
+    padding: 15px;
+    margin: 15px 0;
+    font-size: 0.95rem;
+    line-height: 1.5;
+}
+
+.results-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 15px;
+}
+
+/* ===== CONFETTI ===== */
+.confetti-container {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    pointer-events: none;
+    z-index: 300;
+    overflow: hidden;
+}
+
+.confetti {
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    top: -10px;
+    animation: confettiFall linear forwards;
+}
+
+@keyframes confettiFall {
+    to { transform: translateY(110vh) rotate(720deg); opacity: 0; }
+}
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 400px) {
+    .exercise-card { padding: 20px 15px; }
+    .answer-btn { padding: 14px; font-size: 1.3rem; }
+    .letter-display { font-size: 5rem; }
+    .comp-number { font-size: 2rem; padding: 10px 18px; }
+}
+
+/* ===== NOMBRE A TROUS ===== */
+.sequence-display {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin: 15px 0;
+}
+
+.seq-item {
+    background: var(--f1-darker);
+    border: 2px solid var(--f1-gray);
+    border-radius: 10px;
+    padding: 12px 16px;
+    font-size: 1.5rem;
+    font-weight: 800;
+    min-width: 55px;
+    text-align: center;
+}
+
+.seq-item.missing {
+    border-color: var(--f1-red);
+    color: var(--f1-red);
+    background: rgba(225, 6, 0, 0.1);
+}
+
+.seq-arrow {
+    color: var(--f1-lightgray);
+    font-size: 1.2rem;
+}
+
+/* Pit Stop */
+.pitstop-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 250;
+    padding: 20px;
+}
+
+.pitstop-card {
+    background: var(--f1-dark);
+    border: 3px solid var(--f1-blue);
+    border-radius: 20px;
+    padding: 40px 30px;
+    max-width: 400px;
+    width: 100%;
+    text-align: center;
+    animation: popIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.pitstop-emoji { font-size: 4rem; margin-bottom: 15px; }
+.pitstop-title { font-size: 1.5rem; font-weight: 800; margin-bottom: 10px; }
+.pitstop-msg { color: var(--f1-lightgray); margin-bottom: 10px; line-height: 1.5; }
+.pitstop-tip {
+    background: var(--f1-darker);
+    border-radius: 10px;
+    padding: 12px;
+    margin: 15px 0;
+    font-size: 0.9rem;
+    color: var(--f1-gold);
+}
+
+.pitstop-timer {
+    margin-top: 18px;
+    text-align: center;
+}
+.pitstop-timer-label {
+    font-size: 0.85rem;
+    color: var(--f1-lightgray);
+    margin-bottom: 8px;
+    font-weight: 600;
+}
+.pitstop-timer-bar {
+    width: 100%;
+    height: 14px;
+    background: var(--f1-darker);
+    border-radius: 7px;
+    overflow: hidden;
+    border: 1px solid var(--f1-gray);
+    position: relative;
+}
+.pitstop-timer-fill {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, var(--f1-red), var(--f1-gold));
+    border-radius: 7px;
+    transition: width 1s linear;
+}
+.pitstop-countdown {
+    font-size: 2rem;
+    font-weight: 900;
+    color: var(--f1-gold);
+    margin-top: 6px;
+}
+.pitstop-btn-ready {
+    animation: popIn 0.3s ease;
+}
+
+/* ===== FEUX DE DEPART F1 ===== */
+.startlights-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.9);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 300;
+}
+.startlights-title {
+    font-size: 1.5rem;
+    font-weight: 900;
+    color: var(--f1-white);
+    margin-bottom: 30px;
+    text-transform: uppercase;
+    letter-spacing: 3px;
+}
+.startlights-row {
+    display: flex;
+    gap: 18px;
+    margin-bottom: 30px;
+}
+.startlight-column {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    background: #1a1a1a;
+    border-radius: 12px;
+    padding: 10px 8px;
+    border: 2px solid #333;
+}
+.startlight {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: #2a2a2a;
+    border: 2px solid #444;
+    transition: background 0.15s, box-shadow 0.15s;
+}
+.startlight.red {
+    background: #e10600;
+    box-shadow: 0 0 15px #e10600, 0 0 30px rgba(225,6,0,0.4);
+}
+.startlight.green {
+    background: #00e040;
+    box-shadow: 0 0 15px #00e040, 0 0 30px rgba(0,224,64,0.4);
+}
+.startlights-text {
+    font-size: 2rem;
+    font-weight: 900;
+    color: var(--f1-white);
+    min-height: 50px;
+}
+.startlights-text.go {
+    color: #00e040;
+    font-size: 3rem;
+    animation: popIn 0.3s ease;
+}
+
+/* Hide all screens by default, show via JS */
+.screen { display: none; }
+.screen.active { display: flex; }
+</style>
+</head>
+<body>
+
+<!-- ===== ECRAN ACCUEIL ===== -->
+<div id="screen-home" class="screen active">
+    <div class="home-title">F1 Academy</div>
+    <div class="home-subtitle">Deviens le champion des maths !</div>
+    <div class="car-animation">🏎️</div>
+
+    <div class="pilot-card" id="pilot-card">
+        <div class="pilot-header">
+            <div class="pilot-avatar" id="pilot-avatar">🏁</div>
+            <div>
+                <div class="pilot-name" id="pilot-name">Pilote</div>
+                <div class="pilot-rank" id="pilot-rank">Rookie</div>
+            </div>
+        </div>
+        <div class="pilot-stats">
+            <div class="stat-box">
+                <div class="stat-value" id="stat-xp">0</div>
+                <div class="stat-label">XP</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-value" id="stat-courses">0</div>
+                <div class="stat-label">Courses</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-value" id="stat-trophies">0</div>
+                <div class="stat-label">Trophées</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="home-buttons">
+        <button class="btn btn-primary" onclick="showCategories()">🏁 Nouvelle Course</button>
+        <button class="btn btn-secondary" onclick="showGarage()">🏆 Mon Garage</button>
+    </div>
+
+    <div style="margin-top:30px; text-align:center; z-index:1;">
+        <label style="font-size:0.85rem; color:var(--f1-lightgray);">Nom du pilote :</label><br>
+        <input type="text" id="name-input" placeholder="Ton prénom" maxlength="15"
+            style="margin-top:8px; padding:10px 15px; border:2px solid var(--f1-gray); border-radius:8px;
+            background:var(--f1-dark); color:var(--f1-white); font-size:1rem; text-align:center; outline:none; width:200px;"
+            oninput="saveName(this.value)">
+    </div>
+</div>
+
+<!-- ===== ECRAN CATEGORIES ===== -->
+<div id="screen-categories" class="screen">
+    <div class="game-header">
+        <div class="header-left">
+            <button class="header-back" onclick="showHome()">←</button>
+            <div class="header-title">Choisis ta course</div>
+        </div>
+    </div>
+    <div class="categories-content">
+        <div class="category-section-title">🧮 Mathématiques</div>
+        <button class="btn btn-category" onclick="startRace('addition')">
+            <span class="cat-icon">➕</span>
+            <span class="cat-info">
+                <span class="cat-name">Additions</span>
+                <span class="cat-desc">Additionne comme un pro du pit stop !</span>
+            </span>
+        </button>
+        <button class="btn btn-category" onclick="startRace('soustraction')">
+            <span class="cat-icon">➖</span>
+            <span class="cat-info">
+                <span class="cat-name">Soustractions</span>
+                <span class="cat-desc">Calcule l'écart entre les voitures</span>
+            </span>
+        </button>
+        <button class="btn btn-category" onclick="startRace('doubles')">
+            <span class="cat-icon">✖️</span>
+            <span class="cat-info">
+                <span class="cat-name">Doubles & Moitiés</span>
+                <span class="cat-desc">Double ta vitesse, coupe en deux !</span>
+            </span>
+        </button>
+        <button class="btn btn-category" onclick="startRace('comparison')">
+            <span class="cat-icon">⚖️</span>
+            <span class="cat-info">
+                <span class="cat-name">Plus grand / Plus petit</span>
+                <span class="cat-desc">Qui a le meilleur temps ?</span>
+            </span>
+        </button>
+        <button class="btn btn-category" onclick="startRace('sequence')">
+            <span class="cat-icon">🔢</span>
+            <span class="cat-info">
+                <span class="cat-name">Suites de nombres</span>
+                <span class="cat-desc">Compte les tours du circuit</span>
+            </span>
+        </button>
+        <button class="btn btn-category" onclick="startRace('problemes')">
+            <span class="cat-icon">🧩</span>
+            <span class="cat-info">
+                <span class="cat-name">Problèmes</span>
+                <span class="cat-desc">Résous les mystères du Grand Prix</span>
+            </span>
+        </button>
+
+        <div class="category-section-title" style="margin-top:25px;">🔤 Lettres & Lecture</div>
+        <button class="btn btn-category" onclick="startRace('lettres')">
+            <span class="cat-icon">🔄</span>
+            <span class="cat-info">
+                <span class="cat-name">b, d, p, q</span>
+                <span class="cat-desc">Ne confonds plus les lettres jumelles</span>
+            </span>
+        </button>
+        <button class="btn btn-category" onclick="startRace('syllabes')">
+            <span class="cat-icon">🗣️</span>
+            <span class="cat-info">
+                <span class="cat-name">Syllabes</span>
+                <span class="cat-desc">Découpe les mots comme un ingénieur F1</span>
+            </span>
+        </button>
+        <button class="btn btn-category" onclick="startRace('motsmiroir')">
+            <span class="cat-icon">🪞</span>
+            <span class="cat-info">
+                <span class="cat-name">Mots à l'endroit</span>
+                <span class="cat-desc">Le mot est-il bien écrit ?</span>
+            </span>
+        </button>
+
+        <div class="category-section-title" style="margin-top:25px;">🧠 Mémoire</div>
+        <button class="btn btn-category" onclick="startRace('memoire')">
+            <span class="cat-icon">⚡</span>
+            <span class="cat-info">
+                <span class="cat-name">Mémoire Flash</span>
+                <span class="cat-desc">Retiens le numéro de la voiture !</span>
+            </span>
+        </button>
+        <button class="btn btn-category" onclick="startRace('memovisuel')">
+            <span class="cat-icon">👁️</span>
+            <span class="cat-info">
+                <span class="cat-name">Mémoire Visuelle</span>
+                <span class="cat-desc">Retiens les couleurs du drapeau !</span>
+            </span>
+        </button>
+    </div>
+</div>
+
+<!-- ===== ECRAN JEU ===== -->
+<div id="screen-game" class="screen">
+    <div class="game-header">
+        <div class="header-left">
+            <button class="header-back" onclick="confirmQuit()">←</button>
+            <div class="header-title" id="game-title">Course</div>
+        </div>
+        <div class="header-right">
+            <div class="streak-display" id="streak-display">🔥 0</div>
+            <div class="xp-display" id="xp-race">⭐ 0</div>
+        </div>
+    </div>
+    <div class="race-track">
+        <div class="track-bar">
+            <div class="track-progress" id="track-progress" style="width:0%">
+                <div class="track-car" id="track-car">🏎️</div>
+            </div>
+        </div>
+        <div class="track-info">
+            <span id="track-current">Tour 1</span>
+            <span id="track-total">/ 8</span>
+        </div>
+    </div>
+    <div class="exercise-area" id="exercise-area">
+        <!-- Exercice dynamique ici -->
+    </div>
+</div>
+
+<!-- ===== ECRAN RESULTATS ===== -->
+<div id="screen-results" class="screen">
+    <div class="results-card">
+        <div class="results-podium" id="results-podium">🏆</div>
+        <div class="results-title" id="results-title">Course terminée !</div>
+        <div class="results-subtitle" id="results-subtitle">Grand Prix des Additions</div>
+        <div class="results-stats">
+            <div class="result-stat">
+                <div class="rs-val" id="res-correct">0</div>
+                <div class="rs-label">Bonnes réponses</div>
+            </div>
+            <div class="result-stat">
+                <div class="rs-val" id="res-total">0</div>
+                <div class="rs-label">Questions</div>
+            </div>
+            <div class="result-stat">
+                <div class="rs-val" id="res-xp">0</div>
+                <div class="rs-label">XP gagnés</div>
+            </div>
+            <div class="result-stat">
+                <div class="rs-val" id="res-streak">0</div>
+                <div class="rs-label">Meilleure série</div>
+            </div>
+        </div>
+        <div class="results-message" id="results-message"></div>
+        <div class="results-buttons">
+            <button class="btn btn-primary" onclick="showCategories()">🏁 Nouvelle Course</button>
+            <button class="btn btn-secondary" onclick="showHome()">🏠 Accueil</button>
+        </div>
+    </div>
+</div>
+
+<!-- ===== ECRAN GARAGE ===== -->
+<div id="screen-garage" class="screen">
+    <div class="game-header">
+        <div class="header-left">
+            <button class="header-back" onclick="showHome()">←</button>
+            <div class="header-title">Mon Garage</div>
+        </div>
+    </div>
+    <div class="garage-content">
+        <div class="garage-section">
+            <h3>🏎️ Mes Voitures</h3>
+            <div class="cars-grid" id="cars-grid"></div>
+        </div>
+        <div class="garage-section">
+            <h3>🏆 Mes Trophées</h3>
+            <div class="trophies-grid" id="trophies-grid"></div>
+        </div>
+    </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+<script>
+// ===== DONNEES & ETAT =====
+const RACE_LENGTH = 8; // questions par course
+const PITSTOP_AFTER = 4; // pause après 4 questions
+
+// Photos de voitures - de la plus pourrie à la plus belle
+function carImage(id) {
+    const images = {
+        kart:       'https://images.unsplash.com/photo-1581235720704-06d3acfcb36f?w=220&h=140&fit=crop',
+        twingo:     'https://images.unsplash.com/photo-1609521263047-f8f205293f24?w=220&h=140&fit=crop',
+        golf:       'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?w=220&h=140&fit=crop',
+        mini:       'https://images.unsplash.com/photo-1494976388531-d1058494cdd8?w=220&h=140&fit=crop',
+        mustang:    'https://images.unsplash.com/photo-1547744152-14d985cb937f?w=220&h=140&fit=crop',
+        bmw:        'https://images.unsplash.com/photo-1555215695-3004980ad54e?w=220&h=140&fit=crop',
+        porsche:    'https://images.unsplash.com/photo-1503376780353-7e6692767b70?w=220&h=140&fit=crop',
+        ferrari:    'https://images.unsplash.com/photo-1592198084033-aade902d1aae?w=220&h=140&fit=crop',
+        lambo:      'https://images.unsplash.com/photo-1544636331-e26879cd4d9b?w=220&h=140&fit=crop',
+        f1:         'https://images.unsplash.com/photo-1568605117036-5fe5e7bab0b7?w=220&h=140&fit=crop',
+        champion:   'https://images.unsplash.com/photo-1621135802920-133df287f89c?w=220&h=140&fit=crop',
+    };
+    return `<img src="${images[id] || images.kart}" alt="${id}" loading="lazy">`;
+}
+
+const CARS = [
+    { id:'kart',    name:'Kart Rouillé',     req:0,    reqLabel:'Départ' },
+    { id:'twingo',  name:'Vieille Twingo',   req:50,   reqLabel:'50 XP' },
+    { id:'golf',    name:'Golf de Papa',     req:150,  reqLabel:'150 XP' },
+    { id:'mini',    name:'Mini Cooper',      req:300,  reqLabel:'300 XP' },
+    { id:'mustang', name:'Ford Mustang',     req:500,  reqLabel:'500 XP' },
+    { id:'bmw',     name:'BMW M4',           req:800,  reqLabel:'800 XP' },
+    { id:'porsche', name:'Porsche 911',      req:1200, reqLabel:'1200 XP' },
+    { id:'ferrari', name:'Ferrari F40',      req:1800, reqLabel:'1800 XP' },
+    { id:'lambo',   name:'Lamborghini',      req:2500, reqLabel:'2500 XP' },
+    { id:'f1',      name:'Formule 1',        req:3500, reqLabel:'3500 XP' },
+    { id:'champion',name:'Légende F1 🏆',    req:5000, reqLabel:'5000 XP' },
+];
+
+const TROPHIES = [
+    { id:'first_race', icon:'🏁', name:'Première Course', desc:'Termine ta première course', check: p => p.totalRaces >= 1 },
+    { id:'streak3', icon:'🔥', name:'Trio Gagnant', desc:'3 bonnes réponses de suite', check: p => p.bestStreak >= 3 },
+    { id:'streak5', icon:'⚡', name:'Super Série', desc:'5 bonnes réponses de suite', check: p => p.bestStreak >= 5 },
+    { id:'streak8', icon:'💎', name:'Course Parfaite', desc:'8 bonnes réponses de suite', check: p => p.bestStreak >= 8 },
+    { id:'races5', icon:'🏅', name:'Pilote Régulier', desc:'5 courses terminées', check: p => p.totalRaces >= 5 },
+    { id:'races10', icon:'🥇', name:'Pilote Expert', desc:'10 courses terminées', check: p => p.totalRaces >= 10 },
+    { id:'xp500', icon:'⭐', name:'Étoile Montante', desc:'500 XP cumulés', check: p => p.xp >= 500 },
+    { id:'xp1000', icon:'🌟', name:'Super Star', desc:'1000 XP cumulés', check: p => p.xp >= 1000 },
+    { id:'allcats', icon:'🏆', name:'Pilote Complet', desc:'Joue toutes les catégories', check: p => {
+        const cats = ['addition','soustraction','doubles','comparison','sequence','problemes','lettres'];
+        return cats.every(c => (p.catPlayed||{})[c]);
+    }},
+    { id:'math_master', icon:'🧠', name:'Cerveau de Champion', desc:'50 bonnes réponses en maths', check: p => (p.mathCorrect||0) >= 50 },
+];
+
+const SUCCESS_MESSAGES = [
+    "Bravo, champion ! 🏆",
+    "Incroyable ! Tu déchires ! 💪",
+    "Quel talent de pilote ! 🌟",
+    "Tu es sur le podium ! 🏅",
+    "Magnifique course ! 🎉",
+    "Tu es une vraie fusée ! 🚀",
+    "Le public t'acclame ! 👏",
+    "Victoire éclatante ! ⭐",
+];
+
+const RETRY_MESSAGES = [
+    "Presque ! Essaie encore 💪",
+    "Continue, tu progresses ! 🏁",
+    "Chaque erreur te rend plus fort !",
+    "Les meilleurs pilotes apprennent de chaque tour !",
+    "Tu t'améliores à chaque essai !",
+];
+
+const ENCOURAGEMENTS = [
+    "Super ! 🏎️",
+    "Bravo ! ⭐",
+    "Excellent ! 🔥",
+    "Parfait ! 💪",
+    "Génial ! 🏁",
+    "Trop fort ! 🚀",
+    "Champion ! 🏆",
+    "Ouiii ! ⚡",
+    "Top ! 🎯",
+    "Wahou ! 🌟",
+];
+
+const END_MESSAGES_HIGH = [
+    "Tu as été incroyable aujourd'hui ! Chaque bonne réponse montre que tu es capable de grandes choses. Continue comme ça, champion ! 🏆",
+    "Quelle course magnifique ! Tu as un vrai cerveau de pilote. Je suis fier de toi ! 🌟",
+    "Tu vois, quand tu te concentres, tu y arrives super bien ! Tu es plus fort que tu ne le crois ! 💪",
+];
+
+const END_MESSAGES_MED = [
+    "Belle course ! Tu as bien roulé et tu t'améliores à chaque tour. La prochaine fois, tu iras encore plus loin ! 🏎️",
+    "Bien joué ! Chaque exercice que tu fais te rend un peu meilleur. Continue, tu es sur la bonne route ! 🛣️",
+];
+
+const END_MESSAGES_LOW = [
+    "Tu as eu le courage de faire cette course, et ça c'est déjà super ! Les meilleurs pilotes sont ceux qui n'abandonnent jamais. Reviens vite ! 💪",
+    "Chaque grand champion a commencé par apprendre. L'important c'est d'essayer, et tu l'as fait ! 🌟",
+];
+
+// ===== FIREBASE (non-bloquant) =====
+let db = null;
+let profileRef = null;
+
+try {
+    const firebaseConfig = {
+        apiKey: "AIzaSyA2QeMTVgKgHaeyGYXcs-AXpi1rO7GikIo",
+        authDomain: "portfolio-dashboard-f0c69.firebaseapp.com",
+        databaseURL: "https://portfolio-dashboard-f0c69-default-rtdb.firebaseio.com",
+        projectId: "portfolio-dashboard-f0c69",
+        storageBucket: "portfolio-dashboard-f0c69.firebasestorage.app",
+        messagingSenderId: "444106868590",
+        appId: "1:444106868590:web:682fbc10b01ccb7bfbe37f"
+    };
+    if (typeof firebase !== 'undefined') {
+        firebase.initializeApp(firebaseConfig);
+        db = firebase.database();
+        profileRef = db.ref('f1academy/profile');
+    }
+} catch(e) { console.warn('Firebase init skipped:', e); }
+
+// ===== PERSISTANCE =====
+const DEFAULT_PROFILE = {
+    name: '',
+    xp: 0,
+    totalRaces: 0,
+    bestStreak: 0,
+    trophiesEarned: [],
+    catPlayed: {},
+    mathCorrect: 0,
+    totalCorrect: 0,
+};
+
+function loadProfile() {
+    const saved = localStorage.getItem('f1academy_profile');
+    if (saved) return JSON.parse(saved);
+    return { ...DEFAULT_PROFILE };
+}
+
+function saveProfile() {
+    localStorage.setItem('f1academy_profile', JSON.stringify(profile));
+    if (profileRef) profileRef.set(profile).catch(err => console.warn('Firebase save:', err));
+}
+
+let profile = loadProfile();
+
+// Load from Firebase on startup (async, non-bloquant)
+if (profileRef) {
+    profileRef.once('value').then(snapshot => {
+        const fbData = snapshot.val();
+        if (fbData && fbData.xp >= profile.xp) {
+            profile = { ...DEFAULT_PROFILE, ...fbData };
+            if (!Array.isArray(profile.trophiesEarned)) profile.trophiesEarned = [];
+            if (!profile.catPlayed) profile.catPlayed = {};
+            localStorage.setItem('f1academy_profile', JSON.stringify(profile));
+            updateHomeStats();
+        } else if (!fbData) {
+            saveProfile();
+        }
+    }).catch(err => console.warn('Firebase load:', err));
+}
+
+// ===== ETAT DE COURSE =====
+let race = {
+    category: '',
+    questionIndex: 0,
+    correct: 0,
+    streak: 0,
+    bestStreak: 0,
+    xpEarned: 0,
+    answered: false,
+};
+
+// ===== NAVIGATION =====
+function showScreen(id) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+}
+
+function showHome() {
+    updateHomeStats();
+    showScreen('screen-home');
+}
+
+function showCategories() {
+    showScreen('screen-categories');
+}
+
+function showGarage() {
+    renderGarage();
+    showScreen('screen-garage');
+}
+
+function confirmQuit() {
+    if (race.questionIndex > 0) {
+        if (!confirm("Tu veux vraiment quitter la course ?")) return;
+        // Sauvegarder les XP gagnés même si la course n'est pas finie
+        if (race.xpEarned > 0) {
+            profile.xp += race.xpEarned;
+            if (race.bestStreak > profile.bestStreak) profile.bestStreak = race.bestStreak;
+            if (!['lettres','syllabes','motsmiroir','memoire','memovisuel'].includes(race.category)) {
+                profile.mathCorrect = (profile.mathCorrect || 0) + race.correct;
+            }
+            profile.totalCorrect = (profile.totalCorrect || 0) + race.correct;
+            saveProfile();
+        }
+    }
+    showHome();
+}
+
+function updateHomeStats() {
+    document.getElementById('stat-xp').textContent = profile.xp;
+    document.getElementById('stat-courses').textContent = profile.totalRaces;
+    document.getElementById('stat-trophies').textContent = profile.trophiesEarned.length;
+
+    // Rank
+    let rank = 'Rookie';
+    if (profile.xp >= 5000) rank = 'Légende F1';
+    else if (profile.xp >= 3500) rank = 'Pilote F1';
+    else if (profile.xp >= 2500) rank = 'Champion';
+    else if (profile.xp >= 1800) rank = 'Expert';
+    else if (profile.xp >= 1200) rank = 'As du Volant';
+    else if (profile.xp >= 800) rank = 'Confirmé';
+    else if (profile.xp >= 500) rank = 'Rapide';
+    else if (profile.xp >= 300) rank = 'Pilote';
+    else if (profile.xp >= 150) rank = 'Apprenti';
+    else if (profile.xp >= 50) rank = 'Débutant';
+    document.getElementById('pilot-rank').textContent = rank;
+
+    const name = profile.name || 'Pilote';
+    document.getElementById('pilot-name').textContent = name;
+    document.getElementById('name-input').value = profile.name || '';
+
+    // Avatar based on best car
+    const bestCar = [...CARS].reverse().find(c => profile.xp >= c.req);
+    if (bestCar) document.getElementById('pilot-avatar').innerHTML = carImage(bestCar.id);
+}
+
+function saveName(val) {
+    profile.name = val.trim();
+    saveProfile();
+    document.getElementById('pilot-name').textContent = profile.name || 'Pilote';
+}
+
+// ===== COURSE =====
+function startRace(category) {
+    race = {
+        category,
+        questionIndex: 0,
+        correct: 0,
+        streak: 0,
+        bestStreak: 0,
+        xpEarned: 0,
+        answered: false,
+        pitstopDone: false,
+    };
+
+    const titles = {
+        addition: 'GP des Additions',
+        soustraction: 'GP des Soustractions',
+        doubles: 'GP Doubles & Moitiés',
+        comparison: 'GP Comparaison',
+        sequence: 'GP des Suites',
+        problemes: 'GP des Problèmes',
+        lettres: 'GP des Lettres',
+        syllabes: 'GP des Syllabes',
+        motsmiroir: 'GP Mots Miroir',
+        memoire: 'GP Mémoire Flash',
+        memovisuel: 'GP Mémoire Visuelle',
+    };
+
+    document.getElementById('game-title').textContent = titles[category] || 'Course';
+    document.getElementById('track-total').textContent = '/ ' + RACE_LENGTH;
+    updateTrack();
+    updateRaceHUD();
+    showScreen('screen-game');
+    showStartLights(() => nextQuestion());
+}
+
+// ===== FEUX DE DEPART F1 =====
+function showStartLights(onGo) {
+    const overlay = document.createElement('div');
+    overlay.className = 'startlights-overlay';
+    overlay.innerHTML = `
+        <div class="startlights-title">Prépare-toi !</div>
+        <div class="startlights-row">
+            ${[0,1,2,3,4].map(i => `
+                <div class="startlight-column">
+                    <div class="startlight" id="light-${i}-top"></div>
+                    <div class="startlight" id="light-${i}-bot"></div>
+                </div>
+            `).join('')}
+        </div>
+        <div class="startlights-text" id="startlights-text"></div>
+    `;
+    document.body.appendChild(overlay);
+
+    // Séquence F1 : allumer les 5 colonnes une par une (chaque seconde)
+    let step = 0;
+    const interval = setInterval(() => {
+        if (step < 5) {
+            // Allume une colonne de feux rouges
+            document.getElementById(`light-${step}-top`).classList.add('red');
+            document.getElementById(`light-${step}-bot`).classList.add('red');
+            step++;
+        } else {
+            // Tous éteints → VERT = GO !
+            clearInterval(interval);
+            // Pause aléatoire courte (0.5 à 1.5s) comme en F1
+            setTimeout(() => {
+                // Éteindre les rouges, allumer en vert
+                for (let i = 0; i < 5; i++) {
+                    const top = document.getElementById(`light-${i}-top`);
+                    const bot = document.getElementById(`light-${i}-bot`);
+                    top.classList.remove('red');
+                    bot.classList.remove('red');
+                    top.classList.add('green');
+                    bot.classList.add('green');
+                }
+                document.getElementById('startlights-text').className = 'startlights-text go';
+                document.getElementById('startlights-text').textContent = 'GO ! GO ! GO !';
+                // Retirer l'overlay après une seconde
+                setTimeout(() => {
+                    overlay.remove();
+                    onGo();
+                }, 1000);
+            }, 500 + Math.random() * 1000);
+        }
+    }, 800);
+}
+
+function updateTrack() {
+    const pct = (race.questionIndex / RACE_LENGTH) * 100;
+    document.getElementById('track-progress').style.width = pct + '%';
+    document.getElementById('track-current').textContent = 'Tour ' + (race.questionIndex + 1);
+}
+
+function updateRaceHUD() {
+    document.getElementById('streak-display').textContent = '🔥 ' + race.streak;
+    document.getElementById('xp-race').textContent = '⭐ ' + race.xpEarned;
+}
+
+function nextQuestion() {
+    if (race.questionIndex >= RACE_LENGTH) {
+        endRace();
+        return;
+    }
+
+    // Pit stop (une seule fois)
+    if (race.questionIndex === PITSTOP_AFTER && !race.pitstopDone) {
+        race.pitstopDone = true;
+        showPitStop();
+        return;
+    }
+
+    race.answered = false;
+    const area = document.getElementById('exercise-area');
+
+    switch (race.category) {
+        case 'addition': area.innerHTML = generateAddition(); break;
+        case 'soustraction': area.innerHTML = generateSoustraction(); break;
+        case 'doubles': area.innerHTML = generateDoubles(); break;
+        case 'comparison': area.innerHTML = generateComparison(); break;
+        case 'sequence': area.innerHTML = generateSequence(); break;
+        case 'problemes': area.innerHTML = generateProbleme(); break;
+        case 'lettres': area.innerHTML = generateLettre(); break;
+        case 'syllabes': area.innerHTML = generateSyllabes(); break;
+        case 'motsmiroir': area.innerHTML = generateMotsMiroir(); break;
+        case 'memoire': generateMemoire(area); return; // async (flash)
+        case 'memovisuel': generateMemoVisuel(area); return; // async (flash)
+    }
+
+    updateTrack();
+}
+
+// ===== PIT STOP =====
+function showPitStop() {
+    // Nettoyer tout overlay résiduel
+    document.querySelectorAll('.feedback-overlay, .pitstop-overlay').forEach(el => el.remove());
+    clearTimeout(race._feedbackTimer);
+
+    const tips = [
+        "Prends une grande respiration... 🌬️ Inspire, expire. Tu es prêt pour la suite !",
+        "Secoue tes mains comme un pilote avant le départ ! 🤚",
+        "Ferme les yeux 3 secondes et imagine ta voiture qui file sur le circuit ! 🏎️",
+        "Tu fais super bien ! La deuxième partie du circuit t'attend ! 🛣️",
+    ];
+    const tip = tips[Math.floor(Math.random() * tips.length)];
+
+    const overlay = document.createElement('div');
+    overlay.className = 'pitstop-overlay';
+    overlay.innerHTML = `
+        <div class="pitstop-card">
+            <div class="pitstop-emoji">🔧</div>
+            <div class="pitstop-title">Arrêt au stand !</div>
+            <div class="pitstop-msg">Mi-course ! Ton équipe prépare ta voiture pour la suite.</div>
+            <div class="pitstop-tip">${tip}</div>
+            <div style="margin-top:8px; color:var(--f1-gold); font-weight:700;">
+                Score : ${race.correct}/${PITSTOP_AFTER} ⭐ ${race.xpEarned} XP
+            </div>
+            <div class="pitstop-timer">
+                <div class="pitstop-timer-label">🔧 Réparations en cours...</div>
+                <div class="pitstop-timer-bar"><div class="pitstop-timer-fill" id="pitstop-fill"></div></div>
+                <div class="pitstop-countdown" id="pitstop-countdown">5</div>
+            </div>
+            <div id="pitstop-btn-zone" style="margin-top:15px;"></div>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+
+    // Countdown 5 secondes
+    let remaining = 5;
+    const countdownEl = document.getElementById('pitstop-countdown');
+    const fillEl = document.getElementById('pitstop-fill');
+    const btnZone = document.getElementById('pitstop-btn-zone');
+
+    // Lancer la barre de progression
+    requestAnimationFrame(() => {
+        fillEl.style.width = '20%';
+    });
+
+    const countdownInterval = setInterval(() => {
+        remaining--;
+        if (remaining > 0) {
+            countdownEl.textContent = remaining;
+            fillEl.style.width = ((5 - remaining) / 5 * 100) + '%';
+        } else {
+            clearInterval(countdownInterval);
+            fillEl.style.width = '100%';
+            countdownEl.textContent = '✅';
+            document.querySelector('.pitstop-timer-label').textContent = '✅ Voiture prête !';
+            btnZone.innerHTML = `
+                <button class="btn btn-primary feedback-btn pitstop-btn-ready" onclick="this.closest('.pitstop-overlay').remove(); nextQuestion();">
+                    🏁 C'est reparti !
+                </button>
+            `;
+        }
+    }, 1000);
+}
+
+// ===== GENERATEURS D'EXERCICES =====
+
+function rand(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
+function shuffle(arr) { for (let i = arr.length - 1; i > 0; i--) { const j = rand(0, i); [arr[i], arr[j]] = [arr[j], arr[i]]; } return arr; }
+function pick(arr) { return arr[rand(0, arr.length - 1)]; }
+
+function generateVisualBlocks(n, color = 'var(--f1-blue)') {
+    if (n > 20) return ''; // trop pour être visuel
+    let html = '<div class="block-group">';
+    for (let i = 0; i < n; i++) {
+        html += `<div class="block" style="background:${color}"></div>`;
+    }
+    html += '</div>';
+    return html;
+}
+
+function makeAnswerButtons(correct, numChoices = 4) {
+    let choices = new Set([correct]);
+    let attempts = 0;
+    while (choices.size < numChoices && attempts < 50) {
+        const offset = rand(1, 5) * (Math.random() > 0.5 ? 1 : -1);
+        const wrong = correct + offset;
+        if (wrong >= 0) choices.add(wrong);
+        attempts++;
+    }
+    // Fill if needed
+    while (choices.size < numChoices) choices.add(correct + choices.size);
+
+    const arr = shuffle([...choices]);
+    return `<div class="answers-grid">
+        ${arr.map(a => `<button class="answer-btn" onclick="checkAnswer(${a}, ${correct}, this)">${a}</button>`).join('')}
+    </div>`;
+}
+
+// --- ADDITION ---
+function generateAddition() {
+    // Progressive: petits nombres au début
+    const maxA = race.questionIndex < 3 ? 10 : 20;
+    const maxB = race.questionIndex < 3 ? 10 : 15;
+    const a = rand(1, maxA);
+    const b = rand(1, maxB);
+    const answer = a + b;
+
+    const showVisual = (a <= 10 && b <= 10);
+    const visual = showVisual ? `
+        <div class="visual-aid">
+            ${generateVisualBlocks(a, 'var(--f1-blue)')}
+            <div class="visual-operator">+</div>
+            ${generateVisualBlocks(b, 'var(--f1-red)')}
+        </div>` : '';
+
+    const contexts = [
+        `Tu as ${a} points au tour 1 et ${b} points au tour 2.`,
+        `${a} voitures bleues et ${b} voitures rouges sur la piste.`,
+        `${a} tours le matin + ${b} tours l'après-midi.`,
+    ];
+
+    return `<div class="exercise-card">
+        <div class="exercise-type">Addition</div>
+        <div class="exercise-hint">${pick(contexts)}</div>
+        <div class="exercise-question">${a} + ${b} = ?</div>
+        ${visual}
+        ${makeAnswerButtons(answer)}
+    </div>`;
+}
+
+// --- SOUSTRACTION ---
+function generateSoustraction() {
+    const maxA = race.questionIndex < 3 ? 15 : 25;
+    const a = rand(5, maxA);
+    const b = rand(1, a - 1);
+    const answer = a - b;
+
+    const showVisual = (a <= 12);
+    const visual = showVisual ? `
+        <div class="visual-aid">
+            ${generateVisualBlocks(a, 'var(--f1-blue)')}
+            <div class="visual-operator">-</div>
+            ${generateVisualBlocks(b, 'var(--f1-red)')}
+        </div>` : '';
+
+    const contexts = [
+        `${a} voitures au départ, ${b} au stand.`,
+        `Tu avais ${a} points, tu en perds ${b}.`,
+        `Il y a ${a} pilotes, ${b} sont sortis de piste.`,
+    ];
+
+    return `<div class="exercise-card">
+        <div class="exercise-type">Soustraction</div>
+        <div class="exercise-hint">${pick(contexts)}</div>
+        <div class="exercise-question">${a} - ${b} = ?</div>
+        ${visual}
+        ${makeAnswerButtons(answer)}
+    </div>`;
+}
+
+// --- DOUBLES & MOITIES ---
+function generateDoubles() {
+    const isDouble = Math.random() > 0.4;
+
+    if (isDouble) {
+        const n = rand(1, race.questionIndex < 3 ? 10 : 15);
+        const answer = n * 2;
+        return `<div class="exercise-card">
+            <div class="exercise-type">Double</div>
+            <div class="exercise-hint">Le double de ${n}, c'est ${n} + ${n}</div>
+            <div class="exercise-question">Double de ${n} = ?</div>
+            <div class="visual-aid">
+                ${generateVisualBlocks(n, 'var(--f1-blue)')}
+                <div class="visual-operator">+</div>
+                ${generateVisualBlocks(n, 'var(--f1-blue)')}
+            </div>
+            ${makeAnswerButtons(answer)}
+        </div>`;
+    } else {
+        const half = rand(1, race.questionIndex < 3 ? 8 : 12);
+        const n = half * 2;
+        return `<div class="exercise-card">
+            <div class="exercise-type">Moitié</div>
+            <div class="exercise-hint">La moitié, c'est couper en 2 parts égales</div>
+            <div class="exercise-question">Moitié de ${n} = ?</div>
+            <div class="visual-aid">
+                ${generateVisualBlocks(n, 'var(--f1-red)')}
+            </div>
+            ${makeAnswerButtons(half)}
+        </div>`;
+    }
+}
+
+// --- COMPARAISON ---
+function generateComparison() {
+    const max = race.questionIndex < 3 ? 30 : 100;
+    let a = rand(1, max);
+    let b = rand(1, max);
+    while (a === b) b = rand(1, max);
+
+    return `<div class="exercise-card">
+        <div class="exercise-type">Comparaison</div>
+        <div class="exercise-hint">Quel pilote a le meilleur chrono ?</div>
+        <div class="comparison-row">
+            <div class="comp-number">${a}</div>
+            <div class="comp-buttons">
+                <button class="comp-btn" onclick="checkComparison('${a < b ? 'correct' : 'wrong'}', this)"> &lt; </button>
+                <button class="comp-btn" onclick="checkComparison('${a > b ? 'correct' : 'wrong'}', this)"> &gt; </button>
+            </div>
+            <div class="comp-number">${b}</div>
+        </div>
+        <div class="exercise-hint" style="margin-top:10px; font-size:0.8rem;">
+            &lt; veut dire "plus petit que"<br>
+            &gt; veut dire "plus grand que"
+        </div>
+    </div>`;
+}
+
+function checkComparison(result, btn) {
+    if (race.answered) return;
+    race.answered = true;
+
+    if (result === 'correct') {
+        btn.classList.add('correct');
+        handleCorrect();
+    } else {
+        btn.classList.add('wrong');
+        // highlight correct
+        const buttons = btn.parentElement.querySelectorAll('.comp-btn');
+        buttons.forEach(b => { if (b !== btn) b.classList.add('correct'); });
+        handleWrong();
+    }
+}
+
+// --- SUITES ---
+function generateSequence() {
+    const steps = [1, 2, 5, 10];
+    const step = pick(steps);
+    const start = rand(0, 20);
+    const length = 6;
+    const missingIdx = rand(1, length - 2);
+
+    const seq = [];
+    for (let i = 0; i < length; i++) {
+        seq.push(start + step * i);
+    }
+    const answer = seq[missingIdx];
+
+    let seqHTML = '<div class="sequence-display">';
+    for (let i = 0; i < seq.length; i++) {
+        if (i > 0) seqHTML += '<span class="seq-arrow">→</span>';
+        if (i === missingIdx) {
+            seqHTML += `<span class="seq-item missing">?</span>`;
+        } else {
+            seqHTML += `<span class="seq-item">${seq[i]}</span>`;
+        }
+    }
+    seqHTML += '</div>';
+
+    return `<div class="exercise-card">
+        <div class="exercise-type">Suite +${step}</div>
+        <div class="exercise-hint">Trouve le nombre manquant dans la suite !</div>
+        <div class="exercise-question">Quel nombre va dans le trou ?</div>
+        ${seqHTML}
+        ${makeAnswerButtons(answer)}
+    </div>`;
+}
+
+// --- PROBLEMES ---
+function generateProbleme() {
+    const templates = [
+        () => {
+            const a = rand(2, 8); const b = rand(1, 5);
+            return { text: `Un pilote a fait ${a} tours le matin et ${b} tours l'après-midi. Combien de tours a-t-il fait en tout ?`, answer: a + b };
+        },
+        () => {
+            const total = rand(8, 15); const used = rand(1, total - 2);
+            return { text: `Il y a ${total} pneus au stand. L'équipe en utilise ${used}. Combien en reste-t-il ?`, answer: total - used };
+        },
+        () => {
+            const cars = rand(3, 6); const wheels = 4;
+            return { text: `Chaque voiture a ${wheels} roues. Il y a ${cars} voitures. Combien de roues en tout ?`, answer: cars * wheels, hint: `${cars} × ${wheels} ou bien ${wheels} + ${wheels} + ...` };
+        },
+        () => {
+            const a = rand(3, 10); const b = rand(3, 10);
+            const winner = Math.max(a, b); const loser = Math.min(a, b);
+            return { text: `Le pilote rouge a ${winner} points. Le pilote bleu a ${loser} points. Combien de points d'avance a le pilote rouge ?`, answer: winner - loser };
+        },
+        () => {
+            const perDay = rand(2, 5); const days = rand(2, 4);
+            return { text: `Un pilote s'entraîne ${perDay} heures par jour pendant ${days} jours. Combien d'heures en tout ?`, answer: perDay * days, hint: `${perDay} + ${perDay} + ... (${days} fois)` };
+        },
+    ];
+
+    const prob = pick(templates)();
+    return `<div class="exercise-card">
+        <div class="exercise-type">Problème</div>
+        <div class="exercise-question" style="font-size:1.2rem; line-height:1.6;">${prob.text}</div>
+        ${prob.hint ? `<div class="exercise-hint">${prob.hint}</div>` : ''}
+        ${makeAnswerButtons(prob.answer)}
+    </div>`;
+}
+
+// --- LETTRES ---
+function generateLettre() {
+    const pairs = [
+        { letters: ['b', 'd'], mnemonics: [
+            { letter: 'b', text: "Le <strong>b</strong> a son ventre à <strong>droite</strong>. Pense à un <strong>bébé</strong> qui regarde vers la droite ! 👶➡️" },
+            { letter: 'd', text: "Le <strong>d</strong> a son ventre à <strong>gauche</strong>. C'est comme quand tu fais un <strong>d</strong>emi-tour ! ⬅️🔄" },
+        ]},
+        { letters: ['p', 'q'], mnemonics: [
+            { letter: 'p', text: "Le <strong>p</strong> a sa boucle en haut à <strong>droite</strong>. Comme un <strong>p</strong>arapluie ouvert ! ☂️" },
+            { letter: 'q', text: "Le <strong>q</strong> a sa boucle en haut à <strong>gauche</strong>. Pense à une <strong>q</strong>ueue de chat qui va vers la droite ! 🐱" },
+        ]},
+    ];
+
+    const pair = pick(pairs);
+    const targetLetter = pick(pair.letters);
+    const mnemonic = pair.mnemonics.find(m => m.letter === targetLetter);
+
+    const wordPairs = {
+        'b': ['balle', 'bateau', 'bouton', 'bras', 'bleu'],
+        'd': ['dent', 'dragon', 'doigt', 'doux', 'deux'],
+        'p': ['papa', 'pomme', 'porte', 'pied', 'poule'],
+        'q': ['quatre', 'queue', 'quille', 'quoi', 'quand'],
+    };
+
+    const exampleWord = pick(wordPairs[targetLetter]);
+
+    return `<div class="exercise-card">
+        <div class="exercise-type">Lettres</div>
+        <div class="exercise-hint">Quelle est cette lettre ?</div>
+        <div class="letter-display">${targetLetter}</div>
+        <div class="mnemonic">${mnemonic.text}</div>
+        <div class="exercise-hint">On la trouve dans le mot : <strong>${exampleWord}</strong></div>
+        <div class="letter-hint-visual">
+            ${pair.letters.map(l => `
+                <div class="letter-option">
+                    <div class="letter-option-char" onclick="checkLetter('${l}', '${targetLetter}', this)">${l}</div>
+                </div>
+            `).join('')}
+        </div>
+    </div>`;
+}
+
+// ===== SYLLABES =====
+function generateSyllabes() {
+    const words = [
+        { mot: 'voiture', syl: ['voi','tu','re'], n: 3 },
+        { mot: 'pilote', syl: ['pi','lo','te'], n: 3 },
+        { mot: 'circuit', syl: ['cir','cuit'], n: 2 },
+        { mot: 'rapide', syl: ['ra','pi','de'], n: 3 },
+        { mot: 'moteur', syl: ['mo','teur'], n: 2 },
+        { mot: 'roue', syl: ['roue'], n: 1 },
+        { mot: 'vitesse', syl: ['vi','te','sse'], n: 3 },
+        { mot: 'champion', syl: ['cham','pion'], n: 2 },
+        { mot: 'volant', syl: ['vo','lant'], n: 2 },
+        { mot: 'casque', syl: ['cas','que'], n: 2 },
+        { mot: 'drapeau', syl: ['dra','peau'], n: 2 },
+        { mot: 'course', syl: ['cour','se'], n: 2 },
+        { mot: 'garage', syl: ['ga','ra','ge'], n: 3 },
+        { mot: 'pédale', syl: ['pé','da','le'], n: 3 },
+        { mot: 'formule', syl: ['for','mu','le'], n: 3 },
+        { mot: 'pneu', syl: ['pneu'], n: 1 },
+        { mot: 'frein', syl: ['frein'], n: 1 },
+        { mot: 'accélérer', syl: ['ac','cé','lé','rer'], n: 4 },
+        { mot: 'mécanicien', syl: ['mé','ca','ni','cien'], n: 4 },
+        { mot: 'piste', syl: ['pis','te'], n: 2 },
+    ];
+
+    const type = rand(0, 1); // 0 = compter, 1 = recomposer
+
+    if (type === 0) {
+        // Compter les syllabes
+        const w = pick(words);
+        const correct = w.n;
+        const choices = shuffle([correct, ...new Set([1, 2, 3, 4].filter(n => n !== correct))].slice(0, 4));
+
+        return `<div class="exercise-card">
+            <div class="exercise-type">Syllabes</div>
+            <div class="exercise-hint">Combien de syllabes dans ce mot ?</div>
+            <div class="letter-display" style="font-size:2.5rem; text-transform:uppercase;">${w.mot}</div>
+            <div class="exercise-hint" style="font-size:0.85rem; color:var(--f1-lightgray);">
+                Tape dans tes mains pour chaque syllabe : <strong>${w.syl.join(' - ')}</strong>
+            </div>
+            <div class="answers-grid">
+                ${choices.map(c => `<button class="answer-btn" onclick="checkAnswer(${c}, ${correct}, this)">${c} syllabe${c > 1 ? 's' : ''}</button>`).join('')}
+            </div>
+        </div>`;
+    } else {
+        // Recomposer un mot à partir de syllabes mélangées
+        const w = pick(words.filter(x => x.n >= 2 && x.n <= 3));
+        const correctWord = w.mot;
+        // Créer des faux mots en inversant des syllabes
+        const wrongWords = [];
+        if (w.n === 2) {
+            wrongWords.push(w.syl[1] + w.syl[0]);
+        } else {
+            wrongWords.push(w.syl[2] + w.syl[1] + w.syl[0]);
+            wrongWords.push(w.syl[1] + w.syl[0] + w.syl[2]);
+        }
+        // Ajouter un mot random différent
+        const otherW = pick(words.filter(x => x.mot !== correctWord));
+        wrongWords.push(otherW.mot);
+
+        const choices = shuffle([correctWord, ...wrongWords].slice(0, 4));
+        const shuffledSyl = shuffle([...w.syl]);
+
+        return `<div class="exercise-card">
+            <div class="exercise-type">Syllabes</div>
+            <div class="exercise-hint">Remets les syllabes dans l'ordre !</div>
+            <div style="display:flex; gap:10px; justify-content:center; margin:15px 0;">
+                ${shuffledSyl.map(s => `<span style="background:var(--f1-red); padding:8px 14px; border-radius:8px; font-size:1.3rem; font-weight:700;">${s}</span>`).join('')}
+            </div>
+            <div class="answers-grid">
+                ${choices.map(c => `<button class="answer-btn" onclick="checkAnswerText('${c}', '${correctWord}', this)">${c}</button>`).join('')}
+            </div>
+        </div>`;
+    }
+}
+
+// ===== MOTS MIROIR (dyslexie) =====
+function generateMotsMiroir() {
+    const words = [
+        'bonjour', 'maison', 'école', 'papa', 'maman', 'voiture', 'pilote', 'course',
+        'rouge', 'bleu', 'vert', 'grand', 'petit', 'rapide', 'lent', 'chien',
+        'chat', 'pomme', 'table', 'livre', 'soleil', 'lune', 'arbre', 'fleur',
+        'porte', 'fenêtre', 'jardin', 'ami', 'jouer', 'manger', 'dormir', 'courir',
+    ];
+
+    const type = rand(0, 2);
+
+    if (type === 0) {
+        // Le mot est-il à l'endroit ?
+        const word = pick(words);
+        const reversed = word.split('').reverse().join('');
+        const isCorrect = rand(0, 1) === 0;
+        const shown = isCorrect ? word : reversed;
+
+        return `<div class="exercise-card">
+            <div class="exercise-type">Mots Miroir</div>
+            <div class="exercise-hint">Ce mot est-il écrit à l'endroit ?</div>
+            <div class="letter-display" style="font-size:2rem;">${shown}</div>
+            <div class="answers-grid" style="grid-template-columns: 1fr 1fr;">
+                <button class="answer-btn" onclick="checkAnswer(1, ${isCorrect ? 1 : 0}, this)">✅ Oui</button>
+                <button class="answer-btn" onclick="checkAnswer(0, ${isCorrect ? 1 : 0}, this)">❌ Non</button>
+            </div>
+            <div class="exercise-hint" style="font-size:0.8rem; margin-top:8px; color:var(--f1-lightgray);">Le vrai mot : <strong>${word}</strong></div>
+        </div>`;
+    } else if (type === 1) {
+        // Trouver le bon mot parmi des inversions de lettres
+        const word = pick(words.filter(w => w.length >= 4));
+        const wrong1 = swapLetters(word, 0, 1);
+        const wrong2 = swapLetters(word, Math.floor(word.length/2), Math.floor(word.length/2)+1);
+        const wrong3 = pick(words.filter(w => w !== word));
+        const choices = shuffle([word, wrong1, wrong2, wrong3].filter((v,i,a) => a.indexOf(v) === i)).slice(0, 4);
+
+        return `<div class="exercise-card">
+            <div class="exercise-type">Mots Miroir</div>
+            <div class="exercise-hint">Quel mot est bien écrit ?</div>
+            <div class="answers-grid">
+                ${choices.map(c => `<button class="answer-btn" style="font-size:1.2rem; text-transform:none;" onclick="checkAnswerText('${c}', '${word}', this)">${c}</button>`).join('')}
+            </div>
+        </div>`;
+    } else {
+        // Trouver la lettre inversée
+        const confusions = [
+            { pair: ['b','d'], words: ['balle','dalle','bon','don','bar','dar'] },
+            { pair: ['p','q'], words: ['pain','quand','pont','port'] },
+            { pair: ['m','n'], words: ['maman','nana','main','nain','mon','non'] },
+            { pair: ['u','n'], words: ['une','lune','nuit'] },
+            { pair: ['on','no'], words: ['monde','nombre','oncle'] },
+        ];
+        const conf = pick(confusions);
+        const correctLetter = pick(conf.pair);
+        const wrongLetter = conf.pair.find(l => l !== correctLetter);
+
+        return `<div class="exercise-card">
+            <div class="exercise-type">Mots Miroir</div>
+            <div class="exercise-hint">Quelle lettre fait ce son ?</div>
+            <div class="letter-display" style="font-size:4rem;">${correctLetter}</div>
+            <div class="exercise-hint">Exemple : <strong>${pick(conf.words)}</strong></div>
+            <div class="letter-hint-visual">
+                ${conf.pair.map(l => `
+                    <div class="letter-option">
+                        <div class="letter-option-char" onclick="checkLetter('${l}', '${correctLetter}', this)" style="font-size:3rem;">${l}</div>
+                    </div>
+                `).join('')}
+            </div>
+        </div>`;
+    }
+}
+
+function swapLetters(word, i, j) {
+    if (j >= word.length) return word;
+    const arr = word.split('');
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+    return arr.join('');
+}
+
+// ===== MEMOIRE FLASH (TDA / mémoire de travail) =====
+function generateMemoire(area) {
+    const difficulty = Math.min(Math.floor(profile.xp / 200), 3); // 0-3
+    let numDigits, showTime;
+
+    switch(difficulty) {
+        case 0: numDigits = 2; showTime = 3000; break;  // 2 chiffres, 3s
+        case 1: numDigits = 2; showTime = 2000; break;  // 2 chiffres, 2s
+        case 2: numDigits = 3; showTime = 2500; break;  // 3 chiffres, 2.5s
+        default: numDigits = 3; showTime = 2000; break;  // 3 chiffres, 2s
+    }
+
+    const min = Math.pow(10, numDigits - 1);
+    const max = Math.pow(10, numDigits) - 1;
+    const number = rand(min, max);
+
+    // Phase 1: Montrer le nombre
+    area.innerHTML = `<div class="exercise-card">
+        <div class="exercise-type">Mémoire Flash</div>
+        <div class="exercise-hint">Retiens ce numéro de voiture !</div>
+        <div class="letter-display" style="font-size:4rem; color:var(--f1-gold);">🏎️ N°${number}</div>
+        <div class="exercise-hint" style="color:var(--f1-red);">Concentre-toi...</div>
+        <div class="pitstop-timer-bar" style="margin-top:15px;">
+            <div class="pitstop-timer-fill" id="memo-fill" style="width:100%; transition:width ${showTime/1000}s linear;"></div>
+        </div>
+    </div>`;
+
+    updateTrack();
+
+    // Animer la barre
+    requestAnimationFrame(() => {
+        const fill = document.getElementById('memo-fill');
+        if (fill) fill.style.width = '0%';
+    });
+
+    // Phase 2: Cacher et demander
+    setTimeout(() => {
+        const wrong1 = number + rand(1, 5) * pick([-1, 1]);
+        const wrong2 = number + rand(6, 15) * pick([-1, 1]);
+        // Inverser les chiffres pour un piège dyslexie
+        const numStr = String(number);
+        const wrong3 = parseInt(numStr.split('').reverse().join(''));
+        const choices = shuffle([...new Set([number, Math.abs(wrong1), Math.abs(wrong2), Math.abs(wrong3)])]).slice(0, 4);
+
+        area.innerHTML = `<div class="exercise-card">
+            <div class="exercise-type">Mémoire Flash</div>
+            <div class="exercise-hint">Quel était le numéro de la voiture ?</div>
+            <div class="letter-display" style="font-size:3rem;">🏎️ N° ?</div>
+            <div class="answers-grid">
+                ${choices.map(c => `<button class="answer-btn" onclick="checkAnswer(${c}, ${number}, this)">${c}</button>`).join('')}
+            </div>
+        </div>`;
+    }, showTime);
+}
+
+// ===== MEMOIRE VISUELLE (TDA / mémoire de travail) =====
+function generateMemoVisuel(area) {
+    const allColors = [
+        { name: 'rouge', emoji: '🔴', css: '#e10600' },
+        { name: 'bleu', emoji: '🔵', css: '#3b82f6' },
+        { name: 'jaune', emoji: '🟡', css: '#fbbf24' },
+        { name: 'vert', emoji: '🟢', css: '#22c55e' },
+        { name: 'orange', emoji: '🟠', css: '#f97316' },
+        { name: 'blanc', emoji: '⚪', css: '#ffffff' },
+    ];
+
+    const difficulty = Math.min(Math.floor(profile.xp / 200), 3);
+    const seqLength = Math.min(3 + Math.floor(difficulty / 2), 4);
+    const showTime = 3000;
+
+    // Générer une séquence de couleurs
+    const sequence = [];
+    for (let i = 0; i < seqLength; i++) {
+        sequence.push(pick(allColors));
+    }
+
+    // Phase 1: Montrer la séquence
+    area.innerHTML = `<div class="exercise-card">
+        <div class="exercise-type">Mémoire Visuelle</div>
+        <div class="exercise-hint">Retiens l'ordre des drapeaux !</div>
+        <div style="display:flex; gap:15px; justify-content:center; margin:20px 0; flex-wrap:wrap;">
+            ${sequence.map((c, i) => `
+                <div style="text-align:center;">
+                    <div style="width:50px; height:50px; border-radius:8px; background:${c.css}; border:2px solid #555;"></div>
+                    <div style="font-size:0.7rem; margin-top:4px; color:var(--f1-lightgray);">${i + 1}</div>
+                </div>
+            `).join('')}
+        </div>
+        <div class="exercise-hint" style="color:var(--f1-red);">Mémorise les couleurs dans l'ordre !</div>
+        <div class="pitstop-timer-bar" style="margin-top:15px;">
+            <div class="pitstop-timer-fill" id="memov-fill" style="width:100%; transition:width ${showTime/1000}s linear;"></div>
+        </div>
+    </div>`;
+
+    updateTrack();
+
+    requestAnimationFrame(() => {
+        const fill = document.getElementById('memov-fill');
+        if (fill) fill.style.width = '0%';
+    });
+
+    // Phase 2: Demander une couleur
+    setTimeout(() => {
+        const askIndex = rand(0, seqLength - 1);
+        const correctColor = sequence[askIndex];
+        const ordinalFr = ['1er', '2ème', '3ème', '4ème'];
+        const wrongColors = shuffle(allColors.filter(c => c.name !== correctColor.name)).slice(0, 3);
+        const choices = shuffle([correctColor, ...wrongColors]);
+
+        area.innerHTML = `<div class="exercise-card">
+            <div class="exercise-type">Mémoire Visuelle</div>
+            <div class="exercise-hint">Quelle était la couleur du ${ordinalFr[askIndex]} drapeau ?</div>
+            <div class="letter-display" style="font-size:2.5rem;">${ordinalFr[askIndex]} 🏁</div>
+            <div class="answers-grid">
+                ${choices.map(c => `
+                    <button class="answer-btn" style="display:flex; align-items:center; justify-content:center; gap:8px;"
+                        onclick="checkAnswerText('${c.name}', '${correctColor.name}', this)">
+                        <span style="display:inline-block; width:20px; height:20px; border-radius:50%; background:${c.css}; border:1px solid #666;"></span>
+                        ${c.name}
+                    </button>
+                `).join('')}
+            </div>
+        </div>`;
+    }, showTime);
+}
+
+// ===== CHECK ANSWER TEXT (pour les réponses textuelles) =====
+function checkAnswerText(chosen, correct, btn) {
+    if (race.answered) return;
+    race.answered = true;
+
+    if (chosen === correct) {
+        btn.classList.add('correct');
+        handleCorrect();
+    } else {
+        btn.classList.add('wrong');
+        // Highlight the correct answer
+        const buttons = btn.parentElement.querySelectorAll('.answer-btn');
+        buttons.forEach(b => {
+            const bOnclick = b.getAttribute('onclick') || '';
+            if (bOnclick.includes("'" + correct + "'")) {
+                b.classList.add('correct');
+            }
+        });
+        handleWrong();
+    }
+}
+
+function checkLetter(chosen, correct, el) {
+    if (race.answered) return;
+    race.answered = true;
+
+    if (chosen === correct) {
+        el.classList.add('correct');
+        handleCorrect();
+    } else {
+        el.classList.add('wrong');
+        const parent = el.closest('.letter-hint-visual');
+        parent.querySelectorAll('.letter-option-char').forEach(c => {
+            if (c.textContent.trim() === correct) c.classList.add('correct');
+        });
+        handleWrong();
+    }
+}
+
+// ===== VERIFICATION REPONSE =====
+function checkAnswer(chosen, correct, btn) {
+    if (race.answered) return;
+    race.answered = true;
+
+    if (chosen === correct) {
+        btn.classList.add('correct');
+        handleCorrect();
+    } else {
+        btn.classList.add('wrong');
+        // Show correct
+        const buttons = btn.parentElement.querySelectorAll('.answer-btn');
+        buttons.forEach(b => { if (parseInt(b.textContent) === correct) b.classList.add('correct'); });
+        handleWrong();
+    }
+}
+
+function handleCorrect() {
+    race.correct++;
+    race.streak++;
+    if (race.streak > race.bestStreak) race.bestStreak = race.streak;
+
+    // XP: base 10, bonus streak
+    let xp = 10;
+    if (race.streak >= 5) xp = 20;
+    else if (race.streak >= 3) xp = 15;
+    race.xpEarned += xp;
+
+    showFeedback(true, xp);
+}
+
+function handleWrong() {
+    race.streak = 0;
+    showFeedback(false, 0);
+}
+
+function showFeedback(success, xp) {
+    const overlay = document.createElement('div');
+    overlay.className = 'feedback-overlay';
+
+    if (success) {
+        overlay.innerHTML = `
+            <div class="feedback-card success">
+                <div class="feedback-emoji">🏎️💨</div>
+                <div class="feedback-title">${pick(ENCOURAGEMENTS)}</div>
+                ${race.streak >= 3 ? `<div class="feedback-msg">🔥 Série de ${race.streak} !</div>` : ''}
+                <div class="feedback-xp">+${xp} XP ⭐</div>
+                <button class="btn btn-primary btn-small feedback-btn" onclick="closeFeedback(this)">Suivant →</button>
+            </div>
+        `;
+    } else {
+        overlay.innerHTML = `
+            <div class="feedback-card retry">
+                <div class="feedback-emoji">🔧</div>
+                <div class="feedback-title">${pick(RETRY_MESSAGES)}</div>
+                <div class="feedback-msg">La bonne réponse est en vert. Retiens-la !</div>
+                <button class="btn btn-secondary btn-small feedback-btn" onclick="closeFeedback(this)">Suivant →</button>
+            </div>
+        `;
+    }
+
+    document.body.appendChild(overlay);
+
+    // Auto-advance après un délai
+    race._feedbackTimer = setTimeout(() => {
+        if (overlay.parentNode) {
+            overlay.remove();
+            advanceQuestion();
+        }
+    }, success ? 2000 : 3000);
+}
+
+function closeFeedback(btn) {
+    const overlay = btn.closest('.feedback-overlay');
+    if (!overlay || !overlay.parentNode) return;
+    clearTimeout(race._feedbackTimer); // annule l'auto-advance
+    overlay.remove();
+    advanceQuestion();
+}
+
+function advanceQuestion() {
+    race.questionIndex++;
+    updateRaceHUD();
+    nextQuestion();
+}
+
+// ===== FIN DE COURSE =====
+function endRace() {
+    // Update profile
+    profile.xp += race.xpEarned;
+    profile.totalRaces++;
+    if (race.bestStreak > profile.bestStreak) profile.bestStreak = race.bestStreak;
+    if (!profile.catPlayed) profile.catPlayed = {};
+    profile.catPlayed[race.category] = true;
+    if (!['lettres','syllabes','motsmiroir','memoire','memovisuel'].includes(race.category)) {
+        profile.mathCorrect = (profile.mathCorrect || 0) + race.correct;
+    }
+    profile.totalCorrect = (profile.totalCorrect || 0) + race.correct;
+
+    // Check new trophies
+    const newTrophies = [];
+    TROPHIES.forEach(t => {
+        if (!profile.trophiesEarned.includes(t.id) && t.check(profile)) {
+            profile.trophiesEarned.push(t.id);
+            newTrophies.push(t);
+        }
+    });
+
+    saveProfile();
+
+    // Show results
+    const ratio = race.correct / RACE_LENGTH;
+    let emoji, title, messages;
+
+    if (ratio >= 0.8) {
+        emoji = '🏆'; title = 'Podium !';
+        messages = END_MESSAGES_HIGH;
+    } else if (ratio >= 0.5) {
+        emoji = '🏁'; title = 'Belle course !';
+        messages = END_MESSAGES_MED;
+    } else {
+        emoji = '💪'; title = 'Bien joué !';
+        messages = END_MESSAGES_LOW;
+    }
+
+    document.getElementById('results-podium').textContent = emoji;
+    document.getElementById('results-title').textContent = title;
+
+    const catNames = {
+        addition:'Additions', soustraction:'Soustractions', doubles:'Doubles & Moitiés',
+        comparison:'Comparaison', sequence:'Suites', problemes:'Problèmes', lettres:'Lettres'
+    };
+    document.getElementById('results-subtitle').textContent = 'Grand Prix : ' + (catNames[race.category] || '');
+
+    document.getElementById('res-correct').textContent = race.correct;
+    document.getElementById('res-total').textContent = RACE_LENGTH;
+    document.getElementById('res-xp').textContent = race.xpEarned;
+    document.getElementById('res-streak').textContent = race.bestStreak;
+
+    let msg = pick(messages);
+    if (newTrophies.length > 0) {
+        msg += '<br><br>🏆 <strong>Nouveau trophée !</strong><br>';
+        newTrophies.forEach(t => {
+            msg += `${t.icon} ${t.name}<br>`;
+        });
+    }
+    document.getElementById('results-message').innerHTML = msg;
+
+    showScreen('screen-results');
+
+    // Confetti for good results
+    if (ratio >= 0.5) launchConfetti();
+}
+
+// ===== GARAGE =====
+function renderGarage() {
+    // Cars
+    const carsGrid = document.getElementById('cars-grid');
+    carsGrid.innerHTML = CARS.map(car => {
+        const unlocked = profile.xp >= car.req;
+        return `<div class="car-card ${unlocked ? 'unlocked' : 'locked'}">
+            <span class="car-emoji">${carImage(car.id)}</span>
+            <span class="car-name">${car.name}</span>
+            <span class="car-req">${unlocked ? '✅' : car.reqLabel}</span>
+        </div>`;
+    }).join('');
+
+    // Trophies
+    const tGrid = document.getElementById('trophies-grid');
+    tGrid.innerHTML = TROPHIES.map(t => {
+        const earned = profile.trophiesEarned.includes(t.id);
+        return `<div class="trophy-card ${earned ? 'earned' : 'locked'}">
+            <span class="trophy-icon">${t.icon}</span>
+            <div>
+                <div class="trophy-name">${t.name}</div>
+                <div class="trophy-desc">${t.desc}</div>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+// ===== CONFETTI =====
+function launchConfetti() {
+    const container = document.createElement('div');
+    container.className = 'confetti-container';
+    document.body.appendChild(container);
+
+    const colors = ['#e10600', '#ffd700', '#00d455', '#0090ff', '#ff9500', '#c0c0c0'];
+
+    for (let i = 0; i < 60; i++) {
+        const conf = document.createElement('div');
+        conf.className = 'confetti';
+        conf.style.left = rand(0, 100) + '%';
+        conf.style.background = pick(colors);
+        conf.style.animationDuration = (rand(20, 40) / 10) + 's';
+        conf.style.animationDelay = (rand(0, 15) / 10) + 's';
+        conf.style.width = rand(6, 12) + 'px';
+        conf.style.height = rand(6, 12) + 'px';
+        conf.style.borderRadius = Math.random() > 0.5 ? '50%' : '2px';
+        container.appendChild(conf);
+    }
+
+    setTimeout(() => container.remove(), 5000);
+}
+
+// ===== INIT =====
+updateHomeStats();
+</script>
+</body>
+</html>

@@ -1,0 +1,2776 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NeuroProfil — Profil Neurodiversité</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧠</text></svg>">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Patrick+Hand&family=Poppins:wght@400;500;600;700;800;900&display=swap');
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#fafafa;--card-bg:#fff;--text:#2d3436;--text2:#636e72;
+  --accent:#6c5ce7;--accent2:#a29bfe;--success:#00b894;--danger:#e17055;
+  --warning:#fdcb6e;--blue:#74b9ff;--pink:#fd79a8;--green:#55efc4;--orange:#fab1a0;
+  --shadow:0 4px 20px rgba(0,0,0,0.08);--shadow-lg:0 8px 30px rgba(0,0,0,0.12);
+  --border:#e0e0e0;--doodle:'Patrick Hand',cursive;
+}
+body{font-family:'Poppins',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
+
+/* Doodle background */
+.doodle-border{position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:0;overflow:hidden}
+.doodle-item{position:absolute;font-size:2em;opacity:.15;animation:dFloat 20s ease-in-out infinite}
+@keyframes dFloat{0%,100%{transform:translateY(0) rotate(0deg)}25%{transform:translateY(-8px) rotate(5deg)}75%{transform:translateY(8px) rotate(-5deg)}}
+
+/* Header */
+.app-header{
+  position:sticky;top:0;z-index:100;
+  background:rgba(255,255,255,0.92);backdrop-filter:blur(20px);
+  border-bottom:2px dashed var(--border);
+  padding:0.6rem 1.2rem;
+  display:flex;align-items:center;justify-content:space-between;
+}
+.app-header h1{font-family:var(--doodle);font-size:1.4rem;color:var(--accent);cursor:pointer;display:flex;align-items:center;gap:0.4rem}
+.app-header h1 .logo-icon{font-size:1.5rem}
+.header-nav{display:flex;gap:0.4rem}
+.header-nav button{
+  background:rgba(108,92,231,0.08);border:2px dashed var(--accent2);color:var(--accent);
+  padding:0.35rem 0.9rem;border-radius:50px;font-family:var(--doodle);font-size:0.95rem;cursor:pointer;transition:all .3s;
+}
+.header-nav button:hover{background:rgba(108,92,231,0.18);border-color:var(--accent)}
+.user-profile-btn{
+  display:flex;align-items:center;gap:0.5rem;
+  background:rgba(108,92,231,0.08);border:2px dashed var(--accent2);
+  color:var(--accent);padding:0.35rem 0.8rem;border-radius:50px;
+  font-family:var(--doodle);font-size:0.9rem;cursor:pointer;transition:all .3s;
+}
+.user-profile-btn:hover{background:rgba(108,92,231,0.18)}
+.user-profile-btn .avatar{
+  width:30px;height:30px;border-radius:50%;background:var(--accent);
+  display:flex;align-items:center;justify-content:center;
+  font-size:0.75rem;font-weight:700;color:#fff;text-transform:uppercase;
+}
+
+/* Container & Pages */
+.container{max-width:900px;margin:0 auto;padding:1.5rem 1rem;position:relative;z-index:1}
+.page{display:none;animation:fadeIn .4s ease;padding-bottom:3rem}
+.page.active{display:block}
+@keyframes fadeIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+@keyframes scaleIn{from{opacity:0;transform:scale(.9)}to{opacity:1;transform:scale(1)}}
+@keyframes slideIn{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}}
+@keyframes bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
+@keyframes gradSlide{0%{background-position:0% 0}100%{background-position:200% 0}}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
+@keyframes countUp{from{opacity:0;transform:scale(.5)}to{opacity:1;transform:scale(1)}}
+
+/* Hero */
+.hero{text-align:center;margin-bottom:2.5rem}
+.hero-icon{font-size:5em;animation:bounce 2s ease infinite;filter:drop-shadow(2px 4px 6px rgba(0,0,0,.1));margin-bottom:0.5rem}
+.hero h2{
+  font-family:var(--doodle);font-size:3rem;font-weight:700;
+  background:linear-gradient(135deg,var(--accent),var(--pink),var(--blue));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  margin-bottom:0.3rem;
+}
+.hero p{color:var(--text2);font-family:var(--doodle);font-size:1.2rem}
+
+/* Cards grid */
+.cards-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-bottom:2.5rem}
+.test-card{
+  background:var(--card-bg);border:3px dashed var(--border);border-radius:24px;
+  padding:24px 18px;text-align:center;cursor:pointer;transition:all .3s;
+  box-shadow:var(--shadow);position:relative;overflow:hidden;
+}
+.test-card::before{content:'';position:absolute;top:0;left:0;width:100%;height:5px;border-radius:24px 24px 0 0}
+.test-card:hover:not(.locked){transform:translateY(-5px);box-shadow:var(--shadow-lg);border-color:var(--accent2)}
+.test-card.locked{opacity:0.55;cursor:not-allowed}
+.test-card .card-icon{font-size:2.8em;margin-bottom:10px}
+.test-card .card-title{font-family:var(--doodle);font-size:1.25em;margin-bottom:4px;color:var(--text)}
+.test-card .card-desc{color:var(--text2);font-size:0.78em;line-height:1.5;margin-bottom:10px}
+.test-card .card-meta{font-family:var(--doodle);font-size:0.85em;color:var(--text2)}
+.card-badge{
+  display:inline-block;padding:3px 12px;border-radius:20px;font-family:var(--doodle);
+  font-size:0.8em;font-weight:600;margin-top:8px;
+}
+.badge-available{background:rgba(108,92,231,0.1);color:var(--accent);border:1px dashed var(--accent2)}
+.badge-done{background:rgba(0,184,148,0.1);color:var(--success);border:1px dashed var(--success)}
+.badge-soon{background:rgba(253,203,110,0.2);color:#e17055;border:1px dashed var(--warning)}
+.card-actions{display:flex;gap:8px;justify-content:center;margin-top:10px;flex-wrap:wrap}
+.card-actions button{
+  padding:5px 14px;border-radius:50px;font-family:var(--doodle);font-size:0.82em;cursor:pointer;transition:all .3s;
+}
+.btn-see{background:var(--success);color:#fff;border:2px solid var(--success)}
+.btn-see:hover{background:#00a383}
+.btn-redo{background:transparent;color:var(--accent);border:2px dashed var(--accent)}
+.btn-redo:hover{background:rgba(108,92,231,0.08)}
+
+/* Diagnostic section on home */
+.diag-section{
+  background:var(--card-bg);border:3px dashed var(--border);border-radius:24px;
+  padding:28px;box-shadow:var(--shadow);text-align:center;margin-top:1rem;
+}
+.diag-section h3{font-family:var(--doodle);font-size:1.5em;margin-bottom:8px}
+.diag-section p{color:var(--text2);font-size:0.9em;margin-bottom:15px}
+.diag-progress{width:100%;height:14px;background:#eee;border-radius:10px;overflow:hidden;border:2px solid #ddd;margin-bottom:10px}
+.diag-progress-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--pink),var(--blue));border-radius:10px;transition:width .5s;background-size:200% 100%;animation:gradSlide 3s linear infinite}
+.diag-status{font-family:var(--doodle);color:var(--text2);font-size:1em}
+
+/* Buttons */
+.btn{
+  background:var(--accent);color:#fff;border:3px solid var(--accent);
+  padding:13px 36px;border-radius:50px;font-family:var(--doodle);font-size:1.15em;
+  cursor:pointer;transition:all .3s;box-shadow:0 4px 15px rgba(108,92,231,.3);display:inline-flex;align-items:center;gap:8px;
+}
+.btn:hover{transform:translateY(-2px);box-shadow:0 6px 25px rgba(108,92,231,.4);background:#5a4bd1}
+.btn-secondary{
+  background:transparent;border:3px dashed var(--accent);color:var(--accent);
+  padding:12px 30px;border-radius:50px;font-family:var(--doodle);font-size:1.1em;
+  cursor:pointer;transition:all .3s;display:inline-flex;align-items:center;gap:8px;
+}
+.btn-secondary:hover{background:rgba(108,92,231,0.08)}
+.btn-danger{background:var(--danger);border-color:var(--danger);color:#fff}
+.btn-danger:hover{background:#d63031}
+.btn-quit{
+  background:transparent;border:2px dashed var(--danger);color:var(--danger);
+  padding:5px 14px;border-radius:50px;font-family:var(--doodle);font-size:0.88em;cursor:pointer;transition:all .3s;
+}
+.btn-quit:hover{background:rgba(225,112,85,0.1)}
+
+/* Intro pages */
+.intro-container{max-width:650px;margin:0 auto;text-align:center}
+.intro-icon{font-size:4em;margin-bottom:12px;animation:bounce 2s ease infinite}
+.intro-container h2{font-family:var(--doodle);font-size:2em;margin-bottom:8px}
+.intro-container .intro-subtitle{color:var(--text2);font-family:var(--doodle);font-size:1.1em;margin-bottom:20px}
+.intro-card{
+  background:var(--card-bg);border:3px dashed var(--border);border-radius:24px;
+  padding:24px;box-shadow:var(--shadow);text-align:left;margin-bottom:20px;
+}
+.intro-card h3{font-family:var(--doodle);font-size:1.2em;margin-bottom:8px;display:flex;align-items:center;gap:8px}
+.intro-card p,.intro-card ul{color:var(--text2);font-size:0.9em;line-height:1.7}
+.intro-card ul{padding-left:20px;margin-top:6px}
+.intro-card li{margin-bottom:4px}
+
+/* Test page */
+.test-container{max-width:700px;margin:0 auto}
+.test-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px}
+.test-title-badge{
+  display:inline-flex;align-items:center;gap:8px;
+  background:rgba(108,92,231,0.1);border:2px dashed var(--accent2);
+  padding:6px 16px;border-radius:50px;font-family:var(--doodle);font-size:1em;color:var(--accent);font-weight:600;
+}
+.test-counter{color:var(--text2);font-family:var(--doodle);font-size:1.05em}
+.test-counter span{color:var(--accent);font-weight:700}
+.progress-container{width:100%;height:12px;background:#eee;border-radius:10px;overflow:hidden;border:2px solid #ddd;margin-bottom:20px}
+.progress-bar{height:100%;background:linear-gradient(90deg,var(--accent),var(--pink),var(--blue));border-radius:10px;transition:width .5s;background-size:200% 100%;animation:gradSlide 3s linear infinite}
+.question-card{
+  background:var(--card-bg);border:3px solid var(--border);border-radius:24px;
+  padding:28px;width:100%;box-shadow:var(--shadow);animation:slideIn .4s ease;position:relative;
+}
+.question-card .q-number{
+  display:inline-block;background:var(--accent);color:#fff;
+  padding:3px 12px;border-radius:50px;font-family:var(--doodle);font-size:0.9em;margin-bottom:12px;
+}
+.question-text{font-size:1.08em;font-weight:600;line-height:1.7;margin-bottom:20px}
+.likert-options{display:flex;flex-direction:column;gap:8px;width:100%}
+.likert-btn{
+  background:#fafafa;border:3px solid #e8e8e8;border-radius:16px;
+  padding:14px 18px;cursor:pointer;transition:all .3s;font-family:inherit;
+  font-size:0.95em;color:var(--text);text-align:left;display:flex;align-items:center;gap:12px;
+}
+.likert-btn:hover{border-color:var(--accent);background:rgba(108,92,231,0.04);transform:translateX(5px)}
+.likert-btn.selected{border-color:var(--accent);background:rgba(108,92,231,0.1);font-weight:600}
+.likert-btn .likert-dot{
+  width:22px;height:22px;border-radius:50%;border:3px solid #ccc;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;transition:all .3s;
+}
+.likert-btn.selected .likert-dot{border-color:var(--accent);background:var(--accent)}
+.likert-btn.selected .likert-dot::after{content:'';width:8px;height:8px;background:#fff;border-radius:50%}
+.test-nav{display:flex;justify-content:space-between;align-items:center;margin-top:20px;gap:12px}
+
+/* Results pages */
+.results-container{max-width:750px;margin:0 auto;text-align:center}
+.results-container h2{font-family:var(--doodle);font-size:2em;margin-bottom:6px}
+.results-subtitle{color:var(--text2);font-family:var(--doodle);font-size:1.05em;margin-bottom:20px}
+.result-card{
+  background:var(--card-bg);border:3px dashed var(--border);border-radius:24px;
+  padding:24px;box-shadow:var(--shadow);margin-bottom:18px;text-align:left;
+}
+.result-card h3{font-family:var(--doodle);font-size:1.2em;margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.result-card p{color:var(--text2);font-size:0.9em;line-height:1.7;margin-bottom:8px}
+.risk-badge{
+  display:inline-block;padding:6px 18px;border-radius:50px;font-family:var(--doodle);
+  font-size:1.1em;font-weight:700;margin:10px 0;
+}
+.risk-high{background:rgba(225,112,85,0.15);color:var(--danger);border:2px dashed var(--danger)}
+.risk-moderate{background:rgba(253,203,110,0.2);color:#e17055;border:2px dashed var(--warning)}
+.risk-low{background:rgba(0,184,148,0.1);color:var(--success);border:2px dashed var(--success)}
+.bar-chart{margin:12px 0}
+.bar-row{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.bar-label{font-family:var(--doodle);font-size:0.95em;min-width:140px;text-align:right;display:flex;align-items:center;gap:6px;justify-content:flex-end}
+.bar-track{flex:1;height:22px;background:#eee;border-radius:12px;overflow:hidden;border:2px solid #ddd;position:relative}
+.bar-fill{height:100%;border-radius:12px;transition:width 1.2s ease}
+.bar-value{font-family:var(--doodle);font-size:0.9em;min-width:45px;font-weight:600}
+.score-big{
+  font-size:4em;font-weight:900;color:var(--accent);font-family:var(--doodle);
+  text-shadow:2px 2px 0 rgba(108,92,231,.15);animation:countUp 1s;
+}
+.gauge-container{display:flex;justify-content:center;align-items:center;margin:15px 0}
+.gauge-circle{
+  width:150px;height:150px;border-radius:50%;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  border:6px dashed;box-shadow:var(--shadow);background:var(--card-bg);
+}
+.gauge-circle .gauge-num{font-size:2.5em;font-weight:900;font-family:var(--doodle)}
+.gauge-circle .gauge-max{font-size:0.9em;color:var(--text2);font-family:var(--doodle)}
+.canvas-container{background:var(--card-bg);border:3px dashed var(--border);border-radius:24px;padding:20px;box-shadow:var(--shadow);margin:15px 0;display:flex;justify-content:center}
+.canvas-container canvas{max-width:100%}
+
+/* Share buttons */
+.share-row{display:flex;gap:10px;justify-content:center;margin:15px 0;flex-wrap:wrap}
+.share-btn{
+  padding:8px 18px;border-radius:50px;font-family:var(--doodle);font-size:0.9em;
+  cursor:pointer;transition:all .3s;display:inline-flex;align-items:center;gap:6px;
+}
+.share-whatsapp{background:#25D366;color:#fff;border:2px solid #25D366}
+.share-whatsapp:hover{background:#1da851}
+.share-email{background:var(--blue);color:#fff;border:2px solid var(--blue)}
+.share-email:hover{background:#5fa3d9}
+.share-copy{background:var(--card-bg);color:var(--text);border:2px dashed var(--border)}
+.share-copy:hover{border-color:var(--accent);color:var(--accent)}
+
+/* Disclaimer */
+.disclaimer{
+  background:rgba(253,203,110,0.15);border:2px dashed #fdcb6e;border-radius:14px;
+  padding:14px;margin-top:18px;font-size:0.8em;color:#e17055;line-height:1.6;text-align:left;
+}
+
+/* Profile modal */
+.modal-overlay{
+  position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);
+  backdrop-filter:blur(6px);z-index:200;display:none;align-items:center;justify-content:center;
+}
+.modal-overlay.show{display:flex}
+.modal-box{
+  background:var(--card-bg);border:3px dashed var(--accent2);border-radius:24px;
+  padding:30px;max-width:400px;width:90%;text-align:center;animation:scaleIn .3s;box-shadow:var(--shadow-lg);
+}
+.modal-box h3{font-family:var(--doodle);font-size:1.4em;margin-bottom:6px}
+.modal-box p{color:var(--text2);font-size:0.88em;margin-bottom:18px;line-height:1.5}
+.modal-box input{
+  width:100%;padding:12px 16px;border-radius:14px;border:3px solid var(--border);
+  background:var(--bg);color:var(--text);font-family:var(--doodle);font-size:1.1em;
+  margin-bottom:10px;outline:none;transition:border-color .3s;
+}
+.modal-box input:focus{border-color:var(--accent)}
+.modal-actions{display:flex;gap:10px;justify-content:center;margin-top:12px;flex-wrap:wrap}
+
+/* Quit modal */
+.quit-modal .modal-box{border-color:var(--danger)}
+
+/* Diagnostic page */
+.diag-page-section{margin-bottom:24px}
+.diag-page-section h3{font-family:var(--doodle);font-size:1.3em;margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.archetype-box{
+  background:linear-gradient(135deg,rgba(108,92,231,0.08),rgba(253,121,168,0.08));
+  border:3px dashed var(--accent2);border-radius:24px;padding:24px;text-align:center;margin-bottom:20px;
+}
+.archetype-box .arch-icon{font-size:3em;margin-bottom:8px}
+.archetype-box .arch-name{font-family:var(--doodle);font-size:1.8em;color:var(--accent);margin-bottom:4px}
+.archetype-box .arch-desc{color:var(--text2);font-size:0.92em;line-height:1.6}
+.convergence-item{
+  background:var(--card-bg);border:2px dashed var(--border);border-radius:16px;
+  padding:14px 18px;margin-bottom:10px;display:flex;align-items:flex-start;gap:12px;
+}
+.convergence-item .conv-icon{font-size:1.5em;flex-shrink:0;margin-top:2px}
+.convergence-item .conv-text h4{font-family:var(--doodle);font-size:1em;margin-bottom:3px}
+.convergence-item .conv-text p{color:var(--text2);font-size:0.85em;line-height:1.5}
+.strengths-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:15px}
+.strength-item{
+  background:rgba(0,184,148,0.08);border:2px dashed rgba(0,184,148,0.3);border-radius:14px;
+  padding:12px;text-align:center;
+}
+.strength-item .str-icon{font-size:1.5em;margin-bottom:4px}
+.strength-item .str-name{font-family:var(--doodle);font-size:0.95em}
+.reco-item{
+  background:rgba(116,185,255,0.08);border:2px dashed rgba(116,185,255,0.3);border-radius:14px;
+  padding:14px;margin-bottom:10px;text-align:left;
+}
+.reco-item h4{font-family:var(--doodle);font-size:1em;margin-bottom:4px;display:flex;align-items:center;gap:6px}
+.reco-item p{color:var(--text2);font-size:0.85em;line-height:1.6}
+
+/* Responsive */
+@media(max-width:600px){
+  .cards-grid{grid-template-columns:1fr}
+  .hero h2{font-size:2.2em}
+  .hero-icon{font-size:3.5em}
+  .app-header{flex-wrap:wrap;gap:6px;padding:0.5rem 0.8rem}
+  .header-nav{order:3;width:100%;justify-content:center}
+  .bar-label{min-width:100px;font-size:0.82em}
+  .strengths-grid{grid-template-columns:1fr}
+  .test-header{flex-direction:column;align-items:flex-start}
+  .doodle-item{font-size:1.4em}
+  .score-big{font-size:3em}
+  .likert-btn{padding:11px 14px;font-size:0.88em}
+  .modal-box{padding:22px}
+}
+@media(min-width:601px) and (max-width:900px){
+  .cards-grid{grid-template-columns:repeat(2,1fr)}
+}
+
+/* QI Test specific */
+.qi-mode-cards{display:grid;grid-template-columns:1fr 1fr;gap:18px;width:100%;max-width:500px;margin:0 auto 20px}
+.qi-mode-card{background:var(--card-bg);border:3px dashed var(--border);border-radius:24px;padding:24px 16px;text-align:center;cursor:pointer;transition:all .3s;box-shadow:var(--shadow);position:relative;overflow:hidden}
+.qi-mode-card::after{content:'';position:absolute;top:0;left:0;width:100%;height:5px;border-radius:24px 24px 0 0}
+.qi-mode-card:first-child::after{background:linear-gradient(90deg,var(--accent),var(--blue))}
+.qi-mode-card:last-child::after{background:linear-gradient(90deg,var(--pink),var(--orange))}
+.qi-mode-card:hover{transform:translateY(-5px);box-shadow:var(--shadow-lg);border-color:var(--accent2)}
+.qi-mode-card .qm-icon{font-size:2.8em;margin-bottom:8px}
+.qi-mode-card .qm-title{font-family:var(--doodle);font-size:1.3em;margin-bottom:4px}
+.qi-mode-card .qm-desc{color:var(--text2);font-size:.78em;line-height:1.5}
+.qi-quiz-header{width:100%;margin-bottom:16px}
+.qi-quiz-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px}
+.qi-category{display:inline-flex;align-items:center;gap:6px;background:rgba(108,92,231,.1);border:2px dashed var(--accent2);padding:5px 14px;border-radius:50px;font-family:var(--doodle);font-size:.95em;color:var(--accent);font-weight:600}
+.qi-counter{color:var(--text2);font-family:var(--doodle);font-size:1em}
+.qi-counter span{color:var(--accent);font-weight:700}
+.qi-score-display{color:var(--accent);font-weight:700;font-family:var(--doodle);font-size:1.05em}
+.qi-timer-container{display:flex;align-items:center;gap:8px}
+.qi-timer-bar-wrap{width:100px;height:10px;background:#eee;border-radius:10px;overflow:hidden;border:2px solid #ddd}
+.qi-timer-bar{height:100%;border-radius:10px;transition:width .1s linear;background:var(--success)}
+.qi-timer-bar.warning{background:var(--warning)}
+.qi-timer-bar.danger{background:var(--danger)}
+.qi-timer-text{font-size:1em;font-weight:700;min-width:32px;text-align:right;font-family:var(--doodle)}
+.qi-question-card{background:var(--card-bg);border:3px solid var(--border);border-radius:24px;padding:28px;width:100%;box-shadow:var(--shadow);animation:slideIn .4s ease;position:relative}
+.qi-difficulty{display:inline-block;padding:3px 12px;border-radius:20px;font-family:var(--doodle);font-size:.9em;font-weight:600;margin-bottom:10px;border:2px dashed}
+.qi-diff-easy{background:rgba(0,184,148,.1);color:#00b894;border-color:#00b894}
+.qi-diff-medium{background:rgba(253,203,110,.2);color:#e17055;border-color:#fdcb6e}
+.qi-diff-hard{background:rgba(225,112,85,.1);color:#e17055;border-color:#e17055}
+.qi-q-text{font-size:1.08em;font-weight:600;line-height:1.7;margin-bottom:18px;white-space:pre-line}
+.qi-q-hint{color:var(--text2);font-size:.88em;margin-bottom:14px;font-style:italic;font-family:var(--doodle)}
+.qi-options{display:grid;gap:9px;width:100%}
+.qi-option{background:#fafafa;border:3px solid #e8e8e8;border-radius:16px;padding:13px 16px;cursor:pointer;transition:all .3s;font-family:inherit;font-size:.95em;color:var(--text);text-align:left;display:flex;align-items:center;gap:10px}
+.qi-option:hover:not(.disabled){border-color:var(--accent);background:rgba(108,92,231,.04);transform:translateX(5px)}
+.qi-option.correct{border-color:var(--success)!important;background:rgba(0,184,148,.1)!important}
+.qi-option.wrong{border-color:var(--danger)!important;background:rgba(225,112,85,.1)!important;animation:shake .4s}
+.qi-option.disabled{pointer-events:none;opacity:.6}
+.qi-opt-letter{width:34px;height:34px;border-radius:10px;background:#f0efff;border:2px solid var(--accent2);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.88em;flex-shrink:0;color:var(--accent);font-family:var(--doodle)}
+.qi-option.correct .qi-opt-letter{background:var(--success);color:#fff;border-color:var(--success)}
+.qi-option.wrong .qi-opt-letter{background:var(--danger);color:#fff;border-color:var(--danger)}
+.qi-feedback{display:none;align-items:center;gap:8px;margin-top:12px;padding:10px 16px;border-radius:14px;font-weight:500;animation:scaleIn .3s;font-family:var(--doodle);font-size:1em;border:2px dashed}
+.qi-feedback.show{display:flex}
+.qi-feedback.correct{background:rgba(0,184,148,.1);color:#00b894;border-color:#00b894}
+.qi-feedback.wrong{background:rgba(225,112,85,.1);color:#e17055;border-color:#e17055}
+.qi-memory-display{display:flex;justify-content:center;gap:10px;margin:16px 0;flex-wrap:wrap}
+.qi-memory-item{width:52px;height:52px;background:var(--accent);border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:1.5em;font-weight:700;color:#fff;animation:scaleIn .3s;box-shadow:0 4px 12px rgba(108,92,231,.3);border:3px solid rgba(255,255,255,.3);font-family:var(--doodle)}
+.qi-memory-countdown{font-size:1.5em;color:var(--accent);text-align:center;margin:12px 0;animation:pulse 1s ease infinite;font-family:var(--doodle)}
+.qi-memory-input{width:100%;padding:12px 16px;border-radius:14px;background:#fafafa;border:3px solid var(--border);color:var(--text);font-family:var(--doodle);font-size:1.3em;text-align:center;letter-spacing:5px;outline:none;transition:border-color .3s}
+.qi-memory-input:focus{border-color:var(--accent)}
+.qi-matrix-grid{display:inline-grid;gap:4px;margin:8px auto 16px;padding:10px;background:rgba(108,92,231,.05);border:2px dashed var(--accent2);border-radius:14px}
+.qi-matrix-cell{width:50px;height:50px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:1.4em;background:#fff;border:2px solid #e8e8e8}
+.qi-matrix-cell.highlight{background:rgba(253,203,110,.25);border-color:var(--warning);border-style:dashed}
+.qi-iq-display{margin:20px 0;padding:30px;background:var(--card-bg);border:4px dashed var(--accent2);border-radius:28px;box-shadow:var(--shadow-lg);text-align:center}
+.qi-iq-label{font-family:var(--doodle);font-size:1.2em;color:var(--text2);margin-bottom:6px}
+.qi-iq-number{font-size:5em;font-weight:900;color:var(--accent);font-family:var(--doodle);text-shadow:2px 2px 0 rgba(108,92,231,.15);animation:countUp 1s}
+.qi-iq-range{font-size:1.3em;font-family:var(--doodle);margin-top:6px;color:var(--text)}
+.qi-iq-percentile{color:var(--text2);font-family:var(--doodle);font-size:1em;margin-top:5px}
+.qi-iq-margin{color:var(--text2);font-family:var(--doodle);font-size:.88em;margin-top:3px;font-style:italic}
+.qi-bell-svg{width:100%;max-width:480px;margin:0 auto;display:block}
+.qi-cats-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:16px 0;text-align:left}
+.qi-cat-card{background:var(--card-bg);border:2px dashed var(--border);border-radius:16px;padding:14px;box-shadow:0 2px 10px rgba(0,0,0,.05)}
+.qi-cat-header{display:flex;align-items:center;gap:6px;margin-bottom:6px}
+.qi-cat-icon{font-size:1.2em}
+.qi-cat-name{font-weight:600;font-family:var(--doodle);font-size:1em}
+.qi-cat-bar-bg{width:100%;height:10px;background:#eee;border-radius:10px;overflow:hidden;border:2px solid #ddd}
+.qi-cat-bar-fill{height:100%;border-radius:10px;transition:width 1.5s}
+.qi-cat-score{font-size:.8em;color:var(--text2);margin-top:4px;font-family:var(--doodle)}
+.qi-stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:18px 0}
+.qi-stat-card{background:var(--card-bg);border:2px dashed var(--border);border-radius:16px;padding:14px;text-align:center;box-shadow:0 2px 10px rgba(0,0,0,.05)}
+.qi-stat-value{font-size:2em;font-weight:800;color:var(--accent);font-family:var(--doodle)}
+.qi-stat-label{font-size:.75em;color:var(--text2);margin-top:3px;font-family:var(--doodle)}
+.badge-semi{display:inline-block;background:linear-gradient(135deg,var(--accent),#9333ea);color:#fff;padding:2px 10px;border-radius:20px;font-size:.78em;font-family:var(--doodle);margin-bottom:6px}
+@media(max-width:600px){
+  .qi-mode-cards{grid-template-columns:1fr}
+  .qi-cats-grid{grid-template-columns:1fr}
+  .qi-stats-grid{grid-template-columns:1fr 1fr}
+  .qi-iq-number{font-size:3.5em!important}
+  .qi-matrix-cell{width:40px;height:40px;font-size:1.1em}
+  .qi-memory-item{width:42px;height:42px;font-size:1.2em}
+}
+</style>
+</head>
+<body>
+
+<div class="doodle-border" id="doodle-border"></div>
+
+<!-- HEADER -->
+<div class="app-header">
+  <h1 onclick="navigateTo('home')" style="cursor:pointer"><span class="logo-icon">🧠</span> NeuroProfil</h1>
+  <button class="user-profile-btn" onclick="showProfileModal()">
+    <div class="avatar" id="user-avatar">?</div>
+    <span id="user-display-name">Se connecter</span>
+  </button>
+</div>
+
+<div class="container">
+
+<!-- ==================== HOME ==================== -->
+<div class="page active" id="page-home">
+  <div class="hero">
+    <div class="hero-icon">🧠</div>
+    <h2>NeuroProfil</h2>
+    <p>Explorez votre profil neurocognitif</p>
+  </div>
+
+  <div class="cards-grid" id="cards-grid"></div>
+
+  <div class="diag-section" id="diag-home-section">
+    <h3>🔬 Diagnostic Croisé</h3>
+    <p>Complétez tous les tests pour débloquer l'analyse croisée de votre profil neurodivergent.</p>
+    <div class="diag-progress"><div class="diag-progress-fill" id="diag-progress-fill" style="width:0%"></div></div>
+    <div class="diag-status" id="diag-status">0 / 5 tests complétés</div>
+    <div style="margin-top:14px">
+      <button class="btn" id="diag-home-btn" onclick="showDiagnostic()" disabled style="opacity:0.5">🔒 Débloquer le diagnostic</button>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== ASRS INTRO ==================== -->
+<div class="page" id="page-asrs-intro">
+  <div class="intro-container">
+    <div class="intro-icon">⚡</div>
+    <h2>ASRS — Dépistage TDAH</h2>
+    <p class="intro-subtitle">Adult ADHD Self-Report Scale v1.1</p>
+    <div class="intro-card">
+      <h3>📋 Qu'est-ce que c'est ?</h3>
+      <p>L'ASRS est un outil de dépistage développé par l'OMS pour identifier les symptômes du Trouble de Déficit de l'Attention avec ou sans Hyperactivité (TDAH) chez l'adulte. Il évalue deux dimensions principales :</p>
+      <ul>
+        <li><strong>Inattention (IA)</strong> : difficultés de concentration, oublis, désorganisation</li>
+        <li><strong>Hyperactivité-Impulsivité (HI)</strong> : agitation, impulsivité, bavardage excessif</li>
+      </ul>
+    </div>
+    <div class="intro-card">
+      <h3>⏱️ Durée & Format</h3>
+      <p>18 questions • Environ 5 minutes<br>Répondez selon la fréquence de vos comportements au cours des 6 derniers mois.</p>
+    </div>
+    <div class="intro-card">
+      <h3>⚠️ Important</h3>
+      <p>Ce test est un outil de dépistage, pas un diagnostic. Un score élevé suggère qu'une évaluation professionnelle pourrait être bénéfique. Seul un professionnel de santé peut poser un diagnostic de TDAH.</p>
+    </div>
+    <div style="margin-top:20px;display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
+      <button class="btn" onclick="startTest('asrs')">Commencer le test ⚡</button>
+      <button class="btn-secondary" onclick="navigateTo('home')">← Retour</button>
+    </div>
+  </div>
+</div>
+
+<!-- ASRS TEST -->
+<div class="page" id="page-asrs-test">
+  <div class="test-container" id="asrs-test-container"></div>
+</div>
+
+<!-- ASRS RESULTS -->
+<div class="page" id="page-asrs-results">
+  <div class="results-container" id="asrs-results-container"></div>
+</div>
+
+<!-- ==================== AQ10 INTRO ==================== -->
+<div class="page" id="page-aq10-intro">
+  <div class="intro-container">
+    <div class="intro-icon">🧩</div>
+    <h2>AQ-10 — Spectre Autistique</h2>
+    <p class="intro-subtitle">Autism Spectrum Quotient (version courte)</p>
+    <div class="intro-card">
+      <h3>📋 Qu'est-ce que c'est ?</h3>
+      <p>L'AQ-10 est un outil de dépistage rapide développé par Simon Baron-Cohen au Centre de Recherche sur l'Autisme de Cambridge. Il évalue des traits associés au spectre autistique :</p>
+      <ul>
+        <li>Communication sociale et compréhension des intentions</li>
+        <li>Attention aux détails vs vue d'ensemble</li>
+        <li>Flexibilité cognitive et multitâche</li>
+        <li>Intérêts et comportements répétitifs</li>
+      </ul>
+    </div>
+    <div class="intro-card">
+      <h3>⏱️ Durée & Format</h3>
+      <p>10 questions • Environ 3 minutes<br>Indiquez votre degré d'accord avec chaque affirmation.</p>
+    </div>
+    <div class="intro-card">
+      <h3>⚠️ Important</h3>
+      <p>Ce test est un outil de pré-dépistage. Un score de 6 ou plus suggère qu'une évaluation spécialisée pourrait être recommandée. Le diagnostic de TSA nécessite une évaluation complète par un professionnel.</p>
+    </div>
+    <div style="margin-top:20px;display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
+      <button class="btn" onclick="startTest('aq10')">Commencer le test 🧩</button>
+      <button class="btn-secondary" onclick="navigateTo('home')">← Retour</button>
+    </div>
+  </div>
+</div>
+
+<!-- AQ10 TEST -->
+<div class="page" id="page-aq10-test">
+  <div class="test-container" id="aq10-test-container"></div>
+</div>
+
+<!-- AQ10 RESULTS -->
+<div class="page" id="page-aq10-results">
+  <div class="results-container" id="aq10-results-container"></div>
+</div>
+
+<!-- ==================== HSP INTRO ==================== -->
+<div class="page" id="page-hsp-intro">
+  <div class="intro-container">
+    <div class="intro-icon">🌿</div>
+    <h2>HSP — Hypersensibilité</h2>
+    <p class="intro-subtitle">Highly Sensitive Person Scale (Elaine Aron)</p>
+    <div class="intro-card">
+      <h3>📋 Qu'est-ce que c'est ?</h3>
+      <p>L'échelle HSP mesure la sensibilité de traitement sensoriel (SPS), un trait de personnalité décrit par Elaine Aron. Elle évalue trois sous-dimensions :</p>
+      <ul>
+        <li><strong>EOE</strong> : Facilité d'excitation / Surcharge (Ease of Excitation)</li>
+        <li><strong>AES</strong> : Sensibilité esthétique (Aesthetic Sensitivity)</li>
+        <li><strong>LST</strong> : Seuil sensoriel bas (Low Sensory Threshold)</li>
+      </ul>
+    </div>
+    <div class="intro-card">
+      <h3>⏱️ Durée & Format</h3>
+      <p>27 questions • Environ 8 minutes<br>Évaluez chaque affirmation sur une échelle de 1 (pas du tout) à 7 (tout à fait).</p>
+    </div>
+    <div class="intro-card">
+      <h3>⚠️ Important</h3>
+      <p>L'hypersensibilité n'est pas un trouble mais un trait de personnalité présent chez environ 15-20% de la population. Ce test vous aide à mieux comprendre votre sensibilité sensorielle et émotionnelle.</p>
+    </div>
+    <div style="margin-top:20px;display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
+      <button class="btn" onclick="startTest('hsp')">Commencer le test 🌿</button>
+      <button class="btn-secondary" onclick="navigateTo('home')">← Retour</button>
+    </div>
+  </div>
+</div>
+
+<!-- HSP TEST -->
+<div class="page" id="page-hsp-test">
+  <div class="test-container" id="hsp-test-container"></div>
+</div>
+
+<!-- HSP RESULTS -->
+<div class="page" id="page-hsp-results">
+  <div class="results-container" id="hsp-results-container"></div>
+</div>
+
+<!-- ==================== DYS INTRO ==================== -->
+<div class="page" id="page-dys-intro">
+  <div class="intro-container">
+    <div class="intro-icon">📝</div>
+    <h2>Dépistage Dys</h2>
+    <p class="intro-subtitle">Screening Dyslexie, Dysorthographie, Dyscalculie, Dyspraxie</p>
+    <div class="intro-card">
+      <h3>📋 Qu'est-ce que c'est ?</h3>
+      <p>Ce questionnaire évalue la présence possible de troubles « dys » à travers quatre domaines :</p>
+      <ul>
+        <li><strong>📖 Lecture (Dyslexie)</strong> : décodage, fluence, compréhension</li>
+        <li><strong>✏️ Écriture (Dysorthographie)</strong> : orthographe, structuration, écriture</li>
+        <li><strong>🔢 Calcul (Dyscalculie)</strong> : calcul mental, estimation, numération</li>
+        <li><strong>📋 Organisation (Dyspraxie)</strong> : coordination, planification, repérage</li>
+      </ul>
+    </div>
+    <div class="intro-card">
+      <h3>⏱️ Durée & Format</h3>
+      <p>20 questions • Environ 5 minutes<br>Indiquez la fréquence de vos difficultés.</p>
+    </div>
+    <div class="intro-card">
+      <h3>⚠️ Important</h3>
+      <p>Ce test est un outil d'orientation. Les troubles dys nécessitent un bilan complet (orthophoniste, neuropsychologue) pour être diagnostiqués.</p>
+    </div>
+    <div style="margin-top:20px;display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
+      <button class="btn" onclick="startTest('dys')">Commencer le test 📝</button>
+      <button class="btn-secondary" onclick="navigateTo('home')">← Retour</button>
+    </div>
+  </div>
+</div>
+
+<!-- DYS TEST -->
+<div class="page" id="page-dys-test">
+  <div class="test-container" id="dys-test-container"></div>
+</div>
+
+<!-- DYS RESULTS -->
+<div class="page" id="page-dys-results">
+  <div class="results-container" id="dys-results-container"></div>
+</div>
+
+<!-- ==================== DABROWSKI INTRO ==================== -->
+<div class="page" id="page-dabrowski-intro">
+  <div class="intro-container">
+    <div class="intro-icon">✨</div>
+    <h2>Surexcitabilités de Dabrowski</h2>
+    <p class="intro-subtitle">Overexcitability Questionnaire (OEQ-II) — Haut Potentiel</p>
+    <div class="intro-card">
+      <h3>📋 Qu'est-ce que c'est ?</h3>
+      <p>Le questionnaire de Dabrowski évalue les cinq formes de surexcitabilité, un marqueur fréquent du Haut Potentiel Intellectuel (HPI) :</p>
+      <ul>
+        <li><strong>🏃 Psychomotrice</strong> : surplus d'énergie, agitation, besoin de mouvement</li>
+        <li><strong>👁️ Sensuelle</strong> : sensibilité sensorielle accrue</li>
+        <li><strong>💡 Intellectuelle</strong> : curiosité intense, pensée complexe</li>
+        <li><strong>🌈 Imaginaire</strong> : imagination riche, rêverie, créativité</li>
+        <li><strong>💗 Émotionnelle</strong> : intensité émotionnelle, empathie profonde</li>
+      </ul>
+    </div>
+    <div class="intro-card">
+      <h3>⏱️ Durée & Format</h3>
+      <p>50 questions • Environ 12 minutes<br>Évaluez chaque affirmation selon son intensité chez vous.</p>
+    </div>
+    <div class="intro-card">
+      <h3>⚠️ Important</h3>
+      <p>Les surexcitabilités ne sont pas des troubles mais des caractéristiques de fonctionnement cognitif et émotionnel. Un profil de surexcitabilités élevées est souvent associé au HPI mais n'est pas un diagnostic en soi.</p>
+    </div>
+    <div style="margin-top:20px;display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
+      <button class="btn" onclick="startTest('dabrowski')">Commencer le test ✨</button>
+      <button class="btn-secondary" onclick="navigateTo('home')">← Retour</button>
+    </div>
+  </div>
+</div>
+
+<!-- DABROWSKI TEST -->
+<div class="page" id="page-dabrowski-test">
+  <div class="test-container" id="dabrowski-test-container"></div>
+</div>
+
+<!-- DABROWSKI RESULTS -->
+<div class="page" id="page-dabrowski-results">
+  <div class="results-container" id="dabrowski-results-container"></div>
+</div>
+
+<!-- ==================== QI INTRO ==================== -->
+<div class="page" id="page-qi-intro">
+  <div class="intro-container">
+    <div class="intro-icon">🧠</div>
+    <h2>Test de QI</h2>
+    <p class="intro-subtitle">Évaluation cognitive semi-professionnelle</p>
+    <div class="intro-card">
+      <h3>📋 Qu'est-ce que c'est ?</h3>
+      <p>Un test cognitif complet évaluant <strong>8 dimensions</strong> : suites numériques, logique verbale, mémoire de travail (directe + inversée), calcul mental, raisonnement abstrait, déduction logique, matrices visuelles et vitesse de traitement.</p>
+    </div>
+    <div class="intro-card">
+      <h3>⏱️ Durée &amp; Format</h3>
+      <p>Chaque question a un chronomètre. Répondez vite ET juste — la vitesse influence le score.<br>📊 Marge d'erreur estimée : <strong>±5 points</strong></p>
+    </div>
+    <div class="intro-card">
+      <h3>🎯 Choisissez votre mode</h3>
+      <div class="qi-mode-cards">
+        <div class="qi-mode-card" onclick="startQiTest('adult')">
+          <div class="qm-icon">🎓</div>
+          <div class="qm-title">Mode Adulte</div>
+          <div class="qm-desc"><span class="badge-semi">Semi-pro</span><br>90 questions • 8 catégories<br>Mémoire inversée + Matrices<br>~40 minutes</div>
+        </div>
+        <div class="qi-mode-card" onclick="startQiTest('child')">
+          <div class="qm-icon">🌟</div>
+          <div class="qm-title">Mode Enfant</div>
+          <div class="qm-desc"><span class="badge-semi">Semi-pro</span><br>65 questions • 8 catégories<br>Adapté 8-14 ans<br>~30 minutes</div>
+        </div>
+      </div>
+    </div>
+    <div class="intro-card">
+      <h3>⚠️ Important</h3>
+      <p>Ce test offre une bonne estimation mais ne remplace pas une évaluation psychométrique clinique (WAIS-IV, WISC-V). Pour un diagnostic officiel, consultez un psychologue qualifié.</p>
+    </div>
+    <div style="margin-top:20px">
+      <button class="btn-secondary" onclick="navigateTo('home')">← Retour à l'accueil</button>
+    </div>
+  </div>
+</div>
+
+<!-- QI TEST -->
+<div class="page" id="page-qi-test">
+  <div class="test-container">
+    <div class="qi-quiz-header">
+      <div class="qi-quiz-top">
+        <div class="qi-category" id="qi-category"></div>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <div class="qi-timer-container">
+            <div class="qi-timer-bar-wrap"><div class="qi-timer-bar" id="qi-timer-bar"></div></div>
+            <div class="qi-timer-text" id="qi-timer-text">30s</div>
+          </div>
+          <button class="btn-quit" onclick="showQiQuitModal()">✕ Quitter</button>
+        </div>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <div class="qi-counter">Question <span id="qi-q-current">1</span> / <span id="qi-q-total">90</span></div>
+        <div class="qi-score-display" id="qi-score-display">⭐ 0 pts</div>
+      </div>
+      <div class="progress-container"><div class="progress-bar" id="qi-progress-bar" style="width:0%"></div></div>
+    </div>
+    <div class="qi-question-card" id="qi-question-card">
+      <div class="qi-difficulty qi-diff-easy" id="qi-q-difficulty">Facile</div>
+      <div class="qi-q-text" id="qi-q-text"></div>
+      <div class="qi-q-hint" id="qi-q-hint" style="display:none"></div>
+      <div id="qi-matrix-zone" style="display:none"></div>
+      <div id="qi-memory-zone" style="display:none">
+        <div class="qi-memory-display" id="qi-memory-display"></div>
+        <div class="qi-memory-countdown" id="qi-memory-countdown"></div>
+        <input type="text" class="qi-memory-input" id="qi-memory-input" placeholder="Entrez la séquence..." style="display:none" autocomplete="off">
+        <button class="btn" id="qi-memory-validate" style="display:none;width:100%;margin-top:10px" onclick="qiValidateMemory()">✅ Valider</button>
+      </div>
+      <div class="qi-options" id="qi-options-zone"></div>
+      <div class="qi-feedback" id="qi-feedback"><span id="qi-feedback-icon"></span><span id="qi-feedback-text"></span></div>
+    </div>
+  </div>
+</div>
+
+<!-- QI RESULTS -->
+<div class="page" id="page-qi-results">
+  <div class="results-container" id="qi-results-container"></div>
+</div>
+
+<!-- ==================== DIAGNOSTIC PAGE ==================== -->
+<div class="page" id="page-diagnostic">
+  <div class="results-container" id="diagnostic-container"></div>
+</div>
+
+</div><!-- /container -->
+
+<!-- QI Quit Modal -->
+<div class="modal-overlay" id="qi-quit-modal">
+  <div class="modal-box" style="border-color:var(--danger)">
+    <div style="font-size:2.2em;margin-bottom:10px">⚠️</div>
+    <h3>Quitter le test de QI ?</h3>
+    <p>Votre progression sera perdue et vos réponses ne seront pas sauvegardées.</p>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeQiQuitModal()">Continuer le test</button>
+      <button class="btn-quit" style="padding:10px 24px;font-size:1em" onclick="quitQiTest()">Quitter</button>
+    </div>
+  </div>
+</div>
+
+<!-- Profile Modal -->
+<div class="modal-overlay" id="profile-modal">
+  <div class="modal-box">
+    <h3>👤 Mon Profil</h3>
+    <p id="profile-subtitle">Entrez votre nom pour sauvegarder vos résultats dans le cloud.</p>
+    <input type="text" id="input-prenom" placeholder="Prénom">
+    <input type="text" id="input-nom" placeholder="Nom">
+    <div class="modal-actions">
+      <button class="btn" onclick="saveProfile()">Enregistrer</button>
+      <button class="btn-secondary" id="btn-cancel-profile" onclick="closeProfileModal()">Annuler</button>
+      <button class="btn-quit" id="btn-logout" style="display:none" onclick="logoutProfile()">🚪 Déconnexion</button>
+    </div>
+    <div id="profile-status" style="margin-top:10px;font-family:var(--doodle);font-size:0.9em;color:var(--success)"></div>
+  </div>
+</div>
+
+<!-- Quit Modal -->
+<div class="modal-overlay quit-modal" id="quit-modal">
+  <div class="modal-box" style="border-color:var(--danger)">
+    <h3>⚠️ Quitter le test ?</h3>
+    <p>Votre progression sera perdue. Êtes-vous sûr(e) de vouloir quitter ?</p>
+    <div class="modal-actions">
+      <button class="btn btn-danger" onclick="confirmQuit()">Oui, quitter</button>
+      <button class="btn-secondary" onclick="closeQuitModal()">Non, continuer</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script>
+// ============================================================
+// FIREBASE INIT
+// ============================================================
+const firebaseConfig = {
+  apiKey: "AIzaSyBa4bJbslyGMJvRhgUg0eUqLJKJluykDCY",
+  authDomain: "portfolio-dashboard-f0c69.firebaseapp.com",
+  databaseURL: "https://portfolio-dashboard-f0c69-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "portfolio-dashboard-f0c69",
+  storageBucket: "portfolio-dashboard-f0c69.appspot.com",
+  messagingSenderId: "742495837498",
+  appId: "1:742495837498:web:abc123"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+// ============================================================
+// DOODLE BACKGROUND
+// ============================================================
+const doodleEmojis = ['🧠','🔬','🧪','💡','⚡','🎯','🧩','🔍','💭','⚛️','🧬','🔭','📊','🧮','✨','🌀','🔑','🎓'];
+function initDoodles() {
+  const container = document.getElementById('doodle-border');
+  for (let i = 0; i < 24; i++) {
+    const d = document.createElement('span');
+    d.className = 'doodle-item';
+    d.textContent = doodleEmojis[i % doodleEmojis.length];
+    d.style.left = Math.random() * 95 + '%';
+    d.style.top = Math.random() * 95 + '%';
+    d.style.animationDelay = (Math.random() * 10) + 's';
+    d.style.animationDuration = (15 + Math.random() * 15) + 's';
+    d.style.fontSize = (1.2 + Math.random() * 1.5) + 'em';
+    container.appendChild(d);
+  }
+}
+initDoodles();
+
+// ============================================================
+// USER PROFILE & FIREBASE
+// ============================================================
+let currentUser = JSON.parse(localStorage.getItem('neuroProfile_user') || 'null');
+
+function getUserKey() {
+  if (!currentUser) return null;
+  return (currentUser.prenom + '_' + currentUser.nom).toLowerCase().replace(/[^a-z0-9_]/g, '');
+}
+
+function updateUserDisplay() {
+  const av = document.getElementById('user-avatar');
+  const dn = document.getElementById('user-display-name');
+  if (currentUser) {
+    av.textContent = currentUser.prenom.charAt(0).toUpperCase();
+    dn.textContent = currentUser.prenom;
+  } else {
+    av.textContent = '?';
+    dn.textContent = 'Se connecter';
+  }
+}
+
+function showProfileModal(forced) {
+  document.getElementById('profile-modal').classList.add('show');
+  const cancelBtn = document.getElementById('btn-cancel-profile');
+  const logoutBtn = document.getElementById('btn-logout');
+  const subtitle = document.getElementById('profile-subtitle');
+  if (currentUser) {
+    document.getElementById('input-prenom').value = currentUser.prenom;
+    document.getElementById('input-nom').value = currentUser.nom;
+    cancelBtn.style.display = 'inline-block';
+    logoutBtn.style.display = 'inline-block';
+    subtitle.textContent = 'Modifiez votre profil';
+  } else {
+    document.getElementById('input-prenom').value = '';
+    document.getElementById('input-nom').value = '';
+    cancelBtn.style.display = forced ? 'none' : 'inline-block';
+    logoutBtn.style.display = 'none';
+    subtitle.textContent = 'Connectez-vous pour sauvegarder vos résultats';
+  }
+  document.getElementById('profile-status').textContent = '';
+}
+
+function closeProfileModal() {
+  if (!currentUser) return;
+  document.getElementById('profile-modal').classList.remove('show');
+}
+
+function saveProfile() {
+  const p = document.getElementById('input-prenom').value.trim();
+  const n = document.getElementById('input-nom').value.trim();
+  if (!p || !n) { document.getElementById('profile-status').textContent = '⚠️ Remplissez les deux champs'; document.getElementById('profile-status').style.color = 'var(--danger)'; return; }
+  currentUser = { prenom: p, nom: n };
+  localStorage.setItem('neuroProfile_user', JSON.stringify(currentUser));
+  updateUserDisplay();
+  saveAllToFirebase();
+  // Save user info to Firebase
+  const key = getUserKey();
+  if (key) db.ref('neuro_profil/' + key + '/user').set(currentUser);
+  document.getElementById('profile-status').textContent = '✅ Profil enregistré !';
+  document.getElementById('profile-status').style.color = 'var(--success)';
+  // Load user data from Firebase (in case switching user)
+  loadUserData();
+  setTimeout(() => {
+    document.getElementById('profile-modal').classList.remove('show');
+  }, 1200);
+}
+
+function logoutProfile() {
+  currentUser = null;
+  localStorage.removeItem('neuroProfile_user');
+  ['asrs','aq10','hsp','dys','dabrowski','qi'].forEach(t => localStorage.removeItem('neuroProfile_' + t));
+  updateUserDisplay();
+  renderHomeCards();
+  updateDiagProgress();
+  document.getElementById('profile-modal').classList.remove('show');
+  showProfileModal(true);
+}
+
+function saveToFirebase(testId, data) {
+  const key = getUserKey();
+  if (!key) return;
+  db.ref('neuro_profil/' + key + '/tests/' + testId).set(data);
+}
+
+function saveAllToFirebase() {
+  const key = getUserKey();
+  if (!key) return;
+  const testIds = ['asrs','aq10','hsp','dys','dabrowski','qi'];
+  testIds.forEach(tid => {
+    const d = localStorage.getItem('neuroProfile_' + tid);
+    if (d) db.ref('neuro_profil/' + key + '/tests/' + tid).set(JSON.parse(d));
+  });
+}
+
+function loadUserData() {
+  const key = getUserKey();
+  if (!key) return;
+  db.ref('neuro_profil/' + key + '/tests').once('value', snap => {
+    const data = snap.val();
+    if (!data) return;
+    Object.keys(data).forEach(tid => {
+      localStorage.setItem('neuroProfile_' + tid, JSON.stringify(data[tid]));
+    });
+    renderHomeCards();
+    updateDiagProgress();
+  });
+}
+
+// ============================================================
+// NAVIGATION (with browser history support)
+// ============================================================
+let currentPage = 'home';
+
+function navigateTo(pageId, pushHistory) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  const target = document.getElementById('page-' + pageId);
+  if (target) target.classList.add('active');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  currentPage = pageId;
+  // Push to browser history (unless triggered by popstate)
+  if (pushHistory !== false) {
+    history.pushState({ page: pageId }, '', '#' + pageId);
+  }
+}
+
+// Handle browser back/forward buttons
+window.addEventListener('popstate', function(e) {
+  if (e.state && e.state.page) {
+    // If we're in a QI test, stop the timer
+    if (currentPage === 'qi-test' && typeof qiTimerI !== 'undefined') {
+      clearInterval(qiTimerI);
+    }
+    // If we're in a Likert test, just navigate back
+    navigateTo(e.state.page, false);
+  } else {
+    // No state = initial page = home
+    if (currentPage === 'qi-test' && typeof qiTimerI !== 'undefined') {
+      clearInterval(qiTimerI);
+    }
+    navigateTo('home', false);
+  }
+});
+
+// Set initial state
+history.replaceState({ page: 'home' }, '', '#home');
+
+// ============================================================
+// TEST DATA
+// ============================================================
+const TESTS_META = {
+  asrs: { id:'asrs', name:'ASRS — TDAH', icon:'⚡', color:'#ef4444', desc:'Dépistage du Trouble de Déficit de l\'Attention', duration:'5 min • 18 questions' },
+  aq10: { id:'aq10', name:'AQ-10 — Autisme', icon:'🧩', color:'#0984e3', desc:'Screening des traits du spectre autistique', duration:'3 min • 10 questions' },
+  hsp: { id:'hsp', name:'HSP — Hypersensibilité', icon:'🌿', color:'#00b894', desc:'Évaluation de la sensibilité de traitement sensoriel', duration:'8 min • 27 questions' },
+  dys: { id:'dys', name:'Dépistage Dys', icon:'📝', color:'#e17055', desc:'Screening dyslexie, dysorthographie, dyscalculie, dyspraxie', duration:'5 min • 20 questions' },
+  dabrowski: { id:'dabrowski', name:'Dabrowski — Haut Potentiel', icon:'✨', color:'#f59e0b', desc:'Surexcitabilités et marqueurs du HPI', duration:'12 min • 50 questions' },
+  qi: { id:'qi', name:'Test de QI', icon:'🧠', color:'#6c5ce7', desc:'Évaluation cognitive semi-professionnelle', duration:'40 min • 90 questions' }
+};
+
+const ASRS = {
+  questions: [
+    {id:1,text:"À quelle fréquence avez-vous des difficultés à finaliser les derniers détails d'un projet, une fois que les parties intéressantes ont été réalisées ?",dim:'IA',part:'A',threshold:2},
+    {id:2,text:"À quelle fréquence avez-vous des difficultés à mettre les choses en ordre lorsque vous devez faire une tâche qui nécessite de l'organisation ?",dim:'IA',part:'A',threshold:2},
+    {id:3,text:"À quelle fréquence avez-vous des difficultés à vous souvenir de vos rendez-vous ou de vos obligations ?",dim:'IA',part:'A',threshold:2},
+    {id:4,text:"Lorsque vous avez une tâche qui nécessite beaucoup de réflexion, à quelle fréquence évitez-vous ou retardez-vous le moment de commencer ?",dim:'IA',part:'A',threshold:2},
+    {id:5,text:"À quelle fréquence remuez-vous les mains ou les pieds, ou vous tortillez-vous sur votre siège lorsque vous devez rester assis longtemps ?",dim:'HI',part:'A',threshold:3},
+    {id:6,text:"À quelle fréquence vous sentez-vous excessivement actif(ve) ou obligé(e) de faire des choses, comme si vous étiez poussé(e) par un moteur ?",dim:'HI',part:'A',threshold:3},
+    {id:7,text:"À quelle fréquence faites-vous des erreurs d'inattention lorsque vous travaillez sur un projet ennuyeux ou difficile ?",dim:'IA',part:'B'},
+    {id:8,text:"À quelle fréquence avez-vous des difficultés à garder votre attention lorsque vous faites un travail ennuyeux ou répétitif ?",dim:'IA',part:'B'},
+    {id:9,text:"À quelle fréquence avez-vous des difficultés à vous concentrer sur ce que les gens vous disent, même lorsqu'ils vous parlent directement ?",dim:'IA',part:'B'},
+    {id:10,text:"À quelle fréquence égarez-vous ou avez-vous des difficultés à retrouver des choses à la maison ou au travail ?",dim:'IA',part:'B'},
+    {id:11,text:"À quelle fréquence êtes-vous distrait(e) par l'activité ou le bruit autour de vous ?",dim:'IA',part:'B'},
+    {id:12,text:"À quelle fréquence quittez-vous votre siège lors de réunions ou dans d'autres situations où vous devriez rester assis(e) ?",dim:'HI',part:'B'},
+    {id:13,text:"À quelle fréquence vous sentez-vous agité(e) ou nerveux(se) ?",dim:'HI',part:'B'},
+    {id:14,text:"À quelle fréquence avez-vous des difficultés à vous détendre lorsque vous avez du temps libre ?",dim:'HI',part:'B'},
+    {id:15,text:"À quelle fréquence vous surprenez-vous à parler trop dans les situations sociales ?",dim:'HI',part:'B'},
+    {id:16,text:"À quelle fréquence finissez-vous les phrases des gens avant qu'ils n'aient terminé eux-mêmes ?",dim:'HI',part:'B'},
+    {id:17,text:"À quelle fréquence avez-vous des difficultés à attendre votre tour dans les situations où chacun doit attendre le sien ?",dim:'HI',part:'B'},
+    {id:18,text:"À quelle fréquence interrompez-vous les autres quand ils sont occupés ?",dim:'HI',part:'B'}
+  ],
+  labels: ['Jamais','Rarement','Parfois','Souvent','Très souvent'],
+  values: [0,1,2,3,4]
+};
+
+const AQ10 = {
+  questions: [
+    {id:1,text:"Je remarque souvent de petits sons que les autres ne perçoivent pas",scoreIf:'agree'},
+    {id:2,text:"Je me concentre généralement plus sur l'ensemble d'une image que sur les petits détails",scoreIf:'disagree'},
+    {id:3,text:"Je trouve facile de faire plusieurs choses à la fois",scoreIf:'disagree'},
+    {id:4,text:"S'il y a une interruption, je peux revenir à ce que je faisais très rapidement",scoreIf:'disagree'},
+    {id:5,text:"Je trouve facile de lire entre les lignes quand quelqu'un me parle",scoreIf:'disagree'},
+    {id:6,text:"Je sais reconnaître si quelqu'un qui m'écoute s'ennuie",scoreIf:'disagree'},
+    {id:7,text:"Quand je lis une histoire, je trouve difficile de comprendre les intentions des personnages",scoreIf:'agree'},
+    {id:8,text:"J'aime collectionner des informations sur des catégories de choses (types de voitures, d'oiseaux, de trains, de plantes, etc.)",scoreIf:'agree'},
+    {id:9,text:"Je trouve facile de comprendre ce que quelqu'un pense ou ressent juste en regardant son visage",scoreIf:'disagree'},
+    {id:10,text:"Je trouve difficile de comprendre les intentions des gens",scoreIf:'agree'}
+  ],
+  labels: ['Tout à fait d\'accord','Plutôt d\'accord','Plutôt pas d\'accord','Pas du tout d\'accord'],
+  values: [0,1,2,3]
+};
+
+const HSP = {
+  questions: [
+    {id:1,sub:'EOE',text:"Êtes-vous facilement submergé(e) par des stimuli sensoriels forts ?"},
+    {id:2,sub:'EOE',text:"Êtes-vous facilement submergé(e) quand beaucoup de choses se passent en même temps ?"},
+    {id:3,sub:'AES',text:"Êtes-vous profondément ému(e) par les arts ou la musique ?"},
+    {id:4,sub:'EOE',text:"Quand les gens sont mal à l'aise dans leur environnement physique, avez-vous tendance à savoir ce qu'il faut faire pour les rendre plus confortables ?"},
+    {id:5,sub:'LST',text:"Les bruits forts vous mettent-ils mal à l'aise ?"},
+    {id:6,sub:'EOE',text:"Votre système nerveux est-il parfois tellement sollicité que vous avez juste besoin de vous retirer seul(e) ?"},
+    {id:7,sub:'EOE',text:"Êtes-vous consciencieux(se) ?"},
+    {id:8,sub:'EOE',text:"Sursautez-vous facilement ?"},
+    {id:9,sub:'EOE',text:"Êtes-vous agité(e) quand vous avez beaucoup à faire en peu de temps ?"},
+    {id:10,sub:'EOE',text:"Êtes-vous contrarié(e) quand les gens essaient de vous faire faire trop de choses en même temps ?"},
+    {id:11,sub:'EOE',text:"Essayez-vous avec détermination d'éviter de faire des erreurs ou d'oublier des choses ?"},
+    {id:12,sub:'LST',text:"Faites-vous en sorte d'éviter les films et les émissions de télévision violents ?"},
+    {id:13,sub:'EOE',text:"Êtes-vous dérangé(e) quand il se passe beaucoup de choses autour de vous ?"},
+    {id:14,sub:'EOE',text:"Les changements dans votre vie vous bouleversent-ils ?"},
+    {id:15,sub:'AES',text:"Remarquez-vous et appréciez-vous les parfums délicats, les goûts, les sons, les œuvres d'art ?"},
+    {id:16,sub:'EOE',text:"Trouvez-vous désagréable d'avoir beaucoup de choses qui se passent en même temps ?"},
+    {id:17,sub:'EOE',text:"Donnez-vous la priorité à l'organisation de votre vie pour éviter les situations bouleversantes ou accablantes ?"},
+    {id:18,sub:'LST',text:"Êtes-vous gêné(e) par les stimuli intenses comme les bruits forts ou les scènes chaotiques ?"},
+    {id:19,sub:'EOE',text:"Quand vous devez rivaliser ou être observé(e) en accomplissant une tâche, devenez-vous si nerveux(se) que vous faites bien moins bien que vous le pourriez ?"},
+    {id:20,sub:'EOE',text:"Étiez-vous qualifié(e) de timide ou de sensible quand vous étiez enfant ?"},
+    {id:21,sub:'AES',text:"Avez-vous une vie intérieure riche et complexe ?"},
+    {id:22,sub:'EOE',text:"Êtes-vous fortement affecté(e) par la faim ?"},
+    {id:23,sub:'LST',text:"Êtes-vous particulièrement sensible aux effets de la caféine ?"},
+    {id:24,sub:'EOE',text:"Êtes-vous affecté(e) par l'humeur des autres ?"},
+    {id:25,sub:'LST',text:"Êtes-vous sensible à la douleur ?"},
+    {id:26,sub:'EOE',text:"Avez-vous besoin de vous retirer pendant les journées chargées, dans un endroit sombre ou intime, pour vous ressourcer ?"},
+    {id:27,sub:'EOE',text:"Êtes-vous facilement irrité(e) par les textures rugueuses, les lumières vives ou les odeurs fortes ?"}
+  ],
+  labels: ['Pas du tout','Très peu','Un peu','Modérément','Assez','Beaucoup','Tout à fait'],
+  values: [1,2,3,4,5,6,7]
+};
+
+const DYS = {
+  dimensions: {
+    LEX:{name:'Lecture (Dyslexie)',color:'#3b82f6',icon:'📖'},
+    ORT:{name:'Écriture (Dysorthographie)',color:'#8b5cf6',icon:'✏️'},
+    CAL:{name:'Calcul (Dyscalculie)',color:'#f59e0b',icon:'🔢'},
+    ORG:{name:'Organisation (Dyspraxie)',color:'#22c55e',icon:'📋'}
+  },
+  questions: [
+    {id:1,dim:'LEX',text:"J'ai des difficultés à lire à voix haute sans trébucher sur les mots"},
+    {id:2,dim:'LEX',text:"Je confonds des lettres visuellement proches (b/d, p/q, m/n)"},
+    {id:3,dim:'LEX',text:"Je perds ma place en lisant et je saute des lignes"},
+    {id:4,dim:'LEX',text:"La lecture me fatigue beaucoup plus que les autres activités"},
+    {id:5,dim:'LEX',text:"J'ai besoin de relire plusieurs fois un texte pour le comprendre"},
+    {id:6,dim:'ORT',text:"Je fais régulièrement des fautes d'orthographe, même sur des mots courants"},
+    {id:7,dim:'ORT',text:"J'ai du mal à écrire un texte structuré et organisé"},
+    {id:8,dim:'ORT',text:"Mon écriture manuscrite est difficile à relire"},
+    {id:9,dim:'ORT',text:"J'inverse fréquemment des lettres ou des syllabes en écrivant"},
+    {id:10,dim:'ORT',text:"J'ai des difficultés avec la ponctuation et la grammaire"},
+    {id:11,dim:'CAL',text:"J'ai des difficultés avec le calcul mental, même simple"},
+    {id:12,dim:'CAL',text:"Je confonds les signes mathématiques (+, -, ×, ÷) ou les opérations"},
+    {id:13,dim:'CAL',text:"J'ai du mal à estimer les quantités, les distances ou les durées"},
+    {id:14,dim:'CAL',text:"Les tableaux de chiffres et les statistiques me posent problème"},
+    {id:15,dim:'CAL',text:"J'ai des difficultés à retenir les tables de multiplication ou les formules"},
+    {id:16,dim:'ORG',text:"J'ai des difficultés à planifier et organiser mes tâches quotidiennes"},
+    {id:17,dim:'ORG',text:"Je suis maladroit(e) dans les gestes fins (boutonner, lacer, manipuler)"},
+    {id:18,dim:'ORG',text:"J'ai du mal à me repérer dans l'espace (orientation, lecture de plans)"},
+    {id:19,dim:'ORG',text:"J'ai des difficultés à gérer mon temps et je suis souvent en retard"},
+    {id:20,dim:'ORG',text:"J'ai du mal à suivre des instructions comportant plusieurs étapes"}
+  ],
+  labels: ['Jamais','Rarement','Parfois','Souvent','Très souvent'],
+  values: [0,1,2,3,4]
+};
+
+const DABROWSKI = {
+  dimensions: {
+    PSY:{name:'Psychomotrice',color:'#ef4444',icon:'🏃',desc:"Surplus d'énergie physique, agitation, besoin de mouvement"},
+    SEN:{name:'Sensuelle',color:'#f59e0b',icon:'👁️',desc:'Sensibilité sensorielle accrue'},
+    INT:{name:'Intellectuelle',color:'#3b82f6',icon:'💡',desc:'Curiosité intense, pensée complexe'},
+    IMA:{name:'Imaginaire',color:'#8b5cf6',icon:'🌈',desc:'Imagination riche, rêverie, créativité'},
+    EMO:{name:'Émotionnelle',color:'#ec4899',icon:'💗',desc:'Intensité émotionnelle, empathie profonde'}
+  },
+  questions: [
+    {id:1,dim:'PSY',text:"J'ai un surplus d'énergie physique et j'ai besoin de bouger fréquemment"},
+    {id:2,dim:'PSY',text:"Je parle vite et avec beaucoup de gestes"},
+    {id:3,dim:'PSY',text:"Je suis constamment en mouvement, je tapote des doigts ou je balance les jambes"},
+    {id:4,dim:'PSY',text:"J'ai du mal à rester immobile pendant de longues périodes"},
+    {id:5,dim:'PSY',text:"Quand je suis stressé(e), j'ai besoin d'activité physique pour me calmer"},
+    {id:6,dim:'PSY',text:"Je fais souvent plusieurs choses en même temps"},
+    {id:7,dim:'PSY',text:"J'ai besoin de très peu de sommeil comparé aux autres"},
+    {id:8,dim:'PSY',text:"Je suis impulsif(ve) dans mes actions"},
+    {id:9,dim:'PSY',text:"J'ai un rythme de travail intense et rapide"},
+    {id:10,dim:'PSY',text:"J'ai tendance à parler de manière compulsive quand un sujet m'intéresse"},
+    {id:11,dim:'SEN',text:"Je suis très sensible aux textures des vêtements ou des tissus"},
+    {id:12,dim:'SEN',text:"Certaines odeurs me procurent un plaisir ou un déplaisir très intense"},
+    {id:13,dim:'SEN',text:"J'apprécie profondément les expériences sensorielles (musique, nature, art)"},
+    {id:14,dim:'SEN',text:"Les bruits forts ou inattendus me dérangent beaucoup"},
+    {id:15,dim:'SEN',text:"Je suis très sensible à la beauté visuelle (couleurs, paysages, art)"},
+    {id:16,dim:'SEN',text:"La nourriture est une source de plaisir très importante pour moi"},
+    {id:17,dim:'SEN',text:"Le contact physique est très important dans ma vie"},
+    {id:18,dim:'SEN',text:"Je remarque des détails sensoriels que les autres ne perçoivent pas"},
+    {id:19,dim:'SEN',text:"Les lumières trop vives ou certains types d'éclairage me gênent"},
+    {id:20,dim:'SEN',text:"J'ai besoin de confort physique pour bien fonctionner"},
+    {id:21,dim:'INT',text:"J'ai un besoin intense de comprendre les choses en profondeur"},
+    {id:22,dim:'INT',text:"Je pose beaucoup de questions et je cherche toujours à en savoir plus"},
+    {id:23,dim:'INT',text:"Je suis passionné(e) par la résolution de problèmes complexes"},
+    {id:24,dim:'INT',text:"Je fais facilement des liens entre des domaines de connaissances différents"},
+    {id:25,dim:'INT',text:"Je suis frustré(e) quand je ne peux pas approfondir un sujet qui m'intéresse"},
+    {id:26,dim:'INT',text:"J'aime les discussions théoriques et conceptuelles"},
+    {id:27,dim:'INT',text:"Je remets en question les idées établies et l'autorité intellectuelle"},
+    {id:28,dim:'INT',text:"Je pense de manière analytique et j'aime classer les informations"},
+    {id:29,dim:'INT',text:"J'ai une grande concentration quand un sujet m'intéresse vraiment"},
+    {id:30,dim:'INT',text:"Je suis attiré(e) par la logique, les puzzles et les jeux de stratégie"},
+    {id:31,dim:'IMA',text:"J'ai une imagination très riche et vivante"},
+    {id:32,dim:'IMA',text:"Je rêvasse fréquemment, même quand je devrais me concentrer"},
+    {id:33,dim:'IMA',text:"J'invente facilement des histoires, des mondes ou des scénarios imaginaires"},
+    {id:34,dim:'IMA',text:"J'utilise souvent des métaphores et des analogies pour m'exprimer"},
+    {id:35,dim:'IMA',text:"Mes rêves nocturnes sont très vivants et détaillés"},
+    {id:36,dim:'IMA',text:"J'ai eu des amis imaginaires ou des mondes intérieurs complexes"},
+    {id:37,dim:'IMA',text:"Je visualise facilement des concepts abstraits"},
+    {id:38,dim:'IMA',text:"J'ai besoin de périodes de rêverie pour me ressourcer"},
+    {id:39,dim:'IMA',text:"Je fais preuve d'une grande créativité dans plusieurs domaines"},
+    {id:40,dim:'IMA',text:"J'ai tendance à mélanger réalité et imagination dans ma pensée"},
+    {id:41,dim:'EMO',text:"Je ressens les émotions de manière très intense"},
+    {id:42,dim:'EMO',text:"Je suis profondément touché(e) par l'injustice, même quand elle ne me concerne pas"},
+    {id:43,dim:'EMO',text:"Je développe des attachements très forts envers les personnes, les animaux ou les lieux"},
+    {id:44,dim:'EMO',text:"Je pleure facilement (de joie, de tristesse, d'émotion)"},
+    {id:45,dim:'EMO',text:"Je me sens souvent submergé(e) par mes émotions"},
+    {id:46,dim:'EMO',text:"Je ressens physiquement les émotions des autres"},
+    {id:47,dim:'EMO',text:"J'ai des réactions émotionnelles disproportionnées par rapport à la situation"},
+    {id:48,dim:'EMO',text:"Je me souviens longtemps des blessures émotionnelles"},
+    {id:49,dim:'EMO',text:"J'ai un sens de l'humour complexe et décalé"},
+    {id:50,dim:'EMO',text:"J'ai peur de l'abandon et j'ai besoin de réassurance dans mes relations"}
+  ],
+  labels: ['Pas du tout','Un peu','Modérément','Beaucoup','Tout à fait'],
+  values: [0,1,2,3,4]
+};
+
+// ============================================================
+// GENERIC LIKERT TEST ENGINE
+// ============================================================
+let activeTest = null;
+let testAnswers = {};
+let currentQ = 0;
+
+function startTest(testId) {
+  testAnswers = {};
+  currentQ = 0;
+  activeTest = testId;
+  navigateTo(testId + '-test');
+  renderTestQuestion();
+}
+
+function getTestConfig(testId) {
+  switch(testId) {
+    case 'asrs': return { data: ASRS, count: 18, labels: ASRS.labels, values: ASRS.values };
+    case 'aq10': return { data: AQ10, count: 10, labels: AQ10.labels, values: AQ10.values };
+    case 'hsp': return { data: HSP, count: 27, labels: HSP.labels, values: HSP.values };
+    case 'dys': return { data: DYS, count: 20, labels: DYS.labels, values: DYS.values };
+    case 'dabrowski': return { data: DABROWSKI, count: 50, labels: DABROWSKI.labels, values: DABROWSKI.values };
+  }
+}
+
+function renderTestQuestion() {
+  const cfg = getTestConfig(activeTest);
+  const meta = TESTS_META[activeTest];
+  const q = cfg.data.questions[currentQ];
+  const container = document.getElementById(activeTest + '-test-container');
+  const pct = ((currentQ) / cfg.count * 100).toFixed(0);
+  const selectedVal = testAnswers[currentQ];
+
+  let html = `
+    <div class="test-header">
+      <div class="test-title-badge">${meta.icon} ${meta.name}</div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <div class="test-counter">Question <span>${currentQ + 1}</span> / ${cfg.count}</div>
+        <button class="btn-quit" onclick="showQuitModal()">✕ Quitter</button>
+      </div>
+    </div>
+    <div class="progress-container"><div class="progress-bar" style="width:${pct}%"></div></div>
+    <div class="question-card">
+      <div class="q-number">Q${currentQ + 1}</div>
+      <div class="question-text">${q.text}</div>
+      <div class="likert-options">
+  `;
+  cfg.labels.forEach((label, i) => {
+    const sel = selectedVal === cfg.values[i] ? 'selected' : '';
+    html += `<button class="likert-btn ${sel}" onclick="selectAnswer(${cfg.values[i]})">
+      <div class="likert-dot"></div>
+      <span>${label}</span>
+    </button>`;
+  });
+  html += `</div></div>
+    <div class="test-nav">
+      <button class="btn-secondary" onclick="prevQuestion()" ${currentQ === 0 ? 'disabled style="opacity:0.4"' : ''}>← Précédent</button>
+      <button class="btn" onclick="nextQuestion()">${currentQ === cfg.count - 1 ? 'Voir les résultats →' : 'Suivant →'}</button>
+    </div>
+  `;
+  container.innerHTML = html;
+}
+
+function selectAnswer(val) {
+  testAnswers[currentQ] = val;
+  // Re-render to show selection
+  renderTestQuestion();
+}
+
+function nextQuestion() {
+  if (testAnswers[currentQ] === undefined) {
+    // Shake the question card
+    const card = document.querySelector('.question-card');
+    if (card) { card.style.animation = 'none'; card.offsetHeight; card.style.animation = 'shake .4s'; }
+    return;
+  }
+  const cfg = getTestConfig(activeTest);
+  if (currentQ < cfg.count - 1) {
+    currentQ++;
+    renderTestQuestion();
+  } else {
+    finishTest();
+  }
+}
+
+function prevQuestion() {
+  if (currentQ > 0) {
+    currentQ--;
+    renderTestQuestion();
+  }
+}
+
+function showQuitModal() { document.getElementById('quit-modal').classList.add('show'); }
+function closeQuitModal() { document.getElementById('quit-modal').classList.remove('show'); }
+function confirmQuit() {
+  closeQuitModal();
+  activeTest = null;
+  testAnswers = {};
+  navigateTo('home');
+}
+
+// ============================================================
+// FINISH & SCORING
+// ============================================================
+function finishTest() {
+  const testId = activeTest;
+  let results = {};
+  switch(testId) {
+    case 'asrs': results = scoreASRS(); break;
+    case 'aq10': results = scoreAQ10(); break;
+    case 'hsp': results = scoreHSP(); break;
+    case 'dys': results = scoreDYS(); break;
+    case 'dabrowski': results = scoreDABROWSKI(); break;
+  }
+  results.date = new Date().toISOString();
+  results.answers = { ...testAnswers };
+  localStorage.setItem('neuroProfile_' + testId, JSON.stringify(results));
+  saveToFirebase(testId, results);
+  renderResults(testId, results);
+  navigateTo(testId + '-results');
+  renderHomeCards();
+  updateDiagProgress();
+}
+
+// --- ASRS Scoring ---
+function scoreASRS() {
+  const qs = ASRS.questions;
+  let partACount = 0;
+  let iaScore = 0, hiScore = 0;
+  qs.forEach((q, i) => {
+    const val = testAnswers[i] || 0;
+    if (q.dim === 'IA') iaScore += val;
+    if (q.dim === 'HI') hiScore += val;
+    if (q.part === 'A') {
+      if (val >= q.threshold) partACount++;
+    }
+  });
+  let risk = 'Risque faible';
+  let riskClass = 'risk-low';
+  if (partACount >= 4) { risk = 'Risque élevé'; riskClass = 'risk-high'; }
+  else if (partACount >= 2) { risk = 'Risque modéré'; riskClass = 'risk-moderate'; }
+  return { partACount, iaScore, hiScore, iaMax: 36, hiMax: 36, risk, riskClass, totalPartA: 6 };
+}
+
+// --- AQ10 Scoring ---
+function scoreAQ10() {
+  let score = 0;
+  AQ10.questions.forEach((q, i) => {
+    const val = testAnswers[i];
+    if (q.scoreIf === 'agree' && val <= 1) score++;
+    if (q.scoreIf === 'disagree' && val >= 2) score++;
+  });
+  const threshold = score >= 6;
+  return { score, max: 10, threshold };
+}
+
+// --- HSP Scoring ---
+function scoreHSP() {
+  let total = 0;
+  let countHigh = 0;
+  const subScores = { EOE: { sum: 0, count: 0 }, AES: { sum: 0, count: 0 }, LST: { sum: 0, count: 0 } };
+  HSP.questions.forEach((q, i) => {
+    const val = testAnswers[i] || 1;
+    total += val;
+    if (val >= 4) countHigh++;
+    const sub = q.sub || 'EOE';
+    subScores[sub].sum += val;
+    subScores[sub].count++;
+  });
+  const isHSP = countHigh >= 14;
+  let level = 'Faible';
+  if (countHigh >= 20) level = 'Très haute';
+  else if (countHigh >= 14) level = 'Haute';
+  else if (countHigh >= 8) level = 'Modérée';
+  const subPct = {};
+  Object.keys(subScores).forEach(k => {
+    subPct[k] = Math.round((subScores[k].sum / (subScores[k].count * 7)) * 100);
+  });
+  return { total, max: 189, countHigh, isHSP, level, subPct, subCounts: subScores };
+}
+
+// --- DYS Scoring ---
+function scoreDYS() {
+  const dimScores = { LEX: 0, ORT: 0, CAL: 0, ORG: 0 };
+  DYS.questions.forEach((q, i) => {
+    dimScores[q.dim] += (testAnswers[i] || 0);
+  });
+  const dimMax = 20;
+  const risks = {};
+  Object.keys(dimScores).forEach(k => {
+    const s = dimScores[k];
+    if (s >= 15) risks[k] = { level: 'Risque élevé', cls: 'risk-high' };
+    else if (s >= 10) risks[k] = { level: 'Risque modéré', cls: 'risk-moderate' };
+    else risks[k] = { level: 'Risque faible', cls: 'risk-low' };
+  });
+  return { dimScores, dimMax, risks };
+}
+
+// --- Dabrowski Scoring ---
+function scoreDABROWSKI() {
+  const dimScores = { PSY: 0, SEN: 0, INT: 0, IMA: 0, EMO: 0 };
+  DABROWSKI.questions.forEach((q, i) => {
+    dimScores[q.dim] += (testAnswers[i] || 0);
+  });
+  const dimMax = 40;
+  const pcts = {};
+  let dominant = null, maxPct = 0;
+  Object.keys(dimScores).forEach(k => {
+    pcts[k] = Math.round((dimScores[k] / dimMax) * 100);
+    if (pcts[k] > maxPct) { maxPct = pcts[k]; dominant = k; }
+  });
+  return { dimScores, dimMax, pcts, dominant };
+}
+
+// ============================================================
+// RENDER RESULTS
+// ============================================================
+function renderResults(testId, results) {
+  const container = document.getElementById(testId + '-results-container');
+  const meta = TESTS_META[testId];
+  let html = `<h2>${meta.icon} Résultats — ${meta.name}</h2><p class="results-subtitle">Analyse de vos réponses</p>`;
+
+  switch(testId) {
+    case 'asrs': html += renderASRSResults(results); break;
+    case 'aq10': html += renderAQ10Results(results); break;
+    case 'hsp': html += renderHSPResults(results); break;
+    case 'dys': html += renderDYSResults(results); break;
+    case 'dabrowski': html += renderDABROWSKIResults(results); break;
+  }
+
+  // Share row
+  html += `<div class="share-row">
+    <button class="share-btn share-whatsapp" onclick="shareResults('${testId}','whatsapp')">📱 WhatsApp</button>
+    <button class="share-btn share-email" onclick="shareResults('${testId}','email')">📧 Email</button>
+    <button class="share-btn share-copy" onclick="shareResults('${testId}','copy')">📋 Copier</button>
+  </div>`;
+
+  // Disclaimer
+  html += `<div class="disclaimer">⚠️ <strong>Avertissement :</strong> Ce test est un outil d'auto-évaluation à visée informative et éducative. Il ne constitue en aucun cas un diagnostic médical. Seul un professionnel de santé qualifié (psychologue, psychiatre, neuropsychologue) peut poser un diagnostic. Consultez un spécialiste si vos résultats vous interpellent.</div>`;
+
+  // Buttons
+  html += `<div style="display:flex;gap:12px;justify-content:center;margin-top:20px;flex-wrap:wrap">
+    <button class="btn-secondary" onclick="navigateTo('home')">← Accueil</button>
+    <button class="btn" onclick="navigateTo('${testId}-intro')">🔄 Refaire le test</button>
+  </div>`;
+
+  container.innerHTML = html;
+
+  // Draw canvas charts if needed
+  if (testId === 'dabrowski') {
+    setTimeout(() => drawDabrowskiRadar(results), 200);
+  }
+}
+
+function renderASRSResults(r) {
+  const iaPct = (r.iaScore/r.iaMax*100).toFixed(0);
+  const hiPct = (r.hiScore/r.hiMax*100).toFixed(0);
+  let html = `
+    <div class="result-card">
+      <h3>💡 Comprendre ce test</h3>
+      <p style="font-size:0.9em;color:var(--text2);line-height:1.7">
+        Le TDAH (Trouble Déficit de l'Attention avec ou sans Hyperactivité) touche environ <strong>5% des adultes</strong>.
+        Il se manifeste principalement de deux façons : des <strong>difficultés d'attention</strong> (oublis fréquents, difficulté à se concentrer, tendance à la procrastination)
+        et de l'<strong>hyperactivité/impulsivité</strong> (agitation, difficulté à rester en place, tendance à couper la parole).
+        Chaque personne présente un mélange unique de ces deux dimensions.
+        Ce test de dépistage (ASRS) a été développé avec l'OMS. Il ne pose pas de diagnostic, mais il permet d'identifier si une évaluation approfondie par un professionnel serait pertinente.
+      </p>
+    </div>
+    <div class="result-card" style="text-align:center">
+      <h3>🎯 Résultat du dépistage (Partie A)</h3>
+      <div class="risk-badge ${r.riskClass}">${r.risk}</div>
+      <p>Score Partie A : <strong>${r.partACount} / ${r.totalPartA}</strong> critères atteints</p>
+      <p style="font-size:0.9em;color:var(--text2);line-height:1.7;margin-top:10px">
+        ${r.partACount >= 4 ?
+          'Les 6 questions de la Partie A sont les plus prédictives du TDAH chez l\'adulte. Avec <strong>' + r.partACount + ' critères atteints sur 6</strong>, votre profil correspond au seuil de dépistage. Cela ne veut pas dire que vous avez forcément un TDAH, mais qu\'il serait judicieux d\'en parler à un professionnel (psychiatre, neuropsychologue) pour faire un bilan complet. Beaucoup de personnes découvrent leur TDAH à l\'âge adulte et trouvent un vrai soulagement en comprenant enfin leur fonctionnement.' :
+          r.partACount >= 2 ?
+          'Vous avez <strong>' + r.partACount + ' critères sur 6</strong>. Ce n\'est pas suffisant pour atteindre le seuil de dépistage, mais certains symptômes sont bien présents dans votre quotidien. Si ces difficultés vous gênent au travail, dans vos études ou dans votre vie personnelle, une consultation pourrait vous aider à mieux comprendre votre fonctionnement, même sans diagnostic formel de TDAH.' :
+          'Avec <strong>' + r.partACount + ' critère(s) sur 6</strong>, votre profil ne correspond pas au seuil de dépistage du TDAH. Les difficultés que vous avez pu noter sont probablement ponctuelles ou liées à d\'autres facteurs (stress, fatigue, charge mentale). Si toutefois vous ressentez un décalage persistant, n\'hésitez pas à en parler à un professionnel.'}
+      </p>
+    </div>
+    <div class="result-card">
+      <h3>📊 Vos deux dimensions</h3>
+      <p style="font-size:0.88em;color:var(--text2);margin-bottom:12px;line-height:1.6">Le TDAH s'exprime à travers deux grandes familles de symptômes. Voici comment ils se répartissent chez vous :</p>
+      <div class="bar-chart">
+        <div class="bar-row">
+          <div class="bar-label">🧠 Inattention</div>
+          <div class="bar-track"><div class="bar-fill" style="width:${iaPct}%;background:#3b82f6"></div></div>
+          <div class="bar-value">${r.iaScore}/${r.iaMax}</div>
+        </div>
+        <div class="bar-row">
+          <div class="bar-label">⚡ Hyperactivité</div>
+          <div class="bar-track"><div class="bar-fill" style="width:${hiPct}%;background:#ef4444"></div></div>
+          <div class="bar-value">${r.hiScore}/${r.hiMax}</div>
+        </div>
+      </div>
+      <div style="margin-top:12px;padding:12px;background:rgba(0,0,0,0.03);border-radius:10px;border-left:3px solid ${r.iaScore > r.hiScore ? '#3b82f6' : r.hiScore > r.iaScore ? '#ef4444' : '#a855f7'}">
+        ${r.iaScore > r.hiScore ?
+          '<p style="margin-bottom:6px"><strong>↗️ Profil à prédominance inattentive</strong></p><p style="font-size:0.88em;color:var(--text2);line-height:1.6">Votre profil penche davantage vers l\'inattention. Concrètement, cela peut se traduire par : des oublis fréquents, une tendance à rêvasser, des difficultés à terminer ce qu\'on commence, une sensibilité aux distractions, ou encore une difficulté à s\'organiser au quotidien. Ce sous-type est souvent moins visible que le type hyperactif, car il ne "dérange" pas — ce qui explique qu\'il soit souvent diagnostiqué plus tard.</p>' :
+          r.hiScore > r.iaScore ?
+          '<p style="margin-bottom:6px"><strong>↗️ Profil à prédominance hyperactive-impulsive</strong></p><p style="font-size:0.88em;color:var(--text2);line-height:1.6">Votre profil penche davantage vers l\'hyperactivité et l\'impulsivité. Cela peut se manifester par : une agitation intérieure ou physique, le besoin de toujours faire quelque chose, une tendance à couper la parole, des décisions prises sur un coup de tête, ou une difficulté à attendre son tour. Chez l\'adulte, l\'hyperactivité est souvent moins "visible" qu\'elle ne l\'était enfant — elle se transforme en agitation intérieure, impatience, ou besoin permanent de stimulation.</p>' :
+          '<p style="margin-bottom:6px"><strong>↔️ Profil mixte (inattention + hyperactivité)</strong></p><p style="font-size:0.88em;color:var(--text2);line-height:1.6">Vous présentez un mélange équilibré des deux dimensions. Cela signifie que vous pouvez alterner entre des moments de distraction et de rêverie, et des moments d\'agitation ou d\'impulsivité. Ce profil combiné est le plus fréquent chez les adultes avec TDAH. La bonne nouvelle : en comprenant ces deux facettes, vous pouvez mettre en place des stratégies adaptées à chaque situation.</p>'}
+      </div>
+    </div>
+    <div class="result-card">
+      <h3>📋 Détail Partie A (6 questions de dépistage)</h3>`;
+  ASRS.questions.filter(q => q.part === 'A').forEach((q, i) => {
+    const val = r.answers[i] || 0;
+    const passed = val >= q.threshold;
+    html += `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px dashed #eee">
+      <span style="font-size:1.2em">${passed ? '🔴' : '🟢'}</span>
+      <span style="font-size:0.85em;color:var(--text2);flex:1">Q${q.id}: ${q.text.substring(0, 60)}...</span>
+      <span style="font-family:var(--doodle);font-weight:600">${ASRS.labels[val]}</span>
+    </div>`;
+  });
+  html += '</div>';
+  return html;
+}
+
+function renderAQ10Results(r) {
+  const pct = (r.score / r.max * 100).toFixed(0);
+  const color = r.threshold ? 'var(--danger)' : 'var(--success)';
+  return `
+    <div class="result-card">
+      <h3>💡 Comprendre ce test</h3>
+      <p style="font-size:0.9em;color:var(--text2);line-height:1.7">
+        Le spectre autistique (TSA) est une façon différente de percevoir et d'interagir avec le monde.
+        Il ne s'agit pas d'une maladie, mais d'un <strong>fonctionnement neurologique particulier</strong> qui touche environ 1 à 2% de la population.
+        Les personnes autistes peuvent avoir des <strong>centres d'intérêt très intenses</strong>, une <strong>sensibilité sensorielle</strong> différente,
+        et une façon de communiquer qui ne correspond pas toujours aux codes sociaux habituels.
+        L'AQ-10 est un test de dépistage rapide en 10 questions. Il repère certains traits fréquemment associés à l'autisme,
+        mais seule une évaluation complète par un spécialiste (neuropsychologue, psychiatre spécialisé) peut poser un diagnostic.
+      </p>
+    </div>
+    <div class="result-card" style="text-align:center">
+      <h3>🎯 Score AQ-10</h3>
+      <div class="gauge-container">
+        <div class="gauge-circle" style="border-color:${color}">
+          <div class="gauge-num" style="color:${color}">${r.score}</div>
+          <div class="gauge-max">/ ${r.max}</div>
+        </div>
+      </div>
+      <div class="risk-badge ${r.threshold ? 'risk-high' : 'risk-low'}">
+        ${r.threshold ? 'Évaluation spécialisée recommandée' : 'Sous le seuil de dépistage'}
+      </div>
+      <p style="margin-top:10px">Le seuil de dépistage est de <strong>6/10</strong>.</p>
+      <p style="font-size:0.9em;color:var(--text2);line-height:1.7;margin-top:10px">
+        ${r.threshold ?
+          'Avec un score de <strong>' + r.score + '/10</strong>, plusieurs traits associés au spectre autistique semblent présents dans votre fonctionnement quotidien. Cela peut se traduire par exemple par une difficulté à décoder les intentions des autres, un besoin de routines, une sensibilité aux environnements bruyants ou stimulants, ou encore des passions très intenses. <strong>Ce score ne signifie pas que vous êtes autiste</strong>, mais il suggère qu\'une évaluation approfondie par un professionnel spécialisé pourrait vous aider à mieux comprendre votre fonctionnement. Beaucoup d\'adultes découvrent tardivement qu\'ils sont sur le spectre, et cette découverte est souvent un soulagement qui permet de mieux se connaître.' :
+          'Avec un score de <strong>' + r.score + '/10</strong>, votre profil se situe en dessous du seuil de dépistage. Cela signifie que les traits autistiques repérés par ce test rapide sont peu nombreux ou peu marqués dans votre quotidien. Toutefois, ce test ne couvre pas tous les aspects de l\'autisme — il n\'évalue que 10 dimensions parmi beaucoup d\'autres. Si vous ressentez un décalage persistant avec les autres, des difficultés dans les interactions sociales, ou une hypersensibilité sensorielle qui vous gêne, une évaluation complète reste toujours possible et utile.'}
+      </p>
+    </div>
+    <div class="result-card">
+      <h3>📊 Répartition des réponses</h3>
+      <div class="bar-chart">
+        <div class="bar-row">
+          <div class="bar-label">Traits détectés</div>
+          <div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${color}"></div></div>
+          <div class="bar-value">${r.score}/${r.max}</div>
+        </div>
+      </div>
+      <p style="font-size:0.88em;color:var(--text2);margin-top:10px;line-height:1.6">
+        Chaque point correspond à une réponse indiquant un trait fréquemment observé chez les personnes autistes : préférence pour les activités solitaires, difficulté avec les conversations de groupe, attention aux détails, difficulté à interpréter les émotions des autres, etc.
+      </p>
+    </div>`;
+}
+
+function renderHSPResults(r) {
+  const pct = (r.total / r.max * 100).toFixed(0);
+  const levelColor = r.level === 'Très haute' || r.level === 'Haute' ? 'var(--accent)' : r.level === 'Modérée' ? 'var(--warning)' : 'var(--success)';
+  const subNames = { EOE: 'Facilité d\'excitation', AES: 'Sensibilité esthétique', LST: 'Seuil sensoriel bas' };
+  const subColors = { EOE: '#6c5ce7', AES: '#00b894', LST: '#e17055' };
+  let html = `
+    <div class="result-card">
+      <h3>💡 Comprendre ce test</h3>
+      <p style="font-size:0.9em;color:var(--text2);line-height:1.7">
+        L'hypersensibilité (ou haute sensibilité) n'est <strong>ni une maladie, ni un trouble</strong> — c'est un trait de tempérament présent chez environ <strong>15 à 20% de la population</strong>.
+        Les personnes hautement sensibles perçoivent leur environnement de manière plus intense : les sons, les lumières, les émotions des autres, les ambiances...
+        Elles traitent les informations plus en profondeur, ce qui est à la fois une <strong>grande richesse</strong> (empathie, créativité, attention aux détails) et une source potentielle de <strong>fatigue ou de surcharge</strong>.
+        Ce test, basé sur l'échelle HSP d'Elaine Aron, évalue votre sensibilité à travers 3 dimensions complémentaires.
+      </p>
+    </div>
+    <div class="result-card" style="text-align:center">
+      <h3>🌿 Niveau de sensibilité</h3>
+      <div class="score-big" style="color:${levelColor}">${r.total}</div>
+      <p style="font-family:var(--doodle);font-size:1.1em;color:var(--text2)">sur ${r.max} points</p>
+      <div class="risk-badge" style="background:rgba(108,92,231,0.1);color:${levelColor};border:2px dashed ${levelColor}">
+        Sensibilité ${r.level}
+      </div>
+      <p style="margin-top:10px;font-size:0.9em;color:var(--text2);line-height:1.7;text-align:left">
+        ${r.isHSP ?
+          'Avec <strong>' + r.countHigh + ' items sur 27 à intensité élevée</strong>, votre profil correspond à celui d\'une personne hautement sensible (HSP). Cela signifie que votre système nerveux capte et traite davantage d\'informations que la moyenne. Vous êtes probablement très réceptif(ve) aux ambiances, aux émotions des autres, et aux détails que beaucoup ne remarquent pas. C\'est une qualité précieuse — mais qui demande aussi de savoir se protéger de la surstimulation. Prévoir des moments de calme, limiter les environnements trop stimulants et s\'écouter sont des clés essentielles pour bien vivre sa haute sensibilité.' :
+          r.level === 'Modérée' ?
+          'Avec <strong>' + r.countHigh + ' items sur 27 à intensité élevée</strong>, votre sensibilité se situe dans une zone intermédiaire. Vous n\'êtes probablement pas "hypersensible" au sens classique du terme, mais vous êtes clairement plus réceptif(ve) que la moyenne dans certaines situations. Certains environnements ou émotions vous touchent davantage, tandis que d\'autres vous laissent relativement serein(e). Identifiez vos "zones sensibles" pour mieux anticiper les moments de fatigue.' :
+          'Votre profil ne correspond pas au seuil de haute sensibilité classique. Cela signifie que votre système nerveux filtre naturellement une bonne partie des stimulations environnantes. Vous êtes probablement à l\'aise dans des environnements animés ou bruyants sans ressentir de surcharge particulière. C\'est un atout dans de nombreuses situations, même si cela peut parfois rendre plus difficile la compréhension de personnes plus sensibles autour de vous.'}
+      </p>
+    </div>
+    <div class="result-card">
+      <h3>📊 Vos 3 facettes de sensibilité</h3>
+      <p style="font-size:0.88em;color:var(--text2);margin-bottom:12px;line-height:1.6">La haute sensibilité n'est pas un bloc unique — elle s'exprime différemment selon les personnes. Voici vos 3 dimensions :</p>
+      <div class="bar-chart">`;
+  ['EOE','AES','LST'].forEach(k => {
+    html += `<div class="bar-row">
+      <div class="bar-label">${subNames[k]}</div>
+      <div class="bar-track"><div class="bar-fill" style="width:${r.subPct[k]}%;background:${subColors[k]}"></div></div>
+      <div class="bar-value">${r.subPct[k]}%</div>
+    </div>`;
+  });
+  html += `</div>
+      <div style="margin-top:12px;display:grid;gap:10px">
+        <div style="padding:10px;background:rgba(108,92,231,0.06);border-radius:10px;border-left:3px solid #6c5ce7">
+          <strong style="color:#6c5ce7">Facilité d'excitation (EOE)</strong> — ${r.subPct.EOE >= 60 ? 'Score élevé' : r.subPct.EOE >= 35 ? 'Score modéré' : 'Score faible'}
+          <p style="font-size:0.85em;color:var(--text2);margin-top:4px;line-height:1.6">
+            ${r.subPct.EOE >= 60 ?
+              'Vous êtes facilement submergé(e) quand il y a trop de choses à gérer en même temps. Les journées très remplies, les environnements agités ou les changements brutaux peuvent vous fatiguer rapidement. Ce n\'est pas de la faiblesse : votre cerveau traite simplement plus d\'informations en parallèle.' :
+              r.subPct.EOE >= 35 ?
+              'Vous gérez plutôt bien la plupart des situations, mais certaines situations de surcharge (deadline, foule, multitâche intense) peuvent vous atteindre plus qu\'elles n\'atteignent d\'autres personnes.' :
+              'La surstimulation ne vous pose pas de problème majeur. Vous arrivez généralement à rester concentré(e) et serein(e) même dans des situations intenses ou agitées.'}
+          </p>
+        </div>
+        <div style="padding:10px;background:rgba(0,184,148,0.06);border-radius:10px;border-left:3px solid #00b894">
+          <strong style="color:#00b894">Sensibilité esthétique (AES)</strong> — ${r.subPct.AES >= 60 ? 'Score élevé' : r.subPct.AES >= 35 ? 'Score modéré' : 'Score faible'}
+          <p style="font-size:0.85em;color:var(--text2);margin-top:4px;line-height:1.6">
+            ${r.subPct.AES >= 60 ?
+              'La beauté, l\'art, la musique et la nature vous touchent profondément. Vous pouvez être ému(e) aux larmes par un morceau de musique, un paysage ou une oeuvre d\'art. Cette sensibilité esthétique est un vrai cadeau — elle enrichit considérablement votre vie intérieure et votre capacité à apprécier le monde.' :
+              r.subPct.AES >= 35 ?
+              'Vous appréciez la beauté et l\'art, mais de façon mesurée. Certaines oeuvres ou moments de beauté vous touchent plus que d\'autres, sans que cela soit systématiquement intense.' :
+              'L\'esthétique et l\'art ne provoquent pas chez vous de réactions émotionnelles particulièrement intenses. Vous les appréciez, mais ils ne vous bouleversent pas.'}
+          </p>
+        </div>
+        <div style="padding:10px;background:rgba(225,112,85,0.06);border-radius:10px;border-left:3px solid #e17055">
+          <strong style="color:#e17055">Seuil sensoriel bas (LST)</strong> — ${r.subPct.LST >= 60 ? 'Score élevé' : r.subPct.LST >= 35 ? 'Score modéré' : 'Score faible'}
+          <p style="font-size:0.85em;color:var(--text2);margin-top:4px;line-height:1.6">
+            ${r.subPct.LST >= 60 ?
+              'Vos sens sont particulièrement réactifs. Les bruits forts, les lumières vives, les textures désagréables ou certaines odeurs peuvent vous déranger plus que la plupart des gens. C\'est lié à un seuil de détection sensoriel plus bas que la moyenne — vous percevez ce que d\'autres ne remarquent même pas. Des écouteurs anti-bruit, un éclairage tamisé ou des vêtements confortables peuvent vraiment faire la différence.' :
+              r.subPct.LST >= 35 ?
+              'Vous avez une sensibilité sensorielle modérée. Certains stimuli (bruits, lumières, odeurs) peuvent vous gêner dans des situations spécifiques, mais globalement vous gérez bien les environnements sensoriels variés.' :
+              'Votre seuil sensoriel est plutôt élevé. Les bruits, lumières et autres stimulations physiques ne vous dérangent que rarement. Vous êtes à l\'aise dans la plupart des environnements.'}
+          </p>
+        </div>
+      </div>
+    </div>`;
+  return html;
+}
+
+function renderDYSResults(r) {
+  let html = `
+    <div class="result-card">
+      <h3>💡 Comprendre ce test</h3>
+      <p style="font-size:0.9em;color:var(--text2);line-height:1.7">
+        Les troubles "dys" (dyslexie, dysorthographie, dyscalculie, dyspraxie) sont des <strong>troubles des apprentissages</strong> d'origine neurologique.
+        Ils ne sont pas liés à l'intelligence — on peut être très intelligent et avoir une dyslexie.
+        Ils concernent des <strong>compétences spécifiques</strong> : lire, écrire, compter, s'organiser dans l'espace ou coordonner ses gestes.
+        On estime que <strong>6 à 8% de la population</strong> est concernée, souvent sans le savoir.
+        Ce test explore 4 domaines. Un score élevé ne signifie pas que vous avez un trouble dys — seul un bilan complet (orthophoniste, neuropsychologue, psychomotricien) peut le confirmer.
+        Mais il peut vous aider à identifier des zones de difficulté qui méritent attention.
+      </p>
+    </div>`;
+  html += `<div class="result-card"><h3>📊 Vue d'ensemble</h3><p style="font-size:0.88em;color:var(--text2);margin-bottom:12px;line-height:1.6">Voici vos scores dans les 4 grands domaines des troubles dys. Plus la barre est haute, plus les difficultés rapportées sont importantes.</p><div class="bar-chart">`;
+  Object.keys(DYS.dimensions).forEach(k => {
+    const dim = DYS.dimensions[k];
+    const score = r.dimScores[k];
+    const pct = (score / r.dimMax * 100).toFixed(0);
+    html += `<div class="bar-row">
+      <div class="bar-label">${dim.icon} ${dim.name.split('(')[0].trim()}</div>
+      <div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${dim.color}"></div></div>
+      <div class="bar-value">${score}/${r.dimMax}</div>
+    </div>`;
+  });
+  html += `</div></div>`;
+
+  // Risk cards with enriched descriptions
+  const descsEnriched = {
+    LEX: {
+      high: "Vos réponses indiquent des <strong>difficultés importantes en lecture</strong>. Cela peut se manifester par une lecture lente, des confusions de lettres ou de mots, des difficultés à comprendre un texte long, ou le besoin de relire plusieurs fois. La dyslexie touche environ 5% de la population et se compense très bien avec les bonnes stratégies. Un <strong>bilan orthophonique</strong> permettrait de poser un diagnostic clair et d'accéder à des aménagements (temps supplémentaire aux examens, outils numériques, méthodes adaptées).",
+      mod: "Certaines <strong>difficultés de lecture</strong> ressortent de vos réponses. Elles ne sont peut-être pas handicapantes au quotidien, mais elles peuvent ralentir votre apprentissage ou générer une fatigue supplémentaire lors de tâches de lecture prolongée. Si vous sentez que la lecture vous demande plus d'effort qu'aux autres, un bilan pourrait être utile pour identifier d'éventuelles compensations que vous mettez en place sans le savoir.",
+      low: "La lecture ne semble pas être une zone de difficulté particulière pour vous. Vous décodez et comprenez les textes sans effort notable. C'est un bon signe pour ce domaine."
+    },
+    ORT: {
+      high: "Vos réponses suggèrent des <strong>difficultés marquées en écriture</strong>. Cela peut concerner l'orthographe (erreurs persistantes malgré les efforts), la grammaire, l'organisation des idées à l'écrit, ou même le geste d'écriture lui-même. La dysorthographie accompagne souvent la dyslexie mais peut aussi exister seule. Un <strong>bilan orthophonique</strong> vous donnerait une vision claire et des pistes concrètes : correcteurs orthographiques, dictée vocale, méthodes de relecture structurée.",
+      mod: "Quelques <strong>difficultés d'écriture</strong> sont présentes. L'orthographe ou l'expression écrite vous demandent peut-être plus d'attention que la moyenne. Si ces difficultés vous gênent dans votre vie quotidienne ou professionnelle, un bilan permettrait de vérifier s'il existe un trouble sous-jacent et de vous proposer des outils adaptés.",
+      low: "L'écriture ne semble pas poser de problème particulier dans votre quotidien. Vous maîtrisez l'orthographe et l'expression écrite de façon satisfaisante."
+    },
+    CAL: {
+      high: "Vos réponses indiquent des <strong>difficultés significatives avec les nombres et le calcul</strong>. Cela peut se traduire par des confusions entre les chiffres, des difficultés avec le calcul mental, les notions d'espace et de temps, ou l'estimation des grandeurs. La dyscalculie touche environ 3 à 6% de la population et est encore peu connue. Un <strong>bilan neuropsychologique</strong> permettrait de mieux cerner ces difficultés et d'identifier des stratégies adaptées (supports visuels, calculatrice, applications dédiées).",
+      mod: "Certaines <strong>difficultés avec les nombres</strong> ressortent de vos réponses. Le calcul mental, les estimations ou la gestion des chiffres vous demandent peut-être un effort supplémentaire. Si cela vous gêne au quotidien (gestion du budget, courses, travail), un bilan pourrait être éclairant.",
+      low: "Les mathématiques et le calcul ne semblent pas être une zone de difficulté pour vous. Vous manipulez les chiffres avec aisance."
+    },
+    ORG: {
+      high: "Vos réponses révèlent des <strong>difficultés importantes d'organisation, de coordination ou de repérage dans l'espace</strong>. Cela peut concerner la maladresse dans les gestes, la difficulté à s'orienter, le rangement, la planification ou la coordination des mouvements. La dyspraxie (ou trouble de la coordination) affecte environ 5 à 6% des enfants, et persiste souvent à l'âge adulte. Un <strong>bilan psychomoteur</strong> vous aiderait à mieux comprendre ces difficultés et à mettre en place des aménagements pratiques.",
+      mod: "Quelques <strong>difficultés d'organisation ou de coordination</strong> sont présentes. Vous pouvez par exemple avoir du mal à planifier vos tâches, être maladroit(e) dans certaines activités manuelles, ou vous perdre facilement. Si ces difficultés impactent votre quotidien, un bilan pourrait vous apporter des pistes concrètes.",
+      low: "L'organisation et la coordination ne semblent pas poser de difficulté particulière. Vous vous repérez bien dans l'espace et coordonnez vos gestes sans problème notable."
+    }
+  };
+
+  Object.keys(DYS.dimensions).forEach(k => {
+    const dim = DYS.dimensions[k];
+    const risk = r.risks[k];
+    const score = r.dimScores[k];
+    const desc = score >= 15 ? descsEnriched[k].high : score >= 10 ? descsEnriched[k].mod : descsEnriched[k].low;
+    html += `<div class="result-card">
+      <h3>${dim.icon} ${dim.name}</h3>
+      <div class="risk-badge ${risk.cls}">${risk.level}</div>
+      <p style="font-size:0.9em;color:var(--text2);line-height:1.7;margin-top:8px">${desc}</p>
+    </div>`;
+  });
+  return html;
+}
+
+function renderDABROWSKIResults(r) {
+  const dims = DABROWSKI.dimensions;
+  const domDim = dims[r.dominant];
+  let html = `
+    <div class="result-card">
+      <h3>💡 Comprendre ce test</h3>
+      <p style="font-size:0.9em;color:var(--text2);line-height:1.7">
+        Les surexcitabilités de Dabrowski décrivent des <strong>intensités particulières</strong> dans la façon de vivre et de ressentir le monde.
+        Ce concept, développé par le psychiatre polonais Kazimierz Dabrowski, est souvent associé aux personnes à <strong>haut potentiel</strong> (HPI/HPE),
+        mais il concerne plus largement toute personne qui vit certaines choses "plus fort" que la moyenne.
+        Ce n'est pas un trouble — c'est une <strong>caractéristique de fonctionnement</strong>.
+        Chacun possède les 5 surexcitabilités à des degrés différents. Celles qui sont les plus développées chez vous expliquent en grande partie
+        ce qui vous passionne, ce qui vous fatigue, et ce qui vous rend unique.
+        Bien comprises et bien canalisées, ces intensités sont de véritables <strong>super-pouvoirs</strong>.
+      </p>
+    </div>
+    <div class="result-card" style="text-align:center">
+      <h3>🏆 Votre surexcitabilité dominante</h3>
+      <div style="font-size:3em;margin:8px 0">${domDim.icon}</div>
+      <div style="font-family:var(--doodle);font-size:1.6em;color:${domDim.color}">${domDim.name}</div>
+      <p style="margin-top:8px;font-size:0.9em;color:var(--text2);line-height:1.6">${domDim.desc}</p>
+      <p style="margin-top:10px;font-size:0.9em;color:var(--text2);line-height:1.7;text-align:left">
+        ${r.dominant === 'PSY' ? 'Votre intensité dominante est <strong>physique et motrice</strong>. Vous avez probablement toujours eu besoin de bouger, d\'agir, de faire. Le repos prolongé vous pèse, et vous vous sentez le mieux quand vous êtes en mouvement ou en train d\'accomplir quelque chose de concret. Cette énergie est un moteur incroyable — mais attention à ne pas vous épuiser en oubliant de recharger vos batteries.' :
+          r.dominant === 'SEN' ? 'Votre intensité dominante est <strong>sensorielle</strong>. Vous vivez le monde à travers vos sens avec une richesse exceptionnelle. Les textures, les saveurs, les sons, les couleurs — tout cela a pour vous une intensité que beaucoup ne soupçonnent pas. Cette sensibilité vous donne accès à des plaisirs intenses, mais peut aussi vous rendre vulnérable à la surstimulation sensorielle.' :
+          r.dominant === 'INT' ? 'Votre intensité dominante est <strong>intellectuelle</strong>. Votre esprit est constamment en activité : vous questionnez, analysez, cherchez à comprendre le "pourquoi" derrière chaque chose. Vous faites naturellement des liens entre des domaines que d\'autres ne connectent pas. Cette curiosité insatiable est un formidable moteur d\'apprentissage — veillez simplement à ne pas vous perdre dans vos réflexions au point d\'oublier d\'agir.' :
+          r.dominant === 'IMA' ? 'Votre intensité dominante est <strong>imaginative</strong>. Votre monde intérieur est incroyablement riche : idées, images, scénarios, rêveries... Vous êtes naturellement créatif(ve) et inventif(ve). Cette imagination peut s\'exprimer dans l\'art, l\'écriture, la résolution de problèmes, ou simplement dans votre façon de voir les choses différemment. Mais elle peut aussi vous entraîner dans des scénarios anxieux — apprenez à canaliser cette puissance créative.' :
+          'Votre intensité dominante est <strong>émotionnelle</strong>. Vous ressentez tout avec une profondeur exceptionnelle : la joie, la tristesse, la compassion, l\'injustice... Vous êtes probablement très empathique et vous connectez facilement aux émotions des autres. Cette profondeur émotionnelle est une force relationnelle immense, mais elle peut aussi être épuisante. Apprenez à vous protéger des "éponges émotionnelles" et à faire le tri entre vos émotions et celles des autres.'}
+      </p>
+    </div>
+    <div class="result-card">
+      <h3>📊 Votre profil complet</h3>
+      <p style="font-size:0.88em;color:var(--text2);margin-bottom:12px;line-height:1.6">Chaque barre représente l'intensité d'une de vos 5 surexcitabilités. Votre combinaison unique forme votre "signature d'intensité".</p>
+      <div class="bar-chart">`;
+  Object.keys(dims).forEach(k => {
+    html += `<div class="bar-row">
+      <div class="bar-label">${dims[k].icon} ${dims[k].name}</div>
+      <div class="bar-track"><div class="bar-fill" style="width:${r.pcts[k]}%;background:${dims[k].color}"></div></div>
+      <div class="bar-value">${r.pcts[k]}%</div>
+    </div>`;
+  });
+  html += `</div></div>
+    <div class="canvas-container"><canvas id="radar-dabrowski" width="400" height="400"></canvas></div>`;
+
+  // Enriched descriptions per OE with level-dependent text
+  const oeDescsEnriched = {
+    PSY: {
+      high: "Votre énergie psychomotrice est <strong>très marquée</strong>. Vous avez un besoin constant de mouvement et d'action — rester assis longtemps est probablement un calvaire ! Cette énergie débordante vous permet d'accomplir énormément de choses, mais elle peut aussi se manifester par de l'agitation, de l'impatience ou des difficultés à vous détendre. Astuce : le sport, les activités manuelles ou les balades sont vos meilleurs alliés pour canaliser cette énergie.",
+      mod: "Vous avez une bonne énergie physique, sans qu'elle soit envahissante. Vous appréciez l'action et le mouvement, mais vous savez aussi vous poser quand c'est nécessaire. Cet équilibre est un vrai atout au quotidien.",
+      low: "L'agitation physique n'est pas votre mode de fonctionnement. Vous êtes plutôt calme dans votre corps et n'avez pas un besoin impérieux de bouger en permanence. Votre énergie s'exprime davantage par d'autres canaux."
+    },
+    SEN: {
+      high: "Votre sensibilité sensorielle est <strong>particulièrement développée</strong>. Vous percevez le monde avec une grande intensité à travers vos sens : les couleurs sont plus vives, les musiques plus émouvantes, les textures plus présentes. Cette richesse perceptive fait de vous un(e) fin(e) observateur(trice) et alimente votre appréciation de la beauté sous toutes ses formes. Le revers : les environnements désagréables (bruit, odeurs, foule) vous affectent aussi plus fortement.",
+      mod: "Vous appréciez les plaisirs sensoriels — une bonne musique, un beau paysage, un repas savoureux — mais sans que cela prenne une place démesurée dans votre vie. Vos sens sont un canal d'information et de plaisir parmi d'autres.",
+      low: "Les stimulations sensorielles ne sont pas votre canal principal. Vous les appréciez, mais elles ne provoquent pas chez vous de réactions particulièrement intenses. Votre énergie se concentre sur d'autres dimensions."
+    },
+    INT: {
+      high: "Votre curiosité intellectuelle est <strong>intense et insatiable</strong>. Vous cherchez à comprendre en profondeur, vous posez des questions que d'autres ne se posent pas, et vous établissez facilement des connexions entre des idées apparemment éloignées. Vous avez probablement un goût prononcé pour la lecture, les débats d'idées ou les puzzles complexes. Cette soif de connaissances est un moteur puissant — mais elle peut aussi vous donner l'impression de ne jamais en savoir assez, ou de vous ennuyer rapidement quand un sujet est maîtrisé.",
+      mod: "Vous avez une bonne curiosité intellectuelle, active sans être envahissante. Vous aimez apprendre et comprendre, tout en sachant accepter que tout ne mérite pas une analyse en profondeur.",
+      low: "L'analyse intellectuelle poussée n'est pas votre moteur principal. Vous préférez probablement l'action concrète à la théorie, ou vous exprimez votre intelligence autrement — par la pratique, l'intuition ou la créativité."
+    },
+    IMA: {
+      high: "Votre imagination est <strong>exceptionnellement riche</strong>. Vous créez facilement des mondes intérieurs, vous visualisez des scénarios, vous inventez des histoires ou des solutions originales. Les rêveries, les métaphores et la pensée visuelle font partie intégrante de votre façon de fonctionner. Cette créativité est une ressource précieuse dans tous les domaines de la vie. Attention cependant aux scénarios catastrophe que votre imagination peut aussi produire — c'est le revers de cette puissance créative.",
+      mod: "Votre imagination est active et vous sert au quotidien, que ce soit pour résoudre des problèmes, vous projeter dans l'avenir ou simplement rêver un peu. Elle enrichit votre vie sans la dominer.",
+      low: "L'imagination n'est pas votre canal dominant. Vous êtes plutôt ancré(e) dans le concret et le réel, et vos forces s'expriment davantage dans l'action ou l'analyse que dans la rêverie."
+    },
+    EMO: {
+      high: "Votre intensité émotionnelle est <strong>profonde et puissante</strong>. Vous ressentez les émotions — les vôtres comme celles des autres — avec une force que beaucoup ne comprennent pas. La joie vous transporte, l'injustice vous révolte, la beauté vous émeut aux larmes. Vous avez probablement une empathie naturelle très développée qui fait de vous un(e) confident(e) recherché(e). Le défi : ne pas absorber les émotions des autres et apprendre à distinguer ce qui vous appartient de ce que vous captez chez les autres.",
+      mod: "Vos émotions sont bien présentes et colorent votre vie sans la submerger. Vous êtes sensible aux autres tout en gardant une certaine distance protectrice. C'est un bel équilibre entre ressenti et recul.",
+      low: "Vos émotions sont plutôt stables et contenues. Vous n'êtes pas insensible, mais les montagnes russes émotionnelles ne font pas partie de votre quotidien. Cette stabilité est un atout pour garder les idées claires dans les situations intenses."
+    }
+  };
+
+  html += '<div class="result-card"><h3>📝 Vos 5 intensités en détail</h3><p style="font-size:0.88em;color:var(--text2);margin-bottom:16px;line-height:1.6">Voici ce que chaque surexcitabilité signifie concrètement pour vous, avec des conseils adaptés à votre niveau.</p>';
+  Object.keys(dims).forEach(k => {
+    const level = r.pcts[k] >= 70 ? 'Élevée' : r.pcts[k] >= 40 ? 'Modérée' : 'Faible';
+    const levelColor = r.pcts[k] >= 70 ? 'var(--accent)' : r.pcts[k] >= 40 ? 'var(--warning)' : 'var(--text2)';
+    const desc = r.pcts[k] >= 70 ? oeDescsEnriched[k].high : r.pcts[k] >= 40 ? oeDescsEnriched[k].mod : oeDescsEnriched[k].low;
+    html += `<div style="margin-bottom:14px;padding:12px;background:rgba(0,0,0,0.02);border-radius:10px;border-left:3px solid ${dims[k].color}">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+        <span style="font-size:1.3em">${dims[k].icon}</span>
+        <strong>${dims[k].name}</strong>
+        <span style="font-family:var(--doodle);color:${levelColor};font-size:0.9em">(${level} — ${r.pcts[k]}%)</span>
+      </div>
+      <p style="font-size:0.88em;color:var(--text2);line-height:1.7">${desc}</p>
+    </div>`;
+  });
+  html += '</div>';
+  return html;
+}
+
+function drawDabrowskiRadar(results) {
+  const canvas = document.getElementById('radar-dabrowski');
+  if (!canvas) return;
+  const dims = ['PSY','SEN','INT','IMA','EMO'];
+  const labels = ['Psychomotrice','Sensuelle','Intellectuelle','Imaginaire','Émotionnelle'];
+  const values = dims.map(k => results.pcts[k] / 100);
+  const colors = dims.map(k => DABROWSKI.dimensions[k].color);
+  drawRadarChart(canvas, labels, values, '#6c5ce7', 1);
+}
+
+function drawRadarChart(canvas, labels, values, fillColor, maxVal) {
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width, h = canvas.height;
+  const cx = w / 2, cy = h / 2;
+  const r = Math.min(w, h) * 0.35;
+  const n = labels.length;
+  ctx.clearRect(0, 0, w, h);
+
+  // Grid
+  for (let level = 1; level <= 5; level++) {
+    ctx.beginPath();
+    for (let i = 0; i <= n; i++) {
+      const angle = (Math.PI * 2 * i / n) - Math.PI / 2;
+      const x = cx + r * (level / 5) * Math.cos(angle);
+      const y = cy + r * (level / 5) * Math.sin(angle);
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.strokeStyle = '#e0e0e0';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  }
+
+  // Axes
+  for (let i = 0; i < n; i++) {
+    const angle = (Math.PI * 2 * i / n) - Math.PI / 2;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.lineTo(cx + r * Math.cos(angle), cy + r * Math.sin(angle));
+    ctx.strokeStyle = '#d0d0d0';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  }
+
+  // Data polygon
+  ctx.beginPath();
+  for (let i = 0; i <= n; i++) {
+    const idx = i % n;
+    const angle = (Math.PI * 2 * idx / n) - Math.PI / 2;
+    const val = values[idx] / maxVal;
+    const x = cx + r * val * Math.cos(angle);
+    const y = cy + r * val * Math.sin(angle);
+    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  }
+  ctx.fillStyle = fillColor + '30';
+  ctx.fill();
+  ctx.strokeStyle = fillColor;
+  ctx.lineWidth = 3;
+  ctx.stroke();
+
+  // Points
+  for (let i = 0; i < n; i++) {
+    const angle = (Math.PI * 2 * i / n) - Math.PI / 2;
+    const val = values[i] / maxVal;
+    const x = cx + r * val * Math.cos(angle);
+    const y = cy + r * val * Math.sin(angle);
+    ctx.beginPath();
+    ctx.arc(x, y, 5, 0, Math.PI * 2);
+    ctx.fillStyle = fillColor;
+    ctx.fill();
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  }
+
+  // Labels
+  ctx.fillStyle = '#2d3436';
+  ctx.font = "bold 14px 'Patrick Hand', cursive";
+  ctx.textAlign = 'center';
+  for (let i = 0; i < n; i++) {
+    const angle = (Math.PI * 2 * i / n) - Math.PI / 2;
+    let x = cx + (r + 30) * Math.cos(angle);
+    let y = cy + (r + 30) * Math.sin(angle);
+    const pctTxt = Math.round(values[i] / maxVal * 100) + '%';
+    ctx.fillText(labels[i], x, y - 6);
+    ctx.font = "12px 'Poppins', sans-serif";
+    ctx.fillStyle = '#636e72';
+    ctx.fillText(pctTxt, x, y + 10);
+    ctx.font = "bold 14px 'Patrick Hand', cursive";
+    ctx.fillStyle = '#2d3436';
+  }
+}
+
+// ============================================================
+// HOME CARDS
+// ============================================================
+function renderHomeCards() {
+  const grid = document.getElementById('cards-grid');
+  let html = '';
+  const testOrder = ['asrs','aq10','hsp','dys','dabrowski','qi'];
+  testOrder.forEach(tid => {
+    const m = TESTS_META[tid];
+    const saved = localStorage.getItem('neuroProfile_' + tid);
+    const done = !!saved;
+
+    html += `<div class="test-card" style="cursor:pointer"
+      ${!done ? `onclick="navigateTo('${tid}-intro')"` : ''}>
+      <div style="position:absolute;top:0;left:0;width:100%;height:5px;background:${m.color};border-radius:24px 24px 0 0"></div>
+      <div class="card-icon">${m.icon}</div>
+      <div class="card-title">${m.name}</div>
+      <div class="card-desc">${m.desc}</div>
+      <div class="card-meta">${m.duration}</div>`;
+    if (done) {
+      html += `<div class="card-badge badge-done">✅ Terminé</div>
+        <div class="card-actions">
+          <button class="btn-see" onclick="event.stopPropagation();showSavedResults('${tid}')">Voir résultats</button>
+          <button class="btn-redo" onclick="event.stopPropagation();redoTest('${tid}')">Refaire</button>
+        </div>`;
+    } else {
+      html += `<div class="card-badge badge-available">▶ Commencer</div>`;
+    }
+    html += `</div>`;
+  });
+  grid.innerHTML = html;
+}
+
+function showSavedResults(testId) {
+  const data = JSON.parse(localStorage.getItem('neuroProfile_' + testId));
+  if (!data) return;
+  if (testId === 'qi') {
+    qiShowSavedResults(data);
+    return;
+  }
+  // Restore answers for potential re-rendering
+  testAnswers = data.answers || {};
+  renderResults(testId, data);
+  navigateTo(testId + '-results');
+}
+
+function redoTest(testId) {
+  localStorage.removeItem('neuroProfile_' + testId);
+  renderHomeCards();
+  updateDiagProgress();
+  navigateTo(testId + '-intro');
+}
+
+// ============================================================
+// DIAGNOSTIC PROGRESS
+// ============================================================
+function updateDiagProgress() {
+  const testIds = ['asrs','aq10','hsp','dys','dabrowski','qi'];
+  let done = 0;
+  testIds.forEach(t => { if (localStorage.getItem('neuroProfile_' + t)) done++; });
+  const pct = (done / 6 * 100).toFixed(0);
+  document.getElementById('diag-progress-fill').style.width = pct + '%';
+  document.getElementById('diag-status').textContent = done + ' / 6 tests complétés';
+  const btn = document.getElementById('diag-home-btn');
+  if (done === 6) {
+    btn.disabled = false;
+    btn.style.opacity = '1';
+    btn.textContent = '🔬 Voir le diagnostic croisé';
+  } else {
+    btn.disabled = true;
+    btn.style.opacity = '0.5';
+    btn.textContent = '🔒 Débloquer le diagnostic';
+  }
+}
+
+function showDiagnostic() {
+  const testIds = ['asrs','aq10','hsp','dys','dabrowski','qi'];
+  let done = 0;
+  testIds.forEach(t => { if (localStorage.getItem('neuroProfile_' + t)) done++; });
+  if (done < 6) {
+    alert('Complétez tous les tests pour débloquer le diagnostic croisé (' + done + '/6 complétés).');
+    return;
+  }
+  buildDiagnostic();
+  navigateTo('diagnostic');
+}
+
+// ============================================================
+// DIAGNOSTIC CROSS-ANALYSIS
+// ============================================================
+function buildDiagnostic() {
+  const asrs = JSON.parse(localStorage.getItem('neuroProfile_asrs'));
+  const aq10 = JSON.parse(localStorage.getItem('neuroProfile_aq10'));
+  const hsp = JSON.parse(localStorage.getItem('neuroProfile_hsp'));
+  const dys = JSON.parse(localStorage.getItem('neuroProfile_dys'));
+  const dab = JSON.parse(localStorage.getItem('neuroProfile_dabrowski'));
+  const qi = JSON.parse(localStorage.getItem('neuroProfile_qi'));
+
+  if (!asrs || !aq10 || !hsp || !dys || !dab || !qi) return;
+
+  // Compute global radar axes: Cognition, Attention, Sensorialité, Imagination, Émotions, Social
+  const radarLabels = ['Cognition', 'Attention', 'Sensorialité', 'Imagination', 'Émotions', 'Social'];
+  // Cognition: blend Dabrowski INT, inverse Dys, and QI percentile
+  const dabCog = dab.pcts.INT;
+  const dysCog = 100 - Math.max(dys.dimScores.LEX, dys.dimScores.CAL) / 20 * 100;
+  const qiCog = qi.percentile || 50;
+  let cognition = Math.round((dabCog + dysCog + qiCog) / 3);
+  const attention = Math.round(100 - ((asrs.iaScore / asrs.iaMax) * 100));
+  const sensorialite = Math.round((hsp.subPct.LST + hsp.subPct.EOE + dab.pcts.SEN) / 3);
+  const imagination = Math.round(dab.pcts.IMA);
+  const emotions = Math.round((dab.pcts.EMO + (hsp.subPct.AES || 0)) / 2);
+  const social = Math.round(100 - (aq10.score / aq10.max * 100));
+  const radarValues = [cognition, attention, sensorialite, imagination, emotions, social].map(v => Math.max(0, Math.min(100, v)));
+
+  // Determine archetype
+  const archetype = determineArchetype(asrs, aq10, hsp, dys, dab, qi);
+
+  // Convergences
+  const convergences = findConvergences(asrs, aq10, hsp, dys, dab, qi);
+
+  // Strengths
+  const strengths = findStrengths(asrs, aq10, hsp, dys, dab, qi);
+
+  // Recommendations
+  const recos = findRecommendations(asrs, aq10, hsp, dys, dab, qi);
+
+  // Build HTML
+  let html = `<h2>🔬 Diagnostic Croisé</h2><p class="results-subtitle">Analyse globale de votre profil neurodivergent</p>`;
+
+  // Archetype
+  html += `<div class="archetype-box">
+    <div class="arch-icon">${archetype.icon}</div>
+    <div class="arch-name">${archetype.name}</div>
+    <div class="arch-desc">${archetype.desc}</div>
+  </div>`;
+
+  // Global radar
+  html += `<div class="diag-page-section">
+    <h3>📊 Radar neurocognitif global</h3>
+    <div class="canvas-container"><canvas id="radar-global" width="450" height="450"></canvas></div>
+  </div>`;
+
+  // Convergences
+  if (convergences.length > 0) {
+    html += `<div class="diag-page-section"><h3>🔗 Convergences détectées</h3>`;
+    convergences.forEach(c => {
+      html += `<div class="convergence-item">
+        <div class="conv-icon">${c.icon}</div>
+        <div class="conv-text"><h4>${c.title}</h4><p>${c.desc}</p></div>
+      </div>`;
+    });
+    html += '</div>';
+  }
+
+  // Strengths
+  if (strengths.length > 0) {
+    html += `<div class="diag-page-section"><h3>💪 Forces neurodivergentes</h3><div class="strengths-grid">`;
+    strengths.forEach(s => {
+      html += `<div class="strength-item"><div class="str-icon">${s.icon}</div><div class="str-name">${s.name}</div></div>`;
+    });
+    html += '</div></div>';
+  }
+
+  // Recommendations
+  if (recos.length > 0) {
+    html += `<div class="diag-page-section"><h3>💼 Recommandations professionnelles</h3>`;
+    recos.forEach(r => {
+      html += `<div class="reco-item"><h4>${r.icon} ${r.title}</h4><p>${r.desc}</p></div>`;
+    });
+    html += '</div>';
+  }
+
+  // Disclaimer
+  html += `<div class="disclaimer">⚠️ <strong>Avertissement :</strong> Cette analyse croisée est un outil d'exploration personnelle. Elle ne constitue pas un diagnostic médical. Les convergences et profils identifiés sont des pistes de réflexion. Consultez un professionnel qualifié pour une évaluation complète.</div>`;
+
+  html += `<div style="display:flex;gap:12px;justify-content:center;margin-top:20px;flex-wrap:wrap">
+    <button class="btn-secondary" onclick="navigateTo('home')">← Accueil</button>
+  </div>`;
+
+  document.getElementById('diagnostic-container').innerHTML = html;
+
+  // Draw radar
+  setTimeout(() => {
+    const canvas = document.getElementById('radar-global');
+    if (canvas) drawRadarChart(canvas, radarLabels, radarValues, '#6c5ce7', 100);
+  }, 200);
+}
+
+function determineArchetype(asrs, aq10, hsp, dys, dab, qi) {
+  const tdahRisk = asrs.risk === 'Risque élevé';
+  const tsaRisk = aq10.threshold;
+  const hspHigh = hsp.isHSP;
+  const dabDom = dab.dominant;
+  const dabIntHigh = dab.pcts.INT >= 70;
+  const dabEmoHigh = dab.pcts.EMO >= 70;
+  const dabImaHigh = dab.pcts.IMA >= 70;
+  const dysAny = Object.values(dys.risks).some(r => r.level === 'Risque élevé');
+  const qiHigh = qi && qi.iq >= 130;
+  const qiDesc = qi ? ' (QI estimé : ' + qi.iq + ')' : '';
+
+  // QI >= 130 + Dabrowski INT = Haut Potentiel Intellectuel confirmed
+  if (qiHigh && dabIntHigh) return { icon: '🧠💎', name: 'Le Haut Potentiel Confirmé', desc: 'Votre QI élevé' + qiDesc + ' combiné à une surexcitabilité intellectuelle intense confirme un profil de Haut Potentiel Intellectuel. Votre pensée est rapide, profonde et multidimensionnelle. Cherchez des environnements stimulants et des défis à la hauteur de vos capacités.' };
+  if (dabIntHigh && tdahRisk && !tsaRisk) return { icon: '⚡🧠', name: 'L\'Explorateur Fulgurant', desc: 'Haute intelligence couplée à une énergie débordante' + qiDesc + '. Vous pensez vite, changez souvent de direction, et avez besoin de stimulation constante. Votre cerveau est un moteur puissant qui tourne à plein régime.' };
+  if (dabEmoHigh && hspHigh) return { icon: '💗🌿', name: 'L\'Éponge Empathique', desc: 'Combinaison d\'intensité émotionnelle et d\'hypersensibilité. Vous absorbez les émotions et les sensations du monde qui vous entoure avec une profondeur rare. Votre empathie est votre superpouvoir.' };
+  if (tsaRisk && dabIntHigh) return { icon: '🧩💡', name: 'L\'Architecte Systémique', desc: 'Pensée analytique profonde et fonctionnement autistique. Vous construisez des systèmes de compréhension complexes et originaux. Votre cerveau excelle dans la reconnaissance de patterns.' };
+  if (dabImaHigh && dabEmoHigh) return { icon: '🌈💗', name: 'Le Créateur Sensible', desc: 'Imagination débordante et intensité émotionnelle. Vous vivez dans un monde intérieur riche et coloré, alimenté par des émotions profondes. L\'art et la créativité sont vos langages naturels.' };
+  if (tdahRisk && dysAny) return { icon: '⚡📝', name: 'Le Penseur Atypique', desc: 'Profil TDAH associé à des difficultés instrumentales. Votre cerveau fonctionne différemment dans le traitement de l\'information. Avec les bonnes stratégies, ces différences deviennent des forces.' };
+  if (hspHigh && tsaRisk) return { icon: '🌿🧩', name: 'Le Percepteur Profond', desc: 'Hypersensibilité et traits autistiques. Vous percevez le monde avec une acuité exceptionnelle et un besoin de cohérence. Votre perception fine du détail est un atout précieux.' };
+  if (dabIntHigh && dabImaHigh) return { icon: '💡🌈', name: 'Le Visionnaire Intellectuel', desc: 'Intelligence et imagination fusionnent. Vous combinez pensée analytique et créativité pour voir des possibilités que d\'autres ne perçoivent pas. Votre cerveau est un laboratoire d\'idées.' };
+  if (tdahRisk && hspHigh) return { icon: '⚡🌿', name: 'L\'Intensif Sensoriel', desc: 'TDAH et hypersensibilité combinés. Votre cerveau oscille entre hyperstimulation et besoin de calme. Apprendre à gérer votre énergie et votre sensibilité est la clé de votre équilibre.' };
+  return { icon: '🧠✨', name: 'Le Profil Unique', desc: 'Votre profil neurocognitif est une mosaïque unique de traits et de caractéristiques. Chaque dimension apporte sa richesse et ses défis. Votre diversité cognitive est votre signature.' };
+}
+
+function findConvergences(asrs, aq10, hsp, dys, dab, qi) {
+  const conv = [];
+  // QI + Dabrowski INT = HPI
+  if (qi && qi.iq >= 120 && dab.pcts.INT >= 60) {
+    conv.push({ icon: '🧠✨', title: 'QI élevé × Surexcitabilité intellectuelle', desc: 'Votre QI estimé à ' + qi.iq + ' combiné à une forte surexcitabilité intellectuelle (Dabrowski) constitue un marqueur fort de Haut Potentiel Intellectuel. Cette convergence explique votre besoin intense de stimulation cognitive et votre pensée en arborescence.' });
+  }
+  // QI + TDAH = TDAH-HPI (double exceptionnalité)
+  if (qi && qi.iq >= 120 && asrs.risk === 'Risque élevé') {
+    conv.push({ icon: '⚡🧠', title: 'QI élevé × TDAH', desc: 'La combinaison QI élevé (' + qi.iq + ') et TDAH est une double exceptionnalité fréquente. Le QI peut masquer le TDAH (compensation cognitive) et le TDAH peut sous-estimer le QI (agitation, impulsivité aux tests). Un bilan neuropsychologique complet est recommandé.' });
+  }
+  // TDAH + Psychomotrice
+  if (asrs.risk !== 'Risque faible' && dab.pcts.PSY >= 60) {
+    conv.push({ icon: '⚡🏃', title: 'TDAH × Surexcitabilité psychomotrice', desc: 'Votre agitation physique (Dabrowski) converge avec vos symptômes TDAH. Le besoin de mouvement est à la fois un trait de personnalité et un marqueur attentionnel. Canalisez cette énergie par l\'activité physique régulière.' });
+  }
+  // Inattention + Imaginaire
+  if (asrs.iaScore > asrs.iaMax * 0.5 && dab.pcts.IMA >= 60) {
+    conv.push({ icon: '💭🌈', title: 'Inattention × Surexcitabilité imaginaire', desc: 'Votre tendance à la rêverie (Dabrowski) se superpose à vos difficultés d\'attention. Ce qui est perçu comme de l\'inattention est peut-être une imagination en perpétuelle activité. Utilisez cette force créative de manière structurée.' });
+  }
+  // HSP + Émotionnelle + AQ10
+  if (hsp.isHSP && dab.pcts.EMO >= 60) {
+    conv.push({ icon: '🌿💗', title: 'HSP × Surexcitabilité émotionnelle', desc: 'Votre hypersensibilité sensorielle (HSP) et votre intensité émotionnelle (Dabrowski) se renforcent mutuellement. Les stimuli externes déclenchent des cascades émotionnelles profondes. Aménagez-vous des bulles de décompression régulières.' });
+  }
+  if (aq10.threshold && hsp.isHSP) {
+    conv.push({ icon: '🧩🌿', title: 'Traits autistiques × Hypersensibilité', desc: 'La sensibilité sensorielle détectée par le HSP peut être liée à un fonctionnement autistique. Les surcharges sensorielles et le besoin de retrait sont communs aux deux profils.' });
+  }
+  // AQ10 + Intellectuelle
+  if (aq10.score >= 4 && dab.pcts.INT >= 70) {
+    conv.push({ icon: '🧩💡', title: 'Traits autistiques × Surexcitabilité intellectuelle', desc: 'Votre pensée systématique (AQ-10) et votre curiosité intellectuelle intense (Dabrowski) convergent vers un profil de penseur profond. Vous excellez dans l\'analyse et la compréhension de systèmes complexes.' });
+  }
+  // Dys + TDAH
+  const dysHighDims = Object.keys(dys.risks).filter(k => dys.risks[k].level !== 'Risque faible');
+  if (dysHighDims.length > 0 && asrs.risk !== 'Risque faible') {
+    conv.push({ icon: '📝⚡', title: 'Troubles Dys × TDAH', desc: 'La co-occurrence de difficultés instrumentales et attentionnelles est fréquente. Les troubles dys sont souvent amplifiés par l\'inattention, et réciproquement. Un accompagnement global est recommandé.' });
+  }
+  return conv;
+}
+
+function findStrengths(asrs, aq10, hsp, dys, dab, qi) {
+  const str = [];
+  if (qi && qi.iq >= 120) str.push({ icon: '🧠', name: 'Capacités cognitives supérieures (QI ' + qi.iq + ')' });
+  if (qi && qi.iq >= 120 && dab.pcts.INT >= 60) str.push({ icon: '💎', name: 'Haut Potentiel Intellectuel' });
+  if (dab.pcts.INT >= 60) str.push({ icon: '💡', name: 'Pensée analytique profonde' });
+  if (dab.pcts.IMA >= 60) str.push({ icon: '🌈', name: 'Créativité et imagination' });
+  if (dab.pcts.EMO >= 60) str.push({ icon: '💗', name: 'Empathie et intelligence émotionnelle' });
+  if (dab.pcts.PSY >= 60) str.push({ icon: '🏃', name: 'Énergie et dynamisme' });
+  if (dab.pcts.SEN >= 60) str.push({ icon: '👁️', name: 'Perception sensorielle fine' });
+  if (hsp.isHSP) str.push({ icon: '🌿', name: 'Sensibilité intuitive' });
+  if (aq10.score >= 4) str.push({ icon: '🔍', name: 'Attention aux détails et pensée systématique' });
+  if (asrs.risk !== 'Risque faible') str.push({ icon: '⚡', name: 'Hyperfocalisation (quand passionné)' });
+  if (dab.pcts.INT >= 70 && dab.pcts.IMA >= 70) str.push({ icon: '🔮', name: 'Pensée divergente innovante' });
+  if (qi && qi.iq >= 110 && asrs.risk !== 'Risque faible') str.push({ icon: '🚀', name: 'Pensée rapide et multitâche' });
+  if (str.length === 0) str.push({ icon: '✨', name: 'Profil équilibré et adaptable' });
+  return str;
+}
+
+function findRecommendations(asrs, aq10, hsp, dys, dab, qi) {
+  const recos = [];
+
+  // === TDAH ===
+  if (asrs.risk === 'Risque élevé') {
+    let desc = '<strong>Prochaine étape :</strong> Prenez rendez-vous avec un psychiatre ou neuropsychologue spécialisé en TDAH adulte. Demandez un bilan attentionnel complet (tests CPT, d2, TEA-Ch selon l\'âge).';
+    desc += '<br><br><strong>En attendant le bilan :</strong>';
+    desc += '<br>• Utilisez un <strong>timer visuel</strong> (méthode Pomodoro : 25 min focus / 5 min pause)';
+    desc += '<br>• Créez des <strong>listes quotidiennes courtes</strong> (3 priorités max par jour)';
+    desc += '<br>• Placez vos clés/portefeuille toujours au <strong>même endroit</strong> (routine de rangement)';
+    desc += '<br>• Activité physique <strong>quotidienne</strong> (30 min minimum — course, natation, vélo)';
+    desc += '<br>• Réduisez les <strong>distractions numériques</strong> (mode Focus, bloquer notifications)';
+    if (asrs.hiScore > asrs.hiMax * 0.6) {
+      desc += '<br><br><strong>Pour l\'hyperactivité :</strong> Standing desk, balle anti-stress, marche pendant les appels, sport intense le matin.';
+    }
+    if (asrs.iaScore > asrs.iaMax * 0.6) {
+      desc += '<br><br><strong>Pour l\'inattention :</strong> Travaillez dans un environnement calme, utilisez des écouteurs antibruit, découpez les tâches longues en micro-étapes de 10 min.';
+    }
+    recos.push({ icon: '🩺', title: 'Bilan TDAH recommandé', desc });
+  } else if (asrs.risk === 'Risque modéré') {
+    recos.push({ icon: '⚡', title: 'Traits TDAH à surveiller', desc: '<strong>Votre score est modéré</strong> — pas d\'urgence, mais restez attentif.<br><br><strong>Conseils pratiques :</strong><br>• Tenez un <strong>agenda unique</strong> (papier ou numérique) pour centraliser vos rendez-vous<br>• Pratiquez la <strong>règle des 2 minutes</strong> : si une tâche prend moins de 2 min, faites-la immédiatement<br>• Identifiez vos <strong>heures de pic de concentration</strong> et planifiez le travail complexe à ces moments<br>• Si les difficultés persistent ou s\'aggravent, consultez pour un bilan attentionnel' });
+  }
+
+  // === TSA ===
+  if (aq10.threshold) {
+    recos.push({ icon: '🧩', title: 'Évaluation du spectre autistique recommandée', desc: '<strong>Prochaine étape :</strong> Consultez un Centre Ressources Autisme (CRA) de votre région ou un psychologue/psychiatre formé au diagnostic TSA adulte. Le diagnostic complet inclut le ADOS-2 et l\'ADI-R.<br><br><strong>En attendant :</strong><br>• Identifiez vos <strong>situations de surcharge</strong> (bruit, foule, imprévus) et préparez des stratégies d\'évitement ou de sortie<br>• Créez des <strong>routines structurantes</strong> qui vous rassurent (horaires réguliers, rituels)<br>• Autorisez-vous des <strong>moments de solitude</strong> pour recharger après les interactions sociales<br>• Si vous avez des <strong>intérêts spécifiques</strong>, valorisez-les — ils sont souvent une source de compétence et de bien-être' });
+  } else if (aq10.score >= 4) {
+    recos.push({ icon: '🧩', title: 'Quelques traits autistiques détectés', desc: '<strong>Votre score est sous le seuil</strong>, mais certains traits sont présents.<br><br><strong>Conseils :</strong><br>• Respectez votre <strong>besoin de prévisibilité</strong> — anticipez les changements quand possible<br>• Utilisez des <strong>supports visuels</strong> (schémas, mind maps) pour organiser vos pensées<br>• Communiquez clairement vos besoins à votre entourage (besoin de calme, de routine, etc.)' });
+  }
+
+  // === DYS ===
+  const dysHighDims = Object.keys(dys.risks).filter(k => dys.risks[k].level === 'Risque élevé');
+  const dysModDims = Object.keys(dys.risks).filter(k => dys.risks[k].level === 'Risque modéré');
+  if (dysHighDims.length > 0) {
+    const names = dysHighDims.map(k => DYS.dimensions[k].name).join(', ');
+    let desc = `<strong>Prochaine étape :</strong> Consultez un orthophoniste pour un bilan complet. Domaines à risque élevé : <strong>${names}</strong>.`;
+    desc += '<br><br><strong>Aménagements recommandés :</strong>';
+    if (dysHighDims.includes('LEX')) {
+      desc += '<br>• <strong>Dyslexie :</strong> Utilisez une police adaptée (OpenDyslexic), un guide de lecture, des livres audio. Demandez un tiers-temps pour les examens.';
+    }
+    if (dysHighDims.includes('ORT')) {
+      desc += '<br>• <strong>Dysorthographie :</strong> Utilisez un correcteur orthographique avancé (Antidote, MerciApp), dictée vocale, et ne vous jugez pas sur l\'orthographe.';
+    }
+    if (dysHighDims.includes('CAL')) {
+      desc += '<br>• <strong>Dyscalculie :</strong> Utilisez une calculatrice sans culpabilité, des tableaux de référence, des applications visuelles pour les maths (GeoGebra, Photomath).';
+    }
+    if (dysHighDims.includes('ORG')) {
+      desc += '<br>• <strong>Dyspraxie :</strong> Privilégiez le clavier à l\'écriture manuscrite, utilisez des outils de planification visuelle (Trello, post-its), décomposez les gestes complexes en étapes.';
+    }
+    desc += '<br><br><strong>Droits :</strong> En France, les troubles dys sont reconnus comme handicap. Renseignez-vous sur la RQTH (adulte) ou le PAP/PPS (scolarité) pour obtenir des aménagements.';
+    recos.push({ icon: '📝', title: 'Bilan orthophonique recommandé', desc });
+  } else if (dysModDims.length > 0) {
+    const names = dysModDims.map(k => DYS.dimensions[k].name).join(', ');
+    recos.push({ icon: '📝', title: 'Difficultés instrumentales à surveiller', desc: `<strong>Domaines à risque modéré :</strong> ${names}.<br><br><strong>Conseils :</strong><br>• Si ces difficultés impactent votre quotidien professionnel ou scolaire, un bilan orthophonique peut être utile<br>• Utilisez les <strong>outils numériques</strong> comme compensations (correcteur, synthèse vocale, calculatrice)<br>• Ne vous comparez pas aux autres — chacun a ses canaux de traitement privilégiés` });
+  }
+
+  // === HSP ===
+  if (hsp.isHSP) {
+    let desc = '<strong>Votre sensibilité est une force</strong>, mais elle nécessite un cadre adapté pour s\'exprimer pleinement.';
+    desc += '<br><br><strong>Environnement :</strong>';
+    desc += '<br>• <strong>Bruit :</strong> Investissez dans des bouchons d\'oreilles ou un casque antibruit (ANC) pour les transports et l\'open space';
+    desc += '<br>• <strong>Lumière :</strong> Utilisez des lunettes filtrantes (anti lumière bleue), préférez l\'éclairage indirect et tamisé';
+    desc += '<br>• <strong>Espace :</strong> Aménagez-vous un coin calme chez vous, votre "bulle de décompression"';
+    desc += '<br><br><strong>Gestion quotidienne :</strong>';
+    desc += '<br>• Planifiez des <strong>temps de récupération</strong> après les événements sociaux ou les journées intenses';
+    desc += '<br>• Pratiquez la <strong>cohérence cardiaque</strong> (5 min, 3x/jour) ou la méditation de pleine conscience';
+    desc += '<br>• <strong>Nature :</strong> 20 min de marche en forêt ou dans un parc réduit significativement le cortisol';
+    desc += '<br>• Apprenez à <strong>dire non</strong> — protéger votre énergie n\'est pas de l\'égoïsme';
+    desc += '<br><br><strong>Lecture recommandée :</strong> "Hypersensibles" d\'Elaine Aron (le livre de référence sur le sujet)';
+    recos.push({ icon: '🌿', title: 'Gestion de l\'hypersensibilité', desc });
+  }
+
+  // === HAUT POTENTIEL / DABROWSKI ===
+  const dabHighCount = ['INT','EMO','IMA','PSY','SEN'].filter(d => dab.pcts[d] >= 70).length;
+  if (dabHighCount >= 3 || (qi && qi.iq >= 125)) {
+    let desc = '<strong>Votre profil suggère un fonctionnement de type Haut Potentiel</strong>';
+    if (qi) desc += ' (QI estimé : ' + qi.iq + ')';
+    desc += '.<br><br><strong>Prochaine étape :</strong> Un bilan psychométrique complet (WAIS-IV pour adultes, WISC-V pour enfants) auprès d\'un psychologue spécialisé confirmera ce profil.';
+    desc += '<br><br><strong>Comprendre votre fonctionnement :</strong>';
+    desc += '<br>• <strong>Pensée en arborescence :</strong> Votre cerveau fait des liens multiples simultanément — utilisez des mind maps pour structurer vos idées';
+    desc += '<br>• <strong>Intensité émotionnelle :</strong> Vos réactions ne sont pas "excessives", elles sont proportionnelles à votre sensibilité — acceptez-les';
+    desc += '<br>• <strong>Ennui et frustration :</strong> Si vous vous ennuyez, c\'est que vous avez besoin de plus de stimulation — cherchez des défis intellectuels';
+    desc += '<br>• <strong>Syndrome de l\'imposteur :</strong> Fréquent chez les HPI — vos capacités sont réelles, même si vous les trouvez "normales"';
+    if (qi && qi.iq >= 130) {
+      desc += '<br><br><strong>QI ≥ 130 (Très Supérieur) :</strong> Vous faites partie des ~2% de la population. Cherchez des groupes de pairs intellectuels (associations comme Mensa, ateliers de réflexion, conférences) pour vous sentir "normal" parmi d\'autres cerveaux comme le vôtre.';
+    }
+    desc += '<br><br><strong>Lectures recommandées :</strong> "Trop intelligent pour être heureux ?" de Jeanne Siaud-Facchin, "Je pense trop" de Christel Petitcollin';
+    recos.push({ icon: '✨', title: 'Exploration du Haut Potentiel', desc });
+  }
+
+  // === QI spécifique ===
+  if (qi && qi.iq >= 120 && asrs.risk !== 'Risque faible') {
+    recos.push({ icon: '🚀', title: 'Double exceptionnalité QI + TDAH', desc: '<strong>Votre profil combine un QI élevé et des traits TDAH</strong> — c\'est ce qu\'on appelle la "double exceptionnalité" (twice exceptional / 2e).<br><br><strong>Ce que ça implique :</strong><br>• Votre intelligence <strong>compense et masque</strong> partiellement votre TDAH — vous "gérez" en surface mais ça vous coûte beaucoup d\'énergie<br>• Le TDAH peut <strong>sous-estimer votre QI</strong> aux tests (agitation, inattention pendant le test)<br>• Vous pouvez alterner entre des moments de <strong>performance exceptionnelle</strong> (hyperfocus) et des <strong>difficultés déconcertantes</strong> (oublis, procrastination)<br><br><strong>Conseil clé :</strong> Lors du bilan, demandez un professionnel formé à la fois au HPI ET au TDAH. Le diagnostic de l\'un ne doit pas exclure l\'autre.' });
+  }
+
+  // === Bien-être général ===
+  if (hsp.isHSP || dabHighCount >= 2 || asrs.risk !== 'Risque faible') {
+    let desc = '<strong>Votre cerveau fonctionne intensément</strong> — il a besoin d\'un cadre de vie adapté pour s\'épanouir.';
+    desc += '<br><br><strong>Piliers essentiels :</strong>';
+    desc += '<br>• <strong>Sommeil :</strong> 7-9h par nuit, horaires réguliers, écran coupé 1h avant le coucher. Le sommeil est LE facteur n°1 de régulation attentionnelle et émotionnelle.';
+    desc += '<br>• <strong>Alimentation :</strong> Repas réguliers, riche en oméga-3 (poisson gras, noix, lin), éviter les pics glycémiques. La faim aggrave tous les symptômes.';
+    desc += '<br>• <strong>Mouvement :</strong> 30 min d\'activité physique quotidienne réduit de 30% les symptômes TDAH et régule la sensibilité émotionnelle.';
+    desc += '<br>• <strong>Pleine conscience :</strong> 10 min/jour de méditation (apps : Petit Bambou, Headspace) améliore l\'attention et réduit l\'anxiété.';
+    desc += '<br>• <strong>Connexion sociale :</strong> Entretenez des relations avec des personnes qui comprennent votre fonctionnement — la solitude n\'est pas la solution.';
+    recos.push({ icon: '🏥', title: 'Hygiène de vie et bien-être', desc });
+  }
+
+  if (recos.length === 0) {
+    recos.push({ icon: '👍', title: 'Pas d\'alerte majeure', desc: '<strong>Vos résultats ne suggèrent pas de besoin urgent d\'évaluation spécialisée.</strong><br><br>Continuez à explorer votre fonctionnement cognitif. Si des questions persistent ou si certaines difficultés impactent votre quotidien, n\'hésitez pas à consulter un psychologue pour un bilan de fonctionnement global.' });
+  }
+  return recos;
+}
+
+// ============================================================
+// SHARING
+// ============================================================
+function shareResults(testId, method) {
+  const meta = TESTS_META[testId];
+  const data = JSON.parse(localStorage.getItem('neuroProfile_' + testId));
+  if (!data) return;
+
+  let text = `🧠 NeuroProfil — ${meta.name}\n`;
+  switch(testId) {
+    case 'asrs':
+      text += `Résultat : ${data.risk}\nInattention : ${data.iaScore}/${data.iaMax}\nHyperactivité : ${data.hiScore}/${data.hiMax}`;
+      break;
+    case 'aq10':
+      text += `Score : ${data.score}/${data.max}\n${data.threshold ? 'Évaluation spécialisée recommandée' : 'Sous le seuil de dépistage'}`;
+      break;
+    case 'hsp':
+      text += `Score total : ${data.total}/${data.max}\nSensibilité : ${data.level}\n${data.isHSP ? 'Profil HSP probable' : 'Sous le seuil HSP'}`;
+      break;
+    case 'dys':
+      text += Object.keys(DYS.dimensions).map(k => `${DYS.dimensions[k].name}: ${data.dimScores[k]}/${data.dimMax} (${data.risks[k].level})`).join('\n');
+      break;
+    case 'dabrowski':
+      text += Object.keys(DABROWSKI.dimensions).map(k => `${DABROWSKI.dimensions[k].name}: ${data.pcts[k]}%`).join('\n');
+      text += `\nDominante : ${DABROWSKI.dimensions[data.dominant].name}`;
+      break;
+    case 'qi':
+      text += `QI estimé : ${data.iq} (${data.range})\nMode : ${data.mode === 'adult' ? 'Adulte' : 'Enfant'}\nPrécision : ${data.accuracy}%\nBonnes réponses : ${data.correct}/${data.total}\nPercentile : ${data.percentile}%`;
+      break;
+  }
+  text += '\n\n⚠️ Outil d\'auto-évaluation, pas un diagnostic médical.';
+
+  switch(method) {
+    case 'whatsapp':
+      window.open('https://wa.me/?text=' + encodeURIComponent(text));
+      break;
+    case 'email':
+      window.open('mailto:?subject=' + encodeURIComponent('NeuroProfil — ' + meta.name) + '&body=' + encodeURIComponent(text));
+      break;
+    case 'copy':
+      navigator.clipboard.writeText(text).then(() => {
+        const btn = event.target;
+        const orig = btn.textContent;
+        btn.textContent = '✅ Copié !';
+        setTimeout(() => btn.textContent = orig, 2000);
+      });
+      break;
+  }
+}
+
+// ============================================================
+// QI TEST ENGINE
+// ============================================================
+const QI_CATS = {
+  numeric:{name:'Suites numériques',icon:'🔢',color:'#6c5ce7'},
+  verbal:{name:'Logique verbale',icon:'📝',color:'#74b9ff'},
+  memory:{name:'Mémoire de travail',icon:'🧩',color:'#fd79a8'},
+  calcul:{name:'Calcul mental',icon:'🧮',color:'#e17055'},
+  abstract:{name:'Raisonnement abstrait',icon:'🔷',color:'#00b894'},
+  deduction:{name:'Déduction logique',icon:'🔍',color:'#e84393'},
+  matrices:{name:'Matrices visuelles',icon:'🔲',color:'#0984e3'},
+  speed:{name:'Vitesse de traitement',icon:'⚡',color:'#fdcb6e'}
+};
+
+const QI_ADULT_Q = [
+// NUMERIC (12)
+{cat:'numeric',d:1,text:'Quel nombre complète la suite ?\n2,  6,  18,  54,  ?',opts:['108','162','148','216'],ans:1,hint:'Rapport entre chaque terme.'},
+{cat:'numeric',d:1,text:'Quel nombre complète la suite ?\n4,  9,  16,  25,  36,  ?',opts:['42','47','49','51'],ans:2,hint:'Pensez aux carrés.'},
+{cat:'numeric',d:1,text:'Quel nombre complète la suite ?\n1000,  500,  250,  125,  ?',opts:['75','62.5','50','100'],ans:1,hint:'On divise par 2.'},
+{cat:'numeric',d:2,text:'Quel nombre complète la suite ?\n1,  1,  2,  3,  5,  8,  ?',opts:['11','12','13','15'],ans:2,hint:'Somme des 2 précédents.'},
+{cat:'numeric',d:2,text:'Quel nombre complète la suite ?\n3,  5,  9,  17,  33,  ?',opts:['49','57','65','61'],ans:2,hint:'×2 puis −1 ?'},
+{cat:'numeric',d:2,text:'Quel nombre complète la suite ?\n2,  3,  5,  7,  11,  13,  ?',opts:['15','17','19','21'],ans:1,hint:'Nombres premiers.'},
+{cat:'numeric',d:2,text:'Quel nombre complète la suite ?\n2,  5,  10,  17,  26,  ?',opts:['35','37','39','41'],ans:1,hint:'Les écarts augmentent de 2.'},
+{cat:'numeric',d:3,text:'Quel nombre complète la suite ?\n100,  81,  64,  49,  36,  ?',opts:['16','20','25','30'],ans:2,hint:'Carrés parfaits décroissants.'},
+{cat:'numeric',d:3,text:'Quel nombre complète la suite ?\n1,  3,  6,  10,  15,  21,  ?',opts:['25','27','28','30'],ans:2,hint:'Nombres triangulaires.'},
+{cat:'numeric',d:3,text:'Quel nombre complète la suite ?\n8,  27,  64,  125,  ?',opts:['196','200','216','225'],ans:2,hint:'Cubes parfaits.'},
+{cat:'numeric',d:3,text:'Quel nombre complète la suite ?\n1,  2,  6,  24,  120,  ?',opts:['240','600','720','840'],ans:2,hint:'Factorielles.'},
+{cat:'numeric',d:3,text:'Quel nombre complète la suite ?\n0,  1,  3,  7,  15,  31,  ?',opts:['47','55','63','71'],ans:2,hint:'×2 puis +1.'},
+// VERBAL (12)
+{cat:'verbal',d:1,text:'Complétez l\'analogie :\nChaud est à Froid ce que Lumineux est à ... ?',opts:['Brillant','Sombre','Clair','Éteint'],ans:1,hint:'Antonyme.'},
+{cat:'verbal',d:1,text:'Complétez l\'analogie :\nLivre est à Bibliothèque ce que Tableau est à ... ?',opts:['Galerie','Musée','Peinture','Cadre'],ans:1,hint:'Lieu de collection.'},
+{cat:'verbal',d:1,text:'Complétez :\nCouteau est à Couper ce que Marteau est à ... ?',opts:['Frapper','Clou','Construire','Bois'],ans:0,hint:'Outil → action.'},
+{cat:'verbal',d:1,text:'Complétez :\nEau est à Liquide ce que Glace est à ... ?',opts:['Froid','Solide','Transparent','Dur'],ans:1,hint:'État de la matière.'},
+{cat:'verbal',d:2,text:'Quel mot n\'appartient PAS au groupe ?\nPomme, Banane, Carotte, Orange, Fraise',opts:['Pomme','Banane','Carotte','Fraise'],ans:2,hint:'Intrus par catégorie.'},
+{cat:'verbal',d:2,text:'Complétez :\nArbre est à Forêt ce que Étoile est à ... ?',opts:['Ciel','Galaxie','Lune','Constellation'],ans:1,hint:'Élément → ensemble.'},
+{cat:'verbal',d:2,text:'Complétez :\nAbeille est à Ruche ce que Fourmi est à ... ?',opts:['Fourmilière','Terrier','Nid','Colonie'],ans:0,hint:'Habitat.'},
+{cat:'verbal',d:2,text:'Quel est l\'intrus ?\nPiano, Violon, Trompette, Guitare, Harpe',opts:['Piano','Trompette','Guitare','Harpe'],ans:1,hint:'Famille d\'instruments.'},
+{cat:'verbal',d:2,text:'Quel est le synonyme le plus proche de "Éphémère" ?',opts:['Éternel','Temporaire','Fragile','Invisible'],ans:1,hint:'Qui ne dure pas.'},
+{cat:'verbal',d:3,text:'Quel est l\'intrus si on ajoute Pluton à : Mercure, Vénus, Mars ?',opts:['Mercure (trop petit)','Vénus (pas de lune)','Pluton (planète naine)','Mars (trop loin)'],ans:2,hint:'Statut astronomique.'},
+{cat:'verbal',d:3,text:'Complétez :\nChirurgien est à Scalpel ce que Peintre est à ... ?',opts:['Toile','Couleur','Pinceau','Chevalet'],ans:2,hint:'Outil principal.'},
+{cat:'verbal',d:3,text:'Quel mot a un lien avec les trois autres ?\nFeuille — Courant — Chute',opts:['Arbre','Eau','Automne','Électricité'],ans:1,hint:'Un mot peut accompagner les trois.'},
+// MEMORY DIRECT (5)
+{cat:'memory',d:1,type:'memory',seq:[3,7,1,9],dt:4000,text:'Mémorisez cette séquence puis reproduisez-la.',ans:'3719'},
+{cat:'memory',d:2,type:'memory',seq:[5,2,8,4,6],dt:5000,text:'Mémorisez cette séquence de 5 chiffres.',ans:'52846'},
+{cat:'memory',d:2,type:'memory',seq:[8,1,4,7,3],dt:5000,text:'Mémorisez cette séquence puis reproduisez-la.',ans:'81473'},
+{cat:'memory',d:3,type:'memory',seq:[9,3,7,1,5,8],dt:5000,text:'Mémorisez cette séquence de 6 chiffres.',ans:'937158'},
+{cat:'memory',d:3,type:'memory',seq:[4,1,8,2,6,9,3],dt:6000,text:'Mémorisez cette séquence de 7 chiffres.',ans:'4182693'},
+// MEMORY INVERSE (5)
+{cat:'memory',d:2,type:'memory',sub:'reverse',seq:[6,2,9],dt:4000,text:'Mémorisez cette séquence puis reproduisez-la À L\'ENVERS.',ans:'926'},
+{cat:'memory',d:2,type:'memory',sub:'reverse',seq:[4,7,1,5],dt:5000,text:'Mémorisez puis écrivez À L\'ENVERS (du dernier au premier).',ans:'5174'},
+{cat:'memory',d:3,type:'memory',sub:'reverse',seq:[3,8,1,5,2],dt:5000,text:'Mémorisez puis reproduisez À L\'ENVERS.',ans:'25183'},
+{cat:'memory',d:3,type:'memory',sub:'reverse',seq:[7,2,9,4,1,6],dt:6000,text:'Mémorisez ces 6 chiffres puis écrivez-les À L\'ENVERS.',ans:'614927'},
+{cat:'memory',d:3,type:'memory',seq:[6,2,9,5,1,7,3,8],dt:7000,text:'Mémorisez cette séquence de 8 chiffres !',ans:'62951738'},
+// CALCUL (11)
+{cat:'calcul',d:1,text:'Calculez mentalement :\n17 × 6 = ?',opts:['96','102','108','112'],ans:1},
+{cat:'calcul',d:1,text:'Calculez :\n135 + 67 = ?',opts:['192','202','212','198'],ans:1},
+{cat:'calcul',d:1,text:'Si 3 articles coûtent 15€, combien coûtent 7 articles ?',opts:['30€','35€','40€','45€'],ans:1},
+{cat:'calcul',d:2,text:'Calculez :\n248 + 175 − 89 = ?',opts:['324','334','344','314'],ans:1},
+{cat:'calcul',d:2,text:'Un article coûte 80€ avec 15% de réduction.\nQuel est le prix ?',opts:['65€','68€','70€','72€'],ans:1},
+{cat:'calcul',d:2,text:'Calculez :\n3/4 de 240 = ?',opts:['160','170','180','190'],ans:2},
+{cat:'calcul',d:2,text:'Calculez :\n1,5 × 2,4 = ?',opts:['3,2','3,4','3,6','3,8'],ans:2},
+{cat:'calcul',d:2,text:'25% de 360 = ?',opts:['72','80','90','100'],ans:2},
+{cat:'calcul',d:3,text:'Calculez :\n(144 ÷ 12) + (13 × 7) = ?',opts:['99','101','103','105'],ans:2},
+{cat:'calcul',d:3,text:'Placement de 1000€ à 5%/an, intérêts composés.\nAprès 2 ans ?',opts:['1100€','1102,50€','1105€','1110,25€'],ans:1},
+{cat:'calcul',d:3,text:'Calculez :\n√144 + √81 = ?',opts:['19','21','23','25'],ans:1},
+// ABSTRACT (10)
+{cat:'abstract',d:1,text:'Quelle figure complète la séquence ?\n○  ●  ○  ●  ○  ?',opts:['○','●','◐','◑'],ans:1,hint:'Alternance.'},
+{cat:'abstract',d:1,text:'Quelle suite ?\n↑  →  ↓  ←  ↑  →  ?',opts:['↑','↓','←','→'],ans:1,hint:'Rotation horaire.'},
+{cat:'abstract',d:2,text:'Quelle figure ?\n▲  ▲▲  ▲▲▲  ▲▲▲▲  ?',opts:['▲▲▲▲▲','▲▲▲','▲▲▲▲▲▲','▲▲▲▲'],ans:0,hint:'Comptez.'},
+{cat:'abstract',d:2,text:'Quel motif ?\n🔴🔵🟢  →  🔵🟢🔴  →  🟢🔴🔵  →  ?',opts:['🔴🔵🟢','🟢🔵🔴','🔵🔴🟢','🔴🟢🔵'],ans:0,hint:'Rotation.'},
+{cat:'abstract',d:2,text:'Quel motif ?\n🔺  🔺🔻  🔺🔻🔺  🔺🔻🔺🔻  ?',opts:['🔺🔻🔺🔻🔺','🔻🔺🔻🔺🔻','🔺🔺🔻🔻🔺','🔻🔺🔺🔻🔺'],ans:0,hint:'Alternance croissante.'},
+{cat:'abstract',d:2,text:'Quel symbole ?\n♠  ♥  ♦  ♣  ♠  ♥  ?',opts:['♠','♥','♦','♣'],ans:2,hint:'Cycle de 4.'},
+{cat:'abstract',d:3,text:'Trouvez la règle :\nA=1, C=3, F=6, J=10 → lettre suivante ?',opts:['M','N','O','P'],ans:2,hint:'Écarts croissants.'},
+{cat:'abstract',d:3,text:'Quelle suite ?\n1, 11, 21, 1211, ?',opts:['111221','1231','2211','13211'],ans:0,hint:'Décrivez chaque nombre à voix haute.'},
+{cat:'abstract',d:3,text:'Motif ?\n🔵(1) → 🔴(2) → 🔵(3) → 🔴(4) → 🔵(?) ',opts:['4','5','6','7'],ans:1,hint:'Couleur alterne, nombre +1.'},
+{cat:'abstract',d:3,text:'Suite :\n○● → ○○●● → ○○○●●● → ?',opts:['○○○○●●●●','○●○●○●○●','○○●●○○●●','●●●●○○○○'],ans:0,hint:'n cercles vides + n cercles pleins.'},
+// DEDUCTION (10)
+{cat:'deduction',d:1,text:'Tous les chats ont des moustaches.\nFelix est un chat.\nConclusion ?',opts:['Felix n\'a peut-être pas de moustaches','Felix a des moustaches','Tous les animaux à moustaches sont des chats','Felix est un félin'],ans:1},
+{cat:'deduction',d:1,text:'Tous les carrés sont des rectangles.\nTous les rectangles ont 4 côtés.\nConclusion ?',opts:['Tous les carrés ont 4 côtés','Tous les rectangles sont des carrés','Les triangles sont des rectangles','Rien'],ans:0},
+{cat:'deduction',d:2,text:'Alice > Bob en taille. Bob > Claire.\nDavid > Alice.\nQui est le plus petit ?',opts:['Alice','Bob','Claire','David'],ans:2,hint:'Classez-les.'},
+{cat:'deduction',d:2,text:'Si tous les médecins sont diplômés, et certains diplômés sont chercheurs, certains médecins sont-ils chercheurs ?',opts:['Oui forcément','Pas nécessairement','Oui tous','Impossible à dire'],ans:1,hint:'Attention au syllogisme.'},
+{cat:'deduction',d:2,text:'Lundi il pleut. Mardi il fait beau. Mercredi il pleut.\nSi le motif continue, quel temps jeudi ?',opts:['Pluie','Beau','Neige','On ne sait pas'],ans:1,hint:'Alternance.'},
+{cat:'deduction',d:2,text:'3 amis : chat, chien, poisson.\nPaul n\'a ni chat ni chien. Marie n\'a pas de chien.\nQui a le chien ?',opts:['Paul','Marie','Léo','On ne sait pas'],ans:2,hint:'Élimination.'},
+{cat:'deduction',d:3,text:'A devant B, C derrière D,\nB devant D, E entre A et B.\nQui est dernier ?',opts:['B','C','D','E'],ans:1,hint:'Reconstituez l\'ordre.'},
+{cat:'deduction',d:3,text:'Dans un groupe : certains portent des lunettes, tous ceux qui portent des lunettes lisent beaucoup, certains qui lisent beaucoup sont professeurs.\nPeut-on dire que certains porteurs de lunettes sont professeurs ?',opts:['Oui forcément','Pas nécessairement','Oui tous','Non jamais'],ans:1},
+{cat:'deduction',d:3,text:'5 maisons de couleurs différentes en ligne.\nLa rouge est à gauche de la bleue. La verte est au milieu.\nLa jaune est à côté de la verte. La blanche est à droite.\nOù est la rouge ?',opts:['Position 1','Position 2','Position 3','Position 4'],ans:0,hint:'Procédez par déduction.'},
+{cat:'deduction',d:3,text:'A dit la vérité, B ment toujours.\nA dit : "B dirait que je suis un menteur."\nEst-ce cohérent ?',opts:['Oui, c\'est cohérent','Non, c\'est contradictoire','On manque d\'info','A ment aussi'],ans:0,hint:'Si A dit vrai, que dirait B ?'},
+// MATRICES (10)
+{cat:'matrices',d:1,text:'Quelle forme remplace le ❓ ?',matrix:{cols:3,cells:['⬛','⬜','⬛','⬜','⬛','⬜','⬛','⬜','❓']},opts:['⬛','⬜','🔲','⬛⬜'],ans:0,hint:'Damier.'},
+{cat:'matrices',d:1,text:'Quelle forme remplace le ❓ ?',matrix:{cols:3,cells:['●','●','○','●','○','○','○','○','❓']},opts:['●','○','◐','◑'],ans:1,hint:'● décroît par ligne.'},
+{cat:'matrices',d:1,text:'Quelle forme remplace le ❓ ?',matrix:{cols:3,cells:['🔴','🔴','🔴','🔵','🔵','🔵','🟢','🟢','❓']},opts:['🔴','🔵','🟢','🟡'],ans:2,hint:'Chaque ligne = même couleur.'},
+{cat:'matrices',d:2,text:'Quelle forme remplace le ❓ ?',matrix:{cols:3,cells:['🔴','🔵','🟢','🔵','🟢','🔴','🟢','🔴','❓']},opts:['🔴','🔵','🟢','🟡'],ans:1,hint:'Chaque couleur 1× par ligne et colonne.'},
+{cat:'matrices',d:2,text:'Quelle forme remplace le ❓ ?',matrix:{cols:3,cells:['▲','▲▲','▲▲▲','▲▲','▲▲▲','▲▲▲▲','▲▲▲','▲▲▲▲','❓']},opts:['▲▲▲▲','▲▲▲▲▲','▲▲▲','▲▲'],ans:1,hint:'Nombre croissant.'},
+{cat:'matrices',d:2,text:'Quel nombre remplace le ❓ ?',matrix:{cols:3,cells:['2','4','6','3','6','9','4','8','❓']},opts:['10','12','14','16'],ans:1,hint:'Observez les lignes.'},
+{cat:'matrices',d:2,text:'Quelle forme remplace le ❓ ?',matrix:{cols:3,cells:['○','●','○','●','○','●','○','●','❓']},opts:['●','○','◐','◑'],ans:0,hint:'Damier.'},
+{cat:'matrices',d:3,text:'Quel nombre remplace le ❓ ?',matrix:{cols:3,cells:['1','2','3','2','4','6','3','6','❓']},opts:['7','8','9','12'],ans:2,hint:'Produit ou motif.'},
+{cat:'matrices',d:3,text:'Quelle forme remplace le ❓ ?',matrix:{cols:3,cells:['⬛⬛','⬛⬜','⬜⬜','⬛⬜','⬜⬜','⬜⬛','⬜⬜','⬜⬛','❓']},opts:['⬛⬛','⬛⬜','⬜⬛','⬜⬜'],ans:0,hint:'Transformation par ligne.'},
+{cat:'matrices',d:3,text:'Quel nombre remplace le ❓ ?',matrix:{cols:3,cells:['5','3','8','7','2','9','4','6','❓']},opts:['8','10','11','12'],ans:1,hint:'Relation entre colonnes.'},
+// SPEED (15)
+{cat:'speed',d:1,text:'⚡ VITESSE ⚡\n37 est-il pair ou impair ?',opts:['Pair','Impair'],ans:1,time:8},
+{cat:'speed',d:1,text:'⚡ VITESSE ⚡\nQuel est le plus grand : 847 ou 874 ?',opts:['847','874'],ans:1,time:8},
+{cat:'speed',d:1,text:'⚡ VITESSE ⚡\n6 + 7 = ?',opts:['12','13','14','15'],ans:1,time:6},
+{cat:'speed',d:1,text:'⚡ VITESSE ⚡\nQuelle lettre vient après M ?',opts:['L','N','O','K'],ans:1,time:6},
+{cat:'speed',d:2,text:'⚡ VITESSE ⚡\n15 + 28 = ?',opts:['42','43','44','45'],ans:1,time:10},
+{cat:'speed',d:2,text:'⚡ VITESSE ⚡\nCombien de voyelles dans "ALGORITHME" ?',opts:['3','4','5','6'],ans:1,time:12},
+{cat:'speed',d:2,text:'⚡ VITESSE ⚡\nJour après mercredi + 2 jours ?',opts:['Jeudi','Vendredi','Samedi','Dimanche'],ans:1,time:8},
+{cat:'speed',d:2,text:'⚡ VITESSE ⚡\n12 × 9 = ?',opts:['98','108','118','96'],ans:1,time:8},
+{cat:'speed',d:2,text:'⚡ VITESSE ⚡\n"POMME" épelé à l\'envers ?',opts:['EMMOP','EMPOM','EPMOM','EPMMO'],ans:0,time:10},
+{cat:'speed',d:3,text:'⚡ VITESSE ⚡\nSi A=1, B=2... C + D = ?',opts:['5','6','7','8'],ans:2,time:10},
+{cat:'speed',d:3,text:'⚡ VITESSE ⚡\n256 est-il un carré parfait ?',opts:['Oui','Non'],ans:0,time:8},
+{cat:'speed',d:3,text:'⚡ VITESSE ⚡\nCombien font 3² + 4² ?',opts:['20','24','25','7'],ans:2,time:10},
+{cat:'speed',d:1,text:'⚡ VITESSE ⚡\nRouge + Jaune = quelle couleur ?',opts:['Violet','Orange','Vert','Marron'],ans:1,time:6},
+{cat:'speed',d:2,text:'⚡ VITESSE ⚡\nCombien de côtés a un hexagone ?',opts:['5','6','7','8'],ans:1,time:6},
+{cat:'speed',d:2,text:'⚡ VITESSE ⚡\nMoitié de 78 ?',opts:['36','38','39','42'],ans:2,time:8},
+];
+
+const QI_CHILD_Q = [
+// NUMERIC (9)
+{cat:'numeric',d:1,text:'Quel nombre vient après ?\n2,  4,  6,  8,  ?',opts:['9','10','11','12'],ans:1,hint:'On ajoute toujours le même.'},
+{cat:'numeric',d:1,text:'Complète :\n5,  10,  15,  20,  ?',opts:['22','25','30','35'],ans:1,hint:'Table de 5 !'},
+{cat:'numeric',d:1,text:'Complète :\n3,  6,  9,  12,  ?',opts:['14','15','16','18'],ans:1,hint:'Table de 3 !'},
+{cat:'numeric',d:1,text:'Complète :\n10,  20,  30,  40,  ?',opts:['45','50','55','60'],ans:1,hint:'On ajoute 10.'},
+{cat:'numeric',d:2,text:'Complète :\n1,  2,  4,  8,  ?',opts:['10','12','14','16'],ans:3,hint:'On double.'},
+{cat:'numeric',d:2,text:'Complète :\n1,  4,  9,  16,  ?',opts:['20','24','25','32'],ans:2,hint:'1×1, 2×2, 3×3...'},
+{cat:'numeric',d:2,text:'Complète :\n100,  90,  80,  70,  ?',opts:['50','55','60','65'],ans:2,hint:'On retire 10.'},
+{cat:'numeric',d:2,text:'Complète :\n1,  3,  5,  7,  9,  ?',opts:['10','11','12','13'],ans:1,hint:'Nombres impairs.'},
+{cat:'numeric',d:3,text:'Complète :\n2,  3,  5,  7,  11,  ?',opts:['12','13','14','15'],ans:1,hint:'Nombres premiers.'},
+// VERBAL (9)
+{cat:'verbal',d:1,text:'Complète :\nChien est à Niche ce que Oiseau est à ... ?',opts:['Arbre','Nid','Plume','Ciel'],ans:1,hint:'Où habite l\'oiseau ?'},
+{cat:'verbal',d:1,text:'Quel est l\'intrus ?\nChien, Chat, Poisson, Table, Hamster',opts:['Chien','Poisson','Table','Hamster'],ans:2,hint:'Pas un animal.'},
+{cat:'verbal',d:1,text:'Complète :\nOeil est à Voir ce que Oreille est à ... ?',opts:['Parler','Sentir','Entendre','Toucher'],ans:2,hint:'Fonction de l\'organe.'},
+{cat:'verbal',d:1,text:'Complète :\nPomme est à Fruit ce que Salade est à ... ?',opts:['Vert','Légume','Jardin','Repas'],ans:1,hint:'Catégorie.'},
+{cat:'verbal',d:2,text:'Complète :\nDoigt est à Main ce que Orteil est à ... ?',opts:['Jambe','Chaussure','Pied','Genou'],ans:2,hint:'Où sont les orteils ?'},
+{cat:'verbal',d:2,text:'Intrus ?\nRouge, Bleu, Grand, Vert, Jaune',opts:['Rouge','Bleu','Grand','Vert'],ans:2,hint:'Pas une couleur.'},
+{cat:'verbal',d:2,text:'Complète :\nRoi est à Reine ce que Prince est à ... ?',opts:['Château','Princesse','Couronne','Royaume'],ans:1,hint:'Version féminine.'},
+{cat:'verbal',d:2,text:'Intrus ?\nVoiture, Bus, Avion, Train, Vélo',opts:['Voiture','Bus','Avion','Vélo'],ans:2,hint:'Pas sur la route ou les rails.'},
+{cat:'verbal',d:3,text:'Complète :\nChapeau est à Tête ce que Chaussure est à ... ?',opts:['Marcher','Pied','Lacet','Sol'],ans:1,hint:'Où le met-on ?'},
+// MEMORY (7)
+{cat:'memory',d:1,type:'memory',seq:[3,7,2],dt:4000,text:'Mémorise ces chiffres !',ans:'372'},
+{cat:'memory',d:1,type:'memory',seq:[5,1,8],dt:4000,text:'Mémorise ces 3 chiffres !',ans:'518'},
+{cat:'memory',d:2,type:'memory',seq:[5,1,8,4],dt:5000,text:'Mémorise ces 4 chiffres !',ans:'5184'},
+{cat:'memory',d:2,type:'memory',seq:[6,3,9,2,7],dt:6000,text:'Mémorise ces 5 chiffres !',ans:'63927'},
+{cat:'memory',d:2,type:'memory',sub:'reverse',seq:[4,7,2],dt:4000,text:'Mémorise puis écris À L\'ENVERS !',ans:'274'},
+{cat:'memory',d:3,type:'memory',sub:'reverse',seq:[3,8,1,5],dt:5000,text:'Mémorise puis écris À L\'ENVERS !',ans:'5183'},
+{cat:'memory',d:3,type:'memory',seq:[2,8,5,1,4,7],dt:6000,text:'Mémorise ces 6 chiffres !',ans:'285147'},
+// CALCUL (8)
+{cat:'calcul',d:1,text:'7 × 8 = ?',opts:['54','56','58','64'],ans:1},
+{cat:'calcul',d:1,text:'45 + 28 = ?',opts:['63','73','83','71'],ans:1},
+{cat:'calcul',d:1,text:'100 − 37 = ?',opts:['67','63','73','57'],ans:1},
+{cat:'calcul',d:1,text:'Combien font 6 × 9 ?',opts:['45','52','54','56'],ans:2},
+{cat:'calcul',d:2,text:'50€ − un jeu à 27€ = ?',opts:['33€','23€','27€','13€'],ans:1},
+{cat:'calcul',d:2,text:'Gâteau coupé en 8. Tu manges 3.\nFraction restante ?',opts:['3/8','5/8','4/8','6/8'],ans:1},
+{cat:'calcul',d:2,text:'3 bonbons coûtent 6€.\nCombien pour 9 bonbons ?',opts:['12€','15€','18€','21€'],ans:2},
+{cat:'calcul',d:3,text:'La moitié de 150 + le double de 25 = ?',opts:['100','115','125','130'],ans:2},
+// ABSTRACT (7)
+{cat:'abstract',d:1,text:'Suite ?\n⭐  ⭐⭐  ⭐⭐⭐  ?',opts:['⭐⭐⭐⭐','⭐⭐⭐','⭐⭐','⭐⭐⭐⭐⭐'],ans:0,hint:'Compte !'},
+{cat:'abstract',d:1,text:'Suite ?\n🔴  🔵  🔴  🔵  🔴  ?',opts:['🔴','🔵','🟢','🟡'],ans:1,hint:'Alternance.'},
+{cat:'abstract',d:1,text:'Suite ?\n↑  →  ↓  ←  ↑  →  ?',opts:['↑','↓','←','→'],ans:1,hint:'Ça tourne !'},
+{cat:'abstract',d:2,text:'Suite ?\n🟡  🟡🔵  🟡🔵🟡  🟡🔵🟡🔵  ?',opts:['🟡🔵🟡🔵🟡','🔵🟡🔵🟡🔵','🟡🟡🔵🔵🟡','🔵🟡🟡🔵🟡'],ans:0,hint:'Ça s\'allonge.'},
+{cat:'abstract',d:2,text:'Suite ?\n♠  ♥  ♦  ♣  ♠  ♥  ?',opts:['♠','♥','♦','♣'],ans:2,hint:'Cycle de 4.'},
+{cat:'abstract',d:2,text:'Suite ?\n○  ●●  ○○○  ●●●●  ?',opts:['○○○○○','●●●●●','○●○●○','●○●○●'],ans:0,hint:'Alternance + croissance.'},
+{cat:'abstract',d:3,text:'Suite ?\n🔴(1) → 🔵(3) → 🔴(5) → 🔵(?) ',opts:['6','7','8','9'],ans:1,hint:'Couleur alterne, nombre +2.'},
+// DEDUCTION (7)
+{cat:'deduction',d:1,text:'Tous les oiseaux ont des plumes.\nUn aigle est un oiseau.\nConclusion ?',opts:['Pas de plumes','Les aigles ont des plumes','Tous à plumes sont des aigles','Rien'],ans:1},
+{cat:'deduction',d:1,text:'3 fruits : pomme, banane, orange.\nTu prends banane et orange.\nQue reste-t-il ?',opts:['Banane','Orange','Pomme','Rien'],ans:2},
+{cat:'deduction',d:1,text:'Il fait jour. Le soleil brille quand il fait jour.\nLe soleil brille-t-il ?',opts:['Oui','Non','Peut-être','On ne sait pas'],ans:0},
+{cat:'deduction',d:2,text:'Emma > Lucas en taille. Lucas > Chloé.\nPlus petit(e) ?',opts:['Emma','Lucas','Chloé','On ne sait pas'],ans:2,hint:'Range-les.'},
+{cat:'deduction',d:2,text:'Tom a plus de billes que Léa.\nLéa a 8, Hugo a 5.\nTom en a au moins... ?',opts:['7','8','9','10'],ans:2,hint:'Plus que Léa.'},
+{cat:'deduction',d:2,text:'Tous les chiens aboient.\nMédor aboie.\nMédor est-il un chien ?',opts:['Oui forcément','Pas forcément','Oui sûrement','Non'],ans:1,hint:'D\'autres animaux peuvent aboyer !'},
+{cat:'deduction',d:3,text:'A aime B. B aime C. C aime A.\nSi on retire B, qui est triste ?',opts:['A','C','A et C','Personne'],ans:0,hint:'Qui aimait B ?'},
+// MATRICES (7)
+{cat:'matrices',d:1,text:'Remplace le ❓ :',matrix:{cols:3,cells:['⬛','⬜','⬛','⬜','⬛','⬜','⬛','⬜','❓']},opts:['⬛','⬜','🔲','⬛⬜'],ans:0,hint:'Damier.'},
+{cat:'matrices',d:1,text:'Remplace le ❓ :',matrix:{cols:3,cells:['🔴','🔴','🔴','🔵','🔵','🔵','🟢','🟢','❓']},opts:['🔴','🔵','🟢','🟡'],ans:2,hint:'Même couleur par ligne.'},
+{cat:'matrices',d:1,text:'Remplace le ❓ :',matrix:{cols:3,cells:['1','2','3','4','5','6','7','8','❓']},opts:['9','10','11','12'],ans:0,hint:'Suite logique.'},
+{cat:'matrices',d:2,text:'Remplace le ❓ :',matrix:{cols:3,cells:['🔴','🔵','🟢','🔵','🟢','🔴','🟢','🔴','❓']},opts:['🔴','🔵','🟢','🟡'],ans:1,hint:'1× par ligne et colonne.'},
+{cat:'matrices',d:2,text:'Remplace le ❓ :',matrix:{cols:3,cells:['●','●','○','●','○','○','○','○','❓']},opts:['●','○','◐','◑'],ans:1,hint:'● décroît.'},
+{cat:'matrices',d:2,text:'Remplace le ❓ :',matrix:{cols:3,cells:['2','4','6','3','6','9','4','8','❓']},opts:['10','12','14','16'],ans:1,hint:'Observe les lignes.'},
+{cat:'matrices',d:3,text:'Remplace le ❓ :',matrix:{cols:3,cells:['1','1','2','1','2','3','2','3','❓']},opts:['4','5','6','3'],ans:1,hint:'Somme diagonale ?'},
+// SPEED (11)
+{cat:'speed',d:1,text:'⚡ VITESSE ⚡\n12 est pair ou impair ?',opts:['Pair','Impair'],ans:0,time:8},
+{cat:'speed',d:1,text:'⚡ VITESSE ⚡\nPlus grand : 56 ou 65 ?',opts:['56','65'],ans:1,time:8},
+{cat:'speed',d:1,text:'⚡ VITESSE ⚡\n6 + 7 = ?',opts:['12','13','14','15'],ans:1,time:6},
+{cat:'speed',d:1,text:'⚡ VITESSE ⚡\nRouge + Bleu = ?',opts:['Orange','Vert','Violet','Marron'],ans:2,time:6},
+{cat:'speed',d:2,text:'⚡ VITESSE ⚡\nPattes d\'une araignée ?',opts:['6','8','10','12'],ans:1,time:8},
+{cat:'speed',d:2,text:'⚡ VITESSE ⚡\nMoitié de 50 ?',opts:['20','24','25','30'],ans:2,time:6},
+{cat:'speed',d:2,text:'⚡ VITESSE ⚡\nCombien de jours en février (année normale) ?',opts:['28','29','30','31'],ans:0,time:8},
+{cat:'speed',d:1,text:'⚡ VITESSE ⚡\n3 + 4 = ?',opts:['6','7','8','9'],ans:1,time:6},
+{cat:'speed',d:2,text:'⚡ VITESSE ⚡\nLettre après G ?',opts:['F','H','I','J'],ans:1,time:6},
+{cat:'speed',d:2,text:'⚡ VITESSE ⚡\nCombien de côtés a un triangle ?',opts:['2','3','4','5'],ans:1,time:6},
+{cat:'speed',d:2,text:'⚡ VITESSE ⚡\n5 × 5 = ?',opts:['20','25','30','35'],ans:1,time:6},
+];
+
+// QI Test State
+let qiMode, qiQuestions, qiCurQ, qiScore, qiTotalMax, qiTimerI, qiTimeLeft, qiQStart, qiResults, qiCatScores;
+
+function startQiTest(mode) {
+  qiMode = mode;
+  qiQuestions = qiInterleave(mode === 'adult' ? [...QI_ADULT_Q] : [...QI_CHILD_Q]);
+  qiCurQ = 0; qiScore = 0; qiTotalMax = 0; qiResults = []; qiCatScores = {};
+  for (const c in QI_CATS) qiCatScores[c] = {ok:0, n:0, pts:0, max:0};
+  navigateTo('qi-test');
+  document.getElementById('qi-q-total').textContent = qiQuestions.length;
+  qiLoadQ();
+}
+
+function qiInterleave(qs) {
+  const bc = {};
+  qs.forEach(q => { if (!bc[q.cat]) bc[q.cat] = []; bc[q.cat].push(q); });
+  for (const c in bc) qiShuf(bc[c]);
+  const r = [], cats = Object.keys(bc), mx = Math.max(...Object.values(bc).map(a => a.length));
+  for (let i = 0; i < mx; i++) for (const c of cats) if (i < bc[c].length) r.push(bc[c][i]);
+  return r;
+}
+
+function qiShuf(a) { for (let i = a.length - 1; i > 0; i--) { const j = 0 | Math.random() * (i + 1); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+
+function qiGetTime(q) {
+  if (q.time) return q.time;
+  if (q.type === 'memory') return 0;
+  const base = qiMode === 'child' ? 40 : 30;
+  return base + (q.d - 1) * (qiMode === 'child' ? 10 : 8);
+}
+
+function qiLoadQ() {
+  if (qiCurQ >= qiQuestions.length) { qiShowResults(); return; }
+  const q = qiQuestions[qiCurQ], ci = QI_CATS[q.cat];
+  document.getElementById('qi-category').innerHTML = ci.icon + ' ' + ci.name;
+  document.getElementById('qi-q-current').textContent = qiCurQ + 1;
+  document.getElementById('qi-progress-bar').style.width = ((qiCurQ / qiQuestions.length) * 100) + '%';
+  document.getElementById('qi-score-display').textContent = '⭐ ' + Math.round(qiScore) + ' pts';
+  const de = document.getElementById('qi-q-difficulty');
+  const dm = {1:['Facile','qi-diff-easy'], 2:['Moyen','qi-diff-medium'], 3:['Difficile','qi-diff-hard']};
+  de.textContent = dm[q.d][0]; de.className = 'qi-difficulty ' + dm[q.d][1];
+  document.getElementById('qi-q-text').innerHTML = q.text.replace(/\n/g, '<br>');
+  const hi = document.getElementById('qi-q-hint');
+  if (q.hint) { hi.textContent = '💡 ' + q.hint; hi.style.display = 'block'; } else hi.style.display = 'none';
+  document.getElementById('qi-feedback').classList.remove('show', 'correct', 'wrong');
+  const oz = document.getElementById('qi-options-zone'), mz = document.getElementById('qi-memory-zone'), xz = document.getElementById('qi-matrix-zone');
+  if (q.matrix) {
+    xz.style.display = 'block';
+    const m = q.matrix;
+    xz.innerHTML = '<div class="qi-matrix-grid" style="grid-template-columns:repeat(' + m.cols + ',1fr)">' + m.cells.map(c => '<div class="qi-matrix-cell' + (c === '❓' ? ' highlight' : '') + '">' + c + '</div>').join('') + '</div>';
+  } else xz.style.display = 'none';
+  if (q.type === 'memory') { oz.style.display = 'none'; mz.style.display = 'block'; qiStartMem(q); }
+  else { oz.style.display = 'grid'; mz.style.display = 'none'; qiRenderOpts(q); qiStartTimer(q); }
+  const card = document.getElementById('qi-question-card');
+  card.style.animation = 'none'; card.offsetHeight; card.style.animation = 'slideIn .4s ease';
+  qiQStart = Date.now();
+}
+
+function qiRenderOpts(q) {
+  const L = 'ABCDEF';
+  document.getElementById('qi-options-zone').innerHTML = q.opts.map((o, i) =>
+    '<button class="qi-option" onclick="qiSelAns(' + i + ')"><span class="qi-opt-letter">' + L[i] + '</span><span>' + o + '</span></button>'
+  ).join('');
+}
+
+function qiStartTimer(q) {
+  clearInterval(qiTimerI);
+  const t = qiGetTime(q); qiTimeLeft = t; qiUpdTimer(t);
+  qiTimerI = setInterval(() => {
+    qiTimeLeft -= 0.1;
+    if (qiTimeLeft <= 0) { qiTimeLeft = 0; clearInterval(qiTimerI); qiOnTimeout(); }
+    qiUpdTimer(t);
+  }, 100);
+}
+
+function qiUpdTimer(t) {
+  const p = (qiTimeLeft / t) * 100, b = document.getElementById('qi-timer-bar');
+  b.style.width = p + '%';
+  b.className = 'qi-timer-bar' + (p < 25 ? ' danger' : p < 50 ? ' warning' : '');
+  document.getElementById('qi-timer-text').textContent = Math.ceil(qiTimeLeft) + 's';
+}
+
+function qiOnTimeout() {
+  const q = qiQuestions[qiCurQ], el = (Date.now() - qiQStart) / 1000;
+  document.querySelectorAll('.qi-option').forEach(o => o.classList.add('disabled'));
+  if (q.type !== 'memory') document.querySelectorAll('.qi-option')[q.ans].classList.add('correct');
+  qiShowFB(false, q.type === 'memory' ? q.ans : q.opts[q.ans]);
+  qiRecord(q, false, el);
+  setTimeout(() => { qiCurQ++; qiLoadQ(); }, 1500);
+}
+
+function qiSelAns(i) {
+  clearInterval(qiTimerI);
+  const q = qiQuestions[qiCurQ], el = (Date.now() - qiQStart) / 1000, ok = i === q.ans;
+  document.querySelectorAll('.qi-option').forEach(o => o.classList.add('disabled'));
+  document.querySelectorAll('.qi-option')[i].classList.add(ok ? 'correct' : 'wrong');
+  if (!ok) document.querySelectorAll('.qi-option')[q.ans].classList.add('correct');
+  qiShowFB(ok);
+  qiRecord(q, ok, el);
+  setTimeout(() => { qiCurQ++; qiLoadQ(); }, ok ? 1000 : 1800);
+}
+
+function qiRecord(q, ok, el) {
+  const t = qiGetTime(q) || 30, base = q.d * 2;
+  const bonus = ok ? Math.max(0, (1 - el / t)) * q.d : 0;
+  const pts = ok ? base + Math.round(bonus * 10) / 10 : 0;
+  qiScore += Math.round(pts * 10) / 10;
+  qiTotalMax += base + q.d;
+  qiCatScores[q.cat].n++; qiCatScores[q.cat].max += base + q.d;
+  if (ok) { qiCatScores[q.cat].ok++; qiCatScores[q.cat].pts += pts; }
+  qiResults.push({q, ok, time: el, pts});
+  document.getElementById('qi-score-display').textContent = '⭐ ' + Math.round(qiScore) + ' pts';
+}
+
+function qiShowFB(ok, corr) {
+  const f = document.getElementById('qi-feedback');
+  f.classList.remove('correct', 'wrong');
+  f.classList.add('show', ok ? 'correct' : 'wrong');
+  document.getElementById('qi-feedback-icon').textContent = ok ? '✅' : '❌';
+  const ms = ok ? ['Correct !', 'Bonne réponse !', 'Exact !', 'Bien joué !'] : ['Incorrect.', 'Raté.', 'Pas la bonne réponse.'];
+  let m = ms[0 | Math.random() * ms.length];
+  if (!ok && corr) m += ' Réponse : ' + corr;
+  document.getElementById('qi-feedback-text').textContent = m;
+}
+
+// Memory
+function qiStartMem(q) {
+  const md = document.getElementById('qi-memory-display'), mc = document.getElementById('qi-memory-countdown');
+  const mi = document.getElementById('qi-memory-input'), mv = document.getElementById('qi-memory-validate');
+  mi.style.display = 'none'; mv.style.display = 'none'; mi.value = ''; mc.textContent = '';
+  md.innerHTML = q.seq.map((n, i) => '<div class="qi-memory-item" style="animation-delay:' + (i * 0.15) + 's">' + n + '</div>').join('');
+  let cd = q.dt / 1000;
+  const rev = q.sub === 'reverse' ? '<span style="color:var(--danger)">🔄 À L\'ENVERS !</span> — ' : '';
+  mc.innerHTML = rev + '👀 Mémorisez... ' + cd + 's';
+  const ci = setInterval(() => {
+    cd--;
+    if (cd <= 0) {
+      clearInterval(ci);
+      md.innerHTML = q.seq.map(() => '<div class="qi-memory-item" style="background:var(--border);color:var(--text2)">?</div>').join('');
+      mc.innerHTML = rev + '✍️ Entrez la séquence !';
+      mi.style.display = 'block'; mv.style.display = 'block'; mi.focus();
+      qiQStart = Date.now(); qiStartTimer({...q, type:'choice', d:q.d});
+    } else {
+      mc.innerHTML = rev + '👀 Mémorisez... ' + cd + 's';
+    }
+  }, 1000);
+}
+
+function qiValidateMemory() {
+  clearInterval(qiTimerI);
+  const q = qiQuestions[qiCurQ], inp = document.getElementById('qi-memory-input').value.replace(/\s/g, '');
+  const el = (Date.now() - qiQStart) / 1000, ok = inp === q.ans;
+  document.getElementById('qi-memory-input').style.display = 'none';
+  document.getElementById('qi-memory-validate').style.display = 'none';
+  const dispSeq = q.sub === 'reverse' ? [...q.seq].reverse() : q.seq;
+  document.getElementById('qi-memory-display').innerHTML = dispSeq.map((n, i) => {
+    const g = inp[i] === String(n);
+    return '<div class="qi-memory-item" style="background:' + (g ? 'var(--success)' : 'var(--danger)') + '">' + n + '</div>';
+  }).join('');
+  qiShowFB(ok, q.ans.split('').join(' '));
+  qiRecord(q, ok, el);
+  setTimeout(() => { qiCurQ++; qiLoadQ(); }, 1800);
+}
+
+// Bind Enter key for memory input
+document.addEventListener('DOMContentLoaded', () => {
+  const mi = document.getElementById('qi-memory-input');
+  if (mi) mi.addEventListener('keydown', e => { if (e.key === 'Enter') qiValidateMemory(); });
+});
+
+function showQiQuitModal() { clearInterval(qiTimerI); document.getElementById('qi-quit-modal').classList.add('show'); }
+function closeQiQuitModal() {
+  document.getElementById('qi-quit-modal').classList.remove('show');
+  if (qiQuestions && qiCurQ < qiQuestions.length) {
+    const q = qiQuestions[qiCurQ];
+    if (q && q.type !== 'memory') qiStartTimer(q);
+  }
+}
+function quitQiTest() { document.getElementById('qi-quit-modal').classList.remove('show'); clearInterval(qiTimerI); navigateTo('home'); }
+
+// QI Results
+function qiShowResults() {
+  clearInterval(qiTimerI);
+  const N = qiQuestions.length, nOk = qiResults.filter(r => r.ok).length;
+  const acc = (nOk / N) * 100, avg = qiResults.reduce((s, r) => s + r.time, 0) / N;
+  const W = {numeric:1, verbal:1.1, memory:1.1, calcul:.9, abstract:1.1, deduction:1.2, matrices:1.3, speed:.8};
+  let wS = 0, wM = 0;
+  for (const c in qiCatScores) { const w = W[c] || 1; wS += qiCatScores[c].pts * w; wM += qiCatScores[c].max * w; }
+  const wP = wM > 0 ? wS / wM : 0;
+  const z = (wP - 0.5) / 0.155;
+  const iq = Math.round(100 + z * 15), cIQ = Math.max(55, Math.min(160, iq));
+  const ranges = [[0,69,'Déficience intellectuelle'],[70,79,'Limite (Borderline)'],[80,89,'Normal faible'],[90,109,'Moyenne'],[110,119,'Normal fort'],[120,129,'Supérieur'],[130,144,'Très supérieur (Doué)'],[145,999,'Exceptionnellement doué']];
+  const rng = ranges.find(r => cIQ >= r[0] && cIQ <= r[1]);
+  const perc = qiNormCDF(z) * 100;
+  const spQ = qiResults.filter(r => r.q.cat === 'speed'), spOk = spQ.filter(r => r.ok).length;
+
+  // Save results
+  const qiResult = {
+    iq: cIQ, range: rng ? rng[2] : '', percentile: Math.round(perc),
+    correct: nOk, total: N, accuracy: Math.round(acc), avgTime: parseFloat(avg.toFixed(1)),
+    mode: qiMode, catScores: qiCatScores, date: new Date().toISOString()
+  };
+  localStorage.setItem('neuroProfile_qi', JSON.stringify(qiResult));
+  saveToFirebase('qi', qiResult);
+  renderHomeCards();
+  updateDiagProgress();
+
+  qiBuildResultsHTML(qiResult, spOk, spQ.length);
+}
+
+function qiShowSavedResults(data) {
+  const spOk = data.catScores && data.catScores.speed ? data.catScores.speed.ok : 0;
+  const spN = data.catScores && data.catScores.speed ? data.catScores.speed.n : 0;
+  qiBuildResultsHTML(data, spOk, spN);
+}
+
+function qiBuildResultsHTML(data, spOk, spN) {
+  let html = '<h2>🧠 Résultats — Test de QI</h2><p class="results-subtitle">Mode ' + (data.mode === 'adult' ? 'Adulte' : 'Enfant') + '</p>';
+  html += '<div class="qi-iq-display"><div class="qi-iq-label">Votre QI estimé</div>';
+  html += '<div class="qi-iq-number">' + data.iq + '</div>';
+  html += '<div class="qi-iq-range">' + (data.range || '') + '</div>';
+  html += '<div class="qi-iq-percentile">Vous êtes au-dessus de ' + data.percentile + '% de la population</div>';
+  html += '<div class="qi-iq-margin">Intervalle de confiance : ' + Math.max(55, data.iq - 5) + ' — ' + Math.min(160, data.iq + 5) + ' (±5 pts)</div></div>';
+
+  // Bell curve
+  html += '<div class="result-card"><h3>📊 Distribution du QI</h3><svg class="qi-bell-svg" viewBox="0 0 500 200" id="qi-bell-svg"></svg></div>';
+
+  // Stats
+  html += '<div class="qi-stats-grid">';
+  html += '<div class="qi-stat-card"><div class="qi-stat-value">' + data.correct + '/' + data.total + '</div><div class="qi-stat-label">Bonnes réponses</div></div>';
+  html += '<div class="qi-stat-card"><div class="qi-stat-value">' + data.avgTime + 's</div><div class="qi-stat-label">Temps moyen</div></div>';
+  html += '<div class="qi-stat-card"><div class="qi-stat-value">' + data.accuracy + '%</div><div class="qi-stat-label">Précision</div></div>';
+  html += '<div class="qi-stat-card"><div class="qi-stat-value">' + spOk + '/' + spN + '</div><div class="qi-stat-label">Score vitesse</div></div>';
+  html += '</div>';
+
+  // Categories
+  if (data.catScores) {
+    html += '<div class="result-card"><h3>📋 Performance par catégorie</h3><div class="qi-cats-grid">';
+    for (const c in data.catScores) {
+      const cs = data.catScores[c]; if (!cs.n) continue;
+      const p = cs.max > 0 ? (cs.pts / cs.max) * 100 : 0;
+      const ci = QI_CATS[c];
+      if (!ci) continue;
+      html += '<div class="qi-cat-card"><div class="qi-cat-header"><span class="qi-cat-icon">' + ci.icon + '</span><span class="qi-cat-name">' + ci.name + '</span></div>';
+      html += '<div class="qi-cat-bar-bg"><div class="qi-cat-bar-fill" style="width:' + p + '%;background:' + ci.color + '"></div></div>';
+      html += '<div class="qi-cat-score">' + cs.ok + '/' + cs.n + ' correct — ' + Math.round(p) + '%</div></div>';
+    }
+    html += '</div></div>';
+  }
+
+  // Disclaimer
+  html += '<div class="disclaimer">⚠️ <strong>Avertissement :</strong> Ce test semi-professionnel offre une bonne estimation mais ne remplace pas une évaluation psychométrique clinique (WAIS-IV, WISC-V). Pour un diagnostic officiel, consultez un psychologue qualifié.</div>';
+
+  // Share & nav
+  html += '<div class="share-row">';
+  html += '<button class="share-btn share-whatsapp" onclick="shareResults(\'qi\',\'whatsapp\')">💬 WhatsApp</button>';
+  html += '<button class="share-btn share-email" onclick="shareResults(\'qi\',\'email\')">📧 Email</button>';
+  html += '<button class="share-btn share-copy" onclick="shareResults(\'qi\',\'copy\')">📋 Copier</button>';
+  html += '</div>';
+  html += '<div style="display:flex;gap:12px;justify-content:center;margin-top:20px;flex-wrap:wrap">';
+  html += '<button class="btn-secondary" onclick="navigateTo(\'home\')">← Accueil</button>';
+  html += '<button class="btn" onclick="navigateTo(\'qi-intro\')">🔄 Refaire le test</button>';
+  html += '</div>';
+
+  document.getElementById('qi-results-container').innerHTML = html;
+  navigateTo('qi-results');
+
+  // Render bell curve after DOM update
+  setTimeout(() => qiRenderBell(data.iq), 100);
+}
+
+function qiNormCDF(z) {
+  const a1 = .254829592, a2 = -.284496736, a3 = 1.421413741, a4 = -1.453152027, a5 = 1.061405429, p = .3275911;
+  const sg = z < 0 ? -1 : 1; z = Math.abs(z) / Math.sqrt(2);
+  const t = 1 / (1 + p * z);
+  return .5 * (1 + sg * (1 - (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * Math.exp(-z * z)));
+}
+
+function qiRenderBell(uIQ) {
+  const svg = document.getElementById('qi-bell-svg');
+  if (!svg) return;
+  const w = 500, h = 200, m = 30;
+  let path = 'M'; const pts = [];
+  for (let iq = 40; iq <= 160; iq++) {
+    const z = (iq - 100) / 15, y = Math.exp(-.5 * z * z) / (15 * Math.sqrt(2 * Math.PI));
+    const x = m + ((iq - 40) / 120) * (w - 2 * m), py = h - m - (y / .027) * (h - 2 * m);
+    pts.push({x, y: py}); path += x + ',' + py + ' L';
+  }
+  path = path.slice(0, -2);
+  const fp = pts[0], lp = pts[pts.length - 1];
+  const fill = path + ' L' + lp.x + ',' + (h - m) + ' L' + fp.x + ',' + (h - m) + ' Z';
+  const uz = (uIQ - 100) / 15, uy = Math.exp(-.5 * uz * uz) / (15 * Math.sqrt(2 * Math.PI));
+  const ux = m + ((uIQ - 40) / 120) * (w - 2 * m), upy = h - m - (uy / .027) * (h - 2 * m);
+  const lbs = [55, 70, 85, 100, 115, 130, 145];
+  svg.innerHTML = '<defs><linearGradient id="qibg" x1="0%" y1="0%" x2="0%" y2="100%">' +
+    '<stop offset="0%" style="stop-color:#6c5ce7;stop-opacity:.25"/><stop offset="100%" style="stop-color:#6c5ce7;stop-opacity:.03"/></linearGradient></defs>' +
+    '<path d="' + fill + '" fill="url(#qibg)"/><path d="' + path + '" fill="none" stroke="#6c5ce7" stroke-width="2.5" stroke-linecap="round"/>' +
+    '<line x1="' + m + '" y1="' + (h - m) + '" x2="' + (w - m) + '" y2="' + (h - m) + '" stroke="#ccc" stroke-width="1"/>' +
+    lbs.map(iq => {
+      const lx = m + ((iq - 40) / 120) * (w - 2 * m);
+      return '<text x="' + lx + '" y="' + (h - 8) + '" text-anchor="middle" fill="#999" font-size="11" font-family="Poppins">' + iq + '</text>' +
+        '<line x1="' + lx + '" y1="' + (h - m) + '" x2="' + lx + '" y2="' + (h - m + 5) + '" stroke="#bbb" stroke-width="1"/>';
+    }).join('') +
+    '<line x1="' + ux + '" y1="' + upy + '" x2="' + ux + '" y2="' + (h - m) + '" stroke="#fd79a8" stroke-width="2" stroke-dasharray="5,5"/>' +
+    '<circle cx="' + ux + '" cy="' + upy + '" r="7" fill="#fd79a8" stroke="white" stroke-width="2.5"/>' +
+    '<text x="' + ux + '" y="' + (upy - 16) + '" text-anchor="middle" fill="#e17055" font-size="13" font-weight="700" font-family="Patrick Hand">Vous: ' + uIQ + '</text>';
+}
+
+// ============================================================
+// INIT
+// ============================================================
+function init() {
+  updateUserDisplay();
+  renderHomeCards();
+  updateDiagProgress();
+  if (currentUser) {
+    loadUserData();
+  } else {
+    showProfileModal(true);
+  }
+}
+init();
+</script>
+</body>
+</html>

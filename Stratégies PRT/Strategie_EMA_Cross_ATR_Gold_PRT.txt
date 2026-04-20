@@ -1,0 +1,147 @@
+// ============================================================
+// STRATÉGIE : EMA Cross (12/26) + Filtre ATR — Or (XAU/USD) 4h
+// ============================================================
+// Plateforme : ProRealTime (ProBuilder / ProOrder)
+// Instrument : Or (XAU/USD) — CFD
+// Timeframe  : 4 heures
+// ============================================================
+
+// ────────────────────────────────────────────────
+//   PARAMÈTRES UTILISATEUR
+// ────────────────────────────────────────────────
+
+// EMA
+DEFPARAM CumulateOrders = false  // Un seul trade à la fois
+
+FastPeriod = 12       // Période EMA rapide
+SlowPeriod = 26       // Période EMA lente
+
+// Filtre ATR
+ATRPeriod = 14        // Période de l'ATR
+ATRLookback = 50      // Période moyenne ATR (référence)
+ATRThreshold = 0.9    // Seuil : ATR actuel > Threshold × moyenne ATR
+
+// Min Hold (en nombre de bougies 4h)
+MinHoldBars = 5       // Durée minimale en position (= 20h)
+
+// ────────────────────────────────────────────────
+//   MONEY MANAGEMENT
+// ────────────────────────────────────────────────
+
+CapitalInitial = 10000      // Capital de départ en €
+RisqueParTrade = 1.8        // % du capital risqué par trade
+ReinvestirGains = 1         // 1 = réinvestir les gains, 0 = taille fixe sur capital initial
+
+// ────────────────────────────────────────────────
+//   CALCUL DES INDICATEURS
+// ────────────────────────────────────────────────
+
+// EMA rapide et lente
+EMAFast = ExponentialAverage[FastPeriod](close)
+EMASlow = ExponentialAverage[SlowPeriod](close)
+
+// ATR et sa moyenne
+MyATR = AverageTrueRange[ATRPeriod](close)
+ATRPct = MyATR / close * 100
+ATRMean = Average[ATRLookback](ATRPct)
+
+// Filtre de volatilité : 1 si vol suffisante, 0 sinon
+IF ATRMean > 0 THEN
+    VolFilter = (ATRPct >= ATRThreshold * ATRMean)
+ELSE
+    VolFilter = 0
+ENDIF
+
+// ────────────────────────────────────────────────
+//   CALCUL DE LA TAILLE DE POSITION
+// ────────────────────────────────────────────────
+
+// Capital disponible selon le mode choisi
+IF ReinvestirGains = 1 THEN
+    CapitalActuel = CapitalInitial + StrategyProfit
+ELSE
+    CapitalActuel = CapitalInitial
+ENDIF
+
+// Sécurité : capital minimum
+IF CapitalActuel < 1000 THEN
+    CapitalActuel = 1000
+ENDIF
+
+// Montant risqué par trade
+MontantRisque = CapitalActuel * RisqueParTrade / 100
+
+// Taille de position en lots (ajuster le point value selon le broker)
+// Pour Or CFD : 1 lot = 1 once, point value ≈ 1 USD
+// Le risque par trade est basé sur l'ATR comme stop implicite
+IF MyATR > 0 THEN
+    PositionSize = ROUND(MontantRisque / (MyATR * 2))
+ELSE
+    PositionSize = 1
+ENDIF
+
+// Minimum 1 lot
+IF PositionSize < 1 THEN
+    PositionSize = 1
+ENDIF
+
+// ────────────────────────────────────────────────
+//   SIGNAUX DE TRADING
+// ────────────────────────────────────────────────
+
+// Conditions d'entrée
+SignalLong = EMAFast CROSSES OVER EMASlow AND VolFilter
+SignalShort = EMAFast CROSSES UNDER EMASlow AND VolFilter
+
+// ────────────────────────────────────────────────
+//   MIN HOLD : compteur de bougies en position
+// ────────────────────────────────────────────────
+
+IF NOT ONMARKET THEN
+    BarsInPosition = 0
+ELSE
+    BarsInPosition = BarsInPosition + 1
+ENDIF
+
+// ────────────────────────────────────────────────
+//   EXÉCUTION DES ORDRES
+// ────────────────────────────────────────────────
+
+// --- ENTRÉE LONG ---
+IF SignalLong AND NOT LONGONMARKET THEN
+    IF SHORTONMARKET AND BarsInPosition >= MinHoldBars THEN
+        EXITSHORT AT MARKET
+    ENDIF
+    IF NOT ONMARKET OR (SHORTONMARKET AND BarsInPosition >= MinHoldBars) THEN
+        BUY PositionSize CONTRACTS AT MARKET
+        BarsInPosition = 0
+    ENDIF
+ENDIF
+
+// --- ENTRÉE SHORT ---
+IF SignalShort AND NOT SHORTONMARKET THEN
+    IF LONGONMARKET AND BarsInPosition >= MinHoldBars THEN
+        SELL PositionSize CONTRACTS AT MARKET
+    ENDIF
+    IF NOT ONMARKET OR (LONGONMARKET AND BarsInPosition >= MinHoldBars) THEN
+        SELLSHORT PositionSize CONTRACTS AT MARKET
+        BarsInPosition = 0
+    ENDIF
+ENDIF
+
+// --- SORTIE sur croisement inverse (si min hold respecté) ---
+IF LONGONMARKET AND EMAFast CROSSES UNDER EMASlow AND BarsInPosition >= MinHoldBars THEN
+    SELL AT MARKET
+ENDIF
+
+IF SHORTONMARKET AND EMAFast CROSSES OVER EMASlow AND BarsInPosition >= MinHoldBars THEN
+    EXITSHORT AT MARKET
+ENDIF
+
+// ────────────────────────────────────────────────
+//   GRAPHIQUE (optionnel, pour debug)
+// ────────────────────────────────────────────────
+
+// Afficher les EMA sur le graphique
+// COLOURED(EMAFast, 0, 150, 255) // Bleu
+// COLOURED(EMASlow, 255, 165, 0) // Orange

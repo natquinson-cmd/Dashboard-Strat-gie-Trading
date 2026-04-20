@@ -1,0 +1,3259 @@
+{
+  "parameters": {
+    "parameters": {}
+  },
+  "initialNodes": [
+    "c8a37114-9513-4cb0-a6e5-1f778324cd7c",
+    "dd92df0a-4bc5-41d6-b6b7-8223a00216f9",
+    "ee41c22e-6b6a-4b70-8b00-668976a8a0d8",
+    "376bea4d-147f-4823-931e-ead0446ab3b2",
+    "b20a8d14-5b75-414b-8f54-5dd64f562e83",
+    "4679f8db-808e-44fa-bdaa-a70dadba183f"
+  ],
+  "nodes": {
+    "c8a37114-9513-4cb0-a6e5-1f778324cd7c": {
+      "nodeType": ".v1.LoadExcel",
+      "name": "Retours",
+      "id": "c8a37114-9513-4cb0-a6e5-1f778324cd7c",
+      "baseType": "input",
+      "nextNodes": [
+        {
+          "namespace": "Default",
+          "nextNodeId": "40871e78-63d8-4d0c-b470-6a2e530b4c90",
+          "nextNamespace": "Default"
+        }
+      ],
+      "serialize": false,
+      "description": null,
+      "connectionId": "5432daa5-3268-4f95-8367-4a539e941ab0",
+      "connectionAttributes": {},
+      "fields": [
+        {
+          "name": "ID ligne",
+          "type": "integer",
+          "collation": "LROOT",
+          "caption": null
+        },
+        {
+          "name": "ID commande",
+          "type": "string",
+          "collation": "LEN_RUS_S2",
+          "caption": null
+        },
+        {
+          "name": "Date de commande",
+          "type": "date",
+          "collation": "LROOT",
+          "caption": null
+        },
+        {
+          "name": "ID produit",
+          "type": "string",
+          "collation": "LEN_RUS_S2",
+          "caption": null
+        },
+        {
+          "name": "Sous-catégorie",
+          "type": "string",
+          "collation": "LEN_RUS_S2",
+          "caption": null
+        },
+        {
+          "name": "Nom du produit",
+          "type": "string",
+          "collation": "LEN_RUS_S2",
+          "caption": null
+        },
+        {
+          "name": "Raison du retour",
+          "type": "string",
+          "collation": "LEN_RUS_S2",
+          "caption": null
+        },
+        {
+          "name": "Remarques",
+          "type": "string",
+          "collation": "LEN_RUS_S2",
+          "caption": null
+        }
+      ],
+      "actions": [
+        {
+          "nodeType": ".v1.RemoveColumns",
+          "name": "Supprimer ID ligne + 0 en plus 1",
+          "id": "5e725c36-4ac1-4c88-a0aa-08f59c95d809",
+          "baseType": "transform",
+          "nextNodes": [],
+          "serialize": false,
+          "description": null,
+          "columnNames": [
+            "ID ligne"
+          ]
+        },
+        {
+          "nodeType": ".v1.RemoveColumns",
+          "name": "Supprimer Date de commande + 0 en plus 1",
+          "id": "c2d064bc-7961-4e05-81bc-f06b1e362f36",
+          "baseType": "transform",
+          "nextNodes": [],
+          "serialize": false,
+          "description": null,
+          "columnNames": [
+            "Date de commande"
+          ]
+        },
+        {
+          "nodeType": ".v1.RemoveColumns",
+          "name": "Supprimer Sous-catégorie + 0 en plus 1",
+          "id": "20f23b33-655b-44c6-bc43-46f2ccd9a222",
+          "baseType": "transform",
+          "nextNodes": [],
+          "serialize": false,
+          "description": null,
+          "columnNames": [
+            "Sous-catégorie"
+          ]
+        },
+        {
+          "nodeType": ".v1.RemoveColumns",
+          "name": "Supprimer Nom du produit + 0 en plus 1",
+          "id": "436c4543-ff74-4380-a7bf-e24117e71f04",
+          "baseType": "transform",
+          "nextNodes": [],
+          "serialize": false,
+          "description": null,
+          "columnNames": [
+            "Nom du produit"
+          ]
+        }
+      ],
+      "debugModeRowLimit": null,
+      "originalDataTypes": {},
+      "randomSampling": null,
+      "updateTimestamp": null,
+      "restrictedFields": {},
+      "userRenamedFields": {},
+      "selectedFields": null,
+      "filters": [],
+      "relation": {
+        "displayName": "[Retours$]",
+        "type": "table",
+        "table": "[Retours$]"
+      }
+    },
+    "9b284447-a29c-4dde-899e-3521d9eca09b": {
+      "nodeType": ".v1.Container",
+      "name": "Supprimer Valeurs null",
+      "id": "9b284447-a29c-4dde-899e-3521d9eca09b",
+      "baseType": "container",
+      "nextNodes": [
+        {
+          "namespace": "Default",
+          "nextNodeId": "32c95fc1-70c3-49b0-a47c-b85ac0a1e983",
+          "nextNamespace": "Union-Namespace-81520d84-a1fb-458b-a14b-ab13240f78b5"
+        }
+      ],
+      "serialize": false,
+      "description": null,
+      "loomContainer": {
+        "parameters": {
+          "parameters": {}
+        },
+        "initialNodes": [],
+        "nodes": {
+          "06e71a25-be6b-481a-ad27-bd3f3be09a2f": {
+            "nodeType": ".v1.RangeFilter",
+            "name": "Exclude ID commande:null 1",
+            "id": "06e71a25-be6b-481a-ad27-bd3f3be09a2f",
+            "baseType": "transform",
+            "nextNodes": [
+              {
+                "namespace": "Default",
+                "nextNodeId": "0f08a3c5-80c5-4ddf-94af-09ed8d17c01c",
+                "nextNamespace": "Default"
+              }
+            ],
+            "serialize": false,
+            "description": null,
+            "ranges": {
+              "ID commande": [
+                {
+                  "startValue": null,
+                  "includeStart": true,
+                  "endValue": null,
+                  "includeEnd": true
+                }
+              ]
+            },
+            "exclude": true
+          },
+          "0f08a3c5-80c5-4ddf-94af-09ed8d17c01c": {
+            "nodeType": ".v1.AddColumn",
+            "columnName": "Région de vente",
+            "expression": "\"USCA\"",
+            "name": "Ajouter Région de vente",
+            "id": "0f08a3c5-80c5-4ddf-94af-09ed8d17c01c",
+            "baseType": "transform",
+            "nextNodes": [],
+            "serialize": false,
+            "description": null
+          }
+        },
+        "connections": {},
+        "connectionIds": [],
+        "nodeProperties": {},
+        "extensibility": null
+      },
+      "namespacesToInput": {
+        "Default": {
+          "nodeId": "06e71a25-be6b-481a-ad27-bd3f3be09a2f",
+          "namespace": "Default"
+        }
+      },
+      "namespacesToOutput": {
+        "Default": {
+          "nodeId": "0f08a3c5-80c5-4ddf-94af-09ed8d17c01c",
+          "namespace": "Default"
+        }
+      },
+      "providedParameters": {}
+    },
+    "32c95fc1-70c3-49b0-a47c-b85ac0a1e983": {
+      "nodeType": ".v2018_2_3.SuperUnion",
+      "name": "Toutes les commandes",
+      "id": "32c95fc1-70c3-49b0-a47c-b85ac0a1e983",
+      "baseType": "superNode",
+      "nextNodes": [
+        {
+          "namespace": "Default",
+          "nextNodeId": "b2c6e3f3-941c-4d48-a672-c7701233c433",
+          "nextNamespace": "Right"
+        }
+      ],
+      "serialize": false,
+      "description": null,
+      "beforeActionAnnotations": [],
+      "afterActionAnnotations": [],
+      "actionNode": {
+        "nodeType": ".v1.SimpleUnion",
+        "name": "Union 1",
+        "id": "f2ceada6-b20f-44ea-a79b-826f381881d1",
+        "baseType": "transform",
+        "nextNodes": [],
+        "serialize": false,
+        "description": null,
+        "namespaceFieldMappings": [
+          {
+            "namespaceName": "Union-Namespace-f3d2e088-4a0c-4252-90c5-e589dd5109ae",
+            "fieldMappings": {}
+          },
+          {
+            "namespaceName": "Union-Namespace-81520d84-a1fb-458b-a14b-ab13240f78b5",
+            "fieldMappings": {
+              "[Pays]": "Pays/région"
+            }
+          },
+          {
+            "namespaceName": "Union-Namespace-69836634-902d-47e8-9dbc-d25627ea08c2",
+            "fieldMappings": {}
+          },
+          {
+            "namespaceName": "Union-Namespace-f2bc42b9-9043-4826-be75-045598a9c751",
+            "fieldMappings": {}
+          }
+        ]
+      }
+    },
+    "40871e78-63d8-4d0c-b470-6a2e530b4c90": {
+      "nodeType": ".v1.Container",
+      "name": "Nettoyer Remarques/Approbateur",
+      "id": "40871e78-63d8-4d0c-b470-6a2e530b4c90",
+      "baseType": "container",
+      "nextNodes": [
+        {
+          "namespace": "Default",
+          "nextNodeId": "b2c6e3f3-941c-4d48-a672-c7701233c433",
+          "nextNamespace": "Left"
+        }
+      ],
+      "serialize": false,
+      "description": null,
+      "loomContainer": {
+        "parameters": {
+          "parameters": {}
+        },
+        "initialNodes": [],
+        "nodes": {
+          "acf4d88c-4a7b-4e7c-b293-ef1809d58dff": {
+            "nodeType": ".v1.RenameColumn",
+            "columnName": "Remarques - Scinder 1",
+            "rename": "Remarques sur le retour",
+            "name": "A renommé Remarques - Scinder 1 en Remarques sur le retour 1",
+            "id": "acf4d88c-4a7b-4e7c-b293-ef1809d58dff",
+            "baseType": "transform",
+            "nextNodes": [
+              {
+                "namespace": "Default",
+                "nextNodeId": "baa78b8e-ec7a-41f6-8ddc-dcb4aa774459",
+                "nextNamespace": "Default"
+              }
+            ],
+            "serialize": false,
+            "description": null
+          },
+          "baa78b8e-ec7a-41f6-8ddc-dcb4aa774459": {
+            "nodeType": ".v1.RenameColumn",
+            "columnName": "Remarques - Scinder 2",
+            "rename": "Approbateur",
+            "name": "A renommé Remarques - Scinder 2 en Approbateur 1",
+            "id": "baa78b8e-ec7a-41f6-8ddc-dcb4aa774459",
+            "baseType": "transform",
+            "nextNodes": [
+              {
+                "namespace": "Default",
+                "nextNodeId": "b7b7ff86-b0ef-4bb5-96c6-77bbae0783bc",
+                "nextNamespace": "Default"
+              }
+            ],
+            "serialize": false,
+            "description": null
+          },
+          "b7b7ff86-b0ef-4bb5-96c6-77bbae0783bc": {
+            "nodeType": ".v1.RemoveColumns",
+            "name": "Supprimer Remarques 1",
+            "id": "b7b7ff86-b0ef-4bb5-96c6-77bbae0783bc",
+            "baseType": "transform",
+            "nextNodes": [
+              {
+                "namespace": "Default",
+                "nextNodeId": "ef9ea8ad-c200-45f8-9303-a3621cec50cc",
+                "nextNamespace": "Default"
+              }
+            ],
+            "serialize": false,
+            "description": null,
+            "columnNames": [
+              "Remarques"
+            ]
+          },
+          "3277f8fb-2035-4290-bdfa-baa5b5752c46": {
+            "nodeType": ".v1.AddColumn",
+            "columnName": "Remarques - Scinder 2",
+            "expression": "TRIM( SPLIT( [Remarques], \"-\", 2 ) )",
+            "name": "Ajouter Remarques - Scinder 2 1",
+            "id": "3277f8fb-2035-4290-bdfa-baa5b5752c46",
+            "baseType": "transform",
+            "nextNodes": [
+              {
+                "namespace": "Default",
+                "nextNodeId": "acf4d88c-4a7b-4e7c-b293-ef1809d58dff",
+                "nextNamespace": "Default"
+              }
+            ],
+            "serialize": false,
+            "description": null
+          },
+          "9d42db4c-3c98-4257-98bb-2a0e080234b2": {
+            "nodeType": ".v1.AddColumn",
+            "columnName": "Remarques - Scinder 1",
+            "expression": "TRIM( SPLIT( [Remarques], \"-\", 1 ) )",
+            "name": "Ajouter Remarques - Scinder 1 1",
+            "id": "9d42db4c-3c98-4257-98bb-2a0e080234b2",
+            "baseType": "transform",
+            "nextNodes": [
+              {
+                "namespace": "Default",
+                "nextNodeId": "3277f8fb-2035-4290-bdfa-baa5b5752c46",
+                "nextNamespace": "Default"
+              }
+            ],
+            "serialize": false,
+            "description": null
+          },
+          "ef9ea8ad-c200-45f8-9303-a3621cec50cc": {
+            "nodeType": ".v2018_3_3.Remap",
+            "name": "Nettoyer 1",
+            "id": "ef9ea8ad-c200-45f8-9303-a3621cec50cc",
+            "baseType": "transform",
+            "nextNodes": [],
+            "serialize": false,
+            "description": null,
+            "columnName": "Approbateur",
+            "values": {
+              "\"S. Kelly\"": [
+                "\"S. Kelly\"",
+                "\"S Kelly\"",
+                "\"S/Kelly\""
+              ],
+              "\"M.  Gomez\"": [
+                "\"M/ Gomez\"",
+                "\"M Gomez\"",
+                "\"M.  Gomez\""
+              ],
+              "\"F Azad\"": [
+                "\"F Azad\"",
+                "\"F/Azad\"",
+                "\"F. Azad\""
+              ],
+              "\"E Williams\"": [
+                "\"E Williams\"",
+                "\"E   Williams\""
+              ],
+              "\"G Lindsay\"": [
+                "\"G/Lindsay\"",
+                "\"G Lindsay\""
+              ],
+              "\"C Arnold\"": [
+                "\"C/Arnold\"",
+                "\"C Arnold\""
+              ],
+              "\"R Chen\"": [
+                "\"R. Chen\"",
+                "\"R Chen\""
+              ],
+              "\"K Lawrence\"": [
+                "\"K/Lawrence\"",
+                "\"K Lawrence\""
+              ],
+              "\"R Duchesne\"": [
+                "\"RDuchesne\"",
+                "\"R Duchesne\""
+              ],
+              "\"L Jenkins\"": [
+                "\"L/Jenkins\"",
+                "\"L Jenkins\"",
+                "\"L. Jenkins\""
+              ]
+            },
+            "groupMethodProps": {
+              "groupMethod": "NGramFingerprint",
+              "threshold": 3.0
+            },
+            "fieldId": ""
+          }
+        },
+        "connections": {},
+        "connectionIds": [],
+        "nodeProperties": {},
+        "extensibility": null
+      },
+      "namespacesToInput": {
+        "Default": {
+          "nodeId": "9d42db4c-3c98-4257-98bb-2a0e080234b2",
+          "namespace": "Default"
+        }
+      },
+      "namespacesToOutput": {
+        "Default": {
+          "nodeId": "ef9ea8ad-c200-45f8-9303-a3621cec50cc",
+          "namespace": "Default"
+        }
+      },
+      "providedParameters": {}
+    },
+    "b6893bb7-3b45-40e9-a6ff-c2a212f4b1e2": {
+      "nodeType": ".v1.Container",
+      "name": "Corriger le type de données",
+      "id": "b6893bb7-3b45-40e9-a6ff-c2a212f4b1e2",
+      "baseType": "container",
+      "nextNodes": [
+        {
+          "namespace": "Default",
+          "nextNodeId": "32c95fc1-70c3-49b0-a47c-b85ac0a1e983",
+          "nextNamespace": "Union-Namespace-69836634-902d-47e8-9dbc-d25627ea08c2"
+        }
+      ],
+      "serialize": false,
+      "description": null,
+      "loomContainer": {
+        "parameters": {
+          "parameters": {}
+        },
+        "initialNodes": [],
+        "nodes": {
+          "3f888eb2-5543-4b5a-9608-3e657fb7b19c": {
+            "nodeType": ".v2018_3_3.QuickCalcColumn",
+            "columnName": "Montant des ventes",
+            "expression": "REGEXP_REPLACE([Montant des ventes], '[:Letter:]', '')",
+            "calcExpressionType": "RemoveLetters",
+            "name": "Calcul rapide 1",
+            "id": "3f888eb2-5543-4b5a-9608-3e657fb7b19c",
+            "baseType": "transform",
+            "nextNodes": [
+              {
+                "namespace": "Default",
+                "nextNodeId": "747bf362-43c8-4de1-bc01-60dfdb0e24b4",
+                "nextNamespace": "Default"
+              }
+            ],
+            "serialize": false,
+            "description": null
+          },
+          "edafe903-c5d0-43d1-b740-62579eb156eb": {
+            "nodeType": ".v1.ChangeColumnType",
+            "fields": {
+              "Remise": {
+                "type": "string",
+                "calc": null
+              }
+            },
+            "name": "Modifier Remise en Chaîne de caractères 1",
+            "id": "edafe903-c5d0-43d1-b740-62579eb156eb",
+            "baseType": "transform",
+            "nextNodes": [
+              {
+                "namespace": "Default",
+                "nextNodeId": "b472fb8f-f5d8-4ae8-9c91-3cc69e77c701",
+                "nextNamespace": "Default"
+              }
+            ],
+            "serialize": false,
+            "description": null
+          },
+          "747bf362-43c8-4de1-bc01-60dfdb0e24b4": {
+            "nodeType": ".v1.ChangeColumnType",
+            "fields": {
+              "Montant des ventes": {
+                "type": "real",
+                "calc": null
+              }
+            },
+            "name": "Modifier Droite_Remise en Nombre (décimal) 1",
+            "id": "747bf362-43c8-4de1-bc01-60dfdb0e24b4",
+            "baseType": "transform",
+            "nextNodes": [
+              {
+                "namespace": "Default",
+                "nextNodeId": "edafe903-c5d0-43d1-b740-62579eb156eb",
+                "nextNamespace": "Default"
+              }
+            ],
+            "serialize": false,
+            "description": null
+          },
+          "b472fb8f-f5d8-4ae8-9c91-3cc69e77c701": {
+            "nodeType": ".v1.AddColumn",
+            "columnName": "Région de vente",
+            "expression": "\"APAC\"",
+            "name": "Ajouter Région de vente",
+            "id": "b472fb8f-f5d8-4ae8-9c91-3cc69e77c701",
+            "baseType": "transform",
+            "nextNodes": [],
+            "serialize": false,
+            "description": null
+          }
+        },
+        "connections": {},
+        "connectionIds": [],
+        "nodeProperties": {},
+        "extensibility": null
+      },
+      "namespacesToInput": {
+        "Default": {
+          "nodeId": "3f888eb2-5543-4b5a-9608-3e657fb7b19c",
+          "namespace": "Default"
+        }
+      },
+      "namespacesToOutput": {
+        "Default": {
+          "nodeId": "b472fb8f-f5d8-4ae8-9c91-3cc69e77c701",
+          "namespace": "Default"
+        }
+      },
+      "providedParameters": {}
+    },
+    "dbe494af-f83f-40f4-9d90-0bcb3f934652": {
+      "nodeType": ".v1.Container",
+      "name": "Corriger les dates",
+      "id": "dbe494af-f83f-40f4-9d90-0bcb3f934652",
+      "baseType": "container",
+      "nextNodes": [
+        {
+          "namespace": "Default",
+          "nextNodeId": "32c95fc1-70c3-49b0-a47c-b85ac0a1e983",
+          "nextNamespace": "Union-Namespace-f3d2e088-4a0c-4252-90c5-e589dd5109ae"
+        }
+      ],
+      "serialize": false,
+      "description": null,
+      "loomContainer": {
+        "parameters": {
+          "parameters": {}
+        },
+        "initialNodes": [],
+        "nodes": {
+          "18ca40c0-6452-4751-9b1c-451eb97654de": {
+            "nodeType": ".v1.RemoveColumns",
+            "name": "Supprimer Mois de la livraison 1",
+            "id": "18ca40c0-6452-4751-9b1c-451eb97654de",
+            "baseType": "transform",
+            "nextNodes": [
+              {
+                "namespace": "Default",
+                "nextNodeId": "7b428fb6-c14a-4d26-99b1-38229bbfd44d",
+                "nextNamespace": "Default"
+              }
+            ],
+            "serialize": false,
+            "description": null,
+            "columnNames": [
+              "Mois de la livraison"
+            ]
+          },
+          "7b428fb6-c14a-4d26-99b1-38229bbfd44d": {
+            "nodeType": ".v1.RemoveColumns",
+            "name": "Supprimer Jour de la livraison 1",
+            "id": "7b428fb6-c14a-4d26-99b1-38229bbfd44d",
+            "baseType": "transform",
+            "nextNodes": [
+              {
+                "namespace": "Default",
+                "nextNodeId": "a8256371-47c1-4518-bda3-318ea1a1a0f5",
+                "nextNamespace": "Default"
+              }
+            ],
+            "serialize": false,
+            "description": null,
+            "columnNames": [
+              "Jour de la livraison"
+            ]
+          },
+          "cb1b8a24-9100-4629-ad6d-d78c15f63f86": {
+            "nodeType": ".v1.RemoveColumns",
+            "name": "Supprimer Jour de la commande 1",
+            "id": "cb1b8a24-9100-4629-ad6d-d78c15f63f86",
+            "baseType": "transform",
+            "nextNodes": [
+              {
+                "namespace": "Default",
+                "nextNodeId": "33ccb9ae-6b10-444c-8f96-4760017a735d",
+                "nextNamespace": "Default"
+              }
+            ],
+            "serialize": false,
+            "description": null,
+            "columnNames": [
+              "Jour de la commande"
+            ]
+          },
+          "a8256371-47c1-4518-bda3-318ea1a1a0f5": {
+            "nodeType": ".v1.AddColumn",
+            "columnName": "Remise",
+            "expression": "IFNULL([Remise],0)\n",
+            "name": "Ajouter Remise",
+            "id": "a8256371-47c1-4518-bda3-318ea1a1a0f5",
+            "baseType": "transform",
+            "nextNodes": [
+              {
+                "namespace": "Default",
+                "nextNodeId": "ee100c5d-6e71-4971-b199-1a2f5b9b2d61",
+                "nextNamespace": "Default"
+              }
+            ],
+            "serialize": false,
+            "description": null
+          },
+          "8633658d-3195-48be-8fda-ba015e8b1a0b": {
+            "nodeType": ".v1.RenameColumn",
+            "columnName": "Produit",
+            "rename": "Nom du produit",
+            "name": "A renommé Produit en Nom du produit 1",
+            "id": "8633658d-3195-48be-8fda-ba015e8b1a0b",
+            "baseType": "transform",
+            "nextNodes": [],
+            "serialize": false,
+            "description": null
+          },
+          "2d93ab56-e8d3-460f-b50e-99aec5094cf6": {
+            "nodeType": ".v1.AddColumn",
+            "columnName": "Date de commande",
+            "expression": "(STR([Jour de la commande])+\"/\"+STR([Mois de la commande])+\"/\"+STR([Année de la commande]))\n",
+            "name": "Ajouter Date de commande",
+            "id": "2d93ab56-e8d3-460f-b50e-99aec5094cf6",
+            "baseType": "transform",
+            "nextNodes": [
+              {
+                "namespace": "Default",
+                "nextNodeId": "ee73ca99-00f4-4453-b28b-522772ba790f",
+                "nextNamespace": "Default"
+              }
+            ],
+            "serialize": false,
+            "description": null
+          },
+          "5fc1b9de-ea47-4cc7-b2f4-bd52f0e3c464": {
+            "nodeType": ".v1.AddColumn",
+            "columnName": "Région de vente",
+            "expression": "\"LATAM\"",
+            "name": "Ajouter Région de vente",
+            "id": "5fc1b9de-ea47-4cc7-b2f4-bd52f0e3c464",
+            "baseType": "transform",
+            "nextNodes": [
+              {
+                "namespace": "Default",
+                "nextNodeId": "2d93ab56-e8d3-460f-b50e-99aec5094cf6",
+                "nextNamespace": "Default"
+              }
+            ],
+            "serialize": false,
+            "description": null
+          },
+          "8eb0833a-0b1c-4b4c-a69f-fb1129425d0d": {
+            "nodeType": ".v1.RenameColumn",
+            "columnName": "Pays\\Région",
+            "rename": "Pays/région",
+            "name": "A renommé Pays\\Région en Pays/Région 1",
+            "id": "8eb0833a-0b1c-4b4c-a69f-fb1129425d0d",
+            "baseType": "transform",
+            "nextNodes": [
+              {
+                "namespace": "Default",
+                "nextNodeId": "62624ff1-5d93-4f60-bab7-2082a672ca34",
+                "nextNamespace": "Default"
+              }
+            ],
+            "serialize": false,
+            "description": null
+          },
+          "52f1bca9-7949-4ce7-bb1c-481d13865bf7": {
+            "nodeType": ".v1.ChangeColumnType",
+            "fields": {
+              "Date de commande" : {
+                "type": "date",
+                "calc": "IF NOT ISNULL(DATE(DATEPARSE(\"dd/MM/yyyy\",[Date de commande]))) THEN DATE(DATEPARSE(\"dd/MM/yyyy\",[Date de commande])) ELSEIF NOT ISNULL(DATE([Date de commande])) THEN DATE([Date de commande]) ELSE NULL END"
+              }
+            },
+            "name": "Modifier Date de commande en Date 1",
+            "id": "52f1bca9-7949-4ce7-bb1c-481d13865bf7",
+            "baseType": "transform",
+            "nextNodes": [
+              {
+                "namespace": "Default",
+                "nextNodeId": "8eb0833a-0b1c-4b4c-a69f-fb1129425d0d",
+                "nextNamespace": "Default"
+              }
+            ],
+            "serialize": false,
+            "description": null
+          },
+          "ee100c5d-6e71-4971-b199-1a2f5b9b2d61": {
+            "nodeType": ".v1.RangeFilter",
+            "name": "Exclude ID commande:null 1",
+            "id": "ee100c5d-6e71-4971-b199-1a2f5b9b2d61",
+            "baseType": "transform",
+            "nextNodes": [
+              {
+                "namespace": "Default",
+                "nextNodeId": "8633658d-3195-48be-8fda-ba015e8b1a0b",
+                "nextNamespace": "Default"
+              }
+            ],
+            "serialize": false,
+            "description": null,
+            "ranges": {
+              "ID commande" : [ 
+                {
+                  "startValue": null,
+                  "includeStart": true,
+                  "endValue": null,
+                  "includeEnd": true
+                }
+              ]
+            },
+            "exclude": true
+          },
+          "ee73ca99-00f4-4453-b28b-522772ba790f": {
+            "nodeType": ".v1.AddColumn",
+            "columnName": "Date d'expédition",
+            "expression": "STR([Jour de la livraison])+\"/\"+STR([Mois de la livraison])+\"/\"+STR([Année de la livraison])",
+            "name": "Ajouter Date d'expédition",
+            "id": "ee73ca99-00f4-4453-b28b-522772ba790f",
+            "baseType": "transform",
+            "nextNodes": [
+              {
+                "namespace": "Default",
+                "nextNodeId": "5d984fb3-3718-4c6b-baf1-f39b6f30ac06",
+                "nextNamespace": "Default"
+              }
+            ],
+            "serialize": false,
+            "description": null
+          },
+          "5d984fb3-3718-4c6b-baf1-f39b6f30ac06": {
+            "nodeType": ".v1.ChangeColumnType",
+            "fields": {
+              "Date d'expédition" : {
+                "type": "date",
+                "calc": "IF NOT ISNULL(DATE(DATEPARSE(\"dd/MM/yyyy\",[Date d'expédition]))) THEN DATE(DATEPARSE(\"dd/MM/yyyy\",[Date d'expédition])) ELSEIF NOT ISNULL(DATE([Date d'expédition])) THEN DATE([Date d'expédition]) ELSE NULL END"
+              }
+            },
+            "name": "Modifier Date d'expédition en Date 1",
+            "id": "5d984fb3-3718-4c6b-baf1-f39b6f30ac06",
+            "baseType": "transform",
+            "nextNodes": [
+              {
+                "namespace": "Default",
+                "nextNodeId": "52f1bca9-7949-4ce7-bb1c-481d13865bf7",
+                "nextNamespace": "Default"
+              }
+            ],
+            "serialize": false,
+            "description": null
+          },
+          "33ccb9ae-6b10-444c-8f96-4760017a735d": {
+            "nodeType": ".v1.RemoveColumns",
+            "name": "Supprimer Année de la livraison 1",
+            "id": "33ccb9ae-6b10-444c-8f96-4760017a735d",
+            "baseType": "transform",
+            "nextNodes": [
+              {
+                "namespace": "Default",
+                "nextNodeId": "18ca40c0-6452-4751-9b1c-451eb97654de",
+                "nextNamespace": "Default"
+              }
+            ],
+            "serialize": false,
+            "description": null,
+            "columnNames": [
+              "Année de la livraison"
+            ]
+          },
+          "62624ff1-5d93-4f60-bab7-2082a672ca34": {
+            "nodeType": ".v1.RemoveColumns",
+            "name": "Supprimer Année de la commande 1",
+            "id": "62624ff1-5d93-4f60-bab7-2082a672ca34",
+            "baseType": "transform",
+            "nextNodes": [
+              {
+                "namespace": "Default",
+                "nextNodeId": "7fe0c36d-d2d0-4304-bdac-cec16fc5c11b",
+                "nextNamespace": "Default"
+              }
+            ],
+            "serialize": false,
+            "description": null,
+            "columnNames": [
+              "Année de la commande"
+            ]
+          },
+          "7fe0c36d-d2d0-4304-bdac-cec16fc5c11b": {
+            "nodeType": ".v1.RemoveColumns",
+            "name": "Supprimer Jour de la commande 1",
+            "id": "7fe0c36d-d2d0-4304-bdac-cec16fc5c11b",
+            "baseType": "transform",
+            "nextNodes": [
+              {
+                "namespace": "Default",
+                "nextNodeId": "cb1b8a24-9100-4629-ad6d-d78c15f63f86",
+                "nextNamespace": "Default"
+              }
+            ],
+            "serialize": false,
+            "description": null,
+            "columnNames": [
+              "Mois de la commande"
+            ]
+          }
+        },
+        "connections": {},
+        "connectionIds": [],
+        "nodeProperties": {},
+        "extensibility": null
+      },
+      "namespacesToInput": {
+        "Default": {
+          "nodeId": "5fc1b9de-ea47-4cc7-b2f4-bd52f0e3c464",
+          "namespace": "Default"
+        }
+      },
+      "namespacesToOutput": {
+        "Default": {
+          "nodeId": "8633658d-3195-48be-8fda-ba015e8b1a0b",
+          "namespace": "Default"
+        }
+      },
+      "providedParameters": {}
+    },
+    "64fd712e-7d58-4de7-9726-ae16a47e3782": {
+      "nodeType": ".v2018_2_3.SuperUnpivot",
+      "name": "Permuter les quotas",
+      "id": "64fd712e-7d58-4de7-9726-ae16a47e3782",
+      "baseType": "superNode",
+      "nextNodes": [
+        {
+          "namespace": "Default",
+          "nextNodeId": "95ba757e-cc41-48c3-8727-6e40cb8047c9",
+          "nextNamespace": "Left"
+        }
+      ],
+      "serialize": false,
+      "description": null,
+      "beforeActionAnnotations": [],
+      "afterActionAnnotations": [
+        {
+          "namespace": "Default",
+          "annotationNode": {
+            "nodeType": ".v1.ChangeColumnType",
+            "fields": {
+            "Année" : {
+                "type": "integer",
+                "calc": null
+              }
+            },
+            "name": "Modifier Année en Nombre (entier) 1",
+            "id": "5fd150a1-f5a5-4867-acd6-24565d3f663f",
+            "baseType": "transform",
+            "nextNodes": [],
+            "serialize": false,
+            "description": null
+          }
+        }
+      ],
+      "actionNode": {
+        "nodeType": ".v1.Unpivot",
+        "name": "Permuter 1",
+        "id": "81c162d3-abbf-4ccf-89d2-18a0e3bc33a9",
+        "baseType": "transform",
+        "nextNodes": [],
+        "serialize": false,
+        "description": null,
+        "usesSmartDefaults": false,
+        "unpivotGroups": [
+          {
+            "expressions": [
+              {
+                "bindings": [
+                  {
+                    "bindingType": "literal",
+                    "newColumnName": "Année",
+                    "groupName": "2015"
+                  },
+                  {
+                    "bindingType": "column",
+                    "newColumnName": "Quota",
+                    "columnName": "2015"
+                  }
+                ]
+              },
+              {
+                "bindings": [
+                  {
+                    "bindingType": "literal",
+                    "newColumnName": "Année",
+                    "groupName": "2016"
+                  },
+                  {
+                    "bindingType": "column",
+                    "newColumnName": "Quota",
+                    "columnName": "2016"
+                  }
+                ]
+              },
+              {
+                "bindings": [
+                  {
+                    "bindingType": "literal",
+                    "newColumnName": "Année",
+                    "groupName": "2017"
+                  },
+                  {
+                    "bindingType": "column",
+                    "newColumnName": "Quota",
+                    "columnName": "2017"
+                  }
+                ]
+              },
+              {
+                "bindings": [
+                  {
+                    "bindingType": "literal",
+                    "newColumnName": "Année",
+                    "groupName": "2018"
+                  },
+                  {
+                    "bindingType": "column",
+                    "newColumnName": "Quota",
+                    "columnName": "2018"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "3b6005ae-2dee-4928-87d3-0993b448bd2e": {
+      "nodeType": ".v1.Container",
+      "name": "Renommer les États/Provinces",
+      "id": "3b6005ae-2dee-4928-87d3-0993b448bd2e",
+      "baseType": "container",
+      "nextNodes": [
+        {
+          "namespace": "Default",
+          "nextNodeId": "32c95fc1-70c3-49b0-a47c-b85ac0a1e983",
+          "nextNamespace": "Union-Namespace-f2bc42b9-9043-4826-be75-045598a9c751"
+        }
+      ],
+      "serialize": false,
+      "description": null,
+      "loomContainer": {
+        "parameters": {
+          "parameters": {}
+        },
+        "initialNodes": [],
+        "nodes": {
+          "36c05694-2fb6-42af-919c-896744632f03": {
+            "nodeType": ".v2018_3_3.Remap",
+            "name": "Nettoyer 1",
+            "id": "36c05694-2fb6-42af-919c-896744632f03",
+            "baseType": "transform",
+            "nextNodes": [
+              {
+                "namespace": "Default",
+                "nextNodeId": "2de85087-349d-40ab-b5ad-b638407261af",
+                "nextNamespace": "Default"
+              }
+            ],
+            "serialize": false,
+            "description": null,
+            "columnName": "État/Province",
+            "values": {
+              "\"Aquitaine-Limousin-Poitou-Charentes\"": [
+                "\"Aquitaine-Limousin-Poitou-Charentes\"",
+                "\"Aquitaine Limousin Poitou Charentes\""
+              ],
+              "\"Hauts-de-France\"": [
+                "\"Hauts-de-France\"",
+                "\"Hauts de France\""
+              ],
+              "\"Ile-de-France\"": [
+                "\"Ile-de-France\"",
+                "\"Ile de France\""
+              ],
+              "\"North Rhine-Westphalia\"": [
+                "\"North Rhine-Westphalia\"",
+                "\"N. Rhine Westphalia\""
+              ],
+              "\"Provence-Alpes-Côte d'Azur\"": [
+                "\"Provence-Alpes-Côte d'Azur\"",
+                "\"Provence-Alpes-Cote d'Azur\""
+              ],
+              "\"Schleswig-Holstein\"": [
+                "\"Schleswig-Holstein\"",
+                "\"Schleswig Holstein\""
+              ],
+              "\"South Denmark\"": [
+                "\"South Denmark\"",
+                "\"S. Denmark\""
+              ],
+              "\"South Holland\"": [
+                "\"South Holland\"",
+                "\"S. Holland\""
+              ],
+              "\"Zealand\"": [
+                "\"Zealand\"",
+                "\"Zeeland\""
+              ]
+            },
+            "groupMethodProps": null,
+            "fieldId": ""
+          },
+          "2de85087-349d-40ab-b5ad-b638407261af": {
+            "nodeType": ".v1.AddColumn",
+            "columnName": "Région de vente",
+            "expression": "\"EMEA\"",
+            "name": "Ajouter Région de vente",
+            "id": "2de85087-349d-40ab-b5ad-b638407261af",
+            "baseType": "transform",
+            "nextNodes": [],
+            "serialize": false,
+            "description": null
+          }
+        },
+        "connections": {},
+        "connectionIds": [],
+        "nodeProperties": {},
+        "extensibility": null
+      },
+      "namespacesToInput": {
+        "Default": {
+          "nodeId": "36c05694-2fb6-42af-919c-896744632f03",
+          "namespace": "Default"
+        }
+      },
+      "namespacesToOutput": {
+        "Default": {
+          "nodeId": "2de85087-349d-40ab-b5ad-b638407261af",
+          "namespace": "Default"
+        }
+      },
+      "providedParameters": {}
+    },
+    "dd92df0a-4bc5-41d6-b6b7-8223a00216f9": {
+      "nodeType": ".v1.LoadExcel",
+      "name": "Quota",
+      "id": "dd92df0a-4bc5-41d6-b6b7-8223a00216f9",
+      "baseType": "input",
+      "nextNodes": [
+        {
+          "namespace": "Default",
+          "nextNodeId": "64fd712e-7d58-4de7-9726-ae16a47e3782",
+          "nextNamespace": "Default"
+        }
+      ],
+      "serialize": false,
+      "description": null,
+      "connectionId": "0cead8cf-68f1-42b7-8af7-3a3ed59b8aed",
+      "connectionAttributes": {},
+      "fields": [
+        {
+          "name": "Région de vente",
+          "type": "string",
+          "collation": "LEN_RUS_S2",
+          "caption": null
+        },
+        {
+          "name": "2015",
+          "type": "integer",
+          "collation": "LROOT",
+          "caption": null
+        },
+        {
+          "name": "2016",
+          "type": "integer",
+          "collation": "LROOT",
+          "caption": null
+        },
+        {
+          "name": "2017",
+          "type": "integer",
+          "collation": "LROOT",
+          "caption": null
+        },
+        {
+          "name": "2018",
+          "type": "integer",
+          "collation": "LROOT",
+          "caption": null
+        }
+      ],
+      "actions": [],
+      "debugModeRowLimit": null,
+      "originalDataTypes": {},
+      "randomSampling": null,
+      "updateTimestamp": null,
+      "restrictedFields": {},
+      "userRenamedFields": {},
+      "selectedFields": null,
+      "filters": [],
+      "relation": {
+        "displayName": "[Quota$]",
+        "type": "table",
+        "table": "[Quota$]"
+      }
+    },
+    "ee41c22e-6b6a-4b70-8b00-668976a8a0d8": {
+      "nodeType": ".v1.LoadCsvInputUnion",
+      "name": "commandes (USCA)",
+      "id": "ee41c22e-6b6a-4b70-8b00-668976a8a0d8",
+      "baseType": "input",
+      "nextNodes": [
+        {
+          "namespace": "Default",
+          "nextNodeId": "9b284447-a29c-4dde-899e-3521d9eca09b",
+          "nextNamespace": "Default"
+        }
+      ],
+      "serialize": false,
+      "description": null,
+      "connectionId": "53643993-0e2c-4cea-b4ce-dff4959013dc",
+      "connectionAttributes": {},
+      "fields": [
+        {
+          "name": "ID ligne",
+          "type": "integer",
+          "collation": null,
+          "caption": null
+        },
+        {
+          "name": "ID commande",
+          "type": "string",
+          "collation": "LEN_RUS",
+          "caption": null
+        },
+        {
+          "name": "Date de commande",
+          "type": "date",
+          "collation": null,
+          "caption": null
+        },
+        {
+          "name": "Date d'expédition",
+          "type": "date",
+          "collation": null,
+          "caption": null
+        },
+        {
+          "name": "Mode d'expédition",
+          "type": "string",
+          "collation": "LEN_RUS",
+          "caption": null
+        },
+        {
+          "name": "ID client",
+          "type": "string",
+          "collation": "LEN_RUS",
+          "caption": null
+        },
+        {
+          "name": "Nom du client",
+          "type": "string",
+          "collation": "LEN_RUS",
+          "caption": null
+        },
+        {
+          "name": "Segment",
+          "type": "string",
+          "collation": "LEN_RUS",
+          "caption": null
+        },
+        {
+          "name": "Pays/région",
+          "type": "string",
+          "collation": "LEN_RUS",
+          "caption": null
+        },
+        {
+          "name": "Ville",
+          "type": "string",
+          "collation": "LEN_RUS",
+          "caption": null
+        },
+        {
+          "name": "État/Province",
+          "type": "string",
+          "collation": "LEN_RUS",
+          "caption": null
+        },
+        {
+          "name": "Région de vente",
+          "type": "string",
+          "collation": "LEN_RUS",
+          "caption": null
+        },
+        {
+          "name": "ID produit",
+          "type": "string",
+          "collation": "LEN_RUS",
+          "caption": null
+        },
+        {
+          "name": "Catégorie",
+          "type": "string",
+          "collation": "LEN_RUS",
+          "caption": null
+        },
+        {
+          "name": "Sous-catégorie",
+          "type": "string",
+          "collation": "LEN_RUS",
+          "caption": null
+        },
+        {
+          "name": "Nom du produit",
+          "type": "string",
+          "collation": "LEN_RUS",
+          "caption": null
+        },
+        {
+          "name": "Montant des ventes",
+          "type": "real",
+          "collation": null,
+          "caption": null
+        },
+        {
+          "name": "Quantité",
+          "type": "integer",
+          "collation": null,
+          "caption": null
+        },
+        {
+          "name": "Remise",
+          "type": "real",
+          "collation": null,
+          "caption": null
+        },
+        {
+          "name": "Profit",
+          "type": "real",
+          "collation": null,
+          "caption": null
+        },
+        {
+          "name": "File Paths",
+          "type": "string",
+          "collation": "LEN_RUS",
+          "caption": null
+        }
+      ],
+      "actions": [],
+      "debugModeRowLimit": null,
+      "originalDataTypes": {},
+      "randomSampling": null,
+      "updateTimestamp": null,
+      "restrictedFields": {},
+      "userRenamedFields": {},
+      "selectedFields": null,
+      "filters": [],
+      "generatedInputs": [
+        {
+          "inputUnionInputType": ".FileInputUnionInput",
+          "inputNode": {
+            "nodeType": ".v1.LoadCsv",
+            "name": "commandes (USCA)",
+            "id": "a9002777-727c-443c-9736-5dbc945f010b",
+            "baseType": "input",
+            "nextNodes": [],
+            "serialize": false,
+            "description": null,
+            "connectionId": "53643993-0e2c-4cea-b4ce-dff4959013dc",
+            "connectionAttributes": {
+              "filename": "ORDERS_USCA_2015.csv",
+              "class": "textscan"
+            },
+            "fields": [
+              {
+                "name": "ID ligne",
+                "type": "integer",
+                "collation": null,
+                "caption": null
+              },
+              {
+                "name": "ID commande",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null
+              },
+              {
+                "name": "Date de commande",
+                "type": "date",
+                "collation": null,
+                "caption": null
+              },
+              {
+                "name": "Date d'expédition",
+                "type": "date",
+                "collation": null,
+                "caption": null
+              },
+              {
+                "name": "Mode d'expédition",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null
+              },
+              {
+                "name": "ID client",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null
+              },
+              {
+                "name": "Nom du client",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null
+              },
+              {
+                "name": "Segment",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null
+              },
+              {
+                "name": "Pays/région",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null
+              },
+              {
+                "name": "Ville",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null
+              },
+              {
+                "name": "État/Province",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null
+              },
+              {
+                "name": "Région de vente",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null
+              },
+              {
+                "name": "ID produit",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null
+              },
+              {
+                "name": "Catégorie",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null
+              },
+              {
+                "name": "Sous-catégorie",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null
+              },
+              {
+                "name": "Nom du produit",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null
+              },
+              {
+                "name": "Montant des ventes",
+                "type": "real",
+                "collation": null,
+                "caption": null
+              },
+              {
+                "name": "Quantité",
+                "type": "integer",
+                "collation": null,
+                "caption": null
+              },
+              {
+                "name": "Remise",
+                "type": "real",
+                "collation": null,
+                "caption": null
+              },
+              {
+                "name": "Profit",
+                "type": "real",
+                "collation": null,
+                "caption": null
+              }
+            ],
+            "actions": [],
+            "debugModeRowLimit": null,
+            "originalDataTypes": {},
+            "randomSampling": null,
+            "updateTimestamp": null,
+            "restrictedFields": null,
+            "userRenamedFields": {},
+            "selectedFields": null,
+            "filters": null,
+            "separator": "A",
+            "locale": "en_US",
+            "charSet": "UTF-8",
+            "containsHeaders": true,
+            "textQualifier": "A"
+          },
+          "filePath": "ORDERS_USCA_2015.csv"
+        },
+        {
+          "inputUnionInputType": ".FileInputUnionInput",
+          "inputNode": {
+            "nodeType": ".v1.LoadCsv",
+            "name": "commandes (USCA)",
+            "id": "62775f64-3076-4260-a835-c663c0c944de",
+            "baseType": "input",
+            "nextNodes": [],
+            "serialize": false,
+            "description": null,
+            "connectionId": "53643993-0e2c-4cea-b4ce-dff4959013dc",
+            "connectionAttributes": {
+              "filename": "ORDERS_USCA_2016.csv",
+              "class": "textscan"
+            },
+            "fields": [
+              {
+                "name": "ID ligne",
+                "type": "integer",
+                "collation": null,
+                "caption": null
+              },
+              {
+                "name": "ID commande",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null
+              },
+              {
+                "name": "Date de commande",
+                "type": "date",
+                "collation": null,
+                "caption": null
+              },
+              {
+                "name": "Date d'expédition",
+                "type": "date",
+                "collation": null,
+                "caption": null
+              },
+              {
+                "name": "Mode d'expédition",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null
+              },
+              {
+                "name": "ID client",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null
+              },
+              {
+                "name": "Nom du client",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null
+              },
+              {
+                "name": "Segment",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null
+              },
+              {
+                "name": "Pays/région",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null
+              },
+              {
+                "name": "Ville",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null
+              },
+              {
+                "name": "État/Province",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null
+              },
+              {
+                "name": "Région de vente",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null
+              },
+              {
+                "name": "ID produit",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null
+              },
+              {
+                "name": "Catégorie",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null
+              },
+              {
+                "name": "Sous-catégorie",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null
+              },
+              {
+                "name": "Nom du produit",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null
+              },
+              {
+                "name": "Montant des ventes",
+                "type": "real",
+                "collation": null,
+                "caption": null
+              },
+              {
+                "name": "Quantité",
+                "type": "integer",
+                "collation": null,
+                "caption": null
+              },
+              {
+                "name": "Remise",
+                "type": "real",
+                "collation": null,
+                "caption": null
+              },
+              {
+                "name": "Profit",
+                "type": "real",
+                "collation": null,
+                "caption": null
+              }
+            ],
+            "actions": [],
+            "debugModeRowLimit": null,
+            "originalDataTypes": {},
+            "randomSampling": null,
+            "updateTimestamp": null,
+            "restrictedFields": null,
+            "userRenamedFields": {},
+            "selectedFields": null,
+            "filters": null,
+            "separator": "A",
+            "locale": "en_US",
+            "charSet": "UTF-8",
+            "containsHeaders": true,
+            "textQualifier": "A"
+          },
+          "filePath": "ORDERS_USCA_2016.csv"
+        },
+        {
+          "inputUnionInputType": ".FileInputUnionInput",
+          "inputNode": {
+            "nodeType": ".v1.LoadCsv",
+            "name": "commandes (USCA)",
+            "id": "571d9b17-6084-414c-a0f1-83fdcf65e69c",
+            "baseType": "input",
+            "nextNodes": [],
+            "serialize": false,
+            "description": null,
+            "connectionId": "53643993-0e2c-4cea-b4ce-dff4959013dc",
+            "connectionAttributes": {
+              "filename": "ORDERS_USCA_2017.csv",
+              "class": "textscan"
+            },
+            "fields": [
+              {
+                "name": "ID ligne",
+                "type": "integer",
+                "collation": null,
+                "caption": null
+              },
+              {
+                "name": "ID commande",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null
+              },
+              {
+                "name": "Date de commande",
+                "type": "date",
+                "collation": null,
+                "caption": null
+              },
+              {
+                "name": "Date d'expédition",
+                "type": "date",
+                "collation": null,
+                "caption": null
+              },
+              {
+                "name": "Mode d'expédition",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null
+              },
+              {
+                "name": "ID client",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null
+              },
+              {
+                "name": "Nom du client",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null
+              },
+              {
+                "name": "Segment",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null
+              },
+              {
+                "name": "Pays/région",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null
+              },
+              {
+                "name": "Ville",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null
+              },
+              {
+                "name": "État/Province",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null
+              },
+              {
+                "name": "Région de vente",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null
+              },
+              {
+                "name": "ID produit",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null
+              },
+              {
+                "name": "Catégorie",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null
+              },
+              {
+                "name": "Sous-catégorie",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null
+              },
+              {
+                "name": "Nom du produit",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null
+              },
+              {
+                "name": "Montant des ventes",
+                "type": "real",
+                "collation": null,
+                "caption": null
+              },
+              {
+                "name": "Quantité",
+                "type": "integer",
+                "collation": null,
+                "caption": null
+              },
+              {
+                "name": "Remise",
+                "type": "real",
+                "collation": null,
+                "caption": null
+              },
+              {
+                "name": "Profit",
+                "type": "real",
+                "collation": null,
+                "caption": null
+              }
+            ],
+            "actions": [],
+            "debugModeRowLimit": null,
+            "originalDataTypes": {},
+            "randomSampling": null,
+            "updateTimestamp": null,
+            "restrictedFields": null,
+            "userRenamedFields": {},
+            "selectedFields": null,
+            "filters": null,
+            "separator": "A",
+            "locale": "en_US",
+            "charSet": "UTF-8",
+            "containsHeaders": true,
+            "textQualifier": "A"
+          },
+          "filePath": "ORDERS_USCA_2017.csv"
+        },
+        {
+          "inputUnionInputType": ".FileInputUnionInput",
+          "inputNode": {
+            "nodeType": ".v1.LoadCsv",
+            "name": "commandes (USCA)",
+            "id": "df3e0aca-0019-4bc1-a824-69d50d991c5d",
+            "baseType": "input",
+            "nextNodes": [],
+            "serialize": false,
+            "description": null,
+            "connectionId": "53643993-0e2c-4cea-b4ce-dff4959013dc",
+            "connectionAttributes": {
+              "filename": "ORDERS_USCA_2018.csv",
+              "class": "textscan"
+            },
+            "fields": [
+              {
+                "name": "ID ligne",
+                "type": "integer",
+                "collation": null,
+                "caption": null
+              },
+              {
+                "name": "ID commande",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null
+              },
+              {
+                "name": "Date de commande",
+                "type": "date",
+                "collation": null,
+                "caption": null
+              },
+              {
+                "name": "Date d'expédition",
+                "type": "date",
+                "collation": null,
+                "caption": null
+              },
+              {
+                "name": "Mode d'expédition",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null
+              },
+              {
+                "name": "ID client",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null
+              },
+              {
+                "name": "Nom du client",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null
+              },
+              {
+                "name": "Segment",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null
+              },
+              {
+                "name": "Pays/région",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null
+              },
+              {
+                "name": "Ville",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null
+              },
+              {
+                "name": "État/Province",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null
+              },
+              {
+                "name": "Région de vente",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null
+              },
+              {
+                "name": "ID produit",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null
+              },
+              {
+                "name": "Catégorie",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null
+              },
+              {
+                "name": "Sous-catégorie",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null
+              },
+              {
+                "name": "Nom du produit",
+                "type": "string",
+                "collation": "LEN_RUS",
+                "caption": null
+              },
+              {
+                "name": "Montant des ventes",
+                "type": "real",
+                "collation": null,
+                "caption": null
+              },
+              {
+                "name": "Quantité",
+                "type": "integer",
+                "collation": null,
+                "caption": null
+              },
+              {
+                "name": "Remise",
+                "type": "real",
+                "collation": null,
+                "caption": null
+              },
+              {
+                "name": "Profit",
+                "type": "real",
+                "collation": null,
+                "caption": null
+              }
+            ],
+            "actions": [],
+            "debugModeRowLimit": null,
+            "originalDataTypes": {},
+            "randomSampling": null,
+            "updateTimestamp": null,
+            "restrictedFields": null,
+            "userRenamedFields": {},
+            "selectedFields": null,
+            "filters": null,
+            "separator": "A",
+            "locale": "en_US",
+            "charSet": "UTF-8",
+            "containsHeaders": true,
+            "textQualifier": "A"
+          },
+          "filePath": "ORDERS_USCA_2018.csv"
+        }
+      ],
+      "filePattern": "",
+      "inclusiveFilePattern": true,
+      "includeSubDirectory": false,
+      "containsHeaders": true,
+      "pathNameField": "File Paths",
+      "errorOnLoadFiles": {},
+      "excludedFiles": [],
+      "matchedFiles": [
+        "ORDERS_USCA_2015.csv",
+        "ORDERS_USCA_2016.csv",
+        "ORDERS_USCA_2017.csv",
+        "ORDERS_USCA_2018.csv"
+      ],
+      "separator": "A",
+      "locale": "en_US",
+      "charSet": "UTF-8",
+      "textQualifier": "A"
+    },
+    "c7775b9f-adb4-47d6-b61d-772c7b83af4e": {
+      "nodeType": ".v1.WriteToHyper",
+      "name": "Créer 'Ventes Superstore.hyper'",
+      "id": "c7775b9f-adb4-47d6-b61d-772c7b83af4e",
+      "baseType": "output",
+      "nextNodes": [],
+      "serialize": false,
+      "description": "",
+      "hyperOutputFile": "~/My Tableau Prep Repository/Datasources/Ventes Superstore.hyper",
+      "tdsOutput": "~/My Tableau Prep Repository/Datasources/Ventes Superstore.tds"
+    },
+    "a7dc0ccb-af31-4553-88f6-f06250409892": {
+      "nodeType": ".v1.Container",
+      "name": "Nettoyer 2",
+      "id": "a7dc0ccb-af31-4553-88f6-f06250409892",
+      "baseType": "container",
+      "nextNodes": [
+        {
+          "namespace": "Default",
+          "nextNodeId": "5c17dbf7-5427-44da-a541-a75446cc62de",
+          "nextNamespace": "Default"
+        },
+        {
+          "namespace": "Default",
+          "nextNodeId": "c7775b9f-adb4-47d6-b61d-772c7b83af4e",
+          "nextNamespace": "Default"
+        }
+      ],
+      "serialize": false,
+      "description": null,
+      "loomContainer": {
+        "parameters": {
+          "parameters": {}
+        },
+        "initialNodes": [],
+        "nodes": {
+          "eaa6f3f8-3091-4e3e-9f65-0b9155eec278": {
+            "nodeType": ".v1.RemoveColumns",
+            "name": "Supprimer ID produit 1",
+            "id": "eaa6f3f8-3091-4e3e-9f65-0b9155eec278",
+            "baseType": "transform",
+            "nextNodes": [
+              {
+                "namespace": "Default",
+                "nextNodeId": "d966e7ca-e1a5-4ad7-9164-09530f1bb411",
+                "nextNamespace": "Default"
+              }
+            ],
+            "serialize": false,
+            "description": null,
+            "columnNames": [
+              "ID produit"
+            ]
+          },
+          "39c56197-906d-45d4-8c0d-bd2abfeceb32": {
+            "nodeType": ".v1.RemoveColumns",
+            "name": "Supprimer ID-1 commande 1",
+            "id": "39c56197-906d-45d4-8c0d-bd2abfeceb32",
+            "baseType": "transform",
+            "nextNodes": [
+              {
+                "namespace": "Default",
+                "nextNodeId": "eaa6f3f8-3091-4e3e-9f65-0b9155eec278",
+                "nextNamespace": "Default"
+              }
+            ],
+            "serialize": false,
+            "description": null,
+            "columnNames": [
+              "ID commande-1"
+            ]
+          },
+          "d966e7ca-e1a5-4ad7-9164-09530f1bb411": {
+            "nodeType": ".v1.RenameColumn",
+            "columnName": "ID produit-1",
+            "rename": "ID produit",
+            "name": "A renommé ID-1 produit en ID produit 1",
+            "id": "d966e7ca-e1a5-4ad7-9164-09530f1bb411",
+            "baseType": "transform",
+            "nextNodes": [],
+            "serialize": false,
+            "description": null
+          }
+        },
+        "connections": {},
+        "connectionIds": [],
+        "nodeProperties": {},
+        "extensibility": null
+      },
+      "namespacesToInput": {
+        "Default": {
+          "nodeId": "39c56197-906d-45d4-8c0d-bd2abfeceb32",
+          "namespace": "Default"
+        }
+      },
+      "namespacesToOutput": {
+        "Default": {
+          "nodeId": "d966e7ca-e1a5-4ad7-9164-09530f1bb411",
+          "namespace": "Default"
+        }
+      },
+      "providedParameters": {}
+    },
+    "376bea4d-147f-4823-931e-ead0446ab3b2": {
+      "nodeType": ".v1.LoadCsv",
+      "name": "Commandes (LATAM)",
+      "id": "376bea4d-147f-4823-931e-ead0446ab3b2",
+      "baseType": "input",
+      "nextNodes": [
+        {
+          "namespace": "Default",
+          "nextNodeId": "dbe494af-f83f-40f4-9d90-0bcb3f934652",
+          "nextNamespace": "Default"
+        }
+      ],
+      "serialize": false,
+      "description": null,
+      "connectionId": "8abda59a-7bae-47e7-b7e3-4de5ec6dc745",
+      "connectionAttributes": {
+        "filename": "ORDERS_LATAM.csv"
+      },
+      "fields": [
+        {
+          "name": "ID ligne",
+          "type": "integer",
+          "collation": null,
+          "caption": null
+        },
+        {
+          "name": "ID commande",
+          "type": "string",
+          "collation": "LEN_RUS",
+          "caption": null
+        },
+        {
+          "name": "Année de la commande",
+          "type": "integer",
+          "collation": null,
+          "caption": null
+        },
+        {
+          "name": "Mois de la commande",
+          "type": "integer",
+          "collation": null,
+          "caption": null
+        },
+        {
+          "name": "Jour de la commande",
+          "type": "integer",
+          "collation": null,
+          "caption": null
+        },
+        {
+          "name": "Année de la livraison",
+          "type": "integer",
+          "collation": null,
+          "caption": null
+        },
+        {
+          "name": "Mois de la livraison",
+          "type": "integer",
+          "collation": null,
+          "caption": null
+        },
+        {
+          "name": "Jour de la livraison",
+          "type": "integer",
+          "collation": null,
+          "caption": null
+        },
+        {
+          "name": "Mode d'expédition",
+          "type": "string",
+          "collation": "LEN_RUS",
+          "caption": null
+        },
+        {
+          "name": "ID client",
+          "type": "string",
+          "collation": "LEN_RUS",
+          "caption": null
+        },
+        {
+          "name": "Nom du client",
+          "type": "string",
+          "collation": "LEN_RUS",
+          "caption": null
+        },
+        {
+          "name": "Segment",
+          "type": "string",
+          "collation": "LEN_RUS",
+          "caption": null
+        },
+        {
+          "name": "Ville",
+          "type": "string",
+          "collation": "LEN_RUS",
+          "caption": null
+        },
+        {
+          "name": "État/Province",
+          "type": "string",
+          "collation": "LEN_RUS",
+          "caption": null
+        },
+        {
+          "name": "Pays\\Région",
+          "type": "string",
+          "collation": "LEN_RUS",
+          "caption": null
+        },
+        {
+          "name": "Région de vente",
+          "type": "string",
+          "collation": "LEN_RUS",
+          "caption": null
+        },
+        {
+          "name": "ID produit",
+          "type": "string",
+          "collation": "LEN_RUS",
+          "caption": null
+        },
+        {
+          "name": "Catégorie",
+          "type": "string",
+          "collation": "LEN_RUS",
+          "caption": null
+        },
+        {
+          "name": "Sous-catégorie",
+          "type": "string",
+          "collation": "LEN_RUS",
+          "caption": null
+        },
+        {
+          "name": "Remise",
+          "type": "real",
+          "collation": null,
+          "caption": null
+        },
+        {
+          "name": "Produit",
+          "type": "string",
+          "collation": "LEN_RUS",
+          "caption": null
+        },
+        {
+          "name": "Montant des ventes",
+          "type": "real",
+          "collation": null,
+          "caption": null
+        },
+        {
+          "name": "Quantité",
+          "type": "integer",
+          "collation": null,
+          "caption": null
+        },
+        {
+          "name": "Profit",
+          "type": "real",
+          "collation": null,
+          "caption": null
+        }
+      ],
+      "actions": [],
+      "debugModeRowLimit": null,
+      "originalDataTypes": {},
+      "randomSampling": null,
+      "updateTimestamp": null,
+      "restrictedFields": {},
+      "userRenamedFields": {},
+      "selectedFields": null,
+      "filters": [],
+      "separator": ",",
+      "locale": "en_US",
+      "charSet": "UTF-8",
+      "containsHeaders": true,
+      "textQualifier": "A"
+    },
+    "b20a8d14-5b75-414b-8f54-5dd64f562e83": {
+      "nodeType": ".v1.LoadCsv",
+      "name": "Commandes (EMEA)",
+      "id": "b20a8d14-5b75-414b-8f54-5dd64f562e83",
+      "baseType": "input",
+      "nextNodes": [
+        {
+          "namespace": "Default",
+          "nextNodeId": "3b6005ae-2dee-4928-87d3-0993b448bd2e",
+          "nextNamespace": "Default"
+        }
+      ],
+      "serialize": false,
+      "description": null,
+      "connectionId": "eb039e32-660e-45e0-b672-08a4e1c15d97",
+      "connectionAttributes": {
+        "filename": "ORDERS_EMEA.csv"
+      },
+      "fields": [
+        {
+          "name": "ID ligne",
+          "type": "integer",
+          "collation": null,
+          "caption": null
+        },
+        {
+          "name": "ID commande",
+          "type": "string",
+          "collation": "LEN_RUS",
+          "caption": null
+        },
+        {
+          "name": "Date de commande",
+          "type": "date",
+          "collation": null,
+          "caption": null
+        },
+        {
+          "name": "Date d'expédition",
+          "type": "date",
+          "collation": null,
+          "caption": null
+        },
+        {
+          "name": "Mode d'expédition",
+          "type": "string",
+          "collation": "LEN_RUS",
+          "caption": null
+        },
+        {
+          "name": "ID client",
+          "type": "string",
+          "collation": "LEN_RUS",
+          "caption": null
+        },
+        {
+          "name": "Nom du client",
+          "type": "string",
+          "collation": "LEN_RUS",
+          "caption": null
+        },
+        {
+          "name": "Segment",
+          "type": "string",
+          "collation": "LEN_RUS",
+          "caption": null
+        },
+        {
+          "name": "Ville",
+          "type": "string",
+          "collation": "LEN_RUS",
+          "caption": null
+        },
+        {
+          "name": "État/Province",
+          "type": "string",
+          "collation": "LEN_RUS",
+          "caption": null
+        },
+        {
+          "name": "Pays/région",
+          "type": "string",
+          "collation": "LEN_RUS",
+          "caption": null
+        },
+        {
+          "name": "Région de vente",
+          "type": "string",
+          "collation": "LEN_RUS",
+          "caption": null
+        },
+        {
+          "name": "ID produit",
+          "type": "string",
+          "collation": "LEN_RUS",
+          "caption": null
+        },
+        {
+          "name": "Catégorie",
+          "type": "string",
+          "collation": "LEN_RUS",
+          "caption": null
+        },
+        {
+          "name": "Sous-catégorie",
+          "type": "string",
+          "collation": "LEN_RUS",
+          "caption": null
+        },
+        {
+          "name": "Nom du produit",
+          "type": "string",
+          "collation": "LEN_RUS",
+          "caption": null
+        },
+        {
+          "name": "Montant des ventes",
+          "type": "real",
+          "collation": null,
+          "caption": null
+        },
+        {
+          "name": "Quantité",
+          "type": "integer",
+          "collation": null,
+          "caption": null
+        },
+        {
+          "name": "Remise",
+          "type": "real",
+          "collation": null,
+          "caption": null
+        },
+        {
+          "name": "Profit",
+          "type": "real",
+          "collation": null,
+          "caption": null
+        },
+        {
+          "name": "Droite_ID ligne",
+          "type": "integer",
+          "collation": null,
+          "caption": null
+        },
+        {
+          "name": "Droite_ID commande",
+          "type": "string",
+          "collation": "LEN_RUS",
+          "caption": null
+        },
+        {
+          "name": "Droite_Date de commande",
+          "type": "date",
+          "collation": null,
+          "caption": null
+        },
+        {
+          "name": "Droite_Date d'expédition",
+          "type": "date",
+          "collation": null,
+          "caption": null
+        },
+        {
+          "name": "Droite_Mode d'expédition",
+          "type": "string",
+          "collation": "LEN_RUS",
+          "caption": null
+        },
+        {
+          "name": "Droite_ID client",
+          "type": "string",
+          "collation": "LEN_RUS",
+          "caption": null
+        },
+        {
+          "name": "Droite_Nom du client",
+          "type": "string",
+          "collation": "LEN_RUS",
+          "caption": null
+        },
+        {
+          "name": "Droite_Segment",
+          "type": "string",
+          "collation": "LEN_RUS",
+          "caption": null
+        },
+        {
+          "name": "Droite_Ville",
+          "type": "string",
+          "collation": "LEN_RUS",
+          "caption": null
+        },
+        {
+          "name": "Droite_État/Province",
+          "type": "string",
+          "collation": "LEN_RUS",
+          "caption": null
+        },
+        {
+          "name": "Droite_Pays/Région",
+          "type": "string",
+          "collation": "LEN_RUS",
+          "caption": null
+        },
+        {
+          "name": "Droite_Région de vente",
+          "type": "string",
+          "collation": "LEN_RUS",
+          "caption": null
+        },
+        {
+          "name": "Droite_ID produit",
+          "type": "string",
+          "collation": "LEN_RUS",
+          "caption": null
+        },
+        {
+          "name": "Droite_Catégorie",
+          "type": "string",
+          "collation": "LEN_RUS",
+          "caption": null
+        },
+        {
+          "name": "Droite_Sous-catégorie",
+          "type": "string",
+          "collation": "LEN_RUS",
+          "caption": null
+        },
+        {
+          "name": "Droite_Nom du produit",
+          "type": "string",
+          "collation": "LEN_RUS",
+          "caption": null
+        },
+        {
+          "name": "Droite_Montant des ventes",
+          "type": "real",
+          "collation": null,
+          "caption": null
+        },
+        {
+          "name": "Droite_Quantité",
+          "type": "integer",
+          "collation": null,
+          "caption": null
+        },
+        {
+          "name": "Droite_Remise",
+          "type": "real",
+          "collation": null,
+          "caption": null
+        },
+        {
+          "name": "Droite_Profit",
+          "type": "real",
+          "collation": null,
+          "caption": null
+        }
+      ],
+      "actions": [
+        {
+          "nodeType": ".v1.RemoveColumns",
+          "name": "Supprimer Droite_ID ligne + 0 en plus 1",
+          "id": "4616f943-817a-459a-be12-629b2ce12d37",
+          "baseType": "transform",
+          "nextNodes": [],
+          "serialize": false,
+          "description": null,
+          "columnNames": [
+            "Droite_ID ligne"
+          ]
+        },
+        {
+          "nodeType": ".v1.RemoveColumns",
+          "name": "Supprimer Droite_ID commande + 0 en plus 1",
+          "id": "1c769173-b2df-493b-a25f-0b03a2f9ec01",
+          "baseType": "transform",
+          "nextNodes": [],
+          "serialize": false,
+          "description": null,
+          "columnNames": [
+            "Droite_ID commande"
+          ]
+        },
+        {
+          "nodeType": ".v1.RemoveColumns",
+          "name": "Supprimer Droite_Date de commande + 0 en plus 1",
+          "id": "6d3ee096-ec95-4b88-85ff-289931f8c6f1",
+          "baseType": "transform",
+          "nextNodes": [],
+          "serialize": false,
+          "description": null,
+          "columnNames": [
+            "Droite_Date de commande"
+          ]
+        },
+        {
+          "nodeType": ".v1.RemoveColumns",
+          "name": "Supprimer Droite_Date d'expédition + 0 en plus 1",
+          "id": "6093f5bd-4ce9-4a84-8a5d-d09c763eb24d",
+          "baseType": "transform",
+          "nextNodes": [],
+          "serialize": false,
+          "description": null,
+          "columnNames": [
+            "Droite_Date d'expédition"
+          ]
+        },
+        {
+          "nodeType": ".v1.RemoveColumns",
+          "name": "Supprimer Droite_Mode d'expédition + 0 en plus 1",
+          "id": "5c7f6c40-1758-4e6c-8bc1-0e7ac4580cf4",
+          "baseType": "transform",
+          "nextNodes": [],
+          "serialize": false,
+          "description": null,
+          "columnNames": [
+            "Droite_Mode d'expédition"
+          ]
+        },
+        {
+          "nodeType": ".v1.RemoveColumns",
+          "name": "Supprimer Droite_ID client + 0 en plus 1",
+          "id": "d9c5aecb-dd5c-4555-9f7c-ddf9845c044e",
+          "baseType": "transform",
+          "nextNodes": [],
+          "serialize": false,
+          "description": null,
+          "columnNames": [
+            "Droite_ID client"
+          ]
+        },
+        {
+          "nodeType": ".v1.RemoveColumns",
+          "name": "Supprimer Droite_Nom du client + 0 en plus 1",
+          "id": "a2c510bb-daf1-487b-b83c-3ec182bec642",
+          "baseType": "transform",
+          "nextNodes": [],
+          "serialize": false,
+          "description": null,
+          "columnNames": [
+            "Droite_Nom du client"
+          ]
+        },
+        {
+          "nodeType": ".v1.RemoveColumns",
+          "name": "Supprimer Droite_Segment + 0 en plus 1",
+          "id": "720aeb7c-e5af-496e-9226-352d5bae1a5a",
+          "baseType": "transform",
+          "nextNodes": [],
+          "serialize": false,
+          "description": null,
+          "columnNames": [
+            "Droite_Segment"
+          ]
+        },
+        {
+          "nodeType": ".v1.RemoveColumns",
+          "name": "Supprimer Droite_Ville + 0 en plus 1",
+          "id": "b3d71ca9-31b6-496f-b762-9f252379ba52",
+          "baseType": "transform",
+          "nextNodes": [],
+          "serialize": false,
+          "description": null,
+          "columnNames": [
+            "Droite_Ville"
+          ]
+        },
+        {
+          "nodeType": ".v1.RemoveColumns",
+          "name": "Supprimer Droite_État/Province + 0 en plus 1",
+          "id": "e684fe77-a7a9-4209-bd1b-a35eaaabcf94",
+          "baseType": "transform",
+          "nextNodes": [],
+          "serialize": false,
+          "description": null,
+          "columnNames": [
+            "Droite_État/Province"
+          ]
+        },
+        {
+          "nodeType": ".v1.RemoveColumns",
+          "name": "Supprimer Droite_Pays/Région + 0 en plus 1",
+          "id": "e2ff5a47-104a-48ed-a1df-5ac3877eb4be",
+          "baseType": "transform",
+          "nextNodes": [],
+          "serialize": false,
+          "description": null,
+          "columnNames": [
+            "Droite_Pays/Région"
+          ]
+        },
+        {
+          "nodeType": ".v1.RemoveColumns",
+          "name": "Supprimer Droite_Région de vente + 0 en plus 1",
+          "id": "8ab9f1e0-73a4-4e25-b5bd-c11ea4b360ae",
+          "baseType": "transform",
+          "nextNodes": [],
+          "serialize": false,
+          "description": null,
+          "columnNames": [
+            "Droite_Région de vente"
+          ]
+        },
+        {
+          "nodeType": ".v1.RemoveColumns",
+          "name": "Supprimer Droite_ID produit + 0 en plus 1",
+          "id": "610083a4-ef71-4904-b1e8-ea9b4d1c2790",
+          "baseType": "transform",
+          "nextNodes": [],
+          "serialize": false,
+          "description": null,
+          "columnNames": [
+            "Droite_ID produit"
+          ]
+        },
+        {
+          "nodeType": ".v1.RemoveColumns",
+          "name": "Supprimer Droite_Catégorie + 0 en plus 1",
+          "id": "ad43b107-ee03-47c5-833c-f66463506c85",
+          "baseType": "transform",
+          "nextNodes": [],
+          "serialize": false,
+          "description": null,
+          "columnNames": [
+            "Droite_Catégorie"
+          ]
+        },
+        {
+          "nodeType": ".v1.RemoveColumns",
+          "name": "Supprimer Droite_Sous-catégorie + 0 en plus 1",
+          "id": "7708ab97-38be-4f21-9d86-d860c500e1a7",
+          "baseType": "transform",
+          "nextNodes": [],
+          "serialize": false,
+          "description": null,
+          "columnNames": [
+            "Droite_Sous-catégorie"
+          ]
+        },
+        {
+          "nodeType": ".v1.RemoveColumns",
+          "name": "Supprimer Droite_Nom du produit + 0 en plus 1",
+          "id": "7116c4e3-cc42-4ab3-b6fb-ab4f2a4d4c4d",
+          "baseType": "transform",
+          "nextNodes": [],
+          "serialize": false,
+          "description": null,
+          "columnNames": [
+            "Droite_Nom du produit"
+          ]
+        },
+        {
+          "nodeType": ".v1.RemoveColumns",
+          "name": "Supprimer Droite_Montant des ventes + 0 en plus 1",
+          "id": "4fc2bf2c-1561-47db-b257-319ff20555d3",
+          "baseType": "transform",
+          "nextNodes": [],
+          "serialize": false,
+          "description": null,
+          "columnNames": [
+            "Droite_Montant des ventes"
+          ]
+        },
+        {
+          "nodeType": ".v1.RemoveColumns",
+          "name": "Supprimer Droite_Quantité + 0 en plus 1",
+          "id": "e5eaa3f6-13e1-46f7-8aa1-f013cb0106d2",
+          "baseType": "transform",
+          "nextNodes": [],
+          "serialize": false,
+          "description": null,
+          "columnNames": [
+            "Droite_Quantité"
+          ]
+        },
+        {
+          "nodeType": ".v1.RemoveColumns",
+          "name": "Supprimer Droite_Remise + 0 en plus 1",
+          "id": "f5f135c8-4d5e-450e-a4a2-f7e559ddfb14",
+          "baseType": "transform",
+          "nextNodes": [],
+          "serialize": false,
+          "description": null,
+          "columnNames": [
+            "Droite_Remise"
+          ]
+        },
+        {
+          "nodeType": ".v1.RemoveColumns",
+          "name": "Supprimer Droite_Profit + 0 en plus 1",
+          "id": "9422d4b4-e790-4b27-9b94-e9887bf6318d",
+          "baseType": "transform",
+          "nextNodes": [],
+          "serialize": false,
+          "description": null,
+          "columnNames": [
+            "Droite_Profit"
+          ]
+        }
+      ],
+      "debugModeRowLimit": null,
+      "originalDataTypes": {},
+      "randomSampling": null,
+      "updateTimestamp": null,
+      "restrictedFields": {},
+      "userRenamedFields": {},
+      "selectedFields": null,
+      "filters": [],
+      "separator": ",",
+      "locale": "en_US",
+      "charSet": "UTF-8",
+      "containsHeaders": true,
+      "textQualifier": "A"
+    },
+    "4679f8db-808e-44fa-bdaa-a70dadba183f": {
+      "nodeType": ".v1.LoadExcel",
+      "name": "Commandes (APAC)",
+      "id": "4679f8db-808e-44fa-bdaa-a70dadba183f",
+      "baseType": "input",
+      "nextNodes": [
+        {
+          "namespace": "Default",
+          "nextNodeId": "b6893bb7-3b45-40e9-a6ff-c2a212f4b1e2",
+          "nextNamespace": "Default"
+        }
+      ],
+      "serialize": false,
+      "description": null,
+      "connectionId": "09325ca8-3789-4659-b74c-6558d5e6985e",
+      "connectionAttributes": {},
+      "fields": [
+        {
+          "name": "ID ligne",
+          "type": "integer",
+          "collation": "LROOT",
+          "caption": null
+        },
+        {
+          "name": "ID commande",
+          "type": "string",
+          "collation": "LEN_RUS_S2",
+          "caption": null
+        },
+        {
+          "name": "Date de commande",
+          "type": "date",
+          "collation": "LROOT",
+          "caption": null
+        },
+        {
+          "name": "Date d'expédition",
+          "type": "date",
+          "collation": "LROOT",
+          "caption": null
+        },
+        {
+          "name": "Mode d'expédition",
+          "type": "string",
+          "collation": "LEN_RUS_S2",
+          "caption": null
+        },
+        {
+          "name": "ID client",
+          "type": "string",
+          "collation": "LEN_RUS_S2",
+          "caption": null
+        },
+        {
+          "name": "Nom du client",
+          "type": "string",
+          "collation": "LEN_RUS_S2",
+          "caption": null
+        },
+        {
+          "name": "Segment",
+          "type": "string",
+          "collation": "LEN_RUS_S2",
+          "caption": null
+        },
+        {
+          "name": "Ville",
+          "type": "string",
+          "collation": "LEN_RUS_S2",
+          "caption": null
+        },
+        {
+          "name": "Région",
+          "type": "string",
+          "collation": "LEN_RUS_S2",
+          "caption": null
+        },
+        {
+          "name": "Pays/région",
+          "type": "string",
+          "collation": "LEN_RUS_S2",
+          "caption": null
+        },
+        {
+          "name": "Zone géographique",
+          "type": "string",
+          "collation": "LEN_RUS_S2",
+          "caption": null
+        },
+        {
+          "name": "ID produit",
+          "type": "string",
+          "collation": "LEN_RUS_S2",
+          "caption": null
+        },
+        {
+          "name": "Catégorie",
+          "type": "string",
+          "collation": "LEN_RUS_S2",
+          "caption": null
+        },
+        {
+          "name": "Sous-catégorie",
+          "type": "string",
+          "collation": "LEN_RUS_S2",
+          "caption": null
+        },
+        {
+          "name": "Nom du produit",
+          "type": "string",
+          "collation": "LEN_RUS_S2",
+          "caption": null
+        },
+        {
+          "name": "Montant des ventes",
+          "type": "string",
+          "collation": "LEN_RUS_S2",
+          "caption": null
+        },
+        {
+          "name": "Quantité",
+          "type": "integer",
+          "collation": "LROOT",
+          "caption": null
+        },
+        {
+          "name": "Remises",
+          "type": "real",
+          "collation": "LROOT",
+          "caption": null
+        },
+        {
+          "name": "Profit",
+          "type": "real",
+          "collation": "LROOT",
+          "caption": null
+        }
+      ],
+      "actions": [],
+      "debugModeRowLimit": null,
+      "originalDataTypes": {},
+      "randomSampling": null,
+      "updateTimestamp": 1542855811513,
+      "restrictedFields": {},
+      "userRenamedFields": {},
+      "selectedFields": null,
+      "filters": [],
+      "relation": {
+        "displayName": "[Commandes_APAC$]",
+        "type": "table",
+        "table": "[Commandes_APAC$]"
+      }
+    },
+    "b2c6e3f3-941c-4d48-a672-c7701233c433": {
+      "nodeType": ".v2018_2_3.SuperJoin",
+      "name": "Commandes + Retours",
+      "id": "b2c6e3f3-941c-4d48-a672-c7701233c433",
+      "baseType": "superNode",
+      "nextNodes": [
+        {
+          "namespace": "Default",
+          "nextNodeId": "a7dc0ccb-af31-4553-88f6-f06250409892",
+          "nextNamespace": "Default"
+        }
+      ],
+      "serialize": false,
+      "description": null,
+      "beforeActionAnnotations": [
+        {
+          "namespace": "Right",
+          "annotationNode": {
+            "nodeType": ".v1.AddColumn",
+            "columnName": "Délai d'expédition",
+            "expression": "DATEDIFF('day',[Date de commande],[Date d'expédition])",
+            "name": "Ajouter Délai d'expédition",
+            "id": "7c3c6770-817f-4aac-9ef7-fcb90323ab4e",
+            "baseType": "transform",
+            "nextNodes": [],
+            "serialize": false,
+            "description": null
+          }
+        },
+        {
+          "namespace": "Left",
+          "annotationNode": {
+            "nodeType": ".v1.AddColumn",
+            "columnName": "Retourné?",
+            "expression": "IF ISNULL([Raison du retour]) = false  \nTHEN \"Yes\"\nELSE \"No\"\nEND",
+            "name": "Ajouter Retourné?",
+            "id": "7f492dd8-8c6a-497a-adbb-f16ae0f65579",
+            "baseType": "transform",
+            "nextNodes": [],
+            "serialize": false,
+            "description": null
+          }
+        },
+        {
+          "namespace": "Right",
+          "annotationNode": {
+            "nodeType": ".v1.RemoveColumns",
+            "name": "Supprimer Table Names 1",
+            "id": "f16b5d0a-2a42-4af8-9805-05a80e1c5fcf",
+            "baseType": "transform",
+            "nextNodes": [],
+            "serialize": false,
+            "description": null,
+            "columnNames": [
+              "Table Names"
+            ]
+          }
+        },
+        {
+          "namespace": "Right",
+          "annotationNode": {
+            "nodeType": ".v1.RemoveColumns",
+            "name": "Supprimer File Paths 1",
+            "id": "44be6077-a8da-4a66-9f85-20255dac5f85",
+            "baseType": "transform",
+            "nextNodes": [],
+            "serialize": false,
+            "description": null,
+            "columnNames": [
+              "File Paths"
+            ]
+          }
+        },
+        {
+          "namespace": "Right",
+          "annotationNode": {
+            "nodeType": ".v1.AddColumn",
+            "columnName": "Année de vente",
+            "expression": "YEAR([Date de commande])",
+            "name": "Ajouter Année de vente",
+            "id": "f4d5332d-045c-451b-89e6-54a16311f1f8",
+            "baseType": "transform",
+            "nextNodes": [],
+            "serialize": false,
+            "description": null
+          }
+        },
+        {
+          "namespace": "Right",
+          "annotationNode": {
+            "nodeType": ".v1.ChangeColumnType",
+            "fields": {
+              "Remise": {
+                "type": "real",
+                "calc": null
+              }
+            },
+            "name": "Modifier Remise en Nombre (décimal) 1",
+            "id": "d78f0467-0820-4d71-b472-b030738a3153",
+            "baseType": "transform",
+            "nextNodes": [],
+            "serialize": false,
+            "description": null
+          }
+        },
+        {
+          "namespace": "Right",
+          "annotationNode": {
+            "nodeType": ".v1.RangeFilter",
+            "name": "Exclude Remise:(17 - 18) 1",
+            "id": "9031ec95-e7a9-4778-8b59-7fe03ebff342",
+            "baseType": "transform",
+            "nextNodes": [],
+            "serialize": false,
+            "description": null,
+            "ranges": {
+              "Remise": [
+                {
+                  "startValue": "17.0",
+                  "includeStart": true,
+                  "endValue": "18.0",
+                  "includeEnd": false
+                }
+              ]
+            },
+            "exclude": true
+          }
+        },
+        {
+          "namespace": "Right",
+          "annotationNode": {
+            "nodeType": ".v1.AddColumn",
+            "columnName": "Remise",
+            "expression": "IFNULL([Remise],0)\n",
+            "name": "Ajouter Remise",
+            "id": "917cdd44-b07e-48a5-8fff-ba8b8934b416",
+            "baseType": "transform",
+            "nextNodes": [],
+            "serialize": false,
+            "description": null
+          }
+        }
+      ],
+      "afterActionAnnotations": [],
+      "actionNode": {
+        "nodeType": ".v1.SimpleJoin",
+        "name": "Lier 1",
+        "id": "887fe7b0-410b-4b40-9b91-285bf47b5f4c",
+        "baseType": "transform",
+        "nextNodes": [],
+        "serialize": false,
+        "description": null,
+        "conditions": [
+          {
+            "leftExpression": "[ID produit]",
+            "rightExpression": "[ID produit]",
+            "comparator": "=="
+          },
+          {
+            "leftExpression": "[ID commande]",
+            "rightExpression": "[ID commande]",
+            "comparator": "=="
+          }
+        ],
+        "joinType": "right"
+      }
+    },
+    "5c17dbf7-5427-44da-a541-a75446cc62de": {
+      "nodeType": ".v2018_2_3.SuperAggregate",
+      "name": "Calculer les ventes",
+      "id": "5c17dbf7-5427-44da-a541-a75446cc62de",
+      "baseType": "superNode",
+      "nextNodes": [
+        {
+          "namespace": "Default",
+          "nextNodeId": "95ba757e-cc41-48c3-8727-6e40cb8047c9",
+          "nextNamespace": "Right"
+        }
+      ],
+      "serialize": false,
+      "description": null,
+      "beforeActionAnnotations": [],
+      "afterActionAnnotations": [],
+      "actionNode": {
+        "nodeType": ".v1.Aggregate",
+        "name": "Agréger 1",
+        "id": "ae93caf9-70a7-4b31-ba81-69d04e15973d",
+        "baseType": "transform",
+        "nextNodes": [],
+        "serialize": false,
+        "description": null,
+        "groupByFields": [
+          {
+            "columnName": "Année de vente",
+            "function": null,
+            "newColumnName": null,
+            "specialFieldType": null
+          },
+          {
+            "columnName": "Région de vente",
+            "function": null,
+            "newColumnName": null,
+            "specialFieldType": null
+          }
+        ],
+        "aggregateFields": [
+          {
+            "columnName": "Remise",
+            "function": "AVG",
+            "newColumnName": null,
+            "specialFieldType": null
+          },
+          {
+            "columnName": "Profit",
+            "function": "SUM",
+            "newColumnName": null,
+            "specialFieldType": null
+          },
+          {
+            "columnName": "Quantité",
+            "function": "SUM",
+            "newColumnName": null,
+            "specialFieldType": null
+          },
+          {
+            "columnName": "Montant des ventes",
+            "function": "SUM",
+            "newColumnName": null,
+            "specialFieldType": null
+          }
+        ]
+      }
+    },
+    "98ded732-03af-4761-a4a6-856ce0c27ccb": {
+      "nodeType": ".v1.WriteToHyper",
+      "name": "Créer 'Performances régionales annuelles.hyper'",
+      "id": "98ded732-03af-4761-a4a6-856ce0c27ccb",
+      "baseType": "output",
+      "nextNodes": [],
+      "serialize": false,
+      "description": null,
+      "hyperOutputFile": "~/My Tableau Prep Repository/Datasources/Performances régionales annuelles.hyper",
+      "tdsOutput": "~/My Tableau Prep Repository/Datasources/Performances régionales annuelles.tds"
+    },
+    "95ba757e-cc41-48c3-8727-6e40cb8047c9": {
+      "nodeType": ".v2018_2_3.SuperJoin",
+      "name": "Quota + Commandes",
+      "id": "95ba757e-cc41-48c3-8727-6e40cb8047c9",
+      "baseType": "superNode",
+      "nextNodes": [
+        {
+          "namespace": "Default",
+          "nextNodeId": "98ded732-03af-4761-a4a6-856ce0c27ccb",
+          "nextNamespace": "Default"
+        }
+      ],
+      "serialize": false,
+      "description": null,
+      "beforeActionAnnotations": [],
+      "afterActionAnnotations": [],
+      "actionNode": {
+        "nodeType": ".v1.SimpleJoin",
+        "name": "Lier 1",
+        "id": "546d62f0-0bd2-457b-877c-ecfb48b5de04",
+        "baseType": "transform",
+        "nextNodes": [],
+        "serialize": false,
+        "description": null,
+        "conditions": [
+          {
+            "leftExpression": "[Région de vente]",
+            "rightExpression": "[Région de vente]",
+            "comparator": "=="
+          },
+          {
+            "leftExpression": "[Année]",
+            "rightExpression": "[Année de vente]",
+            "comparator": "=="
+          }
+        ],
+        "joinType": "inner"
+      }
+    }
+  },
+  "connections": {
+    "eb039e32-660e-45e0-b672-08a4e1c15d97": {
+      "connectionType": ".v1.SqlConnection",
+      "id": "eb039e32-660e-45e0-b672-08a4e1c15d97",
+      "name": "ORDERS_EMEA.csv",
+      "isPackaged": true,
+      "connectionAttributes": {
+        "class": "textscan",
+        "filename": "ORDERS_EMEA.csv"
+      }
+    },
+    "5432daa5-3268-4f95-8367-4a539e941ab0": {
+      "connectionType": ".v1.SqlConnection",
+      "id": "5432daa5-3268-4f95-8367-4a539e941ab0",
+      "name": "RETURNS.xlsx",
+      "isPackaged": true,
+      "connectionAttributes": {
+        "class": "excel-direct",
+        "filename": "RETURNS.xlsx"
+      }
+    },
+    "8abda59a-7bae-47e7-b7e3-4de5ec6dc745": {
+      "connectionType": ".v1.SqlConnection",
+      "id": "8abda59a-7bae-47e7-b7e3-4de5ec6dc745",
+      "name": "ORDERS_LATAM.csv",
+      "isPackaged": true,
+      "connectionAttributes": {
+        "class": "textscan",
+        "filename": "ORDERS_LATAM.csv"
+      }
+    },
+    "0cead8cf-68f1-42b7-8af7-3a3ed59b8aed": {
+      "connectionType": ".v1.SqlConnection",
+      "id": "0cead8cf-68f1-42b7-8af7-3a3ed59b8aed",
+      "name": "QUOTA.xlsx",
+      "isPackaged": true,
+      "connectionAttributes": {
+        "class": "excel-direct",
+        "filename": "QUOTA.xlsx",
+        "cleaning": "yes",
+        "interpretationMode": "1"
+      }
+    },
+    "09325ca8-3789-4659-b74c-6558d5e6985e": {
+      "connectionType": ".v1.SqlConnection",
+      "id": "09325ca8-3789-4659-b74c-6558d5e6985e",
+      "name": "ORDERS_APAC.xlsx",
+      "isPackaged": true,
+      "connectionAttributes": {
+        "class": "excel-direct",
+        "filename": "ORDERS_APAC.xlsx"
+      }
+    },
+    "53643993-0e2c-4cea-b4ce-dff4959013dc": {
+      "connectionType": ".v1.SqlConnection",
+      "id": "53643993-0e2c-4cea-b4ce-dff4959013dc",
+      "name": "ORDERS_USCA_2015.csv",
+      "isPackaged": true,
+      "connectionAttributes": {
+        "class": "textscan",
+        "filename": "ORDERS_USCA_2015.csv"
+      }
+    }
+  },
+  "connectionIds": [
+    "5432daa5-3268-4f95-8367-4a539e941ab0",
+    "0cead8cf-68f1-42b7-8af7-3a3ed59b8aed",
+    "09325ca8-3789-4659-b74c-6558d5e6985e",
+    "eb039e32-660e-45e0-b672-08a4e1c15d97",
+    "53643993-0e2c-4cea-b4ce-dff4959013dc",
+    "8abda59a-7bae-47e7-b7e3-4de5ec6dc745"
+  ],
+  "nodeProperties": {
+    "ee41c22e-6b6a-4b70-8b00-668976a8a0d8": {}
+  },
+  "extensibility": {},
+  "selection": [],
+  "majorVersion": 1,
+  "minorVersion": 3,
+  "documentId": "25cf7a03-a77c-46e3-b3c5-ebb052e8e6d9"
+}

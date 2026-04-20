@@ -1,0 +1,764 @@
+<?xml version='1.0' encoding='utf-8' ?>
+
+<!-- build 20251.25.1210.1815                               -->
+<workbook original-version='18.1' source-build='2025.1.11 (20251.25.1210.1815)' source-platform='win' version='18.1' xmlns:user='http://www.tableausoftware.com/xml/user'>
+  <document-format-change-manifest>
+    <AnimationOnByDefault />
+    <MarkAnimation />
+    <ObjectModelEncapsulateLegacy />
+    <ObjectModelTableType />
+    <SchemaViewerObjectModel />
+    <SheetIdentifierTracking />
+    <WindowsPersistSimpleIdentifiers />
+  </document-format-change-manifest>
+  <preferences>
+    <preference name='ui.encoding.shelf.height' value='24' />
+    <preference name='ui.shelf.height' value='26' />
+  </preferences>
+  <datasources>
+    <datasource caption='Extrait Perimetre_Migration' inline='true' name='federated.1q1ykp605t5crt1bsd46013uu7og' version='18.1'>
+      <connection class='federated'>
+        <named-connections>
+          <named-connection caption='Perimetre_Migration' name='hyper.12bgs8x05ua37b12uo68p1eviy0c'>
+            <connection authentication='auth-none' author-locale='fr_CA' class='hyper' dbname='//scxdata/CommunOS_BI$/C Courant/Datasources/ISCS-BI/SuiviProjetDWH/flatfiles/Perimetre_Migration.hyper' default-settings='yes' server='' sslmode='' username='tableau_internal_user' />
+          </named-connection>
+        </named-connections>
+        <relation connection='hyper.12bgs8x05ua37b12uo68p1eviy0c' name='Extract' table='[Extract].[Extract]' type='table' />
+        <metadata-records>
+          <metadata-record class='column'>
+            <remote-name>Temporalité nécessaire</remote-name>
+            <remote-type>129</remote-type>
+            <local-name>[Temporalité nécessaire]</local-name>
+            <parent-name>[Extract]</parent-name>
+            <remote-alias>Temporalité nécessaire</remote-alias>
+            <ordinal>0</ordinal>
+            <local-type>string</local-type>
+            <aggregation>Count</aggregation>
+            <approx-count>12</approx-count>
+            <contains-null>true</contains-null>
+            <collation flag='1' name='LFR_RCH_S2' />
+            <object-id>[Extract (Extract.Extract)_2C19ACC7E126437BAA4647410A6BCB99]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>Num Semaine</remote-name>
+            <remote-type>129</remote-type>
+            <local-name>[Num Semaine]</local-name>
+            <parent-name>[Extract]</parent-name>
+            <remote-alias>Num Semaine</remote-alias>
+            <ordinal>1</ordinal>
+            <local-type>string</local-type>
+            <aggregation>Count</aggregation>
+            <approx-count>11</approx-count>
+            <contains-null>true</contains-null>
+            <collation flag='0' name='LROOT' />
+            <object-id>[Extract (Extract.Extract)_2C19ACC7E126437BAA4647410A6BCB99]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>DateDujour</remote-name>
+            <remote-type>133</remote-type>
+            <local-name>[DateDujour]</local-name>
+            <parent-name>[Extract]</parent-name>
+            <remote-alias>DateDujour</remote-alias>
+            <ordinal>2</ordinal>
+            <local-type>date</local-type>
+            <aggregation>Year</aggregation>
+            <approx-count>11</approx-count>
+            <contains-null>true</contains-null>
+            <object-id>[Extract (Extract.Extract)_2C19ACC7E126437BAA4647410A6BCB99]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>Nom dataset</remote-name>
+            <remote-type>129</remote-type>
+            <local-name>[Nom dataset]</local-name>
+            <parent-name>[Extract]</parent-name>
+            <remote-alias>Nom dataset</remote-alias>
+            <ordinal>3</ordinal>
+            <local-type>string</local-type>
+            <aggregation>Count</aggregation>
+            <approx-count>327</approx-count>
+            <contains-null>true</contains-null>
+            <collation flag='1' name='LFR_RCH_S2' />
+            <object-id>[Extract (Extract.Extract)_2C19ACC7E126437BAA4647410A6BCB99]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>Type source</remote-name>
+            <remote-type>129</remote-type>
+            <local-name>[Type source]</local-name>
+            <parent-name>[Extract]</parent-name>
+            <remote-alias>Type source</remote-alias>
+            <ordinal>4</ordinal>
+            <local-type>string</local-type>
+            <aggregation>Count</aggregation>
+            <approx-count>12</approx-count>
+            <contains-null>true</contains-null>
+            <collation flag='1' name='LFR_RCH_S2' />
+            <object-id>[Extract (Extract.Extract)_2C19ACC7E126437BAA4647410A6BCB99]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>Nom source</remote-name>
+            <remote-type>129</remote-type>
+            <local-name>[Nom source]</local-name>
+            <parent-name>[Extract]</parent-name>
+            <remote-alias>Nom source</remote-alias>
+            <ordinal>5</ordinal>
+            <local-type>string</local-type>
+            <aggregation>Count</aggregation>
+            <approx-count>1062</approx-count>
+            <contains-null>true</contains-null>
+            <collation flag='1' name='LFR_RCH_S2' />
+            <object-id>[Extract (Extract.Extract)_2C19ACC7E126437BAA4647410A6BCB99]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>Description source</remote-name>
+            <remote-type>129</remote-type>
+            <local-name>[Description source]</local-name>
+            <parent-name>[Extract]</parent-name>
+            <remote-alias>Description source</remote-alias>
+            <ordinal>6</ordinal>
+            <local-type>string</local-type>
+            <aggregation>Count</aggregation>
+            <approx-count>653</approx-count>
+            <contains-null>true</contains-null>
+            <collation flag='1' name='LFR_RCH_S2' />
+            <object-id>[Extract (Extract.Extract)_2C19ACC7E126437BAA4647410A6BCB99]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>Chemin source</remote-name>
+            <remote-type>129</remote-type>
+            <local-name>[Chemin source]</local-name>
+            <parent-name>[Extract]</parent-name>
+            <remote-alias>Chemin source</remote-alias>
+            <ordinal>7</ordinal>
+            <local-type>string</local-type>
+            <aggregation>Count</aggregation>
+            <approx-count>2209</approx-count>
+            <contains-null>true</contains-null>
+            <collation flag='1' name='LFR_RCH_S2' />
+            <object-id>[Extract (Extract.Extract)_2C19ACC7E126437BAA4647410A6BCB99]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>Type rapport</remote-name>
+            <remote-type>129</remote-type>
+            <local-name>[Type rapport]</local-name>
+            <parent-name>[Extract]</parent-name>
+            <remote-alias>Type rapport</remote-alias>
+            <ordinal>8</ordinal>
+            <local-type>string</local-type>
+            <aggregation>Count</aggregation>
+            <approx-count>4</approx-count>
+            <contains-null>true</contains-null>
+            <collation flag='1' name='LFR_RCH_S2' />
+            <object-id>[Extract (Extract.Extract)_2C19ACC7E126437BAA4647410A6BCB99]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>Nom rapport</remote-name>
+            <remote-type>129</remote-type>
+            <local-name>[Nom rapport]</local-name>
+            <parent-name>[Extract]</parent-name>
+            <remote-alias>Nom rapport</remote-alias>
+            <ordinal>9</ordinal>
+            <local-type>string</local-type>
+            <aggregation>Count</aggregation>
+            <approx-count>3660</approx-count>
+            <contains-null>true</contains-null>
+            <collation flag='1' name='LFR_RCH_S2' />
+            <object-id>[Extract (Extract.Extract)_2C19ACC7E126437BAA4647410A6BCB99]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>Description rapport</remote-name>
+            <remote-type>129</remote-type>
+            <local-name>[Description rapport]</local-name>
+            <parent-name>[Extract]</parent-name>
+            <remote-alias>Description rapport</remote-alias>
+            <ordinal>10</ordinal>
+            <local-type>string</local-type>
+            <aggregation>Count</aggregation>
+            <approx-count>1</approx-count>
+            <contains-null>true</contains-null>
+            <collation flag='1' name='LFR_RCH_S2' />
+            <object-id>[Extract (Extract.Extract)_2C19ACC7E126437BAA4647410A6BCB99]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>Chemin rapport</remote-name>
+            <remote-type>129</remote-type>
+            <local-name>[Chemin rapport]</local-name>
+            <parent-name>[Extract]</parent-name>
+            <remote-alias>Chemin rapport</remote-alias>
+            <ordinal>11</ordinal>
+            <local-type>string</local-type>
+            <aggregation>Count</aggregation>
+            <approx-count>537</approx-count>
+            <contains-null>true</contains-null>
+            <collation flag='1' name='LFR_RCH_S2' />
+            <object-id>[Extract (Extract.Extract)_2C19ACC7E126437BAA4647410A6BCB99]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>Projet</remote-name>
+            <remote-type>129</remote-type>
+            <local-name>[Projet]</local-name>
+            <parent-name>[Extract]</parent-name>
+            <remote-alias>Projet</remote-alias>
+            <ordinal>12</ordinal>
+            <local-type>string</local-type>
+            <aggregation>Count</aggregation>
+            <approx-count>5</approx-count>
+            <contains-null>true</contains-null>
+            <collation flag='1' name='LFR_RCH_S2' />
+            <object-id>[Extract (Extract.Extract)_2C19ACC7E126437BAA4647410A6BCB99]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>Domaine</remote-name>
+            <remote-type>129</remote-type>
+            <local-name>[Domaine]</local-name>
+            <parent-name>[Extract]</parent-name>
+            <remote-alias>Domaine</remote-alias>
+            <ordinal>13</ordinal>
+            <local-type>string</local-type>
+            <aggregation>Count</aggregation>
+            <approx-count>65</approx-count>
+            <contains-null>true</contains-null>
+            <collation flag='1' name='LFR_RCH_S2' />
+            <object-id>[Extract (Extract.Extract)_2C19ACC7E126437BAA4647410A6BCB99]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>Sous-domaine</remote-name>
+            <remote-type>129</remote-type>
+            <local-name>[Sous-domaine]</local-name>
+            <parent-name>[Extract]</parent-name>
+            <remote-alias>Sous-domaine</remote-alias>
+            <ordinal>14</ordinal>
+            <local-type>string</local-type>
+            <aggregation>Count</aggregation>
+            <approx-count>122</approx-count>
+            <contains-null>true</contains-null>
+            <collation flag='1' name='LFR_RCH_S2' />
+            <object-id>[Extract (Extract.Extract)_2C19ACC7E126437BAA4647410A6BCB99]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>Métier</remote-name>
+            <remote-type>129</remote-type>
+            <local-name>[Métier]</local-name>
+            <parent-name>[Extract]</parent-name>
+            <remote-alias>Métier</remote-alias>
+            <ordinal>15</ordinal>
+            <local-type>string</local-type>
+            <aggregation>Count</aggregation>
+            <approx-count>42</approx-count>
+            <contains-null>true</contains-null>
+            <collation flag='1' name='LFR_RCH_S2' />
+            <object-id>[Extract (Extract.Extract)_2C19ACC7E126437BAA4647410A6BCB99]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>PO métier</remote-name>
+            <remote-type>129</remote-type>
+            <local-name>[PO métier]</local-name>
+            <parent-name>[Extract]</parent-name>
+            <remote-alias>PO métier</remote-alias>
+            <ordinal>16</ordinal>
+            <local-type>string</local-type>
+            <aggregation>Count</aggregation>
+            <approx-count>76</approx-count>
+            <contains-null>true</contains-null>
+            <collation flag='1' name='LFR_RCH_S2' />
+            <object-id>[Extract (Extract.Extract)_2C19ACC7E126437BAA4647410A6BCB99]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>REF BI01</remote-name>
+            <remote-type>129</remote-type>
+            <local-name>[REF BI01]</local-name>
+            <parent-name>[Extract]</parent-name>
+            <remote-alias>REF BI01</remote-alias>
+            <ordinal>17</ordinal>
+            <local-type>string</local-type>
+            <aggregation>Count</aggregation>
+            <approx-count>11</approx-count>
+            <contains-null>true</contains-null>
+            <collation flag='1' name='LFR_RCH_S2' />
+            <object-id>[Extract (Extract.Extract)_2C19ACC7E126437BAA4647410A6BCB99]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>REF BI02</remote-name>
+            <remote-type>129</remote-type>
+            <local-name>[REF BI02]</local-name>
+            <parent-name>[Extract]</parent-name>
+            <remote-alias>REF BI02</remote-alias>
+            <ordinal>18</ordinal>
+            <local-type>string</local-type>
+            <aggregation>Count</aggregation>
+            <approx-count>9</approx-count>
+            <contains-null>true</contains-null>
+            <collation flag='1' name='LFR_RCH_S2' />
+            <object-id>[Extract (Extract.Extract)_2C19ACC7E126437BAA4647410A6BCB99]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>Utilisateurs</remote-name>
+            <remote-type>20</remote-type>
+            <local-name>[Utilisateurs]</local-name>
+            <parent-name>[Extract]</parent-name>
+            <remote-alias>Utilisateurs</remote-alias>
+            <ordinal>19</ordinal>
+            <local-type>integer</local-type>
+            <aggregation>Sum</aggregation>
+            <approx-count>1</approx-count>
+            <contains-null>true</contains-null>
+            <object-id>[Extract (Extract.Extract)_2C19ACC7E126437BAA4647410A6BCB99]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>Pertinence de reprise dans le cadre du projet</remote-name>
+            <remote-type>129</remote-type>
+            <local-name>[Pertinence de reprise dans le cadre du projet]</local-name>
+            <parent-name>[Extract]</parent-name>
+            <remote-alias>Pertinence de reprise dans le cadre du projet</remote-alias>
+            <ordinal>20</ordinal>
+            <local-type>string</local-type>
+            <aggregation>Count</aggregation>
+            <approx-count>3</approx-count>
+            <contains-null>true</contains-null>
+            <collation flag='1' name='LFR_RCH_S2' />
+            <object-id>[Extract (Extract.Extract)_2C19ACC7E126437BAA4647410A6BCB99]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>Commentaire Pertinence</remote-name>
+            <remote-type>129</remote-type>
+            <local-name>[Commentaire Pertinence]</local-name>
+            <parent-name>[Extract]</parent-name>
+            <remote-alias>Commentaire Pertinence</remote-alias>
+            <ordinal>21</ordinal>
+            <local-type>string</local-type>
+            <aggregation>Count</aggregation>
+            <approx-count>135</approx-count>
+            <contains-null>true</contains-null>
+            <collation flag='1' name='LFR_RCH_S2' />
+            <object-id>[Extract (Extract.Extract)_2C19ACC7E126437BAA4647410A6BCB99]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>Cibles</remote-name>
+            <remote-type>129</remote-type>
+            <local-name>[Cibles]</local-name>
+            <parent-name>[Extract]</parent-name>
+            <remote-alias>Cibles</remote-alias>
+            <ordinal>22</ordinal>
+            <local-type>string</local-type>
+            <aggregation>Count</aggregation>
+            <approx-count>6</approx-count>
+            <contains-null>true</contains-null>
+            <collation flag='1' name='LFR_RCH_S2' />
+            <object-id>[Extract (Extract.Extract)_2C19ACC7E126437BAA4647410A6BCB99]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>Commentaire Cibles</remote-name>
+            <remote-type>129</remote-type>
+            <local-name>[Commentaire Cibles]</local-name>
+            <parent-name>[Extract]</parent-name>
+            <remote-alias>Commentaire Cibles</remote-alias>
+            <ordinal>23</ordinal>
+            <local-type>string</local-type>
+            <aggregation>Count</aggregation>
+            <approx-count>80</approx-count>
+            <contains-null>true</contains-null>
+            <collation flag='1' name='LFR_RCH_S2' />
+            <object-id>[Extract (Extract.Extract)_2C19ACC7E126437BAA4647410A6BCB99]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>Flux cible BI</remote-name>
+            <remote-type>129</remote-type>
+            <local-name>[Flux cible BI]</local-name>
+            <parent-name>[Extract]</parent-name>
+            <remote-alias>Flux cible BI</remote-alias>
+            <ordinal>24</ordinal>
+            <local-type>string</local-type>
+            <aggregation>Count</aggregation>
+            <approx-count>2</approx-count>
+            <contains-null>true</contains-null>
+            <collation flag='1' name='LFR_RCH_S2' />
+            <object-id>[Extract (Extract.Extract)_2C19ACC7E126437BAA4647410A6BCB99]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>Rapport cible BI</remote-name>
+            <remote-type>129</remote-type>
+            <local-name>[Rapport cible BI]</local-name>
+            <parent-name>[Extract]</parent-name>
+            <remote-alias>Rapport cible BI</remote-alias>
+            <ordinal>25</ordinal>
+            <local-type>string</local-type>
+            <aggregation>Count</aggregation>
+            <approx-count>12</approx-count>
+            <contains-null>true</contains-null>
+            <collation flag='1' name='LFR_RCH_S2' />
+            <object-id>[Extract (Extract.Extract)_2C19ACC7E126437BAA4647410A6BCB99]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>Temporalité présente dans système source</remote-name>
+            <remote-type>129</remote-type>
+            <local-name>[Temporalité présente dans système source]</local-name>
+            <parent-name>[Extract]</parent-name>
+            <remote-alias>Temporalité présente dans système source</remote-alias>
+            <ordinal>26</ordinal>
+            <local-type>string</local-type>
+            <aggregation>Count</aggregation>
+            <approx-count>16</approx-count>
+            <contains-null>true</contains-null>
+            <collation flag='1' name='LFR_RCH_S2' />
+            <object-id>[Extract (Extract.Extract)_2C19ACC7E126437BAA4647410A6BCB99]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>Rapport cible embedded</remote-name>
+            <remote-type>129</remote-type>
+            <local-name>[Rapport cible embedded]</local-name>
+            <parent-name>[Extract]</parent-name>
+            <remote-alias>Rapport cible embedded</remote-alias>
+            <ordinal>27</ordinal>
+            <local-type>string</local-type>
+            <aggregation>Count</aggregation>
+            <approx-count>2</approx-count>
+            <contains-null>true</contains-null>
+            <collation flag='1' name='LFR_RCH_S2' />
+            <object-id>[Extract (Extract.Extract)_2C19ACC7E126437BAA4647410A6BCB99]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>Charge</remote-name>
+            <remote-type>129</remote-type>
+            <local-name>[Charge]</local-name>
+            <parent-name>[Extract]</parent-name>
+            <remote-alias>Charge</remote-alias>
+            <ordinal>28</ordinal>
+            <local-type>string</local-type>
+            <aggregation>Count</aggregation>
+            <approx-count>1</approx-count>
+            <contains-null>true</contains-null>
+            <collation flag='1' name='LFR_RCH_S2' />
+            <object-id>[Extract (Extract.Extract)_2C19ACC7E126437BAA4647410A6BCB99]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>Date d&apos;échéance</remote-name>
+            <remote-type>133</remote-type>
+            <local-name>[Date d&apos;échéance]</local-name>
+            <parent-name>[Extract]</parent-name>
+            <remote-alias>Date d&apos;échéance</remote-alias>
+            <ordinal>29</ordinal>
+            <local-type>date</local-type>
+            <aggregation>Year</aggregation>
+            <approx-count>17</approx-count>
+            <contains-null>true</contains-null>
+            <object-id>[Extract (Extract.Extract)_2C19ACC7E126437BAA4647410A6BCB99]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>Echéance</remote-name>
+            <remote-type>129</remote-type>
+            <local-name>[Echéance]</local-name>
+            <parent-name>[Extract]</parent-name>
+            <remote-alias>Echéance</remote-alias>
+            <ordinal>30</ordinal>
+            <local-type>string</local-type>
+            <aggregation>Count</aggregation>
+            <approx-count>29</approx-count>
+            <contains-null>true</contains-null>
+            <collation flag='1' name='LFR_RCH_S2' />
+            <object-id>[Extract (Extract.Extract)_2C19ACC7E126437BAA4647410A6BCB99]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>Priorité</remote-name>
+            <remote-type>129</remote-type>
+            <local-name>[Priorité]</local-name>
+            <parent-name>[Extract]</parent-name>
+            <remote-alias>Priorité</remote-alias>
+            <ordinal>31</ordinal>
+            <local-type>string</local-type>
+            <aggregation>Count</aggregation>
+            <approx-count>1</approx-count>
+            <contains-null>true</contains-null>
+            <collation flag='1' name='LFR_RCH_S2' />
+            <object-id>[Extract (Extract.Extract)_2C19ACC7E126437BAA4647410A6BCB99]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>Stratégique</remote-name>
+            <remote-type>129</remote-type>
+            <local-name>[Stratégique]</local-name>
+            <parent-name>[Extract]</parent-name>
+            <remote-alias>Stratégique</remote-alias>
+            <ordinal>32</ordinal>
+            <local-type>string</local-type>
+            <aggregation>Count</aggregation>
+            <approx-count>5</approx-count>
+            <contains-null>true</contains-null>
+            <collation flag='1' name='LFR_RCH_S2' />
+            <object-id>[Extract (Extract.Extract)_2C19ACC7E126437BAA4647410A6BCB99]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>Complexité flux</remote-name>
+            <remote-type>129</remote-type>
+            <local-name>[Complexité flux]</local-name>
+            <parent-name>[Extract]</parent-name>
+            <remote-alias>Complexité flux</remote-alias>
+            <ordinal>33</ordinal>
+            <local-type>string</local-type>
+            <aggregation>Count</aggregation>
+            <approx-count>4</approx-count>
+            <contains-null>true</contains-null>
+            <collation flag='1' name='LFR_RCH_S2' />
+            <object-id>[Extract (Extract.Extract)_2C19ACC7E126437BAA4647410A6BCB99]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>Complexité viz</remote-name>
+            <remote-type>129</remote-type>
+            <local-name>[Complexité viz]</local-name>
+            <parent-name>[Extract]</parent-name>
+            <remote-alias>Complexité viz</remote-alias>
+            <ordinal>34</ordinal>
+            <local-type>string</local-type>
+            <aggregation>Count</aggregation>
+            <approx-count>4</approx-count>
+            <contains-null>true</contains-null>
+            <collation flag='1' name='LFR_RCH_S2' />
+            <object-id>[Extract (Extract.Extract)_2C19ACC7E126437BAA4647410A6BCB99]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>Commentaire Complexité</remote-name>
+            <remote-type>129</remote-type>
+            <local-name>[Commentaire Complexité]</local-name>
+            <parent-name>[Extract]</parent-name>
+            <remote-alias>Commentaire Complexité</remote-alias>
+            <ordinal>35</ordinal>
+            <local-type>string</local-type>
+            <aggregation>Count</aggregation>
+            <approx-count>35</approx-count>
+            <contains-null>true</contains-null>
+            <collation flag='1' name='LFR_RCH_S2' />
+            <object-id>[Extract (Extract.Extract)_2C19ACC7E126437BAA4647410A6BCB99]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>Statut Cadrage conception</remote-name>
+            <remote-type>129</remote-type>
+            <local-name>[Statut Cadrage conception]</local-name>
+            <parent-name>[Extract]</parent-name>
+            <remote-alias>Statut Cadrage conception</remote-alias>
+            <ordinal>36</ordinal>
+            <local-type>string</local-type>
+            <aggregation>Count</aggregation>
+            <approx-count>3</approx-count>
+            <contains-null>true</contains-null>
+            <collation flag='1' name='LFR_RCH_S2' />
+            <object-id>[Extract (Extract.Extract)_2C19ACC7E126437BAA4647410A6BCB99]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>Statut Conception</remote-name>
+            <remote-type>129</remote-type>
+            <local-name>[Statut Conception]</local-name>
+            <parent-name>[Extract]</parent-name>
+            <remote-alias>Statut Conception</remote-alias>
+            <ordinal>37</ordinal>
+            <local-type>string</local-type>
+            <aggregation>Count</aggregation>
+            <approx-count>3</approx-count>
+            <contains-null>true</contains-null>
+            <collation flag='1' name='LFR_RCH_S2' />
+            <object-id>[Extract (Extract.Extract)_2C19ACC7E126437BAA4647410A6BCB99]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>Statut flux</remote-name>
+            <remote-type>129</remote-type>
+            <local-name>[Statut flux]</local-name>
+            <parent-name>[Extract]</parent-name>
+            <remote-alias>Statut flux</remote-alias>
+            <ordinal>38</ordinal>
+            <local-type>string</local-type>
+            <aggregation>Count</aggregation>
+            <approx-count>3</approx-count>
+            <contains-null>true</contains-null>
+            <collation flag='1' name='LFR_RCH_S2' />
+            <object-id>[Extract (Extract.Extract)_2C19ACC7E126437BAA4647410A6BCB99]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>Statut reporting</remote-name>
+            <remote-type>129</remote-type>
+            <local-name>[Statut reporting]</local-name>
+            <parent-name>[Extract]</parent-name>
+            <remote-alias>Statut reporting</remote-alias>
+            <ordinal>39</ordinal>
+            <local-type>string</local-type>
+            <aggregation>Count</aggregation>
+            <approx-count>4</approx-count>
+            <contains-null>true</contains-null>
+            <collation flag='1' name='LFR_RCH_S2' />
+            <object-id>[Extract (Extract.Extract)_2C19ACC7E126437BAA4647410A6BCB99]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>Date début réalisation</remote-name>
+            <remote-type>133</remote-type>
+            <local-name>[Date début réalisation]</local-name>
+            <parent-name>[Extract]</parent-name>
+            <remote-alias>Date début réalisation</remote-alias>
+            <ordinal>40</ordinal>
+            <local-type>date</local-type>
+            <aggregation>Year</aggregation>
+            <approx-count>2</approx-count>
+            <contains-null>true</contains-null>
+            <object-id>[Extract (Extract.Extract)_2C19ACC7E126437BAA4647410A6BCB99]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>Date de fin livraison Flux</remote-name>
+            <remote-type>133</remote-type>
+            <local-name>[Date de fin livraison Flux]</local-name>
+            <parent-name>[Extract]</parent-name>
+            <remote-alias>Date de fin livraison Flux</remote-alias>
+            <ordinal>41</ordinal>
+            <local-type>date</local-type>
+            <aggregation>Year</aggregation>
+            <approx-count>11</approx-count>
+            <contains-null>true</contains-null>
+            <object-id>[Extract (Extract.Extract)_2C19ACC7E126437BAA4647410A6BCB99]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>Date de fin de livraison VIZ</remote-name>
+            <remote-type>133</remote-type>
+            <local-name>[Date de fin de livraison VIZ]</local-name>
+            <parent-name>[Extract]</parent-name>
+            <remote-alias>Date de fin de livraison VIZ</remote-alias>
+            <ordinal>42</ordinal>
+            <local-type>date</local-type>
+            <aggregation>Year</aggregation>
+            <approx-count>11</approx-count>
+            <contains-null>true</contains-null>
+            <object-id>[Extract (Extract.Extract)_2C19ACC7E126437BAA4647410A6BCB99]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>Historique nécessaire</remote-name>
+            <remote-type>129</remote-type>
+            <local-name>[Historique nécessaire]</local-name>
+            <parent-name>[Extract]</parent-name>
+            <remote-alias>Historique nécessaire</remote-alias>
+            <ordinal>43</ordinal>
+            <local-type>string</local-type>
+            <aggregation>Count</aggregation>
+            <approx-count>6</approx-count>
+            <contains-null>true</contains-null>
+            <collation flag='1' name='LFR_RCH_S2' />
+            <object-id>[Extract (Extract.Extract)_2C19ACC7E126437BAA4647410A6BCB99]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>Date début Test Flux</remote-name>
+            <remote-type>133</remote-type>
+            <local-name>[Date début Test Flux]</local-name>
+            <parent-name>[Extract]</parent-name>
+            <remote-alias>Date début Test Flux</remote-alias>
+            <ordinal>44</ordinal>
+            <local-type>date</local-type>
+            <aggregation>Year</aggregation>
+            <approx-count>2</approx-count>
+            <contains-null>true</contains-null>
+            <object-id>[Extract (Extract.Extract)_2C19ACC7E126437BAA4647410A6BCB99]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>Date début Test Viz</remote-name>
+            <remote-type>133</remote-type>
+            <local-name>[Date début Test Viz]</local-name>
+            <parent-name>[Extract]</parent-name>
+            <remote-alias>Date début Test Viz</remote-alias>
+            <ordinal>45</ordinal>
+            <local-type>date</local-type>
+            <aggregation>Year</aggregation>
+            <approx-count>2</approx-count>
+            <contains-null>true</contains-null>
+            <object-id>[Extract (Extract.Extract)_2C19ACC7E126437BAA4647410A6BCB99]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>Outils de Reprise</remote-name>
+            <remote-type>129</remote-type>
+            <local-name>[Outils de Reprise]</local-name>
+            <parent-name>[Extract]</parent-name>
+            <remote-alias>Outils de Reprise</remote-alias>
+            <ordinal>46</ordinal>
+            <local-type>string</local-type>
+            <aggregation>Count</aggregation>
+            <approx-count>2</approx-count>
+            <contains-null>true</contains-null>
+            <collation flag='1' name='LFR_RCH_S2' />
+            <object-id>[Extract (Extract.Extract)_2C19ACC7E126437BAA4647410A6BCB99]</object-id>
+          </metadata-record>
+        </metadata-records>
+      </connection>
+      <aliases enabled='yes' />
+      <column caption='Date Dujour' datatype='date' name='[DateDujour]' role='dimension' type='ordinal' />
+      <column caption='Ref Bi01' datatype='string' name='[REF BI01]' role='dimension' type='nominal' />
+      <column caption='Ref Bi02' datatype='string' name='[REF BI02]' role='dimension' type='nominal' />
+      <column caption='Extract' datatype='table' name='[__tableau_internal_object_id__].[Extract (Extract.Extract)_2C19ACC7E126437BAA4647410A6BCB99]' role='measure' type='quantitative' />
+      <layout dim-ordering='alphabetic' measure-ordering='alphabetic' show-structure='true' />
+      <semantic-values>
+        <semantic-value key='[Country].[Name]' value='&quot;Switzerland&quot;' />
+      </semantic-values>
+      <date-options start-of-week='monday' />
+      <object-graph>
+        <objects>
+          <object caption='Extract' id='Extract (Extract.Extract)_2C19ACC7E126437BAA4647410A6BCB99'>
+            <properties context=''>
+              <relation connection='hyper.12bgs8x05ua37b12uo68p1eviy0c' name='Extract' table='[Extract].[Extract]' type='table' />
+            </properties>
+          </object>
+        </objects>
+      </object-graph>
+    </datasource>
+  </datasources>
+  <worksheets>
+    <worksheet name='Feuille 1'>
+      <table>
+        <view>
+          <datasources />
+          <aggregation value='true' />
+        </view>
+        <style />
+        <panes>
+          <pane selection-relaxation-option='selection-relaxation-allow'>
+            <view>
+              <breakdown value='auto' />
+            </view>
+            <mark class='Automatic' />
+          </pane>
+        </panes>
+        <rows />
+        <cols />
+      </table>
+      <simple-id uuid='{FAF570CA-E6BD-4B7B-B9AD-A5BDB6F0182D}' />
+    </worksheet>
+  </worksheets>
+  <windows source-height='30'>
+    <window class='worksheet' maximized='true' name='Feuille 1'>
+      <cards>
+        <edge name='left'>
+          <strip size='160'>
+            <card type='pages' />
+            <card type='filters' />
+            <card type='marks' />
+          </strip>
+        </edge>
+        <edge name='top'>
+          <strip size='2147483647'>
+            <card type='columns' />
+          </strip>
+          <strip size='2147483647'>
+            <card type='rows' />
+          </strip>
+          <strip size='31'>
+            <card type='title' />
+          </strip>
+        </edge>
+      </cards>
+      <simple-id uuid='{C1755C7A-B402-4D81-8150-57593B4172FF}' />
+    </window>
+  </windows>
+  <thumbnails>
+    <thumbnail height='192' name='Feuille 1' width='192'>
+      iVBORw0KGgoAAAANSUhEUgAAAMAAAADACAYAAABS3GwHAAAACXBIWXMAAA7DAAAOwwHHb6hk
+      AAACFUlEQVR4nO3TMQEAIAzAMMC/5yFjRxMFfXpnZg5Eve0A2GQA0gxAmgFIMwBpBiDNAKQZ
+      gDQDkGYA0gxAmgFIMwBpBiDNAKQZgDQDkGYA0gxAmgFIMwBpBiDNAKQZgDQDkGYA0gxAmgFI
+      MwBpBiDNAKQZgDQDkGYA0gxAmgFIMwBpBiDNAKQZgDQDkGYA0gxAmgFIMwBpBiDNAKQZgDQD
+      kGYA0gxAmgFIMwBpBiDNAKQZgDQDkGYA0gxAmgFIMwBpBiDNAKQZgDQDkGYA0gxAmgFIMwBp
+      BiDNAKQZgDQDkGYA0gxAmgFIMwBpBiDNAKQZgDQDkGYA0gxAmgFIMwBpBiDNAKQZgDQDkGYA
+      0gxAmgFIMwBpBiDNAKQZgDQDkGYA0gxAmgFIMwBpBiDNAKQZgDQDkGYA0gxAmgFIMwBpBiDN
+      AKQZgDQDkGYA0gxAmgFIMwBpBiDNAKQZgDQDkGYA0gxAmgFIMwBpBiDNAKQZgDQDkGYA0gxA
+      mgFIMwBpBiDNAKQZgDQDkGYA0gxAmgFIMwBpBiDNAKQZgDQDkGYA0gxAmgFIMwBpBiDNAKQZ
+      gDQDkGYA0gxAmgFIMwBpBiDNAKQZgDQDkGYA0gxAmgFIMwBpBiDNAKQZgDQDkGYA0gxAmgFI
+      MwBpBiDNAKQZgDQDkGYA0gxAmgFIMwBpBiDNAKQZgDQDkGYA0gxAmgFIMwBpBiDNAKR9Y+0F
+      fBUOM1sAAAAASUVORK5CYII=
+    </thumbnail>
+  </thumbnails>
+</workbook>

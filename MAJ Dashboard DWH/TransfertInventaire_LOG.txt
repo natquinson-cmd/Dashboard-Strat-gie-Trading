@@ -1,0 +1,142 @@
+﻿**********************
+Début de la transcription Windows PowerShell
+Heure de début : 20260420084751
+Nom d'utilisateur : INTRANET\quinson
+Utilisateur runAs :  INTRANET\quinson
+Nom de la configuration : 
+Ordinateur : SCX-A103629 (Microsoft Windows NT 10.0.26200.0)
+Application hôte : powershell -ExecutionPolicy Bypass -NoProfile -File C:\Users\quinson\Desktop\Claude\MAJ Dashboard DWH\TransfertInventaire.ps1
+ID de processus : 28432
+PSVersion: 5.1.26100.8115
+PSEdition: Desktop
+PSCompatibleVersions: 1.0, 2.0, 3.0, 4.0, 5.0, 5.1.26100.8115
+BuildVersion: 10.0.26100.8115
+CLRVersion: 4.0.30319.42000
+WSManStackVersion: 3.0
+PSRemotingProtocolVersion: 2.3
+SerializationVersion: 1.1.0.1
+**********************
+=== LOG demarre : C:\Users\quinson\Desktop\Claude\MAJ Dashboard DWH\TransfertInventaire_LOG.txt ===
+=== Date : 2026-04-20 08:47:51 ===
+
+Configuration :
+   Fichier     : Inventaire de migration consolidé.xlsx
+   Destination : \\scxdata\CommunOS_BI$\C Courant\Datasources\ISCS-BI\SuiviProjetDWH\flatfiles
+
+>> Preparation du telechargement...
+
+>> Ouverture du lien de telechargement dans le navigateur...
+   (votre session SSO EPFL sera utilisee automatiquement)
+
+>> Attente du telechargement (max 120 sec)...
+.
+
+   Verification de la fin du telechargement...
+   [OK] Fichier telecharge : C:\Users\quinson\Downloads\Inventaire de migration consolidé.xlsx (1.53 Mo)
+
+>> Verification de l'acces au repertoire reseau...
+   [OK] Repertoire reseau accessible.
+   [OK] Sous-dossier Old accessible.
+
+>> Archivage de l'ancien fichier dans Old...
+   Date derniere modification : 17.04.2026 17:38
+   Nom archive : Inventaire de migration consolidé_17.04.26.xlsx
+   [OK] Ancien fichier archive sous : Inventaire de migration consolidé_17.04.26.xlsx
+
+>> Copie du nouveau fichier vers le repertoire reseau...
+   [OK] Nouveau fichier copie : \\scxdata\CommunOS_BI$\C Courant\Datasources\ISCS-BI\SuiviProjetDWH\flatfiles\Inventaire de migration consolidé.xlsx
+
+>> Nettoyage du fichier temporaire dans Downloads...
+   [OK] Fichier temporaire supprime.
+
+>> Execution du flux Tableau Prep : Perimetre Migration...
+   Demarrage a 08:47:59 - veuillez patienter...
+   [OK] Flux execute avec succes en 3m 14s
+
+>> Swap du fichier Hyper (Updated -> principal)...
+   [OK] Ancien Hyper sauvegarde : Perimetre_Migration_PREVIOUS.hyper
+   [OK] Nouveau Hyper en place : Perimetre_Migration.hyper
+
+>> Execution du flux Tableau Prep : Traitement Jira...
+   Demarrage a 08:51:13...
+   [OK] Flux Jira execute avec succes en 33.2s
+
+>> Publication de Perimetre_Migration_Hyper sur Tableau Server...
+   Server : https://tableau.epfl.ch (PAT : NATCONNECT)
+   [OK] Authentification OK (site: af6e3772-b0a1-4ab4-9b4a-71f361b94609)
+   Upload du Hyper (320 KB)...
+   [OK] Datasource publiee en 0.7s (id: f792b852-391e-4627-8240-15b68b1bb4a1)
+
+>> Publication de Jira_Projet sur Tableau Server...
+   Upload du Jira_Projet.hyper (128 KB)...
+   [OK] Jira_Projet publiee en 0.5s (id: 1d91af7f-8885-458c-9978-c6e55d581dbf)
+
+   --- Sortie Tableau Prep CLI ---
+   JAVA_HOME is set to : C:\Program Files\Tableau\Tableau Prep Builder 2025.1\scripts\..\Plugins\jre temporarily
+   The connection file is in V1 format.
+   Preparing to run the flow : C:\Users\quinson\Documents\Mon dossier Tableau Prep\Flux\Perimetre Migration.tfl
+   Loading the flow.
+   Creating temp directory at C:\Users\quinson\AppData\Local\Temp\prep-cli-11686538162232595438
+   Product license verified.
+   Loaded the flow.
+   Checking the flow document for errors.
+   Flow Document has no errors.
+   Preparing to execute the flow.
+   Flow Execution Status: Running
+   Flow Execution Status: Running
+   Flow Execution Status: Running
+   Flow Execution Status: Running
+   Flow Execution Status: Running
+   Flow Execution Status: Running
+   Flow Execution Status: Running
+   Flow Execution Status: Running
+   Flow Execution Status: Running
+   Flow Execution Status: Running
+   Flow Execution Status: Running
+   Flow Execution Status: Running
+   Flow Execution Status: Running
+   Flow Execution Status: Running
+   Flow Execution Status: Running
+   Flow Execution Status: Running
+   Flow Execution Status: Running
+   Flow Execution Status: Running
+   Flow Execution Status: Running
+   Flow Execution Status: Running
+   Flow Execution Status: Running
+   Flow Execution Status: Running
+   Flow Execution Status: Running
+   Flow Execution Status: Running
+   Flow Execution Status: Running
+   Flow Execution Status: Running
+   Flow Execution Status: Running
+   Flow Execution Status: Running
+   Flow Execution Status: Running
+   Flow Execution Status: Running
+   Flow Execution Status: Running
+   Flow Execution Status: Running
+   Flow Execution Status: Running
+   Flow Execution Status: Running
+   Flow Execution Status: Running
+   Flow Execution Status: Running
+   Flow Execution Status: Running
+   Flow Execution Status: Running
+   Flow Execution Status: Running
+   Flow Execution Status: Finished
+   Finished running the flow successfully.
+   --- Fin sortie Tableau Prep ---
+
+=========================================
+   SCRIPT TERMINE !
+=========================================
+
+   Source      : SharePoint EPFL
+   Destination : \\scxdata\CommunOS_BI$\C Courant\Datasources\ISCS-BI\SuiviProjetDWH\flatfiles\Inventaire de migration consolidé.xlsx
+   Archive     : \\scxdata\CommunOS_BI$\C Courant\Datasources\ISCS-BI\SuiviProjetDWH\flatfiles\Old
+   Flux Prep   : Perimetre Migration.tfl
+
+   Log script  : C:\Users\quinson\Desktop\Claude\MAJ Dashboard DWH\TransfertInventaire_LOG.txt
+   Logs Prep   : C:\Users\quinson\Documents\Mon dossier Tableau Prep\Journaux
+**********************
+Fin de la transcription Windows PowerShell
+Heure de fin : 20260420085149
+**********************

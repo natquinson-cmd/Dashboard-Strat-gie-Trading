@@ -1,0 +1,209 @@
+<html>
+<head>
+<meta http-equiv="X-UA-Compatible" content="IE=9">
+<title>KeepAlive</title>
+<HTA:APPLICATION ID="KeepAlive" APPLICATIONNAME="KeepAlive" BORDER="none" BORDERSTYLE="none" CAPTION="no" MAXIMIZEBUTTON="no" MINIMIZEBUTTON="no" SHOWINTASKBAR="yes" SINGLEINSTANCE="yes" SYSMENU="no" WINDOWSTATE="normal" ICON="KeepAlive.ico" />
+<style>
+*{margin:0;padding:0}
+body{font-family:Segoe UI,Arial,sans-serif;background:#0b0b12;color:#e0e0e0;overflow:hidden;border:1px solid #2a2a40}
+.app{padding:0}
+/* Custom title bar */
+.titlebar{background:#08080e;padding:6px 10px;cursor:move;border-bottom:1px solid #1e1e30}
+.titlebar table{width:100%}
+.titlebar td{background:transparent;border:none;padding:0}
+.tl-title{font-size:12px;font-weight:700;letter-spacing:3px;color:#8890a0;text-transform:uppercase}
+.tl-dot{display:inline-block;width:8px;height:8px;border-radius:4px;margin-right:6px;vertical-align:middle}
+.dot-green{background:#00c853;box-shadow:0 0 4px #00c853}
+.dot-red{background:#e74c3c;box-shadow:0 0 4px #e74c3c}
+.title-btn{display:inline-block;width:22px;height:22px;text-align:center;line-height:22px;font-size:12px;cursor:pointer;color:#555;border-radius:3px}
+.title-btn:hover{background:#1e1e30;color:#fff}
+.btn-close:hover{background:#e74c3c;color:#fff}
+/* Content */
+.content{padding:6px 8px}
+.card{background:#111118;border:1px solid #1e1e30;margin-bottom:5px;padding:10px;text-align:center}
+.tl-housing{display:inline-block;background:#1a1a2e;border:2px solid #2a2a40;border-radius:14px;padding:4px 5px;vertical-align:middle}
+.tl-bulb{width:16px;height:16px;border-radius:8px;margin:2px auto;border:2px solid #222}
+.tl-red-off{background:#2a1515;border-color:#331a1a}
+.tl-green-off{background:#152a18;border-color:#1a331d}
+.tl-red-on{background:#e74c3c;border-color:#ff8a7a;box-shadow:0 0 6px #e74c3c}
+.tl-green-on{background:#00c853;border-color:#55ff8a;box-shadow:0 0 6px #00c853}
+.status-text{font-size:18px;font-weight:700;vertical-align:middle;letter-spacing:2px;margin-left:10px}
+.text-on{color:#00c853}
+.text-off{color:#e74c3c}
+.sub-text{font-size:11px;color:#8890a0;margin-top:3px;letter-spacing:1px}
+.data-table{width:100%;border-collapse:collapse}
+.data-table td{background:#111118;border:1px solid #1e1e30;padding:5px 8px}
+.lbl{font-size:10px;color:#8890a0;text-transform:uppercase;letter-spacing:1px}
+.val{font-size:14px;font-weight:700;color:#fff;font-family:Consolas,monospace;margin-top:2px}
+.btn-table{width:100%;border-collapse:collapse;margin-top:5px}
+.btn-table td{padding:0 2px}
+button{width:100%;padding:8px 0;border:none;font-size:12px;font-weight:700;letter-spacing:2px;text-transform:uppercase;cursor:pointer;border-radius:3px}
+.btn-start{background:#0a2e14;color:#00c853;border:1px solid #00c853}
+.btn-stop{background:#2e0a0f;color:#e74c3c;border:1px solid #e74c3c}
+.btn-quit{background:#111118;color:#8890a0;border:1px solid #1e1e30}
+</style>
+<script type="text/javascript">
+var timerID, timerElapsed, topMostTimer, isActive = false, startTime;
+var isDragging = false, dragX = 0, dragY = 0;
+
+window.onload = function() {
+  window.resizeTo(330, 270);
+  var sw = screen.availWidth;
+  window.moveTo(sw - 340, 10);
+  setInactive();
+  setTopMost();
+  topMostTimer = setInterval(setTopMost, 5000);
+};
+
+function getAppDir() {
+  var path = unescape(document.location.pathname).replace(/\//g, "\\");
+  if (path.charAt(0) === "\\") path = path.substring(1);
+  var fso = new ActiveXObject("Scripting.FileSystemObject");
+  return fso.GetParentFolderName(path);
+}
+
+function setTopMost() {
+  try {
+    var sh = new ActiveXObject("WScript.Shell");
+    sh.Run('powershell -WindowStyle Hidden -ExecutionPolicy Bypass -File "' + getAppDir() + '\\topmost.ps1"', 0, false);
+  } catch(e) {}
+}
+
+function startDrag() {
+  isDragging = true;
+  dragX = window.event.screenX - window.screenLeft;
+  dragY = window.event.screenY - window.screenTop;
+}
+function doDrag() {
+  if (isDragging) {
+    window.moveTo(window.event.screenX - dragX, window.event.screenY - dragY);
+  }
+}
+function stopDrag() { isDragging = false; }
+
+function minimizeApp() {
+  try {
+    var sh = new ActiveXObject("WScript.Shell");
+    sh.Run('powershell -WindowStyle Hidden -ExecutionPolicy Bypass -File "' + getAppDir() + '\\minimize.ps1"', 0, false);
+  } catch(e) {}
+}
+
+function toggleActive() {
+  if (isActive) { stopIt(); } else { startIt(); }
+}
+
+function startIt() {
+  isActive = true;
+  startTime = new Date();
+  document.getElementById("tlRed").className = "tl-bulb tl-red-off";
+  document.getElementById("tlGreen").className = "tl-bulb tl-green-on";
+  document.getElementById("statusText").className = "status-text text-on";
+  document.getElementById("statusText").innerText = "ACTIF";
+  document.getElementById("subText").innerText = "Simulation active";
+  document.getElementById("btnToggle").innerText = "STOP";
+  document.getElementById("btnToggle").className = "btn-stop";
+  document.getElementById("titleDot").className = "tl-dot dot-green";
+  doMove();
+  timerID = setInterval(doMove, 60000);
+  timerElapsed = setInterval(updateElapsed, 1000);
+}
+
+function stopIt() {
+  isActive = false;
+  clearInterval(timerID);
+  clearInterval(timerElapsed);
+  setInactive();
+}
+
+function setInactive() {
+  document.getElementById("tlRed").className = "tl-bulb tl-red-on";
+  document.getElementById("tlGreen").className = "tl-bulb tl-green-off";
+  document.getElementById("statusText").className = "status-text text-off";
+  document.getElementById("statusText").innerText = "INACTIF";
+  document.getElementById("subText").innerText = "En attente";
+  document.getElementById("btnToggle").innerText = "START";
+  document.getElementById("btnToggle").className = "btn-start";
+  document.getElementById("titleDot").className = "tl-dot dot-red";
+  document.getElementById("elapsedTime").innerText = "00:00:00";
+  document.getElementById("lastMoveTime").innerText = "--:--:--";
+}
+
+function doMove() {
+  if (!isActive) return;
+  var sh = new ActiveXObject("WScript.Shell");
+  sh.SendKeys("{SCROLLLOCK}");
+  sh.SendKeys("{SCROLLLOCK}");
+  var now = new Date();
+  var h = ("0" + now.getHours()).slice(-2);
+  var m = ("0" + now.getMinutes()).slice(-2);
+  var s = ("0" + now.getSeconds()).slice(-2);
+  document.getElementById("lastMoveTime").innerText = h + ":" + m + ":" + s;
+}
+
+function updateElapsed() {
+  if (!isActive) return;
+  var diff = Math.floor((new Date() - startTime) / 1000);
+  var h = Math.floor(diff / 3600);
+  var m = Math.floor((diff % 3600) / 60);
+  var s = diff % 60;
+  document.getElementById("elapsedTime").innerText =
+    ("0" + h).slice(-2) + ":" + ("0" + m).slice(-2) + ":" + ("0" + s).slice(-2);
+}
+
+function quitApp() {
+  if (isActive) stopIt();
+  clearInterval(topMostTimer);
+  window.close();
+}
+</script>
+</head>
+<body>
+<div class="app">
+  <div class="titlebar" onmousedown="startDrag()" onmousemove="doDrag()" onmouseup="stopDrag()">
+    <table cellspacing="0" cellpadding="0" border="0"><tr>
+      <td style="text-align:left">
+        <span id="titleDot" class="tl-dot dot-red"></span><span class="tl-title">KeepAlive</span>
+      </td>
+      <td style="text-align:right;white-space:nowrap">
+        <span class="title-btn" onclick="minimizeApp()" title="Réduire">&#8211;</span>
+        <span class="title-btn btn-close" onclick="quitApp()" title="Fermer">&#215;</span>
+      </td>
+    </tr></table>
+  </div>
+  <div class="content">
+    <div class="card">
+      <table cellspacing="0" cellpadding="0" border="0" style="margin:0 auto"><tr>
+        <td style="vertical-align:middle;background:transparent;border:none;padding:0">
+          <div class="tl-housing">
+            <div id="tlRed" class="tl-bulb tl-red-on"></div>
+            <div id="tlGreen" class="tl-bulb tl-green-off"></div>
+          </div>
+        </td>
+        <td style="vertical-align:middle;background:transparent;border:none;padding:0 0 0 8px">
+          <span id="statusText" class="status-text text-off">INACTIF</span>
+          <div id="subText" class="sub-text">En attente</div>
+        </td>
+      </tr></table>
+    </div>
+    <table class="data-table" cellspacing="0">
+      <tr>
+        <td style="width:50%">
+          <div class="lbl">Temps actif</div>
+          <div class="val" id="elapsedTime">00:00:00</div>
+        </td>
+        <td style="width:50%">
+          <div class="lbl">Dernier signal</div>
+          <div class="val" id="lastMoveTime">--:--:--</div>
+        </td>
+      </tr>
+    </table>
+    <table class="btn-table" cellspacing="0">
+      <tr>
+        <td style="width:60%"><button id="btnToggle" class="btn-start" onclick="toggleActive()">START</button></td>
+        <td style="width:40%"><button class="btn-quit" onclick="quitApp()">QUITTER</button></td>
+      </tr>
+    </table>
+  </div>
+</div>
+</body>
+</html>

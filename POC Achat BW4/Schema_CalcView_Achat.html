@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Calculation View - POC Achat BW4</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', Calibri, sans-serif;
+    background: #0a1628;
+    color: #e0e6ed;
+    min-height: 100vh;
+    padding: 30px;
+  }
+  .header { text-align: center; margin-bottom: 40px; }
+  .header h1 { font-size: 26px; color: #fff; letter-spacing: 1px; }
+  .header .subtitle { font-size: 14px; color: #7eb8da; margin-top: 6px; }
+  .header .epfl-badge {
+    display: inline-block; background: #e20020; color: #fff;
+    font-weight: 700; font-size: 13px; padding: 3px 12px;
+    border-radius: 3px; margin-bottom: 10px; letter-spacing: 2px;
+  }
+  .diagram { max-width: 1000px; margin: 0 auto; }
+  .node {
+    border-radius: 10px; padding: 16px 20px; text-align: center;
+    box-shadow: 0 4px 20px rgba(0,0,0,.35);
+  }
+  .node .label { font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; opacity: .7; margin-bottom: 4px; }
+  .node .name { font-size: 17px; font-weight: 700; }
+  .node .desc { font-size: 12px; opacity: .8; margin-top: 3px; }
+  .node-final { background: linear-gradient(135deg, #1a5276, #2e86c1); border: 2px solid #5dade2; }
+  .node-union { background: linear-gradient(135deg, #4a235a, #7d3c98); border: 2px solid #af7ac5; }
+  .node-join { background: linear-gradient(135deg, #0e6251, #148f77); border: 2px solid #48c9b0; }
+  .node-adso-75 { background: linear-gradient(135deg, #7e5109, #b7950b); border: 2px solid #f4d03f; color: #fff; }
+  .node-adso-bw4 { background: linear-gradient(135deg, #1b4f72, #2980b9); border: 2px solid #5dade2; }
+  .node-source { background: linear-gradient(135deg, #1c2833, #2c3e50); border: 2px solid #5d6d7e; }
+  .row { display: flex; justify-content: center; gap: 25px; margin-bottom: 0; }
+  .row.spaced { margin-bottom: 10px; }
+  .connectors { width: 100%; overflow: visible; display: block; }
+  .arrow-label { font-size: 10px; fill: #7eb8da; text-anchor: middle; }
+  .layer-tag {
+    display: inline-block; font-size: 10px; background: rgba(255,255,255,.1);
+    padding: 2px 8px; border-radius: 8px; margin-top: 4px; letter-spacing: .5px;
+  }
+  .fields-section { max-width: 1000px; margin: 50px auto 0; }
+  .fields-section h2 { color: #5dade2; font-size: 18px; margin-bottom: 16px; border-bottom: 1px solid #1a3a5c; padding-bottom: 8px; }
+  .fields-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .fields-table th {
+    background: #1a3a5c; color: #aed6f1; padding: 8px 12px; text-align: left;
+    font-weight: 600; text-transform: uppercase; font-size: 11px; letter-spacing: 1px;
+  }
+  .fields-table td { padding: 7px 12px; border-bottom: 1px solid #1a2a3c; }
+  .fields-table tr:hover td { background: rgba(46,134,193,.1); }
+  .fields-table .dim { color: #5dade2; }
+  .fields-table .kpi { color: #f39c12; font-weight: 600; }
+  .src-75 { background: #7e510920; color: #f4d03f; padding: 2px 8px; border-radius: 3px; font-size: 11px; font-weight: 600; }
+  .src-bw4 { background: #1b4f7230; color: #5dade2; padding: 2px 8px; border-radius: 3px; font-size: 11px; font-weight: 600; }
+  .src-join { background: #0e625130; color: #48c9b0; padding: 2px 8px; border-radius: 3px; font-size: 11px; font-weight: 600; }
+  .confirmed { display: inline-block; background: #1e8449; color: #fff; font-size: 10px; padding: 1px 7px; border-radius: 8px; font-weight: 600; margin-left: 4px; }
+  .from-join { display: inline-block; background: #148f77; color: #fff; font-size: 10px; padding: 1px 7px; border-radius: 8px; font-weight: 600; margin-left: 4px; }
+  .note-box {
+    max-width: 1000px; margin: 30px auto; background: #1a2a3c;
+    border-left: 4px solid #f39c12; padding: 14px 20px;
+    border-radius: 0 8px 8px 0; font-size: 13px; line-height: 1.6;
+  }
+  .note-box strong { color: #f39c12; }
+  .legend { display: flex; justify-content: center; gap: 24px; margin-top: 40px; flex-wrap: wrap; }
+  .legend-item { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+  .legend-dot { width: 14px; height: 14px; border-radius: 3px; border: 2px solid; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="epfl-badge">EPFL</div>
+  <h1>Calculation View &mdash; POC Achat</h1>
+  <div class="subtitle">Vue analytique unifi&eacute;e BW 7.5 + BW/4HANA &bull; 7 Dimensions + 2 KPIs &bull; Mars 2026</div>
+</div>
+
+<!-- ════════════════ DIAGRAMME ════════════════ -->
+<div class="diagram">
+
+  <!-- NIVEAU 5 : Projection finale -->
+  <div class="row spaced">
+    <div class="node node-final" style="min-width:520px;">
+      <div class="label">Projection finale &bull; Couche R (Reporting)</div>
+      <div class="name">CV_ACHAT_UNIFIED</div>
+      <div class="desc">7 Dimensions + 2 KPIs + SOURCE_SYSTEM</div>
+      <div class="layer-tag">CompositeProvider / Calculation View</div>
+    </div>
+  </div>
+
+  <svg class="connectors" height="45">
+    <defs><marker id="arr1" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#5dade2"/></marker></defs>
+    <line x1="50%" y1="0" x2="50%" y2="40" stroke="#5dade2" stroke-width="2" marker-end="url(#arr1)" stroke-dasharray="6,3"/>
+  </svg>
+
+  <!-- NIVEAU 4 : Union -->
+  <div class="row spaced">
+    <div class="node node-union" style="min-width:520px;">
+      <div class="label">Union Node</div>
+      <div class="name">UNION</div>
+      <div class="desc">Mapping des champs + champ calcul&eacute; <strong>SOURCE_SYSTEM</strong> ('BW75' / 'BW4')</div>
+    </div>
+  </div>
+
+  <svg class="connectors" height="60">
+    <defs><marker id="arr2" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#af7ac5"/></marker></defs>
+    <line x1="27%" y1="55" x2="42%" y2="5" stroke="#f4d03f" stroke-width="2" marker-end="url(#arr2)" stroke-dasharray="6,3"/>
+    <text x="22%" y="28" class="arrow-label" fill="#f4d03f">Historique BW 7.5</text>
+    <line x1="73%" y1="55" x2="58%" y2="5" stroke="#48c9b0" stroke-width="2" marker-end="url(#arr2)" stroke-dasharray="6,3"/>
+    <text x="78%" y="28" class="arrow-label" fill="#48c9b0">Flux S/4 (JOIN&eacute;)</text>
+  </svg>
+
+  <!-- NIVEAU 3 : ADSO 7.5 + JOIN BW4 -->
+  <div class="row spaced">
+    <div class="node node-adso-75" style="min-width:350px;">
+      <div class="label">ADSO Acquisition &bull; Couche A</div>
+      <div class="name">A750PURC1</div>
+      <div class="desc">Reprise historique compl&egrave;te 0PUR_C01<br>Toutes dimensions + indicateurs BW 7.5</div>
+      <div class="layer-tag">Full load &bull; Donn&eacute;es fig&eacute;es</div>
+    </div>
+    <div class="node node-join" style="min-width:350px;">
+      <div class="label">Left Join Node</div>
+      <div class="name">JOIN (EBELN + EBELP)</div>
+      <div class="desc"><strong>WMMPU001</strong> (base : montants, qt&eacute;s, fournisseur)<br>enrichi par WMMPU002 (GL_ACCOUNT, WBS_ELEMT, FUND)</div>
+      <div class="layer-tag">Cl&eacute; : PurchaseOrder + PurchaseOrderItem</div>
+    </div>
+  </div>
+
+  <svg class="connectors" height="60">
+    <defs><marker id="arr3" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#48c9b0"/></marker></defs>
+    <line x1="27%" y1="55" x2="27%" y2="5" stroke="#f4d03f" stroke-width="1.5" stroke-dasharray="4,4" opacity=".5"/>
+    <line x1="62%" y1="55" x2="67%" y2="5" stroke="#85c1e9" stroke-width="2" marker-end="url(#arr3)" stroke-dasharray="6,3"/>
+    <text x="56%" y="32" class="arrow-label" fill="#85c1e9" font-size="9">Imputations (enrichissement)</text>
+    <line x1="82%" y1="55" x2="77%" y2="5" stroke="#5dade2" stroke-width="2.5" marker-end="url(#arr3)" stroke-dasharray="6,3"/>
+    <text x="88%" y="32" class="arrow-label" fill="#5dade2" font-size="9">Postes (BASE)</text>
+  </svg>
+
+  <!-- NIVEAU 2 : Les 2 ADSOs BW4 -->
+  <div class="row spaced">
+    <div class="node node-source" style="min-width:250px;">
+      <div class="label">Cube BW 7.5 (BWQ)</div>
+      <div class="name">0PUR_C01</div>
+      <div class="desc">BWQCLNT100 &bull; ODP_BW / RFC</div>
+    </div>
+    <div class="node node-adso-bw4" style="min-width:280px; border-width:3px;">
+      <div class="label">ADSO BW4 &bull; Couche W &bull; BASE</div>
+      <div class="name">WMMPU001</div>
+      <div class="desc">Postes commande d'achat<br>CDS : CMMPOITMDEX (EKPO)<br><strong>Montants + Quantit&eacute;s + Fournisseur</strong></div>
+      <div class="layer-tag">Delta CDC</div>
+    </div>
+    <div class="node node-adso-bw4" style="min-width:280px; opacity:.85;">
+      <div class="label">ADSO BW4 &bull; Couche W &bull; ENRICHISSEMENT</div>
+      <div class="name">WMMPU002</div>
+      <div class="desc">Imputations commande d'achat<br>CDS : CMMPURORDAADEX (EKKN)<br>GL_ACCOUNT, WBS_ELEMT, FUND</div>
+      <div class="layer-tag">Delta CDC</div>
+    </div>
+  </div>
+
+  <svg class="connectors" height="50">
+    <line x1="50%" y1="45" x2="50%" y2="5" stroke="#5dade2" stroke-width="1.5" stroke-dasharray="4,4" opacity=".4"/>
+    <line x1="83%" y1="45" x2="83%" y2="5" stroke="#85c1e9" stroke-width="1.5" stroke-dasharray="4,4" opacity=".4"/>
+  </svg>
+
+  <!-- NIVEAU 1 : Sources S/4 -->
+  <div class="row">
+    <div class="node node-source" style="min-width:120px; opacity:.3;"></div>
+    <div class="node node-source" style="min-width:280px;">
+      <div class="label">CDS Extractor S/4 (SFDCLNT223)</div>
+      <div class="name">CMMPOITMDEX</div>
+      <div class="desc">Postes Cde achat (EKKO/EKPO)<br>HA_CMMPOITMDEX &bull; ODP_CDS</div>
+    </div>
+    <div class="node node-source" style="min-width:280px;">
+      <div class="label">CDS Extractor S/4 (SFDCLNT223)</div>
+      <div class="name">CMMPURORDAADEX</div>
+      <div class="desc">Imputations Cde achat (EKKN)<br>HA_CMMPURORDAADEX &bull; ODP_CDS</div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ════════════════ NOTE ════════════════ -->
+<div class="note-box" style="margin-top:40px; border-left-color:#e74c3c;">
+  <strong style="color:#e74c3c;">Logique du JOIN</strong><br>
+  <strong>WMMPU001 (postes EKPO)</strong> est la table pilote : elle contient le fournisseur (SUPPLIER), les montants (NETAMOUNT) et quantit&eacute;s (ORDERQUANTITY) de r&eacute;f&eacute;rence au niveau poste.
+  <strong>WMMPU002 (imputations EKKN)</strong> est joint&eacute; en enrichissement pour apporter GL_ACCOUNT, WBS_ELEMT et FUND.
+  <br><br><strong>Important :</strong> Les montants/quantit&eacute;s de WMMPU002 sont ventil&eacute;s par ligne d'imputation (split accounting) et ne doivent <strong>pas</strong> &ecirc;tre utilis&eacute;s comme KPIs de r&eacute;f&eacute;rence.
+</div>
+
+<!-- ════════════════ TABLE MAPPING ════════════════ -->
+<div class="fields-section">
+  <h2>Mapping des champs &mdash; UNION Node (vue finale)</h2>
+  <table class="fields-table">
+    <thead>
+      <tr>
+        <th>Type</th>
+        <th>Champ cible</th>
+        <th>InfoObject</th>
+        <th><span class="src-75">A750PURC1</span> BW 7.5</th>
+        <th><span class="src-bw4">WMMPU001</span> (postes, base)</th>
+        <th><span class="src-join">WMMPU002</span> (imputations, JOIN)</th>
+        <th>Compound</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="dim">Dimension</td>
+        <td>Fournisseur</td>
+        <td><strong>0VENDOR</strong></td>
+        <td>0VENDOR</td>
+        <td>SUPPLIER <span class="confirmed">OK</span></td>
+        <td>&ndash;</td>
+        <td>&ndash;</td>
+      </tr>
+      <tr>
+        <td class="dim">Dimension</td>
+        <td>Cat&eacute;gorie produit</td>
+        <td><strong>0MATL_GROUP</strong></td>
+        <td>0MATL_GROUP</td>
+        <td>MATERIALGROUP <span class="confirmed">OK</span></td>
+        <td>(aussi disponible)</td>
+        <td>&ndash;</td>
+      </tr>
+      <tr>
+        <td class="dim">Dimension</td>
+        <td>P&eacute;riode comptable</td>
+        <td><strong>0FISCPER</strong></td>
+        <td>0FISCPER</td>
+        <td>D&eacute;riv&eacute; de PURCHASEORDERDATE</td>
+        <td>&ndash;</td>
+        <td>&ndash;</td>
+      </tr>
+      <tr>
+        <td class="dim">Dimension</td>
+        <td>Compte g&eacute;n&eacute;ral</td>
+        <td><strong>0GL_ACCOUNT</strong></td>
+        <td>0GL_ACCOUNT</td>
+        <td>&ndash;</td>
+        <td>GLACCOUNT <span class="from-join">JOIN</span></td>
+        <td>0CHRT_ACCTS</td>
+      </tr>
+      <tr>
+        <td class="dim">Dimension</td>
+        <td>OTP (WBS)</td>
+        <td><strong>0WBS_ELEMT</strong></td>
+        <td>0WBS_ELEMT</td>
+        <td>&ndash;</td>
+        <td>WBSELEMENTINTERNALID <span class="from-join">JOIN</span></td>
+        <td>&ndash;</td>
+      </tr>
+      <tr>
+        <td class="dim">Dimension</td>
+        <td>Fonds</td>
+        <td><strong>0FUND</strong></td>
+        <td>0FUND</td>
+        <td>&ndash;</td>
+        <td>FUND <span class="from-join">JOIN</span></td>
+        <td>0FM_AREA</td>
+      </tr>
+      <tr>
+        <td class="dim">Dimension</td>
+        <td>Organisation d'achat</td>
+        <td><strong>0PURCH_ORG</strong></td>
+        <td>0PURCH_ORG</td>
+        <td>PURCHASINGORGANIZATION <span class="confirmed">OK</span></td>
+        <td>(aussi disponible)</td>
+        <td>&ndash;</td>
+      </tr>
+      <tr style="background: rgba(243,156,18,.08);">
+        <td class="kpi">KPI</td>
+        <td>Montant commande</td>
+        <td><strong>0ORDER_VAL</strong></td>
+        <td>0ORDER_VAL</td>
+        <td>NETAMOUNT <span class="confirmed">OK</span></td>
+        <td>&ndash; (ne pas utiliser)</td>
+        <td>&ndash;</td>
+      </tr>
+      <tr style="background: rgba(243,156,18,.08);">
+        <td class="kpi">KPI</td>
+        <td>Quantit&eacute; command&eacute;e</td>
+        <td><strong>0PO_QTY</strong></td>
+        <td>0PO_QTY</td>
+        <td>ORDERQUANTITY <span class="confirmed">OK</span></td>
+        <td>&ndash; (ne pas utiliser)</td>
+        <td>&ndash;</td>
+      </tr>
+      <tr style="background: rgba(93,173,226,.08);">
+        <td class="dim" style="color:#48c9b0;">Technique</td>
+        <td>Syst&egrave;me source</td>
+        <td><strong>SOURCE_SYSTEM</strong></td>
+        <td>'BW75' (constante)</td>
+        <td colspan="2">'BW4' (constante)</td>
+        <td>&ndash;</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="note-box" style="margin-top:25px;">
+  <strong>Transformation FISCPER</strong> &mdash;
+  Dans la branche BW4, d&eacute;river 0FISCPER depuis PURCHASEORDERDATE (YYYYMMDD &rarr; YYYYPPP)
+  via la table de d&eacute;rivation de p&eacute;riode fiscale dans la transformation BW.
+</div>
+
+<div class="note-box" style="border-left-color:#e74c3c;">
+  <strong style="color:#e74c3c;">R&egrave;gle de d&eacute;doublonnage</strong> &mdash;
+  D&eacute;finir une <strong>date de cutover</strong> (ex : 01.01.2026).
+  A750PURC1 &rarr; FISCPER &le; 2025012 | WMMPU002 &rarr; PURCHASEORDERDATE &ge; 01.01.2026.
+</div>
+
+<div class="note-box" style="border-left-color:#f39c12;">
+  <strong>Point d'attention EKKN</strong> &mdash;
+  Une commande d'achat peut avoir <strong>plusieurs lignes d'imputation</strong> (split accounting).
+  Le JOIN avec WMMPU001 est un LEFT JOIN : une ligne poste peut correspondre &agrave; N lignes d'imputation.
+  Les KPIs (montant, quantit&eacute;) dans WMMPU002 sont d&eacute;j&agrave; au niveau imputation (avec MULTIPLEACCTASSGMTDISTRPERCENT).
+</div>
+
+<!-- ════════════════ LEGENDE ════════════════ -->
+<div class="legend">
+  <div class="legend-item">
+    <div class="legend-dot" style="background:#b7950b; border-color:#f4d03f;"></div>
+    ADSO BW 7.5 (historique)
+  </div>
+  <div class="legend-item">
+    <div class="legend-dot" style="background:#2980b9; border-color:#5dade2;"></div>
+    ADSO BW4 (flux S/4)
+  </div>
+  <div class="legend-item">
+    <div class="legend-dot" style="background:#148f77; border-color:#48c9b0;"></div>
+    JOIN Node
+  </div>
+  <div class="legend-item">
+    <div class="legend-dot" style="background:#7d3c98; border-color:#af7ac5;"></div>
+    UNION Node
+  </div>
+  <div class="legend-item">
+    <div class="legend-dot" style="background:#1a5276; border-color:#5dade2;"></div>
+    Projection finale
+  </div>
+</div>
+
+</body>
+</html>

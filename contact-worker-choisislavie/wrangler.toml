@@ -1,0 +1,15 @@
+name = "contact-form-choisislavie"
+main = "src/index.js"
+compatibility_date = "2025-10-01"
+
+# Route custom: https://choisislavie.org/api/contact
+routes = [
+  { pattern = "choisislavie.org/api/contact", zone_name = "choisislavie.org" }
+]
+
+[vars]
+NOTIFY_EMAILS = "contact@choisislavie.org"
+FROM_EMAIL = "contact@choisislavie.org"
+FROM_NAME = "Choisis la vie"
+
+# BREVO_API_KEY is set via: wrangler secret put BREVO_API_KEY

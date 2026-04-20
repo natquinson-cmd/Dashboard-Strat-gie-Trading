@@ -1,0 +1,131 @@
+{
+  "majorVersion" : 1,
+  "minorVersion" : 0,
+  "flowEntryName" : "flow",
+  "displaySettingsEntryName" : "displaySettings",
+  "isPackagedMaestroDocument" : false,
+  "documentFeaturesUsedInDocument" : [ {
+    "id" : "document.v2019_1_3.Flow",
+    "featureName" : "",
+    "firstSoftwareVersionSupportedIn" : {
+      "year" : 2019,
+      "quarterOfYear" : 1,
+      "versionString" : "2019.1.3",
+      "indexOfRelease" : 3
+    },
+    "notSupportedMessages" : [ "it_IT::Chiavi primarie ed esterne incluse in fasi (supportato nelle versioni 2019.1.3 e successive)", "fr_CA::Clés primaires et étrangères incluses dans les étapes (pris en charge dans la version 2019.1.3 et versions ultérieures)", "sv_SE::Primär- och sekundärnycklar inkluderade i steg (stöds i version 2019.1.3 och senare)", "pt_BR::Chaves primária e estrangeira incluídas nas etapas (suportado na versão 2019.1.3 e posteriores)", "th_TH::มีคีย์หลักและคีย์นอกอยู่ในขั้นตอน (รองรับในเวอร์ชัน 2019.1.3 และใหม่กว่า)", "fr_FR::Clés primaires et étrangères incluses dans les étapes (pris en charge dans la version 2019.1.3 et versions ultérieures)", "ja_JP::ステップに含まれるプライマリ キーおよび外部キー (バージョン 2019.1.3 以降でサポートされています)", "de_DE::In Schritten enthaltene Primär- und Fremdschlüssel (unterstützt in Version 2019.1.3 und höher)", "en_GB::Primary and Foreign Keys Included in Steps (supported in version 2019.1.3 and later)", "zh_TW::步驟中包含的主索引鍵和外部索引鍵 (版本 2019.1.3 及更高版本中支援)", "ko_KR::단계에 포함된 기본 키 및 외래 키(버전 2019.1.3 이상에서 지원됨)", "en_US::Primary and Foreign Keys Included in Steps (supported in version 2019.1.3 and later)", "ga_IE::33c5-表:b6cb-表:Primary and Foreign Keys Included in Steps|桜 (supported in version 2019.1.3 and later)|桜", "es_ES::Claves principales y externas incluidas en pasos (admitido en la versión 2019.1.3 y posteriores)", "zh_CN::步骤中包括的主键和外键 (版本 2019.1.3 及更高版本中支持)", "nl_NL::Primaire en refererende sleutels opgenomen in stappen (ondersteund in versie 2019.1.3 en later)" ],
+    "minimumCompatibleSoftwareVersion" : {
+      "year" : 2019,
+      "quarterOfYear" : 1,
+      "versionString" : "2019.1.3",
+      "indexOfRelease" : 3
+    }
+  }, {
+    "id" : "node.v2022_4_1.LoadExcel",
+    "featureName" : "",
+    "firstSoftwareVersionSupportedIn" : {
+      "year" : 2023,
+      "quarterOfYear" : 1,
+      "versionString" : "2023.1.1",
+      "indexOfRelease" : 1
+    },
+    "notSupportedMessages" : [ "it_IT::File Microsoft Excel con numeri di riga generati automaticamente (supportato nelle versioni 2023.1.1 e successive)", "fr_CA::Fichiers Microsoft Excel avec numéros de ligne générés automatiquement (pris en charge dans la version 2023.1.1 et versions ultérieures)", "sv_SE::Microsoft Excel-filer med automatiskt genererade radnummer (stöds i version 2023.1.1 och senare)", "pt_BR::Arquivos do Microsoft Excel com números de linha gerados automaticamente (suportado na versão 2023.1.1 e posteriores)", "th_TH::ไฟล์ Microsoft Excel พร้อมหมายเลขแถวที่สร้างขึ้นโดยอัตโนมัติ (รองรับในเวอร์ชัน 2023.1.1 และใหม่กว่า)", "fr_FR::Fichiers Microsoft Excel avec numéros de ligne générés automatiquement (pris en charge dans la version 2023.1.1 et versions ultérieures)", "ja_JP::行番号が自動生成された Microsoft Excel ファイル (バージョン 2023.1.1 以降でサポートされています)", "de_DE::Microsoft Excel-Dateien mit automatisch generierten Zeilennummern (unterstützt in Version 2023.1.1 und höher)", "en_GB::Microsoft Excel Files with Auto-generated Row Numbers (supported in version 2023.1.1 and later)", "zh_TW::附帶自動產生列號碼的 Microsoft Excel 檔案 (版本 2023.1.1 及更高版本中支援)", "ko_KR::행 번호가 자동 생성된 Microsoft Excel 파일(버전 2023.1.1 이상에서 지원됨)", "en_US::Microsoft Excel Files with Auto-generated Row Numbers (supported in version 2023.1.1 and later)", "ga_IE::33c5-表:439c-表:Microsoft Excel Files with Auto-generated Row Numbers|桜 (supported in version 2023.1.1 and later)|桜", "es_ES::Archivos Microsoft Excel con números de fila generados automáticamente (admitido en la versión 2023.1.1 y posteriores)", "zh_CN::带有自动生成的行号的 Microsoft Excel 文件 (版本 2023.1.1 及更高版本中支持)", "nl_NL::Microsoft Excel-bestanden met automatisch gegenereerde rijnummers (ondersteund in versie 2023.1.1 en later)" ],
+    "minimumCompatibleSoftwareVersion" : {
+      "year" : 2018,
+      "quarterOfYear" : 1,
+      "versionString" : "2018.1.1",
+      "indexOfRelease" : 1
+    }
+  }, {
+    "id" : "directlyregistered.v2024_1_1.AnalyticsFunctionPresentWithinIfOrCase",
+    "featureName" : "",
+    "firstSoftwareVersionSupportedIn" : {
+      "year" : 2024,
+      "quarterOfYear" : 1,
+      "versionString" : "2024.1.0",
+      "indexOfRelease" : 0
+    },
+    "notSupportedMessages" : [ "it_IT::Espressioni analitiche con istruzioni IF o CASE. Ad esempio, Identifica righe duplicate (supportato nelle versioni 2024.1.0 e successive)", "fr_CA::Expressions analytiques avec les instructions IF ou CASE. Par exemple, identifier les lignes en double (pris en charge dans la version 2024.1.0 et versions ultérieures)", "sv_SE::Analytiska uttryck med IF- eller CASE-satser. Till exempel, Identifiera duplicerade rader (stöds i version 2024.1.0 och senare)", "pt_BR::Expressões analíticas com instruções IF ou CASE. Por exemplo, identificar linhas duplicadas (suportado na versão 2024.1.0 e posteriores)", "th_TH::นิพจน์การวิเคราะห์ด้วยคำสั่ง IF หรือ CASE เช่น ระบุแถวที่ซ้ำกัน (รองรับในเวอร์ชัน 2024.1.0 และใหม่กว่า)", "fr_FR::Expressions analytiques avec déclarations IF ou CASE. Par exemple, identifier les lignes en double (pris en charge dans la version 2024.1.0 et versions ultérieures)", "ja_JP::IF または CASE ステートメントを使用した分析式。たとえば、重複行を特定します (バージョン 2024.1.0 以降でサポートされています)", "de_DE::Analytische Ausdrücke mit IF- oder CASE-Anweisungen. Zum Beispiel beim Identifizieren doppelter Zeilen (unterstützt in Version 2024.1.0 und höher)", "en_GB::Analytic Expressions with IF or CASE statements. For example, Identify Duplicate Rows (supported in version 2024.1.0 and later)", "zh_TW::帶有 IF 或 CASE 陳述式的分析運算式。例如識別重複列 (版本 2024.1.0 及更高版本中支援)", "ko_KR::IF 또는 CASE 문이 있는 분석 식입니다. 예: 중복 행 식별(버전 2024.1.0 이상에서 지원됨)", "en_US::Analytic Expressions with IF or CASE statements. For example, Identify Duplicate Rows (supported in version 2024.1.0 and later)", "ga_IE::33c5-表:1b79-表:Analytic Expressions with IF or CASE statements. For example, Identify Duplicate Rows|桜 (supported in version 2024.1.0 and later)|桜", "es_ES::Expresiones de análisis con declaraciones IF o CASE. Por ejemplo: Identificar filas duplicadas (admitido en la versión 2024.1.0 y posteriores)", "zh_CN::带有 IF 或 CASE 语句的分析表达式。例如，识别重复行 (版本 2024.1.0 及更高版本中支持)", "nl_NL::Analytische expressies met IF- of CASE-instructies. Zoals bijvoorbeeld Dubbele rijen identificeren (ondersteund in versie 2024.1.0 en later)" ],
+    "minimumCompatibleSoftwareVersion" : null
+  }, {
+    "id" : "node.v2021_1_1.WriteToExcel",
+    "featureName" : "",
+    "firstSoftwareVersionSupportedIn" : {
+      "year" : 2021,
+      "quarterOfYear" : 1,
+      "versionString" : "2021.1.2",
+      "indexOfRelease" : 2
+    },
+    "notSupportedMessages" : [ "it_IT::Salva output su file Microsoft Excel (supportato nelle versioni 2021.1.2 e successive)", "fr_CA::Enregistrer la sortie dans un fichier Microsoft Excel (pris en charge dans la version 2021.1.2 et versions ultérieures)", "sv_SE::Spara utdata till Microsoft Excel-fil (stöds i version 2021.1.2 och senare)", "pt_BR::Salvar a saída no arquivo do Microsoft Excel (suportado na versão 2021.1.2 e posteriores)", "th_TH::บันทึกเอาต์พุตไปยังไฟล์ Microsoft Excel (รองรับในเวอร์ชัน 2021.1.2 และใหม่กว่า)", "fr_FR::Enregistrer la sortie dans un fichier Microsoft Excel (pris en charge dans la version 2021.1.2 et versions ultérieures)", "ja_JP::出力を Microsoft Excel ファイルに保存 (バージョン 2021.1.2 以降でサポートされています)", "de_DE::Ausgabe in Microsoft Excel-Datei speichern (unterstützt in Version 2021.1.2 und höher)", "en_GB::Save output to Microsoft Excel file (supported in version 2021.1.2 and later)", "zh_TW::將輸出儲存到 Microsoft Excel 檔案 (版本 2021.1.2 及更高版本中支援)", "ko_KR::출력을 Microsoft Excel 파일로 저장(버전 2021.1.2 이상에서 지원됨)", "en_US::Save output to Microsoft Excel file (supported in version 2021.1.2 and later)", "ga_IE::33c5-表:8934-表:Save output to Microsoft Excel file|桜 (supported in version 2021.1.2 and later)|桜", "es_ES::Guardar la salida en un archivo de Microsoft Excel (admitido en la versión 2021.1.2 y posteriores)", "zh_CN::将输出保存到 Microsoft Excel 文件 (版本 2021.1.2 及更高版本中支持)", "nl_NL::Uitvoer opslaan naar Microsoft Excel-bestand (ondersteund in versie 2021.1.2 en later)" ],
+    "minimumCompatibleSoftwareVersion" : {
+      "year" : 2021,
+      "quarterOfYear" : 1,
+      "versionString" : "2021.1.2",
+      "indexOfRelease" : 2
+    }
+  }, {
+    "id" : "node.v2018_2_3.SuperUnion",
+    "featureName" : "",
+    "firstSoftwareVersionSupportedIn" : {
+      "year" : 2018,
+      "quarterOfYear" : 2,
+      "versionString" : "2018.2.3",
+      "indexOfRelease" : 3
+    },
+    "notSupportedMessages" : [ "it_IT::Azioni in unificazione (supportato nelle versioni 2018.2.3 e successive)", "fr_CA::Actions dans l’union (pris en charge dans la version 2018.2.3 et versions ultérieures)", "sv_SE::Åtgärder i Förena (stöds i version 2018.2.3 och senare)", "pt_BR::Ações ao unir linhas (suportado na versão 2018.2.3 e posteriores)", "th_TH::การดำเนินการในการผนวก (รองรับในเวอร์ชัน 2018.2.3 และใหม่กว่า)", "fr_FR::Actions dans l’union (pris en charge dans la version 2018.2.3 et versions ultérieures)", "ja_JP::ユニオン内のアクション (バージョン 2018.2.3 以降でサポートされています)", "de_DE::Aktionen in Vereinigung (unterstützt in Version 2018.2.3 und höher)", "en_GB::Actions in Union (supported in version 2018.2.3 and later)", "zh_TW::聯集中的操作 (版本 2018.2.3 及更高版本中支援)", "ko_KR::유니온 작업 수(버전 2018.2.3 이상에서 지원됨)", "en_US::Actions in Union (supported in version 2018.2.3 and later)", "ga_IE::33c5-表:346e-表:Actions in Union|桜 (supported in version 2018.2.3 and later)|桜", "es_ES::Acciones en unión de filas (admitido en la versión 2018.2.3 y posteriores)", "zh_CN::并集中的操作 (版本 2018.2.3 及更高版本中支持)", "nl_NL::Acties in vereniging (ondersteund in versie 2018.2.3 en later)" ],
+    "minimumCompatibleSoftwareVersion" : {
+      "year" : 2018,
+      "quarterOfYear" : 2,
+      "versionString" : "2018.2.3",
+      "indexOfRelease" : 3
+    }
+  }, {
+    "id" : "node.v2018_2_3.SuperAggregate",
+    "featureName" : "",
+    "firstSoftwareVersionSupportedIn" : {
+      "year" : 2018,
+      "quarterOfYear" : 2,
+      "versionString" : "2018.2.3",
+      "indexOfRelease" : 3
+    },
+    "notSupportedMessages" : [ "it_IT::Azioni in aggregato (supportato nelle versioni 2018.2.3 e successive)", "fr_CA::Actions dans l’agrégation (pris en charge dans la version 2018.2.3 et versions ultérieures)", "sv_SE::Åtgärder i Aggregera (stöds i version 2018.2.3 och senare)", "pt_BR::Ações ao agregar (suportado na versão 2018.2.3 e posteriores)", "th_TH::การดำเนินการในผลรวม (รองรับในเวอร์ชัน 2018.2.3 และใหม่กว่า)", "fr_FR::Actions dans l’agrégation (pris en charge dans la version 2018.2.3 et versions ultérieures)", "ja_JP::集計内のアクション (バージョン 2018.2.3 以降でサポートされています)", "de_DE::Aktionen in Aggregieren (unterstützt in Version 2018.2.3 und höher)", "en_GB::Actions in Aggregate (supported in version 2018.2.3 and later)", "zh_TW::彙總中的操作 (版本 2018.2.3 及更高版本中支援)", "ko_KR::총 작업 수(버전 2018.2.3 이상에서 지원됨)", "en_US::Actions in Aggregate (supported in version 2018.2.3 and later)", "ga_IE::33c5-表:7299-表:Actions in Aggregate|桜 (supported in version 2018.2.3 and later)|桜", "es_ES::Acciones en agregado (admitido en la versión 2018.2.3 y posteriores)", "zh_CN::聚合中的操作 (版本 2018.2.3 及更高版本中支持)", "nl_NL::Acties in aggregaat (ondersteund in versie 2018.2.3 en later)" ],
+    "minimumCompatibleSoftwareVersion" : {
+      "year" : 2018,
+      "quarterOfYear" : 2,
+      "versionString" : "2018.2.3",
+      "indexOfRelease" : 3
+    }
+  }, {
+    "id" : "node.v2018_2_3.SuperJoin",
+    "featureName" : "",
+    "firstSoftwareVersionSupportedIn" : {
+      "year" : 2018,
+      "quarterOfYear" : 2,
+      "versionString" : "2018.2.3",
+      "indexOfRelease" : 3
+    },
+    "notSupportedMessages" : [ "it_IT::Azioni in join (supportato nelle versioni 2018.2.3 e successive)", "fr_CA::Actions dans la jointure (pris en charge dans la version 2018.2.3 et versions ultérieures)", "sv_SE::Åtgärder i Koppla (stöds i version 2018.2.3 och senare)", "pt_BR::Ações ao unir colunas (suportado na versão 2018.2.3 e posteriores)", "th_TH::การดำเนินการในการรวม (รองรับในเวอร์ชัน 2018.2.3 และใหม่กว่า)", "fr_FR::Actions dans la jointure (pris en charge dans la version 2018.2.3 et versions ultérieures)", "ja_JP::結合内のアクション (バージョン 2018.2.3 以降でサポートされています)", "de_DE::Aktionen in Verknüpfen (unterstützt in Version 2018.2.3 und höher)", "en_GB::Actions in Join (supported in version 2018.2.3 and later)", "zh_TW::聯結中的操作 (版本 2018.2.3 及更高版本中支援)", "ko_KR::조인 작업 수(버전 2018.2.3 이상에서 지원됨)", "en_US::Actions in Join (supported in version 2018.2.3 and later)", "ga_IE::33c5-表:501f-表:Actions in Join|桜 (supported in version 2018.2.3 and later)|桜", "es_ES::Acciones en unión de columnas (admitido en la versión 2018.2.3 y posteriores)", "zh_CN::联接中的操作 (版本 2018.2.3 及更高版本中支持)", "nl_NL::Acties in join (ondersteund in versie 2018.2.3 en later)" ],
+    "minimumCompatibleSoftwareVersion" : {
+      "year" : 2018,
+      "quarterOfYear" : 2,
+      "versionString" : "2018.2.3",
+      "indexOfRelease" : 3
+    }
+  }, {
+    "id" : "nodeProperty.v2020_2_1.OutputRefreshOptions",
+    "featureName" : "",
+    "firstSoftwareVersionSupportedIn" : {
+      "year" : 2020,
+      "quarterOfYear" : 2,
+      "versionString" : "2020.2.1",
+      "indexOfRelease" : 1
+    },
+    "notSupportedMessages" : [ "it_IT::Opzioni di scrittura output (supportato nelle versioni 2020.2.1 e successive)", "fr_CA::Options d’écriture de sortie (pris en charge dans la version 2020.2.1 et versions ultérieures)", "sv_SE::Skrivalternativ för utdata (stöds i version 2020.2.1 och senare)", "pt_BR::Opções de gravação de saída (suportado na versão 2020.2.1 e posteriores)", "th_TH::ตัวเลือกการเขียนเอาต์พุต (รองรับในเวอร์ชัน 2020.2.1 และใหม่กว่า)", "fr_FR::Options d’écriture de sortie (pris en charge dans la version 2020.2.1 et versions ultérieures)", "ja_JP::出力書き込みオプション (バージョン 2020.2.1 以降でサポートされています)", "de_DE::Schreiboptionen für die Ausgabe (unterstützt in Version 2020.2.1 und höher)", "en_GB::Output Write Options (supported in version 2020.2.1 and later)", "zh_TW::輸出寫入選項 (版本 2020.2.1 及更高版本中支援)", "ko_KR::출력 쓰기 옵션(버전 2020.2.1 이상에서 지원됨)", "en_US::Output Write Options (supported in version 2020.2.1 and later)", "ga_IE::33c5-表:9c1c-表:Output Write Options|桜 (supported in version 2020.2.1 and later)|桜", "es_ES::Opciones de escritura de salida (admitido en la versión 2020.2.1 y posteriores)", "zh_CN::输出写入选项 (版本 2020.2.1 及更高版本中支持)", "nl_NL::Schrijfopties voor uitvoer (ondersteund in versie 2020.2.1 en later)" ],
+    "minimumCompatibleSoftwareVersion" : {
+      "year" : 2020,
+      "quarterOfYear" : 2,
+      "versionString" : "2020.2.1",
+      "indexOfRelease" : 1
+    }
+  } ]
+}

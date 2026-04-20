@@ -1,0 +1,134 @@
+//-------------------------------------------------------------------------
+// Code principal : NAS 15 OPR R2.2 réinv V1.3 — Stops Proportionnels
+//-------------------------------------------------------------------------
+// Modification vs V1.2 :
+//   - Bornes du stop en % du prix au lieu de 85/185 fixes
+//     → s'adapte automatiquement au niveau du Nasdaq
+//     → corrige la sous-performance 2017-2021
+//   - Tout le reste est IDENTIQUE à V1.2
+//-------------------------------------------------------------------------
+
+DEFPARAM CUMULATEORDERS = FALSE
+DEFPARAM PRELOADBARS = 2000
+
+// --- 1. PARAMÈTRES ET CALCULS DYNAMIQUES ---
+ONCE CoeffBE = 1.2
+ONCE CoeffStop = 3.2
+ONCE Coeflockprofit = 0.3
+ONCE TargetMult = 2.2
+
+// Bornes proportionnelles au prix (remplace les 85/185 fixes)
+ONCE StopMinPct = 0.004   // 0.4% du prix (~80 pts à 20000, ~28 pts à 7000)
+ONCE StopMaxPct = 0.009   // 0.9% du prix (~180 pts à 20000, ~63 pts à 7000)
+
+MonATR = AverageTrueRange[14](close)
+
+// --- STOP PROPORTIONNEL ---
+StopMin = ROUND(close * StopMinPct)
+StopMax = ROUND(close * StopMaxPct)
+StopDyn = ROUND(MAX(StopMin, MIN(StopMax, MonATR * CoeffStop)))
+TargetDyn = ROUND(StopDyn * TargetMult)
+
+// --- 2. GESTION DU CAPITAL (Budget 5000 | Risque 2.2 | Arrondi 2 chiffres) ---
+ONCE CapInit = 5300
+Risque = 2.2
+Reinvestir = 1
+
+IF Reinvestir = 1 THEN
+    CapActuel = CapInit + StrategyProfit
+ELSE
+    CapActuel = CapInit
+ENDIF
+
+IF StopDyn > 0 THEN
+    RawSize = (CapActuel * (Risque / 100)) / (StopDyn * PipValue)
+    PosSize = ROUND(MAX(0.01, RawSize), 2)
+ELSE
+    PosSize = 0.5
+ENDIF
+
+// --- 3. INITIALISATION ---
+IF Date <> Date[1] THEN
+    TodayTrade = 0
+    DailyProfit = STRATEGYPROFIT
+    NiveauStop = 0
+    StaticTargetPrix = 0
+ENDIF
+
+// --- 4. OPR (15h30) ---
+IF time = 153000 THEN
+    OPRHigh = High
+    OPRLow = Low
+ENDIF
+
+IF STRATEGYPROFIT <> DailyProfit OR ONMARKET THEN
+    TodayTrade = 1
+ENDIF
+
+// --- 5. CONDITIONS D'ENTRÉE AVEC SEUILS FIGÉS ---
+IF TodayTrade = 0 AND time > 153000 AND time <= 173000 THEN
+    IF close > OPRHigh THEN
+        BUY PosSize CONTRACTS AT MARKET
+        NiveauStop = close - StopDyn
+        // --- FIXATION DES SEUILS ---
+        StaticBETrigger = MonATR * CoeffBE
+        StaticLockTrigger = TargetDyn * 0.6
+        StaticLockProfit = TargetDyn * Coeflockprofit
+        StaticTargetPrix = close + TargetDyn
+    ELSIF close < OPRLow THEN
+        SELLSHORT PosSize CONTRACTS AT MARKET
+        NiveauStop = close + StopDyn
+        // --- FIXATION DES SEUILS ---
+        StaticBETrigger = MonATR * CoeffBE
+        StaticLockTrigger = TargetDyn * 0.6
+        StaticLockProfit = TargetDyn * Coeflockprofit
+        StaticTargetPrix = close - TargetDyn
+    ENDIF
+ENDIF
+
+// --- 6. GESTION DES SORTIES (LOGIQUE STATIQUE) ---
+IF ONMARKET THEN
+    SET STOP pLOSS StopDyn
+    SET TARGET pPROFIT TargetDyn
+
+    // PALIER 1 : Breakeven
+    IF LONGONMARKET AND (close - tradeprice) > StaticBETrigger THEN
+        NouvStop = tradeprice + 5
+        NiveauStop = MAX(NiveauStop, NouvStop)
+    ENDIF
+    IF SHORTONMARKET AND (tradeprice - close) > StaticBETrigger THEN
+        NouvStop = tradeprice - 5
+        IF NiveauStop = 0 THEN
+            NiveauStop = NouvStop
+        ELSE
+            NiveauStop = MIN(NiveauStop, NouvStop)
+        ENDIF
+    ENDIF
+
+    // PALIER 2 : Verrouillage (Static)
+    IF LONGONMARKET AND (close - tradeprice) > StaticLockTrigger THEN
+        NouvStop = tradeprice + StaticLockProfit
+        NiveauStop = MAX(NiveauStop, NouvStop)
+    ENDIF
+    IF SHORTONMARKET AND (tradeprice - close) > StaticLockTrigger THEN
+        NouvStop = tradeprice - StaticLockProfit
+        IF NiveauStop = 0 THEN
+            NiveauStop = NouvStop
+        ELSE
+            NiveauStop = MIN(NiveauStop, NouvStop)
+        ENDIF
+    ENDIF
+
+    // APPLICATION DU STOP
+    IF LONGONMARKET THEN
+        SELL AT NiveauStop STOP
+    ELSIF SHORTONMARKET THEN
+        EXITSHORT AT NiveauStop STOP
+    ENDIF
+ENDIF
+
+// Clôture fin de journée
+IF time >= 215500 THEN
+    SELL AT MARKET
+    EXITSHORT AT MARKET
+ENDIF

@@ -1,0 +1,194 @@
+// ============================================================
+// STRATÉGIE NASDAQ 15M - OPR BREAKOUT R2.2
+// V2.0 — Trailing Stop Progressif (3 paliers + trail continu)
+// ============================================================
+// Modifications vs V1.2 :
+//   - Suppression du conflit SET STOP pLOSS / stop manuel
+//     → tout géré manuellement via NiveauStop
+//   - Trailing stop progressif en 3 paliers + trail continu :
+//       Palier 1 (BE)   : profit > ATR×1.2  → stop = entry + 5
+//       Palier 2 (Lock) : profit > Target×0.4 → stop = entry + Target×0.2
+//       Palier 3 (Trail): profit > Target×0.6 → trail à Target×0.35 du prix
+//   - Target toujours gérée par SET TARGET pPROFIT (pas de conflit)
+//   - Suppression des doublons ONCE
+// ============================================================
+
+DEFPARAM CUMULATEORDERS = FALSE
+DEFPARAM PRELOADBARS = 2000
+
+// --- 1. PARAMÈTRES ---
+ONCE CoeffBE = 1.2
+ONCE CoeffStop = 3.2
+ONCE TargetMult = 2.2
+ONCE Coeflockprofit = 0.2       // Profit verrouillé au palier 2 (fraction du target)
+ONCE CoeffTrailDist = 0.35      // Distance du trail au palier 3 (fraction du target)
+ONCE CoeffTrailActivation = 0.6 // Activation du trail (fraction du target)
+ONCE CoeffLockActivation = 0.4  // Activation du lock (fraction du target)
+
+// --- ATR et stops dynamiques ---
+MonATR = AverageTrueRange[14](close)
+StopDyn = ROUND(MAX(85, MIN(185, MonATR * CoeffStop)))
+TargetDyn = ROUND(StopDyn * TargetMult)
+
+// --- 2. GESTION DU CAPITAL ---
+ONCE CapInit = 5300
+Risque = 2.2
+Reinvestir = 1
+
+IF Reinvestir = 1 THEN
+    CapActuel = CapInit + StrategyProfit
+ELSE
+    CapActuel = CapInit
+ENDIF
+
+IF StopDyn > 0 THEN
+    RawSize = (CapActuel * (Risque / 100)) / (StopDyn * PipValue)
+    PosSize = ROUND(MAX(0.01, RawSize), 2)
+ELSE
+    PosSize = 0.5
+ENDIF
+
+// --- 3. INITIALISATION QUOTIDIENNE ---
+IF Date <> Date[1] THEN
+    TodayTrade = 0
+    DailyProfit = STRATEGYPROFIT
+    NiveauStop = 0
+    StaticTargetPrix = 0
+    PalierAtteint = 0
+    TrailDistance = 0
+ENDIF
+
+// --- 4. OPR (15h30) ---
+IF time = 153000 THEN
+    OPRHigh = High
+    OPRLow = Low
+ENDIF
+
+IF STRATEGYPROFIT <> DailyProfit OR ONMARKET THEN
+    TodayTrade = 1
+ENDIF
+
+// --- 5. CONDITIONS D'ENTRÉE ---
+IF TodayTrade = 0 AND time > 153000 AND time <= 173000 THEN
+
+    IF close > OPRHigh THEN
+        BUY PosSize CONTRACTS AT MARKET
+        NiveauStop = close - StopDyn
+        PalierAtteint = 0
+
+        // Seuils figés à l'entrée
+        StaticBETrigger = MonATR * CoeffBE
+        StaticLockTrigger = TargetDyn * CoeffLockActivation
+        StaticLockProfit = TargetDyn * Coeflockprofit
+        StaticTrailTrigger = TargetDyn * CoeffTrailActivation
+        TrailDistance = TargetDyn * CoeffTrailDist
+        StaticTargetPrix = close + TargetDyn
+
+    ELSIF close < OPRLow THEN
+        SELLSHORT PosSize CONTRACTS AT MARKET
+        NiveauStop = close + StopDyn
+        PalierAtteint = 0
+
+        // Seuils figés à l'entrée
+        StaticBETrigger = MonATR * CoeffBE
+        StaticLockTrigger = TargetDyn * CoeffLockActivation
+        StaticLockProfit = TargetDyn * Coeflockprofit
+        StaticTrailTrigger = TargetDyn * CoeffTrailActivation
+        TrailDistance = TargetDyn * CoeffTrailDist
+        StaticTargetPrix = close - TargetDyn
+
+    ENDIF
+ENDIF
+
+// --- 6. GESTION DES SORTIES — TRAILING PROGRESSIF ---
+IF ONMARKET THEN
+
+    // Target via SET TARGET (pas de conflit car pas de SET STOP)
+    SET TARGET pPROFIT TargetDyn
+
+    // === LONG ===
+    IF LONGONMARKET THEN
+        ProfitActuel = close - tradeprice
+
+        // PALIER 1 : Breakeven (profit > ATR × 1.2)
+        IF PalierAtteint < 1 AND ProfitActuel > StaticBETrigger THEN
+            NiveauStop = MAX(NiveauStop, tradeprice + 5)
+            PalierAtteint = 1
+        ENDIF
+
+        // PALIER 2 : Lock profit (profit > Target × 0.4)
+        IF PalierAtteint < 2 AND ProfitActuel > StaticLockTrigger THEN
+            NiveauStop = MAX(NiveauStop, tradeprice + StaticLockProfit)
+            PalierAtteint = 2
+        ENDIF
+
+        // PALIER 3 : Trailing continu (profit > Target × 0.6)
+        IF ProfitActuel > StaticTrailTrigger THEN
+            NouvStop = close - TrailDistance
+            NiveauStop = MAX(NiveauStop, NouvStop)
+            PalierAtteint = 3
+        ENDIF
+
+        // Appliquer le stop
+        SELL AT NiveauStop STOP
+    ENDIF
+
+    // === SHORT ===
+    IF SHORTONMARKET THEN
+        ProfitActuel = tradeprice - close
+
+        // PALIER 1 : Breakeven
+        IF PalierAtteint < 1 AND ProfitActuel > StaticBETrigger THEN
+            NouvStop = tradeprice - 5
+            IF NiveauStop = 0 THEN
+                NiveauStop = NouvStop
+            ELSE
+                NiveauStop = MIN(NiveauStop, NouvStop)
+            ENDIF
+            PalierAtteint = 1
+        ENDIF
+
+        // PALIER 2 : Lock profit
+        IF PalierAtteint < 2 AND ProfitActuel > StaticLockTrigger THEN
+            NouvStop = tradeprice - StaticLockProfit
+            IF NiveauStop = 0 THEN
+                NiveauStop = NouvStop
+            ELSE
+                NiveauStop = MIN(NiveauStop, NouvStop)
+            ENDIF
+            PalierAtteint = 2
+        ENDIF
+
+        // PALIER 3 : Trailing continu
+        IF ProfitActuel > StaticTrailTrigger THEN
+            NouvStop = close + TrailDistance
+            NiveauStop = MIN(NiveauStop, NouvStop)
+            PalierAtteint = 3
+        ENDIF
+
+        // Appliquer le stop
+        EXITSHORT AT NiveauStop STOP
+    ENDIF
+
+ENDIF
+
+// --- 7. CLÔTURE FIN DE JOURNÉE ---
+IF time >= 215500 THEN
+    SELL AT MARKET
+    EXITSHORT AT MARKET
+ENDIF
+
+// --- 8. VISUALISATION ---
+//IF ONMARKET THEN
+//    GRAPH NiveauStop AS "Stop Actuel"
+//    GRAPH StaticTargetPrix AS "Target Finale"
+//    IF LONGONMARKET THEN
+//        GRAPH (tradeprice + StaticBETrigger) AS "Seuil BE"
+//        GRAPH (tradeprice + StaticLockTrigger) AS "Seuil Lock"
+//        GRAPH (tradeprice + StaticTrailTrigger) AS "Seuil Trail"
+//    ELSE
+//        GRAPH (tradeprice - StaticBETrigger) AS "Seuil BE"
+//        GRAPH (tradeprice - StaticLockTrigger) AS "Seuil Lock"
+//        GRAPH (tradeprice - StaticTrailTrigger) AS "Seuil Trail"
+//    ENDIF
+//ENDIF

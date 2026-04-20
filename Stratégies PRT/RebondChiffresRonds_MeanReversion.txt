@@ -1,0 +1,173 @@
+// ============================================================
+// STRATEGIE: Rebond sur Chiffres Ronds - Dow Jones (US30)
+// Mean Reversion sur niveaux 1000 pts
+// ============================================================
+// Timeframe: 1 minute OBLIGATOIRE
+// Instrument: Wall Street / US30 / Dow Jones
+// ============================================================
+// PARAMETRAGE PROBACKTEST:
+//   - Capital initial: 10 000 EUR (ou dans CapitalInit)
+//   - Courtage: adapter selon votre courtier
+//   - Appliquer sur: 1 minute
+// ============================================================
+
+DEFPARAM CumulateOrders = False
+DEFPARAM PreLoadBars = 1500
+DEFPARAM FlatAfter = 220000 // Cloture forcee a 22h00
+
+// ============================================================
+// PARAMETRES MODIFIABLES (optimisables dans ProBacktest)
+// ============================================================
+
+// --- TP / SL en pourcentage du prix ---
+ONCE TPpct = 0.3         // Take Profit (%)  [optimiser: 0.05 a 0.5, pas 0.05]
+ONCE SLpct = 0.5         // Stop Loss (%)    [optimiser: 0.05 a 0.5, pas 0.05]
+
+// --- Filtre lookback (en barres = minutes sur TF 1min) ---
+ONCE LookbackBars = 120  // 120 = 2h  [optimiser: 120, 240, 480]
+
+// --- Filtre distance au chiffre rond (% du prix) ---
+// Backtest Python: 0.03% = seuil optimal (PF 1.23, +5122 pts vs 1.12 sans filtre)
+// Equivalences: a 40000 pts = 12 pts max, a 50000 pts = 15 pts max
+ONCE MaxDistPct = 0.03   // Distance max en % du prix [optimiser: 0.01 a 0.10, pas 0.01]
+ONCE UseDistFilter = 1   // 1 = activer le filtre distance, 0 = desactiver
+
+// --- Money Management ---
+ONCE Reinvestir = 1      // 1 = reinvestir les gains, 0 = capital fixe
+ONCE CapitalInit = 10000 // Capital initial (EUR)
+ONCE RisquePct = 2       // Risque par trade (% du capital)
+
+// --- Parametres instrument ---
+ONCE PasRond = 1000      // Pas des chiffres ronds (1000 pts)
+ONCE ValeurPt = 1        // Valeur de 1 point par contrat en EUR
+                         // IG Wall Street mini = 1 EUR/pt
+                         // IG Wall Street standard = adapter
+
+// ============================================================
+// FILTRE HORAIRE : 15h30 - 22h00 heure de Paris
+// ============================================================
+
+HeuresOK = (time >= 153000 AND time < 220000)
+
+// ============================================================
+// DETECTION DU FRANCHISSEMENT DE CHIFFRE ROND
+// ============================================================
+
+IF HeuresOK AND NOT OnMarket THEN
+
+    // Chiffres ronds encadrant le prix PRECEDENT (close[1])
+    // IMPORTANT: on se base sur close[1] car si on utilise close actuel,
+    // le FLOOR decale les niveaux apres le franchissement et le signal
+    // n'est jamais detecte (ex: 49990->50010, FLOOR(50010/1000)=50, NiveauHaut=51000)
+    NiveauBas = FLOOR(close[1] / PasRond) * PasRond
+    NiveauHaut = NiveauBas + PasRond
+
+    SignalDir = 0
+    NiveauFranchi = 0
+
+    // Franchissement HAUSSIER: le prix passe au-dessus d'un chiffre rond
+    // -> SELL (mean reversion: on anticipe le retour en dessous)
+    IF close[1] < NiveauHaut AND close >= NiveauHaut THEN
+        NiveauFranchi = NiveauHaut
+        SignalDir = -1
+    ENDIF
+
+    // Franchissement BAISSIER: le prix passe en dessous d'un chiffre rond
+    // -> BUY (mean reversion: on anticipe le rebond)
+    IF close[1] > NiveauBas AND close <= NiveauBas THEN
+        NiveauFranchi = NiveauBas
+        SignalDir = 1
+    ENDIF
+
+    // ============================================================
+    // FILTRE LOOKBACK: verifier que ce niveau n'a pas ete franchi
+    // dans les N dernieres barres
+    // ============================================================
+
+    IF NiveauFranchi > 0 THEN
+
+        DejaFranchi = 0
+
+        FOR j = 1 TO LookbackBars
+            IF DejaFranchi = 0 AND (j + 1) <= BarIndex THEN
+                c0 = close[j]
+                c1 = close[j + 1]
+                // Un franchissement a eu lieu si close a change de cote par rapport au niveau
+                IF (c1 < NiveauFranchi AND c0 >= NiveauFranchi) OR (c1 > NiveauFranchi AND c0 <= NiveauFranchi) THEN
+                    DejaFranchi = 1
+                ENDIF
+            ENDIF
+        NEXT
+
+        // ============================================================
+        // FILTRE DISTANCE: le prix d'entree doit etre proche
+        // du chiffre rond franchi (filtre les entrees trop loin)
+        // ============================================================
+
+        // Distance en points entre le prix actuel et le chiffre rond
+        DistActuelle = ABS(close - NiveauFranchi)
+        // Seuil max en points (calcule dynamiquement en % du prix)
+        MaxDistPoints = close * MaxDistPct / 100
+
+        // Condition distance: on passe si filtre desactive ou distance OK
+        IF UseDistFilter = 0 THEN
+            DistOK = 1
+        ELSE
+            IF DistActuelle <= MaxDistPoints THEN
+                DistOK = 1
+            ELSE
+                DistOK = 0
+            ENDIF
+        ENDIF
+
+        // ============================================================
+        // CALCUL TAILLE DE POSITION (Money Management)
+        // ============================================================
+
+        IF DejaFranchi = 0 AND DistOK = 1 THEN
+
+            // Capital disponible
+            IF Reinvestir = 1 THEN
+                CapDispo = CapitalInit + StrategyProfit
+            ELSE
+                CapDispo = CapitalInit
+            ENDIF
+
+            // Protection: ne pas trader si capital epuise
+            IF CapDispo > 0 THEN
+
+                // Montant a risquer sur ce trade
+                MontantRisque = CapDispo * RisquePct / 100
+
+                // TP et SL en points (adaptes a la valeur de l'indice)
+                SLpoints = close * SLpct / 100
+                TPpoints = close * TPpct / 100
+
+                // Nombre de contrats = risque / (SL en pts * valeur du point)
+                NbContrats = ROUND(MontantRisque / (SLpoints * ValeurPt))
+                IF NbContrats < 1 THEN
+                    NbContrats = 1
+                ENDIF
+
+                // ============================================================
+                // ENTREE EN POSITION
+                // ============================================================
+
+                IF SignalDir = 1 THEN
+                    // Franchissement baissier -> BUY
+                    BUY NbContrats CONTRACT AT MARKET
+                    SET STOP pLOSS SLpoints
+                    SET TARGET pPROFIT TPpoints
+                ENDIF
+
+                IF SignalDir = -1 THEN
+                    // Franchissement haussier -> SELL
+                    SELLSHORT NbContrats CONTRACT AT MARKET
+                    SET STOP pLOSS SLpoints
+                    SET TARGET pPROFIT TPpoints
+                ENDIF
+
+            ENDIF
+        ENDIF
+    ENDIF
+ENDIF

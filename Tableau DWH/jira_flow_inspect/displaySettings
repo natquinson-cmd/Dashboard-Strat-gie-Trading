@@ -1,0 +1,101 @@
+{
+  "majorVersion" : 1,
+  "minorVersion" : 0,
+  "fieldOrder" : {
+    "fieldOrdinals" : {
+      "8fa7f92d-2802-4104-9a04-f819d02796da-Type de ticket" : 100,
+      "8fa7f92d-2802-4104-9a04-f819d02796da-Clé de ticket" : 200,
+      "8fa7f92d-2802-4104-9a04-f819d02796da-ID de ticket" : 300,
+      "8fa7f92d-2802-4104-9a04-f819d02796da-Résumé" : 400,
+      "8fa7f92d-2802-4104-9a04-f819d02796da-Parent" : 500,
+      "8fa7f92d-2802-4104-9a04-f819d02796da-Clé parent" : 600,
+      "8fa7f92d-2802-4104-9a04-f819d02796da-Parent summary" : 700,
+      "8fa7f92d-2802-4104-9a04-f819d02796da-État" : 800,
+      "8fa7f92d-2802-4104-9a04-f819d02796da-Sprint" : 900,
+      "8fa7f92d-2802-4104-9a04-f819d02796da-Sprint 1" : 1000,
+      "8fa7f92d-2802-4104-9a04-f819d02796da-Sprint 2" : 1100,
+      "8fa7f92d-2802-4104-9a04-f819d02796da-Sprint 3" : 1200,
+      "8fa7f92d-2802-4104-9a04-f819d02796da-Étiquettes" : 1300,
+      "8fa7f92d-2802-4104-9a04-f819d02796da-Étiquettes 1" : 1400,
+      "8fa7f92d-2802-4104-9a04-f819d02796da-Étiquettes 2" : 1500,
+      "8fa7f92d-2802-4104-9a04-f819d02796da-Étiquettes 3" : 1600,
+      "8fa7f92d-2802-4104-9a04-f819d02796da-Étiquettes 4" : 1700,
+      "8fa7f92d-2802-4104-9a04-f819d02796da-Étiquettes 5" : 1800,
+      "8fa7f92d-2802-4104-9a04-f819d02796da-Étiquettes 6" : 1900,
+      "8fa7f92d-2802-4104-9a04-f819d02796da-Clé de projet" : 2000,
+      "8fa7f92d-2802-4104-9a04-f819d02796da-Nom du projet" : 2100,
+      "8fa7f92d-2802-4104-9a04-f819d02796da-Type de projet" : 2200,
+      "8fa7f92d-2802-4104-9a04-f819d02796da-Chef de projet" : 2300,
+      "8fa7f92d-2802-4104-9a04-f819d02796da-ID de responsable de projet" : 2400,
+      "8fa7f92d-2802-4104-9a04-f819d02796da-Description du projet" : 2500,
+      "8fa7f92d-2802-4104-9a04-f819d02796da-Personne assignée" : 2600,
+      "8fa7f92d-2802-4104-9a04-f819d02796da-ID de la personne assignée" : 2700,
+      "8fa7f92d-2802-4104-9a04-f819d02796da-Rapporteur" : 2800,
+      "8fa7f92d-2802-4104-9a04-f819d02796da-ID de rapporteur" : 2900,
+      "8fa7f92d-2802-4104-9a04-f819d02796da-Priorité" : 3000,
+      "8fa7f92d-2802-4104-9a04-f819d02796da-Résolution" : 3100,
+      "8fa7f92d-2802-4104-9a04-f819d02796da-Création" : 3200,
+      "8fa7f92d-2802-4104-9a04-f819d02796da-Champs personnalisés (Start date)" : 3300,
+      "8fa7f92d-2802-4104-9a04-f819d02796da-Résolu" : 3400,
+      "8fa7f92d-2802-4104-9a04-f819d02796da-Champs personnalisés (Story point estimate)" : 3500,
+      "8fa7f92d-2802-4104-9a04-f819d02796da-Mise à jour" : 3600,
+      "8fa7f92d-2802-4104-9a04-f819d02796da-Date d'échéance" : 3700,
+      "8fa7f92d-2802-4104-9a04-f819d02796da-Source Row Number" : 0
+    },
+    "minOrdinal" : 0,
+    "maxOrdinal" : 3700
+  },
+  "flowDisplaySettings" : {
+    "flowGroupNodeDisplay" : { },
+    "flowSelection" : {
+      "type" : "nothing",
+      "selectedNodePath" : null,
+      "selectedType" : null
+    },
+    "flowNodeDisplaySettings" : {
+      "8fa7f92d-2802-4104-9a04-f819d02796da" : {
+        "color" : {
+          "hexCss" : "#3D7FA6",
+          "rgba" : [ "61", "127", "166", "1" ]
+        },
+        "position" : {
+          "x" : 0,
+          "y" : 0
+        },
+        "size" : {
+          "width" : 1,
+          "height" : 1
+        }
+      },
+      "2ad27818-392c-4a8c-8720-d538a3eac588" : {
+        "color" : {
+          "hexCss" : "#3D7FA6",
+          "rgba" : [ "61", "127", "166", "1" ]
+        },
+        "position" : {
+          "x" : 2,
+          "y" : 0
+        },
+        "size" : {
+          "width" : 1,
+          "height" : 1
+        }
+      },
+      "d4702b31-3029-4d7f-82fd-850b57a035cd" : {
+        "color" : {
+          "hexCss" : "#3D7FA6",
+          "rgba" : [ "61", "127", "166", "1" ]
+        },
+        "position" : {
+          "x" : 1,
+          "y" : 0
+        },
+        "size" : {
+          "width" : 1,
+          "height" : 1
+        }
+      }
+    }
+  },
+  "hiddenColumns" : [ ]
+}

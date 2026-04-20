@@ -1,0 +1,70 @@
+// ============================================================
+// STRATÉGIE : Bollinger Mean Reversion — EUR/USD 4H (v8)
+// ============================================================
+// SHORT ONLY + Filtre Volatilité + Stop serré + Timeout
+//
+// Constat v6 : WR 81% quand amplitude ≤ 100 pips, 20% au-delà
+// Améliorations :
+//   1) Filtre vol : pas d'entrée si ATR > seuil (vol trop haute)
+//   2) Stop à 50 pips (≈100$ par contrat) au lieu de 100 pips
+//   3) Timeout à 20 barres
+// ============================================================
+
+DEFPARAM CumulateOrders = false
+
+// --- PARAMÈTRES STRATÉGIE ---
+ONCE BollPeriod = 25
+ONCE BollSD = 3.0
+ONCE MinHoldBars = 5
+
+// --- FILTRE VOLATILITÉ ---
+ONCE ATRPeriod = 14
+ONCE ATRMaxSeuil = 0.0060   // Ne pas entrer si ATR > 60 pips
+
+// --- STOP-LOSS ---
+// 50 pips = 0.0050 en prix = ~100$ par contrat EUR-USD Mini
+ONCE StopDistance = 0.0050
+
+// --- TIMEOUT ---
+ONCE MaxBars = 20           // Sortie forcée après 20 barres
+
+// --- INDICATEURS ---
+BollMid = Average[BollPeriod](Close)
+BollStd = STD[BollPeriod](Close)
+BollUp = BollMid + BollSD * BollStd
+MyATR = AverageTrueRange[ATRPeriod](Close)
+
+// --- FILTRE : vol basse = mean reversion OK ---
+VolOK = MyATR <= ATRMaxSeuil
+
+// --- COMPTEUR ---
+IF OnMarket THEN
+    BarsInTrade = BarsInTrade + 1
+ELSE
+    BarsInTrade = 0
+ENDIF
+
+// --- ENTRÉE SHORT (si vol OK) ---
+IF NOT OnMarket AND Close > BollUp AND VolOK THEN
+    SELLSHORT 1 CONTRACTS AT MARKET
+    BarsInTrade = 0
+ENDIF
+
+// --- STOP-LOSS (après la barre d'entrée) ---
+IF ShortOnMarket AND BarsInTrade > 0 THEN
+    IF Close >= TRADEPRICE + StopDistance THEN
+        EXITSHORT AT MARKET
+    ENDIF
+ENDIF
+
+// --- TIMEOUT ---
+IF ShortOnMarket AND BarsInTrade >= MaxBars THEN
+    EXITSHORT AT MARKET
+ENDIF
+
+// --- SORTIE : retour à la moyenne ---
+IF ShortOnMarket AND BarsInTrade >= MinHoldBars THEN
+    IF Close <= BollMid THEN
+        EXITSHORT AT MARKET
+    ENDIF
+ENDIF
