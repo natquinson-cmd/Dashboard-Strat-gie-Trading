@@ -5,5 +5,10 @@ node_modules/
 Historique données bourse/
 Videos Emilie/*.mp4
 
+# Secrets — ne JAMAIS committer
+secrets/
+MAJ Dashboard DWH/credentials.json
+MAJ Dashboard DWH/credentials.template.json
+
 # Scripts temporaires Claude
 __cleanup_index.sh
