@@ -1,2 +1,9 @@
 .env
 node_modules/
+
+# Fichiers volumineux — ne pas tracker dans git
+Historique données bourse/
+Videos Emilie/*.mp4
+
+# Scripts temporaires Claude
+__cleanup_index.sh

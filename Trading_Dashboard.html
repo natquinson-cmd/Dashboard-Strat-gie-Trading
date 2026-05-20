@@ -1440,6 +1440,8 @@ ALL_MONTHS.push({ y: 2026, m: 1 });
 function mLabel(ym) { return monthNames[ym.m] + ' ' + ym.y; }
 function mLabelFull(ym) { return monthNamesFull[ym.m] + ' ' + ym.y; }
 
+const BACKTEST_DATA_VERSION = '20260520'; // à bumper à chaque mise à jour des données en dur
+
 // ── FIXED (sans réinv) ──
 let fDax = {
   2017:[0,0,0,0,0,0,0,0,0,0,0,6.31],
@@ -3297,6 +3299,7 @@ function saveBacktestToFirebase(tabName) {
   const prefix = 'backtest/' + tabName;
   db.ref(prefix + '/dax').set(daxD);
   db.ref(prefix + '/nas').set(nasD);
+  db.ref('backtest/version').set(BACKTEST_DATA_VERSION);
 }
 
 function loadBacktestFromFirebase() {
@@ -3304,8 +3307,17 @@ function loadBacktestFromFirebase() {
     db.ref('backtest/fixed/dax').once('value'),
     db.ref('backtest/fixed/nas').once('value'),
     db.ref('backtest/reinvest/dax').once('value'),
-    db.ref('backtest/reinvest/nas').once('value')
-  ]).then(([fdSnap, fnSnap, rdSnap, rnSnap]) => {
+    db.ref('backtest/reinvest/nas').once('value'),
+    db.ref('backtest/version').once('value')
+  ]).then(([fdSnap, fnSnap, rdSnap, rnSnap, verSnap]) => {
+    const storedVersion = verSnap.val() || '0';
+    if (storedVersion < BACKTEST_DATA_VERSION) {
+      // Données en dur plus récentes → écraser Firebase et utiliser les valeurs codées
+      saveBacktestToFirebase('fixed');
+      saveBacktestToFirebase('reinvest');
+      rebuildAllMonths();
+      return;
+    }
     const fd = fdSnap.val();
     const fn = fnSnap.val();
     const rd = rdSnap.val();
