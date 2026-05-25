@@ -4855,7 +4855,10 @@ function invRenderOverview(t, labels, li) {
     if (v > 0) {
       h += `<div><div class="inv-flex inv-jcsb" style="font-size:12px;margin-bottom:4px"><span class="inv-flex inv-aic inv-gap2"><span class="inv-dot" style="background:${invColor(p,i)};box-shadow:0 0 6px ${invColor(p,i)}"></span><span style="color:var(--text-secondary)">${p}${invIsUsd(p) ? ' <span style="font-size:0.6rem">🇺🇸</span>' : ''}</span></span><span style="font-weight:500">${invFmt(Math.round(v))}</span></div>`;
       h += `<div class="inv-neon-bar"><div class="inv-neon-fill" style="width:${pc}%;background:${invColor(p,i)}"></div></div>`;
-      h += `<div class="inv-flex inv-jcsb" style="font-size:12px;color:var(--text-secondary);margin-top:2px"><span>${pc}%</span><span>+${invFmt(Math.round(iv))} ce mois</span></div></div>`;
+      const ivR = Math.round(iv);
+      const ivColor = ivR > 0 ? 'var(--positive)' : (ivR < 0 ? 'var(--negative)' : 'var(--text-secondary)');
+      const ivSign = ivR > 0 ? '+' : '';
+      h += `<div class="inv-flex inv-jcsb" style="font-size:12px;color:var(--text-secondary);margin-top:2px"><span>${pc}%</span><span style="color:${ivColor};font-weight:500">${ivSign}${invFmt(ivR)} ce mois</span></div></div>`;
     }
   });
   h += '</div></div></div></div>';
