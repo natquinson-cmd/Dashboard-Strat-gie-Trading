@@ -10,5 +10,8 @@ secrets/
 MAJ Dashboard DWH/credentials.json
 MAJ Dashboard DWH/credentials.template.json
 
+# Sessions Claude (dossiers de travail, ne doivent pas être trackés)
+Claude/
+
 # Scripts temporaires Claude
 __cleanup_index.sh
