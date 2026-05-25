@@ -13,5 +13,10 @@ MAJ Dashboard DWH/credentials.template.json
 # Sessions Claude (dossiers de travail, ne doivent pas être trackés)
 Claude/
 
+# Autres projets dans le même répertoire de travail (repos séparés)
+kairos-insider/
+site-choisislavie/
+site-static/
+
 # Scripts temporaires Claude
 __cleanup_index.sh
