@@ -1440,6 +1440,8 @@ ALL_MONTHS.push({ y: 2026, m: 1 });
 function mLabel(ym) { return monthNames[ym.m] + ' ' + ym.y; }
 function mLabelFull(ym) { return monthNamesFull[ym.m] + ' ' + ym.y; }
 
+const BACKTEST_DATA_VERSION = '20260520'; // à bumper à chaque mise à jour des données en dur
+
 // ── FIXED (sans réinv) ──
 let fDax = {
   2017:[0,0,0,0,0,0,0,0,0,0,0,6.31],
@@ -1451,7 +1453,7 @@ let fDax = {
   2023:[1.33,-1.58,1.01,0.85,7.32,1.59,0.03,0.70,0.50,-1.65,0.67,0.02],
   2024:[1.04,2.90,1.12,1.24,2.23,1.63,4.67,3.74,0.89,1.58,1.15,0.40],
   2025:[-0.00,1.08,1.32,-1.57,-0.34,0.79,-0.27,-2.00,-0.04,1.63,0.77,-0.01],
-  2026:[-1.32,0.60,0,0,0,0,0,0,0,0,0,0]
+  2026:[-1.41,0.79,0.31,-0.09,0.93,0,0,0,0,0,0,0]
 };
 let fNas = {
   2017:[0,0,0,0,0,0,0,0,0,0,0,1.08],
@@ -1463,7 +1465,7 @@ let fNas = {
   2023:[8.48,2.31,-0.28,-3.48,1.02,2.34,-2.70,7.68,-2.75,5.48,1.77,-1.44],
   2024:[1.17,-0.84,-0.19,3.09,2.95,-1.42,7.23,1.89,4.17,5.06,3.31,5.55],
   2025:[-0.18,5.09,-1.30,0.82,0.31,-3.82,0.26,2.71,1.88,2.42,-0.33,3.82],
-  2026:[1.90,4.73,0,0,0,0,0,0,0,0,0,0]
+  2026:[1.91,6.76,1.65,0.91,-0.51,0,0,0,0,0,0,0]
 };
 
 // ── REINVEST ──
@@ -1477,7 +1479,7 @@ let rDax = {
   2023:[6.82,-8.08,4.70,4.17,43.66,8.75,-0.43,3.25,2.58,-10.34,3.53,-0.06],
   2024:[5.84,17.39,6.74,7.36,14.14,10.29,33.22,27.02,6.24,11.42,7.06,2.29],
   2025:[-0.13,7.78,9.82,-11.86,-2.49,5.25,-1.96,-13.77,-0.43,12.02,5.11,-0.00],
-  2026:[-9.74,3.89,0,0,0,0,0,0,0,0,0,0]
+  2026:[-9.74,5.11,1.99,-0.65,6.26,0,0,0,0,0,0,0]
 };
 let rNas = {
   2017:[0,0,0,0,0,0,0,0,0,0,0,1.08],
@@ -1489,7 +1491,7 @@ let rNas = {
   2023:[24.41,6.52,-1.19,-10.00,2.34,6.27,-7.83,23.51,-8.51,17.07,5.35,-4.61],
   2024:[3.20,-2.85,-1.01,9.02,9.66,-4.86,25.63,5.82,15.66,20.20,13.31,24.45],
   2025:[-1.33,23.34,-5.95,2.82,1.01,-16.11,0.92,11.72,7.98,10.60,-1.71,18.28],
-  2026:[9.02,24.78,0,0,0,0,0,0,0,0,0,0]
+  2026:[9.02,37.34,8.49,4.34,-3.02,0,0,0,0,0,0,0]
 };
 
 // ══════════════════════════════════════════════════════════════
@@ -3297,6 +3299,7 @@ function saveBacktestToFirebase(tabName) {
   const prefix = 'backtest/' + tabName;
   db.ref(prefix + '/dax').set(daxD);
   db.ref(prefix + '/nas').set(nasD);
+  db.ref('backtest/version').set(BACKTEST_DATA_VERSION);
 }
 
 function loadBacktestFromFirebase() {
@@ -3304,8 +3307,17 @@ function loadBacktestFromFirebase() {
     db.ref('backtest/fixed/dax').once('value'),
     db.ref('backtest/fixed/nas').once('value'),
     db.ref('backtest/reinvest/dax').once('value'),
-    db.ref('backtest/reinvest/nas').once('value')
-  ]).then(([fdSnap, fnSnap, rdSnap, rnSnap]) => {
+    db.ref('backtest/reinvest/nas').once('value'),
+    db.ref('backtest/version').once('value')
+  ]).then(([fdSnap, fnSnap, rdSnap, rnSnap, verSnap]) => {
+    const storedVersion = verSnap.val() || '0';
+    if (storedVersion < BACKTEST_DATA_VERSION) {
+      // Données en dur plus récentes → écraser Firebase et utiliser les valeurs codées
+      saveBacktestToFirebase('fixed');
+      saveBacktestToFirebase('reinvest');
+      rebuildAllMonths();
+      return;
+    }
     const fd = fdSnap.val();
     const fn = fnSnap.val();
     const rd = rdSnap.val();
@@ -4843,7 +4855,10 @@ function invRenderOverview(t, labels, li) {
     if (v > 0) {
       h += `<div><div class="inv-flex inv-jcsb" style="font-size:12px;margin-bottom:4px"><span class="inv-flex inv-aic inv-gap2"><span class="inv-dot" style="background:${invColor(p,i)};box-shadow:0 0 6px ${invColor(p,i)}"></span><span style="color:var(--text-secondary)">${p}${invIsUsd(p) ? ' <span style="font-size:0.6rem">🇺🇸</span>' : ''}</span></span><span style="font-weight:500">${invFmt(Math.round(v))}</span></div>`;
       h += `<div class="inv-neon-bar"><div class="inv-neon-fill" style="width:${pc}%;background:${invColor(p,i)}"></div></div>`;
-      h += `<div class="inv-flex inv-jcsb" style="font-size:12px;color:var(--text-secondary);margin-top:2px"><span>${pc}%</span><span>+${invFmt(Math.round(iv))} ce mois</span></div></div>`;
+      const ivR = Math.round(iv);
+      const ivColor = ivR > 0 ? 'var(--positive)' : (ivR < 0 ? 'var(--negative)' : 'var(--text-secondary)');
+      const ivSign = ivR > 0 ? '+' : '';
+      h += `<div class="inv-flex inv-jcsb" style="font-size:12px;color:var(--text-secondary);margin-top:2px"><span>${pc}%</span><span style="color:${ivColor};font-weight:500">${ivSign}${invFmt(ivR)} ce mois</span></div></div>`;
     }
   });
   h += '</div></div></div></div>';
