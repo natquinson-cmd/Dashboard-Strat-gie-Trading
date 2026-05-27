@@ -2444,7 +2444,11 @@ function rebuildPnLCumOnly() {
     realChartInstances['pnlCumReal'].destroy();
     delete realChartInstances['pnlCumReal'];
   }
-  realChartInstances['pnlCumReal'] = buildCumulativePnL();
+  // Attendre le reflow CSS (le slider Projection change la largeur du canvas)
+  // sinon Chart.js mémorise l'ancienne largeur → décalage souris/tooltip
+  requestAnimationFrame(() => {
+    realChartInstances['pnlCumReal'] = buildCumulativePnL();
+  });
 }
 
 function setProjMode(mode) {
