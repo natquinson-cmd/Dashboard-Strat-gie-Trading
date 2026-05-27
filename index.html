@@ -799,7 +799,8 @@
 
   /* ═══════════ Projection Slider ═══════════ */
   .proj-container { display:flex; align-items:stretch; gap:0; position:relative; }
-  .proj-container canvas { flex:1; min-width:0; }
+  .proj-canvas-wrap { flex:1; min-width:0; position:relative; }
+  .proj-canvas-wrap canvas { width:100% !important; height:100% !important; }
   .proj-slider-wrap {
     display:none; flex-direction:column; align-items:center; justify-content:center;
     padding:8px 6px 8px 10px; gap:6px; min-width:62px;
@@ -1097,7 +1098,7 @@
         </label>
       </h3>
       <div class="proj-container">
-        <canvas id="pnlCumReal"></canvas>
+        <div class="proj-canvas-wrap"><canvas id="pnlCumReal"></canvas></div>
         <div class="proj-slider-wrap" id="projSliderWrap">
           <div class="proj-slider-title">Horizon</div>
           <input type="range" id="projSlider" class="proj-slider" min="0" max="4" value="0" orient="vertical" oninput="onProjectionChange()">
@@ -2372,6 +2373,7 @@ function buildCumulativePnL() {
     data: { labels: allLabels, datasets },
     options: {
       responsive:true,
+      maintainAspectRatio:false,
       interaction:{ mode:'nearest', axis:'x', intersect:false },
       hover:{ mode:'nearest', axis:'x', intersect:false },
       plugins:{
