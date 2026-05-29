@@ -4955,10 +4955,43 @@ function invBuildEvolutionCharts(t, labels, li) {
   invCharts.varChart = new Chart(document.getElementById('inv-ch-var'), { type: 'bar', data: { labels: labels.slice(1), datasets: [{ label: 'Variation', data: variations, backgroundColor: variations.map(v => v >= 0 ? invHexToRgba('#10b981', 0.7) : invHexToRgba('#ef4444', 0.7)), borderRadius: 3 }] }, options: { responsive: true, maintainAspectRatio: false, scales: { x: { ticks: { maxTicksLimit: 8 } }, y: { ticks: { callback: invFmtK } } }, plugins: { legend: { display: false } } } });
 
   const compData = d.platforms.filter(p => invToEur(p, (d.principal[p] || [])[li] || 0) > 0 || invToEur(p, (d.principal[p] || [])[Math.max(0, li-1)] || 0) > 0);
+  const comparePrev = compData.map(p => invToEur(p, (d.principal[p] || [])[Math.max(0, li-1)] || 0));
+  const compareCurr = compData.map(p => invToEur(p, (d.principal[p] || [])[li] || 0));
+  // Plugin inline : affiche le % d'évolution (vert/rouge) au bout de chaque paire de barres
+  const evolutionLabelsPlugin = {
+    id: 'evolutionLabels',
+    afterDatasetsDraw(chart) {
+      const ctx = chart.ctx;
+      const prevMeta = chart.getDatasetMeta(0);
+      const currMeta = chart.getDatasetMeta(1);
+      ctx.save();
+      ctx.font = "600 11px -apple-system, system-ui, 'Segoe UI', sans-serif";
+      ctx.textBaseline = 'middle';
+      ctx.textAlign = 'left';
+      for (let i = 0; i < compareCurr.length; i++) {
+        const prev = comparePrev[i], curr = compareCurr[i];
+        if (prev === 0 && curr === 0) continue;
+        let txt, color;
+        if (prev === 0) { txt = 'nouveau'; color = '#10b981'; }
+        else {
+          const pct = (curr - prev) / prev * 100;
+          txt = (pct >= 0 ? '+' : '') + pct.toFixed(1) + '%';
+          color = pct > 0.05 ? '#10b981' : (pct < -0.05 ? '#ef4444' : '#8892a4');
+        }
+        const cb = currMeta.data[i], pb = prevMeta.data[i];
+        if (!cb || !pb) continue;
+        const x = Math.max(cb.x, pb.x) + 6;
+        const y = (cb.y + pb.y) / 2;
+        ctx.fillStyle = color;
+        ctx.fillText(txt, x, y);
+      }
+      ctx.restore();
+    }
+  };
   invCharts.compare = new Chart(document.getElementById('inv-ch-compare'), { type: 'bar', data: { labels: compData, datasets: [
-    { label: 'Précédent', data: compData.map(p => invToEur(p, (d.principal[p] || [])[Math.max(0, li-1)] || 0)), backgroundColor: invHexToRgba('#6366f1', 0.25), borderRadius: 3 },
-    { label: 'Actuel', data: compData.map(p => invToEur(p, (d.principal[p] || [])[li] || 0)), backgroundColor: invHexToRgba('#6366f1', 0.75), borderRadius: 3 }
-  ] }, options: { responsive: true, maintainAspectRatio: false, indexAxis: 'y', scales: { x: { ticks: { callback: invFmtK } } }, plugins: { tooltip: { callbacks: { label: ctx => ' ' + ctx.dataset.label + ': ' + invFmt(ctx.parsed.x) } } } } });
+    { label: 'Précédent', data: comparePrev, backgroundColor: invHexToRgba('#6366f1', 0.25), borderRadius: 3 },
+    { label: 'Actuel', data: compareCurr, backgroundColor: invHexToRgba('#6366f1', 0.75), borderRadius: 3 }
+  ] }, options: { responsive: true, maintainAspectRatio: false, indexAxis: 'y', layout: { padding: { right: 56 } }, scales: { x: { ticks: { callback: invFmtK } } }, plugins: { tooltip: { callbacks: { label: ctx => ' ' + ctx.dataset.label + ': ' + invFmt(ctx.parsed.x), afterLabel: ctx => { if (ctx.datasetIndex === 1 && comparePrev[ctx.dataIndex] > 0) { const pct = (compareCurr[ctx.dataIndex] - comparePrev[ctx.dataIndex]) / comparePrev[ctx.dataIndex] * 100; return 'Évolution : ' + (pct >= 0 ? '+' : '') + pct.toFixed(1) + '%'; } return ''; } } } } }, plugins: [evolutionLabelsPlugin] });
 }
 
 // ── Loans ──
