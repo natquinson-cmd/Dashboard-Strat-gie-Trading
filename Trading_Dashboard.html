@@ -5129,10 +5129,10 @@ const REALESTATE_CONFIG = {
   loanInterestRate: 0.0105, // 1.05% annuel
   suspensionStart: '2025-02',
   suspensionEnd: '2026-01', // 12 mois de suspension
-  extraAmortDate: '2025-12',
+  extraAmortDate: '2025-06', // retrait 2e pilier effectué en juin 2025
   extraAmortCHF: 71020.21, // retrait 2e pilier
   refDate: '2025-12',
-  refCapitalCHF: 499682.66,
+  refCapitalCHF: 499682.66, // relevé banque fin déc 2025 (ancre exacte)
   refFxRate: 0.9314,
   loanStartFxRate: 1.07494,
   monthlyPaymentCHF: 2900,
@@ -5224,21 +5224,23 @@ function reBuildSchedule() {
   while (idx < refIdx) {
     idx++;
     const interest = capital * monthlyRate;
-    let principal = 0, status = '_regular';
-    if (idx >= suspStartIdx && idx <= extraIdx - 1) {
-      capital += interest; principal = 0; status = 'suspended'; // intérêts capitalisés
-    } else if (idx === extraIdx) {
-      principal = Math.max(0, cfg.monthlyBeforeExtraCHF - interest) + cfg.extraAmortCHF;
-      capital -= principal;
-      capital = cfg.refCapitalCHF; // ancre exacte sur le relevé banque
-      status = '_regular';
-      data.push({ ym: reIdxYm(idx), capital, status, interest, principal, isExtra: true });
-      continue;
+    let principal = 0, status = '_regular', isExtra = false;
+    const inSuspension = idx >= suspStartIdx && idx <= suspEndIdx;
+    if (inSuspension) {
+      capital += interest; principal = 0; status = 'suspended'; // intérêts capitalisés, pas de paiement
     } else {
       principal = cfg.monthlyBeforeExtraCHF - interest;
       capital -= principal;
     }
-    data.push({ ym: reIdxYm(idx), capital, status, interest, principal });
+    // Amortissement extraordinaire 2e pilier (juin 2025, pendant la suspension)
+    if (idx === extraIdx) {
+      capital -= cfg.extraAmortCHF;
+      principal = cfg.extraAmortCHF; // affiché dans la colonne "Capital amorti"
+      isExtra = true;
+    }
+    // Ancre exacte sur le relevé banque à la date de référence (déc 2025)
+    if (idx === refIdx) capital = cfg.refCapitalCHF;
+    data.push({ ym: reIdxYm(idx), capital, status, interest, principal, isExtra });
   }
 
   // Phase 2 : de Jan 2026 à la fin (Jan 2026 encore suspendu, puis 2 900 CHF/mois)
