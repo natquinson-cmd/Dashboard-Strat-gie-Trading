@@ -1417,6 +1417,7 @@
   <div id="tab-interests" class="tab-content"></div>
   <div id="tab-evolution" class="tab-content"></div>
   <div id="tab-loans" class="tab-content"></div>
+  <div id="tab-realestate" class="tab-content"></div>
   <div id="tab-repartition" class="tab-content"></div>
   <div id="tab-update" class="tab-content"></div>
 
@@ -4357,12 +4358,13 @@ const GROUP_TABS = {
     { id: 'interests', label: 'Intérêts' },
     { id: 'evolution', label: 'Évolution' },
     { id: 'loans', label: 'Emprunts' },
+    { id: 'realestate', label: '🏠 Immobilier' },
     { id: 'repartition', label: 'Répartition' },
     { id: 'update', label: 'Mise à jour' }
   ]
 };
 
-const ALL_TAB_IDS = ['real', 'fixed', 'reinvest', 'overview', 'interests', 'evolution', 'loans', 'repartition', 'update'];
+const ALL_TAB_IDS = ['real', 'fixed', 'reinvest', 'overview', 'interests', 'evolution', 'loans', 'realestate', 'repartition', 'update'];
 
 function renderSubTabs() {
   const bar = document.getElementById('subTabBar');
@@ -4837,6 +4839,7 @@ function renderPortfolioTab(tab) {
   else if (tab === 'interests') h += invRenderInterests(t, labels);
   else if (tab === 'evolution') h += invRenderEvolution(t, labels, li);
   else if (tab === 'loans') h += invRenderLoans(t, labels, li);
+  else if (tab === 'realestate') h += invRenderRealEstate(t, labels, li);
   else if (tab === 'repartition') h += invRenderRepartition(t, li);
   else if (tab === 'update') h += invRenderUpdate(t, li);
 
@@ -4851,6 +4854,7 @@ function renderPortfolioTab(tab) {
     else if (tab === 'interests') invBuildInterestCharts(t, labels);
     else if (tab === 'evolution') invBuildEvolutionCharts(t, labels, li);
     else if (tab === 'loans') invBuildLoanCharts(t, labels, li);
+    else if (tab === 'realestate') invBuildRealEstateCharts();
     else if (tab === 'repartition') invBuildRepartitionCharts(t, labels, li);
     invUpdateSyncIndicator();
   });
@@ -5071,6 +5075,448 @@ function invBuildLoanCharts(t, labels, li) {
     { label: 'Emprunts', data: empD, borderColor: '#ef4444', borderDash: [5,5], backgroundColor: 'transparent', pointBackgroundColor: '#ef4444', pointRadius: 3, pointHoverRadius: 5, borderWidth: 1.5, tension: 0.3 },
     { label: 'Capital net', data: netD, borderColor: '#10b981', backgroundColor: invHexToRgba('#10b981', 0.06), pointBackgroundColor: '#10b981', pointRadius: 3, pointHoverRadius: 5, fill: true, borderWidth: 2, tension: 0.3 }
   ] }, options: { responsive: true, maintainAspectRatio: false, scales: { x: { ticks: { maxTicksLimit: 8 } }, y: { ticks: { callback: invFmtK } } }, plugins: { legend: invLineLegend() } } });
+}
+
+// ══════════════════════════════════════════════════════════════
+// 🏠 IMMOBILIER — Maison Annecy + Emprunt CHF
+// ══════════════════════════════════════════════════════════════
+const REALESTATE_CONFIG = {
+  propertyAddress: '458 route de Cuvat, 74370 Annecy',
+  propertySurfaceM2: 170,
+  propertyPurchaseDate: '2020-07',
+  propertyPurchasePriceEUR: 760000,
+  notaryFeesEUR: 42751,
+  agencyFeesEUR: 26000,
+  loanNumber: '00001876595',
+  loanStartDate: '2020-07',
+  loanEndDate: '2041-07',
+  loanInitialCapitalCHF: 723295.67,
+  loanInterestRate: 0.0105, // 1.05% annuel
+  suspensionStart: '2025-02',
+  suspensionEnd: '2026-01', // 12 mois de suspension
+  extraAmortDate: '2025-12',
+  extraAmortCHF: 71020.21, // retrait 2e pilier
+  refDate: '2025-12',
+  refCapitalCHF: 499682.66,
+  refFxRate: 0.9314,
+  loanStartFxRate: 1.07494,
+  monthlyPaymentCHF: 2900,
+  monthlyBeforeExtraCHF: 3340 // moyenne avant suspension
+};
+
+let realEstateData = {
+  currentValueEUR: 900000,
+  currentFxRate: 0.9314 // 1 EUR = X CHF
+};
+
+function reSaveToFirebase() {
+  if (typeof db !== 'undefined') db.ref('dashboard/realestate').set(realEstateData);
+}
+function reLoadFromFirebase() {
+  if (typeof db === 'undefined') return Promise.resolve();
+  return db.ref('dashboard/realestate').once('value').then(snap => {
+    const v = snap.val();
+    if (v && typeof v === 'object') Object.assign(realEstateData, v);
+  }).catch(() => {});
+}
+
+function reYmIdx(ym) { const [y,m] = ym.split('-').map(Number); return y*12 + (m-1); }
+function reIdxYm(idx) { const y = Math.floor(idx/12), m = (idx%12)+1; return `${y}-${String(m).padStart(2,'0')}`; }
+
+function reFxRateFor(ym) {
+  const cfg = REALESTATE_CONFIG;
+  const startIdx = reYmIdx(cfg.loanStartDate);
+  const refIdx = reYmIdx(cfg.refDate);
+  const tIdx = reYmIdx(ym);
+  if (tIdx <= startIdx) return cfg.loanStartFxRate;
+  if (tIdx >= refIdx) {
+    // après refDate : interpolation linéaire entre refFxRate et currentFxRate sur 24 mois max
+    const futureRefIdx = refIdx + 24;
+    if (tIdx >= futureRefIdx) return realEstateData.currentFxRate;
+    const ratio = (tIdx - refIdx) / 24;
+    return cfg.refFxRate + ratio * (realEstateData.currentFxRate - cfg.refFxRate);
+  }
+  const ratio = (tIdx - startIdx) / (refIdx - startIdx);
+  return cfg.loanStartFxRate + ratio * (cfg.refFxRate - cfg.loanStartFxRate);
+}
+
+// Build historical capital evolution (passé + suspension + amort)
+function reBuildHistoricalCapital() {
+  const cfg = REALESTATE_CONFIG;
+  const monthlyRate = cfg.loanInterestRate / 12;
+  const data = [];
+  let capital = cfg.loanInitialCapitalCHF;
+  let idx = reYmIdx(cfg.loanStartDate);
+  const suspIdx = reYmIdx(cfg.suspensionStart);
+  const extraIdx = reYmIdx(cfg.extraAmortDate);
+  const refIdx = reYmIdx(cfg.refDate);
+  data.push({ ym: reIdxYm(idx), capital, status: 'init', interest: 0, principal: 0 });
+  while (idx < refIdx) {
+    idx++;
+    const interest = capital * monthlyRate;
+    let principal = 0, status = 'paid';
+    if (idx >= suspIdx && idx <= extraIdx - 1) {
+      // suspension : intérêts capitalisés, pas d'amortissement
+      capital += interest; principal = 0; status = 'suspended';
+    } else if (idx === extraIdx) {
+      // mois de l'amortissement extraordinaire : paiement normal + retrait 2e pilier
+      principal = Math.max(0, cfg.monthlyBeforeExtraCHF - interest) + cfg.extraAmortCHF;
+      capital -= principal;
+      // On force la valeur ref (banque) à cette date
+      capital = cfg.refCapitalCHF;
+      status = 'extra';
+    } else {
+      principal = cfg.monthlyBeforeExtraCHF - interest;
+      capital -= principal;
+    }
+    data.push({ ym: reIdxYm(idx), capital, status, interest, principal });
+  }
+  return data;
+}
+
+// Build future schedule (à partir du refDate jusqu'à fin)
+function reBuildFutureCapital() {
+  const cfg = REALESTATE_CONFIG;
+  const monthlyRate = cfg.loanInterestRate / 12;
+  const data = [];
+  let capital = cfg.refCapitalCHF;
+  let idx = reYmIdx(cfg.refDate);
+  const endIdx = reYmIdx(cfg.loanEndDate);
+  // janv 2026 = encore suspension
+  idx++;
+  data.push({ ym: reIdxYm(idx), capital, status: 'suspended', interest: capital*monthlyRate, principal: 0 });
+  capital += capital * monthlyRate;
+  // Puis paiements à 2 900 CHF/mois
+  while (capital > 0.01 && idx < endIdx) {
+    idx++;
+    const interest = capital * monthlyRate;
+    let principal = cfg.monthlyPaymentCHF - interest;
+    if (principal > capital) principal = capital;
+    capital -= principal;
+    data.push({ ym: reIdxYm(idx), capital: Math.max(0, capital), status: 'future', interest, principal });
+  }
+  return data;
+}
+
+function reFmtCHF(v) { return Math.round(v).toLocaleString('fr-FR') + ' CHF'; }
+function reFmtEUR(v) { return Math.round(v).toLocaleString('fr-FR') + ' €'; }
+function reFmtPct(v) { return (v>=0?'+':'') + v.toFixed(2) + '%'; }
+
+function invRenderRealEstate(t, labels, li) {
+  const cfg = REALESTATE_CONFIG;
+  const histo = reBuildHistoricalCapital();
+  const future = reBuildFutureCapital();
+  const all = [...histo, ...future];
+
+  const currentCapCHF = cfg.refCapitalCHF;
+  const currentCapEUR = currentCapCHF / realEstateData.currentFxRate;
+  const propValue = realEstateData.currentValueEUR;
+  const netEquityEUR = propValue - currentCapEUR;
+
+  // KPIs
+  const totalAmortized = cfg.loanInitialCapitalCHF - currentCapCHF;
+  const amortPct = (totalAmortized / cfg.loanInitialCapitalCHF) * 100;
+  const startIdx = reYmIdx(cfg.loanStartDate);
+  const refIdx = reYmIdx(cfg.refDate);
+  const endIdx = reYmIdx(cfg.loanEndDate);
+  const monthsElapsed = refIdx - startIdx;
+  const monthsRemaining = endIdx - refIdx;
+
+  // Perte de change cumulée :
+  // Capital remboursé en CHF, valorisé au cours actuel - même montant au cours initial
+  const totalAmortEURatCurrent = totalAmortized / realEstateData.currentFxRate;
+  const totalAmortEURatStart = totalAmortized / cfg.loanStartFxRate;
+  const fxLossEUR = totalAmortEURatCurrent - totalAmortEURatStart;
+
+  // Scénario "vente aujourd'hui"
+  const saleEUR = propValue;
+  const saleCHF = saleEUR * realEstateData.currentFxRate;
+  const surplusCHF = saleCHF - currentCapCHF;
+  const surplusEUR = surplusCHF / realEstateData.currentFxRate;
+  // Comparaison cours initial
+  const saleCHFatInitial = saleEUR * cfg.loanStartFxRate;
+  const surplusCHFinitial = saleCHFatInitial - currentCapCHF;
+  const surplusEURatInitial = surplusCHFinitial / cfg.loanStartFxRate;
+  const fxLossOnSale = surplusEUR - surplusEURatInitial;
+
+  let h = '';
+
+  // ── HERO ──
+  h += `<div class="inv-card" style="background:linear-gradient(135deg, rgba(99,102,241,0.08), rgba(16,185,129,0.04));border:1px solid rgba(99,102,241,0.18);padding:24px 28px;margin-bottom:20px">`;
+  h += `<div class="inv-flex inv-jcsb" style="flex-wrap:wrap;gap:24px;align-items:flex-start">`;
+  h += `<div><div style="font-size:0.7rem;letter-spacing:1px;color:var(--text-secondary);text-transform:uppercase;font-weight:700">🏠 Maison Annecy · 170 m²</div>`;
+  h += `<div style="font-size:0.85rem;color:var(--text-secondary);margin-top:4px">${cfg.propertyAddress}</div></div>`;
+  h += `<div style="text-align:right"><div style="font-size:0.7rem;color:var(--text-secondary);text-transform:uppercase;letter-spacing:1px;font-weight:700">Net Equity</div>`;
+  h += `<div style="font-size:1.8rem;font-weight:700;color:${netEquityEUR>=0?'#10b981':'#ef4444'};line-height:1.1">${reFmtEUR(netEquityEUR)}</div></div>`;
+  h += `</div>`;
+  // Hero row : 3 valeurs
+  h += `<div class="inv-grid" style="grid-template-columns:repeat(3,1fr);gap:18px;margin-top:18px">`;
+  h += `<div><div style="font-size:0.7rem;color:var(--text-secondary);font-weight:600;text-transform:uppercase">Valeur du bien</div>`;
+  h += `<div style="font-size:1.4rem;font-weight:700;color:#10b981">${reFmtEUR(propValue)}</div>`;
+  h += `<input type="number" id="re-input-value" value="${propValue}" step="10000" class="inv-input" style="margin-top:4px;font-size:0.78rem;max-width:160px"></div>`;
+  h += `<div><div style="font-size:0.7rem;color:var(--text-secondary);font-weight:600;text-transform:uppercase">Capital restant dû</div>`;
+  h += `<div style="font-size:1.4rem;font-weight:700;color:#ef4444">${reFmtCHF(currentCapCHF)}</div>`;
+  h += `<div style="font-size:0.85rem;color:var(--text-secondary);margin-top:2px">≈ ${reFmtEUR(currentCapEUR)} au cours actuel</div></div>`;
+  h += `<div><div style="font-size:0.7rem;color:var(--text-secondary);font-weight:600;text-transform:uppercase">Cours CHF/EUR (1 EUR = X CHF)</div>`;
+  const fxDelta = ((realEstateData.currentFxRate - cfg.loanStartFxRate) / cfg.loanStartFxRate) * 100;
+  h += `<div style="font-size:1.4rem;font-weight:700;color:#6366f1">${realEstateData.currentFxRate.toFixed(4)}</div>`;
+  h += `<div style="font-size:0.78rem;color:${fxDelta<0?'#ef4444':'#10b981'};margin-top:2px">${reFmtPct(fxDelta)} vs contrat (${cfg.loanStartFxRate})</div>`;
+  h += `<input type="number" id="re-input-fx" value="${realEstateData.currentFxRate}" step="0.0001" class="inv-input" style="margin-top:4px;font-size:0.78rem;max-width:120px"></div>`;
+  h += `</div></div>`;
+
+  // ── KPIs ──
+  h += `<div class="inv-grid-kpi" style="grid-template-columns:repeat(4,1fr);margin-bottom:24px">`;
+  const reKpis = [
+    { l: 'Capital amorti', v: reFmtCHF(totalAmortized), s: `${amortPct.toFixed(1)}% du prêt initial`, c: '#10b981' },
+    { l: 'Mensualité', v: reFmtCHF(cfg.monthlyPaymentCHF), s: `Taux fixe ${(cfg.loanInterestRate*100).toFixed(2)}%`, c: '#6366f1' },
+    { l: 'Mois écoulés / restants', v: `${monthsElapsed} / ${monthsRemaining}`, s: `Fin : ${cfg.loanEndDate}`, c: '#f59e0b' },
+    { l: 'Perte de change cumulée', v: (fxLossEUR>=0?'+':'') + reFmtEUR(fxLossEUR), s: 'EUR supplémentaires pour rembourser ce qui a déjà été amorti', c: fxLossEUR>0?'#ef4444':'#10b981' }
+  ];
+  for (const k of reKpis) {
+    h += `<div class="kpi-card"><div class="stripe" style="background:linear-gradient(90deg,${k.c},${k.c})"></div>`;
+    h += `<div class="label">${k.l}</div>`;
+    h += `<div class="value" style="color:${k.c};font-size:1.35rem">${k.v}</div>`;
+    h += `<div class="sub">${k.s}</div></div>`;
+  }
+  h += `</div>`;
+
+  // ── 2 graphiques côte à côte ──
+  h += `<div class="inv-grid inv-grid-2" style="margin-bottom:20px">`;
+  h += `<div class="inv-chart-card"><h3><span class="inv-chart-icon">📉</span>Évolution du capital restant dû</h3><div class="inv-canvas-wrap" style="height:280px"><canvas id="re-ch-capital"></canvas></div></div>`;
+  h += `<div class="inv-chart-card"><h3><span class="inv-chart-icon">💱</span>Impact du cours de change</h3><div class="inv-canvas-wrap" style="height:280px"><canvas id="re-ch-fx"></canvas></div></div>`;
+  h += `</div>`;
+
+  // ── Simulateur "Si je vends aujourd'hui" ──
+  h += `<div class="inv-card" style="margin-bottom:20px;padding:24px 28px">`;
+  h += `<h3 style="margin-top:0">🏷️ Simulateur de vente — Si je vends maintenant</h3>`;
+  h += `<div class="inv-grid" style="grid-template-columns:repeat(2,1fr);gap:20px;margin-top:16px">`;
+  h += `<div style="background:rgba(16,185,129,0.06);border:1px solid rgba(16,185,129,0.18);border-radius:10px;padding:16px">`;
+  h += `<div style="font-size:0.72rem;text-transform:uppercase;letter-spacing:1px;color:#10b981;font-weight:700;margin-bottom:8px">🔵 Scénario réel (cours actuel ${realEstateData.currentFxRate})</div>`;
+  h += `<div style="font-size:0.85rem;color:var(--text-secondary);display:flex;flex-direction:column;gap:6px">`;
+  h += `<div class="inv-flex inv-jcsb"><span>Prix de vente</span><span style="color:var(--text-primary);font-weight:600">${reFmtEUR(saleEUR)}</span></div>`;
+  h += `<div class="inv-flex inv-jcsb"><span>Conversion CHF</span><span style="color:var(--text-primary);font-weight:600">${reFmtCHF(saleCHF)}</span></div>`;
+  h += `<div class="inv-flex inv-jcsb"><span>Capital à rembourser</span><span style="color:#ef4444;font-weight:600">−${reFmtCHF(currentCapCHF)}</span></div>`;
+  h += `<div class="inv-flex inv-jcsb" style="border-top:1px solid rgba(255,255,255,0.08);padding-top:6px;margin-top:4px"><span style="font-weight:700">Surplus</span><span style="color:#10b981;font-weight:700;font-size:1.1rem">${reFmtCHF(surplusCHF)}</span></div>`;
+  h += `<div class="inv-flex inv-jcsb"><span style="font-weight:700">En euros</span><span style="color:#10b981;font-weight:700;font-size:1.1rem">${reFmtEUR(surplusEUR)}</span></div></div></div>`;
+  h += `<div style="background:rgba(99,102,241,0.06);border:1px solid rgba(99,102,241,0.18);border-radius:10px;padding:16px">`;
+  h += `<div style="font-size:0.72rem;text-transform:uppercase;letter-spacing:1px;color:#6366f1;font-weight:700;margin-bottom:8px">💭 Scénario "cours figé contrat" (${cfg.loanStartFxRate})</div>`;
+  h += `<div style="font-size:0.85rem;color:var(--text-secondary);display:flex;flex-direction:column;gap:6px">`;
+  h += `<div class="inv-flex inv-jcsb"><span>Conversion CHF (cours 2020)</span><span style="color:var(--text-primary);font-weight:600">${reFmtCHF(saleCHFatInitial)}</span></div>`;
+  h += `<div class="inv-flex inv-jcsb"><span>Capital à rembourser</span><span style="color:#ef4444;font-weight:600">−${reFmtCHF(currentCapCHF)}</span></div>`;
+  h += `<div class="inv-flex inv-jcsb" style="border-top:1px solid rgba(255,255,255,0.08);padding-top:6px;margin-top:4px"><span style="font-weight:700">Surplus (cours 2020)</span><span style="color:#6366f1;font-weight:700">${reFmtCHF(surplusCHFinitial)}</span></div>`;
+  h += `<div class="inv-flex inv-jcsb"><span style="font-weight:700">En euros (cours 2020)</span><span style="color:#6366f1;font-weight:700">${reFmtEUR(surplusEURatInitial)}</span></div>`;
+  h += `<div class="inv-flex inv-jcsb" style="border-top:1px dashed rgba(239,68,68,0.3);padding-top:6px;margin-top:6px"><span style="font-weight:700;color:#ef4444">Perte de change si vente</span><span style="color:#ef4444;font-weight:700;font-size:1.1rem">${reFmtEUR(fxLossOnSale)}</span></div>`;
+  h += `</div></div></div></div>`;
+
+  // ── Section Info prêt ──
+  h += `<div class="inv-card" style="padding:20px 24px;margin-bottom:20px">`;
+  h += `<h3 style="margin-top:0">📄 Détails du prêt — Contrat n° ${cfg.loanNumber}</h3>`;
+  h += `<div class="inv-grid" style="grid-template-columns:repeat(3,1fr);gap:16px;font-size:0.85rem;color:var(--text-secondary)">`;
+  const totalAcq = cfg.propertyPurchasePriceEUR + cfg.notaryFeesEUR + cfg.agencyFeesEUR;
+  const propAppreciationEUR = propValue - cfg.propertyPurchasePriceEUR;
+  const propAppreciationPct = (propAppreciationEUR / cfg.propertyPurchasePriceEUR) * 100;
+  const infoRows = [
+    ['Date contrat', cfg.loanStartDate],
+    ['Date fin (révisée)', cfg.loanEndDate],
+    ['Nominal initial', reFmtCHF(cfg.loanInitialCapitalCHF)],
+    ['Taux fixe', `${(cfg.loanInterestRate*100).toFixed(2)}%`],
+    ['Type', 'Amortissement direct'],
+    ['Suspension', `${cfg.suspensionStart} → ${cfg.suspensionEnd} (12 mois)`],
+    ['Amort. extraordinaire', `${reFmtCHF(cfg.extraAmortCHF)} (${cfg.extraAmortDate}, 2e pilier)`],
+    ['Prix d\'achat', `${reFmtEUR(cfg.propertyPurchasePriceEUR)} (07/2020)`],
+    ['Frais d\'acquisition', `${reFmtEUR(cfg.notaryFeesEUR + cfg.agencyFeesEUR)} (notaire + agence)`],
+    ['Coût total d\'acquisition', reFmtEUR(totalAcq)],
+    ['Valeur actuelle estimée', `${reFmtEUR(propValue)} (${reFmtPct(propAppreciationPct)})`],
+    ['Plus-value latente', reFmtEUR(propAppreciationEUR)]
+  ];
+  for (const [k, v] of infoRows) {
+    h += `<div class="inv-flex inv-jcsb"><span>${k}</span><span style="color:var(--text-primary);font-weight:500;text-align:right">${v}</span></div>`;
+  }
+  h += `</div></div>`;
+
+  // ── Tableau d'amortissement (collapsible) ──
+  h += `<div class="inv-card" style="padding:0;margin-bottom:20px">`;
+  h += `<div onclick="reToggleSchedule()" style="cursor:pointer;padding:18px 24px;display:flex;justify-content:space-between;align-items:center;user-select:none">`;
+  h += `<h3 style="margin:0;display:flex;align-items:center;gap:8px"><span id="re-sched-chevron">▶</span> 📋 Tableau d'amortissement complet (${all.length} mois)</h3>`;
+  h += `<span style="font-size:0.78rem;color:var(--text-secondary)">cliquer pour afficher</span></div>`;
+  h += `<div id="re-sched-content" style="display:none;padding:0 24px 24px;max-height:480px;overflow-y:auto">`;
+  h += `<table style="width:100%;font-size:0.78rem;border-collapse:collapse">`;
+  h += `<thead style="position:sticky;top:0;background:var(--bg-card);z-index:2"><tr style="border-bottom:1px solid rgba(255,255,255,0.1)">`;
+  ['Mois','Mensualité','Capital amorti','Intérêts','Capital restant CHF','Cours','Capital restant EUR','Statut'].forEach(c => {
+    h += `<th style="text-align:right;padding:8px 6px;color:var(--text-secondary);font-weight:600">${c}</th>`;
+  });
+  h += `</tr></thead><tbody>`;
+  for (const row of all) {
+    const fx = reFxRateFor(row.ym);
+    const eurCap = row.capital / fx;
+    const statusBadge = {
+      'init': '<span style="color:#6366f1">📅 Init</span>',
+      'paid': '<span style="color:#10b981">✓ Payé</span>',
+      'suspended': '<span style="color:#f59e0b">⏸ Suspendu</span>',
+      'extra': '<span style="color:#a855f7">💰 +2e pilier</span>',
+      'future': '<span style="color:var(--text-secondary)">⏳ Projection</span>'
+    }[row.status] || '';
+    const isHighlight = row.status === 'extra' || row.status === 'suspended';
+    h += `<tr style="border-bottom:1px solid rgba(255,255,255,0.04);${isHighlight?'background:rgba(245,158,11,0.05);':''}">`;
+    h += `<td style="text-align:left;padding:6px;font-weight:500">${row.ym}</td>`;
+    h += `<td style="text-align:right;padding:6px">${row.status==='suspended'||row.status==='init'?'—':reFmtCHF(row.interest+row.principal)}</td>`;
+    h += `<td style="text-align:right;padding:6px;color:${row.principal>0?'#10b981':'var(--text-secondary)'}">${row.principal>0?reFmtCHF(row.principal):'—'}</td>`;
+    h += `<td style="text-align:right;padding:6px;color:var(--text-secondary)">${row.interest>0?reFmtCHF(row.interest):'—'}</td>`;
+    h += `<td style="text-align:right;padding:6px;font-weight:600">${reFmtCHF(row.capital)}</td>`;
+    h += `<td style="text-align:right;padding:6px;color:var(--text-secondary)">${fx.toFixed(4)}</td>`;
+    h += `<td style="text-align:right;padding:6px;color:var(--text-secondary)">${reFmtEUR(eurCap)}</td>`;
+    h += `<td style="text-align:right;padding:6px;font-size:0.72rem">${statusBadge}</td>`;
+    h += `</tr>`;
+  }
+  h += `</tbody></table></div></div>`;
+
+  return h;
+}
+
+function reToggleSchedule() {
+  const el = document.getElementById('re-sched-content');
+  const chev = document.getElementById('re-sched-chevron');
+  if (!el) return;
+  const open = el.style.display !== 'none';
+  el.style.display = open ? 'none' : 'block';
+  if (chev) chev.textContent = open ? '▶' : '▼';
+}
+
+function invBuildRealEstateCharts() {
+  // Hook editable inputs
+  const inputValue = document.getElementById('re-input-value');
+  const inputFx = document.getElementById('re-input-fx');
+  if (inputValue) inputValue.addEventListener('change', e => {
+    realEstateData.currentValueEUR = Number(e.target.value) || 0;
+    reSaveToFirebase();
+    renderPortfolioTab('realestate');
+  });
+  if (inputFx) inputFx.addEventListener('change', e => {
+    realEstateData.currentFxRate = Number(e.target.value) || 0.93;
+    reSaveToFirebase();
+    renderPortfolioTab('realestate');
+  });
+
+  const histo = reBuildHistoricalCapital();
+  const future = reBuildFutureCapital();
+  const all = [...histo, ...future];
+  const labels = all.map(r => r.ym);
+  const capCHF = all.map(r => Math.round(r.capital));
+  const capEUR = all.map(r => Math.round(r.capital / reFxRateFor(r.ym)));
+
+  // Suspension range to highlight
+  const cfg = REALESTATE_CONFIG;
+  const suspStartIdx = labels.indexOf(cfg.suspensionStart);
+  const suspEndIdx = labels.indexOf(cfg.suspensionEnd);
+  const refIdx = labels.indexOf(cfg.refDate);
+
+  // Annotate refDate / future boundary
+  const futureBackground = labels.map((l, i) => i > refIdx ? 'rgba(99,102,241,0.04)' : 'transparent');
+
+  // CHART 1 : Évolution capital
+  const ctx1 = document.getElementById('re-ch-capital');
+  if (ctx1) {
+    if (window.reChart1) window.reChart1.destroy();
+    window.reChart1 = new Chart(ctx1, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [
+          { label: 'Capital CHF', data: capCHF, borderColor: '#6366f1', backgroundColor: 'rgba(99,102,241,0.1)', borderWidth: 2, pointRadius: 0, fill: true, tension: 0.2, yAxisID: 'y' },
+          { label: 'Contre-valeur EUR', data: capEUR, borderColor: '#10b981', borderDash: [5,4], backgroundColor: 'transparent', borderWidth: 1.5, pointRadius: 0, tension: 0.2, yAxisID: 'y1' }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { display: true, labels: { color: '#8892a4', font: { size: 11 } } },
+          tooltip: {
+            callbacks: {
+              title: items => items[0].label,
+              label: c => ` ${c.dataset.label}: ${Math.round(c.parsed.y).toLocaleString('fr-FR')} ${c.datasetIndex===0?'CHF':'€'}`
+            }
+          }
+        },
+        scales: {
+          x: { ticks: { maxTicksLimit: 12, font: { size: 9 } }, grid: { display: false } },
+          y: { position: 'left', ticks: { callback: v => (v/1000).toFixed(0)+'k CHF', font: { size: 10 } }, grid: { color: 'rgba(99,102,241,0.08)' } },
+          y1: { position: 'right', ticks: { callback: v => (v/1000).toFixed(0)+'k €', font: { size: 10 } }, grid: { display: false } }
+        }
+      },
+      plugins: [{
+        id: 'reZones',
+        beforeDraw(chart) {
+          const { ctx, chartArea, scales } = chart;
+          if (!scales.x || suspStartIdx < 0) return;
+          // Zone suspension
+          if (suspStartIdx >= 0 && suspEndIdx >= 0) {
+            const x1 = scales.x.getPixelForValue(suspStartIdx);
+            const x2 = scales.x.getPixelForValue(suspEndIdx);
+            ctx.save();
+            ctx.fillStyle = 'rgba(245,158,11,0.08)';
+            ctx.fillRect(x1, chartArea.top, x2 - x1, chartArea.bottom - chartArea.top);
+            ctx.fillStyle = 'rgba(245,158,11,0.6)';
+            ctx.font = '10px sans-serif';
+            ctx.fillText('Suspension', x1 + 4, chartArea.top + 12);
+            ctx.restore();
+          }
+          // Ligne refDate (séparation passé / futur)
+          if (refIdx >= 0) {
+            const xr = scales.x.getPixelForValue(refIdx);
+            ctx.save();
+            ctx.setLineDash([4, 4]);
+            ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+            ctx.beginPath();
+            ctx.moveTo(xr, chartArea.top); ctx.lineTo(xr, chartArea.bottom);
+            ctx.stroke();
+            ctx.restore();
+          }
+        }
+      }]
+    });
+  }
+
+  // CHART 2 : Impact change — comparaison capital amorti converti en EUR au cours du moment vs cours initial
+  const ctx2 = document.getElementById('re-ch-fx');
+  if (ctx2) {
+    if (window.reChart2) window.reChart2.destroy();
+    const initFx = cfg.loanStartFxRate;
+    const amortAtCurrentFx = all.map(r => Math.round((cfg.loanInitialCapitalCHF - r.capital) / reFxRateFor(r.ym)));
+    const amortAtInitialFx = all.map(r => Math.round((cfg.loanInitialCapitalCHF - r.capital) / initFx));
+    const fxLossSerie = all.map((_, i) => amortAtCurrentFx[i] - amortAtInitialFx[i]);
+
+    window.reChart2 = new Chart(ctx2, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [
+          { label: 'Amorti — au cours du contrat', data: amortAtInitialFx, borderColor: '#6366f1', borderDash: [5,4], backgroundColor: 'transparent', borderWidth: 1.5, pointRadius: 0, tension: 0.2 },
+          { label: 'Amorti — au cours du moment', data: amortAtCurrentFx, borderColor: '#10b981', backgroundColor: 'rgba(16,185,129,0.1)', borderWidth: 2, pointRadius: 0, fill: true, tension: 0.2 },
+          { label: 'Surcoût (perte de change)', data: fxLossSerie, borderColor: '#ef4444', backgroundColor: 'rgba(239,68,68,0.06)', borderWidth: 1.5, pointRadius: 0, fill: true, tension: 0.2 }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { display: true, labels: { color: '#8892a4', font: { size: 10 }, boxWidth: 14, boxHeight: 10 } },
+          tooltip: {
+            callbacks: {
+              title: items => items[0].label,
+              label: c => ` ${c.dataset.label}: ${Math.round(c.parsed.y).toLocaleString('fr-FR')} €`
+            }
+          }
+        },
+        scales: {
+          x: { ticks: { maxTicksLimit: 12, font: { size: 9 } }, grid: { display: false } },
+          y: { ticks: { callback: v => (v/1000).toFixed(0)+'k €', font: { size: 10 } }, grid: { color: 'rgba(99,102,241,0.08)' } }
+        }
+      }
+    });
+  }
 }
 
 // ── Repartition ──
@@ -5707,6 +6153,7 @@ Promise.all([
   loadFeesToFirebase(),
   loadBacktestFromFirebase(),
   loadPortfolioFromFirebase(),
+  reLoadFromFirebase(),
   loadDataTimestamp(),
   fetchUsdEurRate()
 ]).then(() => {
