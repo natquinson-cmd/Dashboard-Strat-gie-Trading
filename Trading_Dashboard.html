@@ -314,10 +314,14 @@
     box-shadow: 0 0 10px rgba(16,185,129,0.3);
   }
   .capital-ticks {
-    display: flex; justify-content: space-between;
-    padding-top: 6px;
+    position: relative;
+    height: 18px;
+    margin-top: 6px;
   }
   .capital-ticks span {
+    position: absolute;
+    transform: translateX(-50%);
+    white-space: nowrap;
     font-size: 0.65rem; color: var(--text-secondary);
     font-weight: 600; cursor: pointer; transition: color 0.2s;
   }
@@ -4290,11 +4294,20 @@ function initCapitalSlider(tabName) {
   const ticksEl = document.getElementById('capTicks' + suffix);
   const state = periodState[tabName];
 
-  // Ticks
+  // Ticks — positionnés à la coord exacte du thumb pour chaque valeur
+  // (le thumb fait 24px → son centre voyage de +12px à -12px par rapport aux bords)
   const tickValues = [10000, 20000, 30000, 50000, 75000, 100000];
-  ticksEl.innerHTML = tickValues.map(v =>
-    `<span data-val="${v}" style="cursor:pointer">${fmt(v)} €</span>`
-  ).join('');
+  const sMin = +slider.min, sMax = +slider.max;
+  const THUMB_W = 24;
+  ticksEl.textContent = '';
+  for (const v of tickValues) {
+    const ratio = (v - sMin) / (sMax - sMin);
+    const span = document.createElement('span');
+    span.dataset.val = v;
+    span.style.left = `calc(${THUMB_W/2}px + ${ratio} * (100% - ${THUMB_W}px))`;
+    span.textContent = fmt(v) + ' €';
+    ticksEl.appendChild(span);
+  }
   ticksEl.querySelectorAll('span').forEach(s => {
     s.addEventListener('click', () => {
       const v = +s.dataset.val;
