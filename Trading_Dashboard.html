@@ -4374,6 +4374,7 @@ function renderSubTabs() {
   ).join('');
   if (currentGroup === 'invest') {
     html += `<span id="eurUsdRate" style="margin-left:auto;font-size:0.7rem;color:var(--text-secondary);display:flex;align-items:center;gap:4px;padding-right:4px">💱 EUR/USD : ${(1/usdEurRate).toFixed(4)}</span>`;
+    html += `<span id="eurChfRate" style="font-size:0.7rem;color:var(--text-secondary);display:flex;align-items:center;gap:4px;padding-right:4px">💱 EUR/CHF : ${chfEurRate.toFixed(4)}</span>`;
   }
   bar.innerHTML = html;
 }
@@ -4491,6 +4492,40 @@ function fetchUsdEurRate() {
   return fetch('https://open.er-api.com/v6/latest/USD')
     .then(r => r.json())
     .then(d => { if (d && d.rates && d.rates.EUR) { usdEurRate = d.rates.EUR; } })
+    .catch(() => { /* keep fallback */ });
+}
+
+// ── Taux CHF/EUR (1 EUR = X CHF) — même source que USD ──
+let chfEurRate = 0.9314; // fallback (1 EUR = X CHF), mis à jour à l'init
+let fxHistory = { chf: {} }; // snapshots mensuels : { "2026-05": 0.9314, ... }
+
+function saveFxHistory() {
+  if (typeof db !== 'undefined') db.ref('dashboard/fxHistory').set(fxHistory);
+}
+function loadFxHistory() {
+  if (typeof db === 'undefined') return Promise.resolve();
+  return db.ref('dashboard/fxHistory').once('value').then(snap => {
+    const v = snap.val();
+    if (v && typeof v === 'object' && v.chf) fxHistory.chf = v.chf;
+  }).catch(() => {});
+}
+
+function fetchChfEurRate() {
+  return fetch('https://open.er-api.com/v6/latest/EUR')
+    .then(r => r.json())
+    .then(d => {
+      if (d && d.rates && d.rates.CHF) {
+        chfEurRate = d.rates.CHF;
+        // Snapshot mensuel : on enregistre le cours du mois courant
+        const now = new Date();
+        const ym = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+        const rounded = Math.round(chfEurRate * 10000) / 10000;
+        fxHistory.chf[ym] = rounded; // dernier relevé du mois = snapshot du mois
+        // Le cours "actuel" de l'immobilier suit le live (sauf override session)
+        if (typeof realEstateData !== 'undefined') realEstateData.currentFxRate = rounded;
+        saveFxHistory();
+      }
+    })
     .catch(() => { /* keep fallback */ });
 }
 
@@ -5106,38 +5141,61 @@ const REALESTATE_CONFIG = {
 
 let realEstateData = {
   currentValueEUR: 900000,
-  currentFxRate: 0.9314 // 1 EUR = X CHF
+  currentFxRate: 0.9314 // 1 EUR = X CHF — auto-rempli par le live (fetchChfEurRate),
+                        // la saisie manuelle est un "what-if" de session (non persisté)
 };
 
+// On ne persiste QUE la valeur du bien (le cours vient du live / historique Firebase)
 function reSaveToFirebase() {
-  if (typeof db !== 'undefined') db.ref('dashboard/realestate').set(realEstateData);
+  if (typeof db !== 'undefined') db.ref('dashboard/realestate/currentValueEUR').set(realEstateData.currentValueEUR);
 }
 function reLoadFromFirebase() {
   if (typeof db === 'undefined') return Promise.resolve();
   return db.ref('dashboard/realestate').once('value').then(snap => {
     const v = snap.val();
-    if (v && typeof v === 'object') Object.assign(realEstateData, v);
+    if (v && typeof v === 'object' && typeof v.currentValueEUR === 'number') {
+      realEstateData.currentValueEUR = v.currentValueEUR;
+    }
   }).catch(() => {});
 }
 
 function reYmIdx(ym) { const [y,m] = ym.split('-').map(Number); return y*12 + (m-1); }
 function reIdxYm(idx) { const y = Math.floor(idx/12), m = (idx%12)+1; return `${y}-${String(m).padStart(2,'0')}`; }
 
-function reFxRateFor(ym) {
+// Points d'ancrage du cours CHF/EUR : config (2020, 2025) + snapshots Firebase mensuels.
+// Les snapshots réels priment sur les ancres figées si même mois.
+function reGetFxAnchors() {
   const cfg = REALESTATE_CONFIG;
-  const startIdx = reYmIdx(cfg.loanStartDate);
-  const refIdx = reYmIdx(cfg.refDate);
-  const tIdx = reYmIdx(ym);
-  if (tIdx <= startIdx) return cfg.loanStartFxRate;
-  if (tIdx >= refIdx) {
-    // après refDate : interpolation linéaire entre refFxRate et currentFxRate sur 24 mois max
-    const futureRefIdx = refIdx + 24;
-    if (tIdx >= futureRefIdx) return realEstateData.currentFxRate;
-    const ratio = (tIdx - refIdx) / 24;
-    return cfg.refFxRate + ratio * (realEstateData.currentFxRate - cfg.refFxRate);
+  const anchors = {};
+  anchors[cfg.loanStartDate] = cfg.loanStartFxRate; // 2020-07 : 1.07494
+  anchors[cfg.refDate] = cfg.refFxRate;             // 2025-12 : 0.9314 (relevé banque)
+  if (fxHistory && fxHistory.chf) {
+    for (const [ym, rate] of Object.entries(fxHistory.chf)) {
+      if (rate > 0) anchors[ym] = rate; // snapshot réel → prime
+    }
   }
-  const ratio = (tIdx - startIdx) / (refIdx - startIdx);
-  return cfg.loanStartFxRate + ratio * (cfg.refFxRate - cfg.loanStartFxRate);
+  return Object.keys(anchors)
+    .map(ym => ({ idx: reYmIdx(ym), ym, rate: anchors[ym] }))
+    .sort((a, b) => a.idx - b.idx);
+}
+
+function reFxRateFor(ym) {
+  const anchors = reGetFxAnchors();
+  if (anchors.length === 0) return realEstateData.currentFxRate;
+  const tIdx = reYmIdx(ym);
+  if (tIdx <= anchors[0].idx) return anchors[0].rate;
+  // Au-delà du dernier point connu (projection future) : on tient le cours actuel à plat
+  if (tIdx >= anchors[anchors.length - 1].idx) return realEstateData.currentFxRate;
+  // Interpolation linéaire entre les 2 ancres encadrantes
+  for (let i = 0; i < anchors.length - 1; i++) {
+    if (tIdx >= anchors[i].idx && tIdx <= anchors[i + 1].idx) {
+      const span = anchors[i + 1].idx - anchors[i].idx;
+      if (span === 0) return anchors[i].rate;
+      const ratio = (tIdx - anchors[i].idx) / span;
+      return anchors[i].rate + ratio * (anchors[i + 1].rate - anchors[i].rate);
+    }
+  }
+  return realEstateData.currentFxRate;
 }
 
 // Build historical capital evolution (passé + suspension + amort)
@@ -5259,9 +5317,9 @@ function invRenderRealEstate(t, labels, li) {
   h += `<div style="font-size:0.85rem;color:var(--text-secondary);margin-top:2px">≈ ${reFmtEUR(currentCapEUR)} au cours actuel</div></div>`;
   h += `<div><div style="font-size:0.7rem;color:var(--text-secondary);font-weight:600;text-transform:uppercase">Cours CHF/EUR (1 EUR = X CHF)</div>`;
   const fxDelta = ((realEstateData.currentFxRate - cfg.loanStartFxRate) / cfg.loanStartFxRate) * 100;
-  h += `<div style="font-size:1.4rem;font-weight:700;color:#6366f1">${realEstateData.currentFxRate.toFixed(4)}</div>`;
+  h += `<div style="font-size:1.4rem;font-weight:700;color:#6366f1">${realEstateData.currentFxRate.toFixed(4)} <span style="font-size:0.6rem;color:#10b981;vertical-align:middle">● live</span></div>`;
   h += `<div style="font-size:0.78rem;color:${fxDelta<0?'#ef4444':'#10b981'};margin-top:2px">${reFmtPct(fxDelta)} vs contrat (${cfg.loanStartFxRate})</div>`;
-  h += `<input type="number" id="re-input-fx" value="${realEstateData.currentFxRate}" step="0.0001" class="inv-input" style="margin-top:4px;font-size:0.78rem;max-width:120px"></div>`;
+  h += `<input type="number" id="re-input-fx" value="${realEstateData.currentFxRate}" step="0.0001" class="inv-input" style="margin-top:4px;font-size:0.78rem;max-width:120px" title="Simulation what-if (le cours réel est récupéré automatiquement)"><div style="font-size:0.62rem;color:var(--text-secondary);margin-top:2px;opacity:0.7">auto-MAJ · modifiable pour simuler</div></div>`;
   h += `</div></div>`;
 
   // ── KPIs ──
@@ -5392,8 +5450,8 @@ function invBuildRealEstateCharts() {
     renderPortfolioTab('realestate');
   });
   if (inputFx) inputFx.addEventListener('change', e => {
+    // Override de session pour simulation (le cours réel vient du live, non persisté)
     realEstateData.currentFxRate = Number(e.target.value) || 0.93;
-    reSaveToFirebase();
     renderPortfolioTab('realestate');
   });
 
@@ -6155,7 +6213,10 @@ Promise.all([
   loadPortfolioFromFirebase(),
   reLoadFromFirebase(),
   loadDataTimestamp(),
-  fetchUsdEurRate()
+  fetchUsdEurRate(),
+  // Charger l'historique CHF AVANT de fetch le live (sinon le save du live
+  // écraserait l'historique pas encore chargé depuis Firebase)
+  loadFxHistory().then(() => fetchChfEurRate())
 ]).then(() => {
   if (realTrades.length > 0) {
     const latest = [...realTrades].sort((a,b) => b[0].localeCompare(a[0]))[0][0];
