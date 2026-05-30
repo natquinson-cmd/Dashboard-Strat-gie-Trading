@@ -4445,7 +4445,7 @@ function activateTab(tab) {
   }
 
   // Portfolio tabs
-  if (['overview', 'interests', 'evolution', 'loans', 'repartition', 'update'].includes(tab)) {
+  if (['overview', 'interests', 'evolution', 'loans', 'realestate', 'repartition', 'update'].includes(tab)) {
     invDestroyCharts();
     renderPortfolioTab(tab);
   }
@@ -5474,8 +5474,8 @@ function invBuildRealEstateCharts() {
   // CHART 1 : Évolution capital
   const ctx1 = document.getElementById('re-ch-capital');
   if (ctx1) {
-    if (window.reChart1) window.reChart1.destroy();
-    window.reChart1 = new Chart(ctx1, {
+    if (invCharts.reCapital) invCharts.reCapital.destroy();
+    invCharts.reCapital = new Chart(ctx1, {
       type: 'line',
       data: {
         labels,
@@ -5539,13 +5539,13 @@ function invBuildRealEstateCharts() {
   // CHART 2 : Impact change — comparaison capital amorti converti en EUR au cours du moment vs cours initial
   const ctx2 = document.getElementById('re-ch-fx');
   if (ctx2) {
-    if (window.reChart2) window.reChart2.destroy();
+    if (invCharts.reFx) invCharts.reFx.destroy();
     const initFx = cfg.loanStartFxRate;
     const amortAtCurrentFx = all.map(r => Math.round((cfg.loanInitialCapitalCHF - r.capital) / reFxRateFor(r.ym)));
     const amortAtInitialFx = all.map(r => Math.round((cfg.loanInitialCapitalCHF - r.capital) / initFx));
     const fxLossSerie = all.map((_, i) => amortAtCurrentFx[i] - amortAtInitialFx[i]);
 
-    window.reChart2 = new Chart(ctx2, {
+    invCharts.reFx = new Chart(ctx2, {
       type: 'line',
       data: {
         labels,
