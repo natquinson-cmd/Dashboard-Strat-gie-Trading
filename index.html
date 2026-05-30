@@ -5136,7 +5136,8 @@ const REALESTATE_CONFIG = {
   refFxRate: 0.9314,
   loanStartFxRate: 1.07494,
   monthlyPaymentCHF: 2900,
-  monthlyBeforeExtraCHF: 3340 // moyenne avant suspension
+  monthlyBeforeExtraCHF: 3340, // moyenne avant suspension
+  paymentDay: 20 // échéance prélevée le 20 de chaque mois
 };
 
 let realEstateData = {
@@ -5199,61 +5200,99 @@ function reFxRateFor(ym) {
 }
 
 // Build historical capital evolution (passé + suspension + amort)
-function reBuildHistoricalCapital() {
+// Échéancier continu unique : passé réel (ancré sur le relevé banque Déc 2025)
+// + projection. Le statut 'paid' vs 'future' est déterminé DYNAMIQUEMENT par la
+// date du jour : une échéance est "payée" si son jour de prélèvement (le 20)
+// est <= aujourd'hui.
+function reBuildSchedule() {
   const cfg = REALESTATE_CONFIG;
   const monthlyRate = cfg.loanInterestRate / 12;
+  const payDay = cfg.paymentDay || 20;
   const data = [];
+
   let capital = cfg.loanInitialCapitalCHF;
   let idx = reYmIdx(cfg.loanStartDate);
-  const suspIdx = reYmIdx(cfg.suspensionStart);
+  const suspStartIdx = reYmIdx(cfg.suspensionStart);
+  const suspEndIdx = reYmIdx(cfg.suspensionEnd);
   const extraIdx = reYmIdx(cfg.extraAmortDate);
   const refIdx = reYmIdx(cfg.refDate);
+  const endIdx = reYmIdx(cfg.loanEndDate);
+
   data.push({ ym: reIdxYm(idx), capital, status: 'init', interest: 0, principal: 0 });
+
+  // Phase 1 : du début jusqu'au relevé banque (réf Déc 2025)
   while (idx < refIdx) {
     idx++;
     const interest = capital * monthlyRate;
-    let principal = 0, status = 'paid';
-    if (idx >= suspIdx && idx <= extraIdx - 1) {
-      // suspension : intérêts capitalisés, pas d'amortissement
-      capital += interest; principal = 0; status = 'suspended';
+    let principal = 0, status = '_regular';
+    if (idx >= suspStartIdx && idx <= extraIdx - 1) {
+      capital += interest; principal = 0; status = 'suspended'; // intérêts capitalisés
     } else if (idx === extraIdx) {
-      // mois de l'amortissement extraordinaire : paiement normal + retrait 2e pilier
       principal = Math.max(0, cfg.monthlyBeforeExtraCHF - interest) + cfg.extraAmortCHF;
       capital -= principal;
-      // On force la valeur ref (banque) à cette date
-      capital = cfg.refCapitalCHF;
-      status = 'extra';
+      capital = cfg.refCapitalCHF; // ancre exacte sur le relevé banque
+      status = '_regular';
+      data.push({ ym: reIdxYm(idx), capital, status, interest, principal, isExtra: true });
+      continue;
     } else {
       principal = cfg.monthlyBeforeExtraCHF - interest;
       capital -= principal;
     }
     data.push({ ym: reIdxYm(idx), capital, status, interest, principal });
   }
-  return data;
-}
 
-// Build future schedule (à partir du refDate jusqu'à fin)
-function reBuildFutureCapital() {
-  const cfg = REALESTATE_CONFIG;
-  const monthlyRate = cfg.loanInterestRate / 12;
-  const data = [];
-  let capital = cfg.refCapitalCHF;
-  let idx = reYmIdx(cfg.refDate);
-  const endIdx = reYmIdx(cfg.loanEndDate);
-  // janv 2026 = encore suspension
-  idx++;
-  data.push({ ym: reIdxYm(idx), capital, status: 'suspended', interest: capital*monthlyRate, principal: 0 });
-  capital += capital * monthlyRate;
-  // Puis paiements à 2 900 CHF/mois
+  // Phase 2 : de Jan 2026 à la fin (Jan 2026 encore suspendu, puis 2 900 CHF/mois)
   while (capital > 0.01 && idx < endIdx) {
     idx++;
     const interest = capital * monthlyRate;
-    let principal = cfg.monthlyPaymentCHF - interest;
-    if (principal > capital) principal = capital;
-    capital -= principal;
-    data.push({ ym: reIdxYm(idx), capital: Math.max(0, capital), status: 'future', interest, principal });
+    let principal, status;
+    if (idx <= suspEndIdx) {
+      capital += interest; principal = 0; status = 'suspended';
+    } else {
+      principal = cfg.monthlyPaymentCHF - interest;
+      if (principal > capital) principal = capital;
+      capital -= principal;
+      status = '_regular';
+    }
+    data.push({ ym: reIdxYm(idx), capital: Math.max(0, capital), status, interest, principal });
+  }
+
+  // Phase 3 : statut payé / projection selon la date du jour (échéance le 20)
+  const today = new Date();
+  for (const row of data) {
+    if (row.status === '_regular') {
+      const [y, m] = row.ym.split('-').map(Number);
+      const payDate = new Date(y, m - 1, payDay);
+      row.status = payDate <= today ? 'paid' : 'future';
+    }
   }
   return data;
+}
+
+// État courant calculé à la date du jour : capital restant dû réel, mois écoulés/restants
+function reCurrentState() {
+  const cfg = REALESTATE_CONFIG;
+  const schedule = reBuildSchedule();
+  let currentCapCHF = cfg.loanInitialCapitalCHF;
+  let currentYm = cfg.loanStartDate;
+  let lastRealIdxInArr = 0;
+  schedule.forEach((r, i) => {
+    if (r.status === 'future') return;
+    currentCapCHF = r.capital;
+    currentYm = r.ym;
+    lastRealIdxInArr = i;
+  });
+  const startIdx = reYmIdx(cfg.loanStartDate);
+  const endIdx = reYmIdx(cfg.loanEndDate);
+  const curIdx = reYmIdx(currentYm);
+  return {
+    schedule,
+    currentCapCHF,
+    currentYm,
+    monthsElapsed: curIdx - startIdx,
+    monthsRemaining: endIdx - curIdx,
+    lastRealIdxInArr
+  };
 }
 
 function reFmtCHF(v) { return Math.round(v).toLocaleString('fr-FR') + ' CHF'; }
@@ -5262,23 +5301,24 @@ function reFmtPct(v) { return (v>=0?'+':'') + v.toFixed(2) + '%'; }
 
 function invRenderRealEstate(t, labels, li) {
   const cfg = REALESTATE_CONFIG;
-  const histo = reBuildHistoricalCapital();
-  const future = reBuildFutureCapital();
-  const all = [...histo, ...future];
+  const state = reCurrentState();
+  const all = state.schedule;
 
-  const currentCapCHF = cfg.refCapitalCHF;
+  // Capital restant dû à la date du jour (après la dernière échéance prélevée)
+  const currentCapCHF = state.currentCapCHF;
   const currentCapEUR = currentCapCHF / realEstateData.currentFxRate;
   const propValue = realEstateData.currentValueEUR;
   const netEquityEUR = propValue - currentCapEUR;
+  const currentYmLabel = (() => {
+    const [y, m] = state.currentYm.split('-');
+    return monthNamesFull[parseInt(m) - 1] + ' ' + y;
+  })();
 
   // KPIs
   const totalAmortized = cfg.loanInitialCapitalCHF - currentCapCHF;
   const amortPct = (totalAmortized / cfg.loanInitialCapitalCHF) * 100;
-  const startIdx = reYmIdx(cfg.loanStartDate);
-  const refIdx = reYmIdx(cfg.refDate);
-  const endIdx = reYmIdx(cfg.loanEndDate);
-  const monthsElapsed = refIdx - startIdx;
-  const monthsRemaining = endIdx - refIdx;
+  const monthsElapsed = state.monthsElapsed;
+  const monthsRemaining = state.monthsRemaining;
 
   // Perte de change cumulée :
   // Capital remboursé en CHF, valorisé au cours actuel - même montant au cours initial
@@ -5312,7 +5352,7 @@ function invRenderRealEstate(t, labels, li) {
   h += `<div><div style="font-size:0.7rem;color:var(--text-secondary);font-weight:600;text-transform:uppercase">Valeur du bien</div>`;
   h += `<div style="font-size:1.4rem;font-weight:700;color:#10b981">${reFmtEUR(propValue)}</div>`;
   h += `<input type="number" id="re-input-value" value="${propValue}" step="10000" class="inv-input" style="margin-top:4px;font-size:0.78rem;max-width:160px"></div>`;
-  h += `<div><div style="font-size:0.7rem;color:var(--text-secondary);font-weight:600;text-transform:uppercase">Capital restant dû</div>`;
+  h += `<div><div style="font-size:0.7rem;color:var(--text-secondary);font-weight:600;text-transform:uppercase">Capital restant dû <span style="opacity:0.6;text-transform:none">(au ${currentYmLabel})</span></div>`;
   h += `<div style="font-size:1.4rem;font-weight:700;color:#ef4444">${reFmtCHF(currentCapCHF)}</div>`;
   h += `<div style="font-size:0.85rem;color:var(--text-secondary);margin-top:2px">≈ ${reFmtEUR(currentCapEUR)} au cours actuel</div></div>`;
   h += `<div><div style="font-size:0.7rem;color:var(--text-secondary);font-weight:600;text-transform:uppercase">Cours CHF/EUR (1 EUR = X CHF)</div>`;
@@ -5407,14 +5447,13 @@ function invRenderRealEstate(t, labels, li) {
   for (const row of all) {
     const fx = reFxRateFor(row.ym);
     const eurCap = row.capital / fx;
-    const statusBadge = {
+    const statusBadge = row.isExtra ? '<span style="color:#a855f7">💰 +2e pilier</span>' : ({
       'init': '<span style="color:#6366f1">📅 Init</span>',
       'paid': '<span style="color:#10b981">✓ Payé</span>',
       'suspended': '<span style="color:#f59e0b">⏸ Suspendu</span>',
-      'extra': '<span style="color:#a855f7">💰 +2e pilier</span>',
       'future': '<span style="color:var(--text-secondary)">⏳ Projection</span>'
-    }[row.status] || '';
-    const isHighlight = row.status === 'extra' || row.status === 'suspended';
+    }[row.status] || '');
+    const isHighlight = row.isExtra || row.status === 'suspended';
     h += `<tr style="border-bottom:1px solid rgba(255,255,255,0.04);${isHighlight?'background:rgba(245,158,11,0.05);':''}">`;
     h += `<td style="text-align:left;padding:6px;font-weight:500">${row.ym}</td>`;
     h += `<td style="text-align:right;padding:6px">${row.status==='suspended'||row.status==='init'?'—':reFmtCHF(row.interest+row.principal)}</td>`;
@@ -5455,9 +5494,8 @@ function invBuildRealEstateCharts() {
     renderPortfolioTab('realestate');
   });
 
-  const histo = reBuildHistoricalCapital();
-  const future = reBuildFutureCapital();
-  const all = [...histo, ...future];
+  const state = reCurrentState();
+  const all = state.schedule;
   const labels = all.map(r => r.ym);
   const capCHF = all.map(r => Math.round(r.capital));
   const capEUR = all.map(r => Math.round(r.capital / reFxRateFor(r.ym)));
@@ -5466,10 +5504,8 @@ function invBuildRealEstateCharts() {
   const cfg = REALESTATE_CONFIG;
   const suspStartIdx = labels.indexOf(cfg.suspensionStart);
   const suspEndIdx = labels.indexOf(cfg.suspensionEnd);
-  const refIdx = labels.indexOf(cfg.refDate);
-
-  // Annotate refDate / future boundary
-  const futureBackground = labels.map((l, i) => i > refIdx ? 'rgba(99,102,241,0.04)' : 'transparent');
+  // Frontière réel / projection = dernier mois réel (selon la date du jour)
+  const refIdx = state.lastRealIdxInArr;
 
   // CHART 1 : Évolution capital
   const ctx1 = document.getElementById('re-ch-capital');
@@ -5480,7 +5516,8 @@ function invBuildRealEstateCharts() {
       data: {
         labels,
         datasets: [
-          { label: 'Capital CHF', data: capCHF, borderColor: '#6366f1', backgroundColor: 'rgba(99,102,241,0.1)', borderWidth: 2, pointRadius: 0, fill: true, tension: 0.2, yAxisID: 'y' },
+          { label: 'Capital CHF (réel)', data: capCHF.map((v,i) => i <= refIdx ? v : null), borderColor: '#6366f1', backgroundColor: 'rgba(99,102,241,0.1)', borderWidth: 2, pointRadius: 0, fill: true, tension: 0.2, yAxisID: 'y' },
+          { label: 'Capital CHF (projection)', data: capCHF.map((v,i) => i >= refIdx ? v : null), borderColor: '#6366f1', borderDash: [6,4], backgroundColor: 'transparent', borderWidth: 2, pointRadius: 0, tension: 0.2, yAxisID: 'y' },
           { label: 'Contre-valeur EUR', data: capEUR, borderColor: '#10b981', borderDash: [5,4], backgroundColor: 'transparent', borderWidth: 1.5, pointRadius: 0, tension: 0.2, yAxisID: 'y1' }
         ]
       },
@@ -5493,7 +5530,7 @@ function invBuildRealEstateCharts() {
           tooltip: {
             callbacks: {
               title: items => items[0].label,
-              label: c => ` ${c.dataset.label}: ${Math.round(c.parsed.y).toLocaleString('fr-FR')} ${c.datasetIndex===0?'CHF':'€'}`
+              label: c => { if (c.parsed.y == null) return ''; const unit = c.dataset.yAxisID === 'y1' ? '€' : 'CHF'; return ` ${c.dataset.label}: ${Math.round(c.parsed.y).toLocaleString('fr-FR')} ${unit}`; }
             }
           }
         },
@@ -5520,15 +5557,18 @@ function invBuildRealEstateCharts() {
             ctx.fillText('Suspension', x1 + 4, chartArea.top + 12);
             ctx.restore();
           }
-          // Ligne refDate (séparation passé / futur)
+          // Ligne "aujourd'hui" (séparation réel / projection, suit la date du jour)
           if (refIdx >= 0) {
             const xr = scales.x.getPixelForValue(refIdx);
             ctx.save();
             ctx.setLineDash([4, 4]);
-            ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+            ctx.strokeStyle = 'rgba(255,255,255,0.25)';
             ctx.beginPath();
             ctx.moveTo(xr, chartArea.top); ctx.lineTo(xr, chartArea.bottom);
             ctx.stroke();
+            ctx.fillStyle = 'rgba(255,255,255,0.45)';
+            ctx.font = '10px sans-serif';
+            ctx.fillText("aujourd'hui", xr + 4, chartArea.bottom - 6);
             ctx.restore();
           }
         }
