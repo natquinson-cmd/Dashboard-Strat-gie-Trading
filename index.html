@@ -672,6 +672,8 @@
   /* Gradient intensities are set via inline style from JS */
   .day-cell.empty { background:transparent; min-height:64px; }
   .day-cell.no-trade { background:rgba(30,42,58,0.08); }
+  .day-cell.other-month { opacity:0.4; filter:grayscale(0.3); }
+  .day-cell.other-month:hover { opacity:0.65; }
   .day-cell.today { border:2px solid var(--accent-dax-light); }
   .day-cell.week-total { min-width:58px; border:1px solid var(--border); }
   .day-cell.week-total .day-pnl { font-size:0.82rem; font-weight:700; }
@@ -2709,46 +2711,54 @@ function buildDailyCalendar() {
   const title = monthNamesFull[calMonth] + ' ' + calYear;
   document.getElementById('calTitle').textContent = title;
 
-  const firstDay = new Date(calYear, calMonth, 1);
   const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
-  // startDow for Mon-Fri grid (Mon=0..Fri=4)
-  let startDow = firstDay.getDay();
-  startDow = startDow === 0 ? 6 : startDow - 1; // Mon=0, Sun=6
-  // Clamp to 0-4 for weekday-only grid
-  if (startDow > 4) startDow = 0; // If month starts on Sat/Sun, first weekday is Mon
+  const ymd = dt => dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0');
 
   // Capital at start of this month for % calculations
   const startCap = capitalAtMonth(calYear, calMonth);
 
   const today = new Date();
-  const todayStr = today.getFullYear()+'-'+String(today.getMonth()+1).padStart(2,'0')+'-'+String(today.getDate()).padStart(2,'0');
+  const todayStr = ymd(today);
+
+  // ── Déterminer la grille : du lundi de la 1re semaine au vendredi de la dernière ──
+  // 1er jour ouvré du mois
+  let firstWeekdayDate = 1;
+  while (true) { const dw = new Date(calYear, calMonth, firstWeekdayDate).getDay(); if (dw >= 1 && dw <= 5) break; firstWeekdayDate++; }
+  const fwDow = new Date(calYear, calMonth, firstWeekdayDate).getDay(); // 1..5
+  const gridStart = new Date(calYear, calMonth, firstWeekdayDate - (fwDow - 1)); // recule au lundi
+  // Dernier jour ouvré du mois
+  let lastWeekdayDate = daysInMonth;
+  while (true) { const dw = new Date(calYear, calMonth, lastWeekdayDate).getDay(); if (dw >= 1 && dw <= 5) break; lastWeekdayDate--; }
+  const lwDow = new Date(calYear, calMonth, lastWeekdayDate).getDay(); // 1..5
+  const gridEnd = new Date(calYear, calMonth, lastWeekdayDate + (5 - lwDow)); // avance au vendredi
+
+  // Liste des jours ouvrés affichés (mois courant + débordements de semaine)
+  const dates = [];
+  for (let dt = new Date(gridStart); dt <= gridEnd; dt.setDate(dt.getDate()+1)) {
+    const dw = dt.getDay();
+    if (dw === 0 || dw === 6) continue;
+    dates.push(new Date(dt));
+  }
+
+  const isInMonth = dt => dt.getMonth() === calMonth && dt.getFullYear() === calYear;
+
+  // runningCap pour le mode % : rembobiner le capital avant les jours débordants du début
+  let leadingSum = 0;
+  for (const dt of dates) { if (isInMonth(dt)) break; const v = dayData[ymd(dt)]; if (v) leadingSum += v.pnl; }
+  let runningCap = startCap - leadingSum;
+
+  // Max |pnl| sur tous les jours affichés (intensité du dégradé)
+  const maxAbsPnl = Math.max(1, ...dates.map(dt => { const v = dayData[ymd(dt)]; return v ? Math.abs(v.pnl) : 0; }));
 
   let html = '';
   ['Lun','Mar','Mer','Jeu','Ven','Σ'].forEach(d => {
     html += `<div class="day-header">${d}</div>`;
   });
 
-  // Calculate the weekday offset for the first day
-  const firstWeekday = firstDay.getDay();
-  let offset = 0;
-  if (firstWeekday >= 1 && firstWeekday <= 5) offset = firstWeekday - 1;
-  // Sat/Sun → next Mon, offset = 0
-
-  for (let i = 0; i < offset; i++) html += '<div class="day-cell empty"></div>';
-
   let totalWinDays = 0, totalLossDays = 0, totalTradeDays = 0;
-  let runningCap = startCap;
-  let weekTotal = 0, weekCol = offset;
-
-  // Pre-compute max absolute gain of the month for gradient intensity
-  const monthPnls = Object.entries(dayData)
-    .filter(([d]) => d.startsWith(`${calYear}-${String(calMonth+1).padStart(2,'0')}`))
-    .map(([,v]) => Math.abs(v.pnl));
-  const maxAbsPnl = monthPnls.length > 0 ? Math.max(...monthPnls) : 1;
+  let weekTotal = 0;
 
   function emitWeekTotal() {
-    // Fill remaining weekday cells if week is incomplete
-    while (weekCol < 5) { html += '<div class="day-cell empty"></div>'; weekCol++; }
     const sign = weekTotal >= 0 ? '+' : '';
     const weekDisp = showPct ? `${sign}${(startCap>0?(weekTotal/startCap*100):0).toFixed(2)}%` : `${sign}${weekTotal.toFixed(0)}€`;
     const wtIntensity = Math.min(Math.abs(weekTotal) / (maxAbsPnl * 3 || 1), 1);
@@ -2760,21 +2770,19 @@ function buildDailyCalendar() {
       <span class="day-pnl" style="color:${wtColor}">${weekDisp}</span>
     </div>`;
     weekTotal = 0;
-    weekCol = 0;
   }
 
-  for (let d = 1; d <= daysInMonth; d++) {
-    const dateObj = new Date(calYear, calMonth, d);
-    const dow = dateObj.getDay(); // 0=Sun, 6=Sat
-    if (dow === 0 || dow === 6) continue; // Skip weekends
-
-    const dateStr = `${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+  dates.forEach(dateObj => {
+    const dow = dateObj.getDay();
+    const d = dateObj.getDate();
+    const dateStr = ymd(dateObj);
+    const inMonth = isInMonth(dateObj);
+    const otherCls = inMonth ? '' : 'other-month';
     const data = dayData[dateStr];
     const isToday = dateStr === todayStr;
 
     if (data) {
-      totalTradeDays++;
-      if (data.pnl >= 0) totalWinDays++; else totalLossDays++;
+      if (inMonth) { totalTradeDays++; if (data.pnl >= 0) totalWinDays++; else totalLossDays++; }
       const cls = data.pnl >= 0 ? 'win' : 'loss';
       const sign = data.pnl >= 0 ? '+' : '';
       let displayVal;
@@ -2785,27 +2793,22 @@ function buildDailyCalendar() {
         displayVal = `${sign}${data.pnl.toFixed(0)}€`;
       }
       runningCap += data.pnl;
-      weekTotal += data.pnl;
-      // Gradient intensity: 0.08 (min) to 0.45 (max) proportional to |pnl|
+      weekTotal += data.pnl; // le total hebdo inclut les jours débordants
       const intensity = maxAbsPnl > 0 ? 0.08 + (Math.abs(data.pnl) / maxAbsPnl) * 0.37 : 0.12;
       const bgColor = data.pnl >= 0
         ? `rgba(16,185,129,${intensity.toFixed(2)})`
         : `rgba(239,68,68,${intensity.toFixed(2)})`;
-      html += `<div class="day-cell ${cls} ${isToday?'today':''}" style="background:${bgColor}" onclick="showDayDetail('${dateStr}',this)">
+      html += `<div class="day-cell ${cls} ${otherCls} ${isToday?'today':''}" style="background:${bgColor}" onclick="showDayDetail('${dateStr}',this)">
         <span class="day-num">${d}</span>
         <span class="day-pnl">${displayVal}</span>
         <span class="day-trades">${data.trades} trade${data.trades>1?'s':''}</span>
       </div>`;
     } else {
-      html += `<div class="day-cell no-trade ${isToday?'today':''}"><span class="day-num">${d}</span></div>`;
+      html += `<div class="day-cell no-trade ${otherCls} ${isToday?'today':''}"><span class="day-num">${d}</span></div>`;
     }
-    weekCol++;
 
-    // Emit weekly total after Friday (dow === 5)
-    if (dow === 5) emitWeekTotal();
-  }
-  // Last incomplete week
-  if (weekCol > 0 && weekCol <= 5) emitWeekTotal();
+    if (dow === 5) emitWeekTotal(); // Σ après chaque vendredi (semaine toujours complète)
+  });
 
   document.getElementById('dayGrid').innerHTML = html;
 
