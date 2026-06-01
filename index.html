@@ -5227,7 +5227,9 @@ function reBuildSchedule() {
     let principal = 0, status = '_regular', isExtra = false;
     const inSuspension = idx >= suspStartIdx && idx <= suspEndIdx;
     if (inSuspension) {
-      capital += interest; principal = 0; status = 'suspended'; // intérêts capitalisés, pas de paiement
+      // Suspension de l'AMORTISSEMENT seulement : les intérêts (~450 CHF) sont
+      // payés séparément → le capital reste STABLE (pas de capitalisation)
+      principal = 0; status = 'suspended';
     } else {
       principal = cfg.monthlyBeforeExtraCHF - interest;
       capital -= principal;
@@ -5249,7 +5251,8 @@ function reBuildSchedule() {
     const interest = capital * monthlyRate;
     let principal, status;
     if (idx <= suspEndIdx) {
-      capital += interest; principal = 0; status = 'suspended';
+      // Jan 2026 : encore en suspension d'amortissement, intérêts payés → capital stable
+      principal = 0; status = 'suspended';
     } else {
       principal = cfg.monthlyPaymentCHF - interest;
       if (principal > capital) principal = capital;
@@ -5421,7 +5424,7 @@ function invRenderRealEstate(t, labels, li) {
     ['Nominal initial', reFmtCHF(cfg.loanInitialCapitalCHF)],
     ['Taux fixe', `${(cfg.loanInterestRate*100).toFixed(2)}%`],
     ['Type', 'Amortissement direct'],
-    ['Suspension', `${cfg.suspensionStart} → ${cfg.suspensionEnd} (12 mois)`],
+    ['Suspension amortissement', `${cfg.suspensionStart} → ${cfg.suspensionEnd} (intérêts payés)`],
     ['Amort. extraordinaire', `${reFmtCHF(cfg.extraAmortCHF)} (${cfg.extraAmortDate}, 2e pilier)`],
     ['Prix d\'achat', `${reFmtEUR(cfg.propertyPurchasePriceEUR)} (07/2020)`],
     ['Frais d\'acquisition', `${reFmtEUR(cfg.notaryFeesEUR + cfg.agencyFeesEUR)} (notaire + agence)`],
@@ -5458,7 +5461,7 @@ function invRenderRealEstate(t, labels, li) {
     const isHighlight = row.isExtra || row.status === 'suspended';
     h += `<tr style="border-bottom:1px solid rgba(255,255,255,0.04);${isHighlight?'background:rgba(245,158,11,0.05);':''}">`;
     h += `<td style="text-align:left;padding:6px;font-weight:500">${row.ym}</td>`;
-    h += `<td style="text-align:right;padding:6px">${row.status==='suspended'||row.status==='init'?'—':reFmtCHF(row.interest+row.principal)}</td>`;
+    h += `<td style="text-align:right;padding:6px">${row.status==='init'?'—':(row.status==='suspended'?reFmtCHF(row.interest):reFmtCHF(row.interest+row.principal))}</td>`;
     h += `<td style="text-align:right;padding:6px;color:${row.principal>0?'#10b981':'var(--text-secondary)'}">${row.principal>0?reFmtCHF(row.principal):'—'}</td>`;
     h += `<td style="text-align:right;padding:6px;color:var(--text-secondary)">${row.interest>0?reFmtCHF(row.interest):'—'}</td>`;
     h += `<td style="text-align:right;padding:6px;font-weight:600">${reFmtCHF(row.capital)}</td>`;
