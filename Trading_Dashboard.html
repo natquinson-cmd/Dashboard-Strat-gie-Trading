@@ -6172,9 +6172,14 @@ function invRenderUpdate(t, li) {
         const lv = invLoanFormData[l] || '';
         const lCur = invIsLoanUsd(l) ? '$' : '€';
         const lEurNote = invIsLoanUsd(l) ? ` <span style="font-size:0.68rem;color:var(--text-secondary)">(≈ ${invFmt(Math.round(invLoanToEur(l, Number(lv)||0)))})</span>` : '';
-        h += `<div class="inv-loan-card"><div class="inv-flex inv-aic inv-gap2 inv-mb3"><span class="inv-dot" style="background:${INV_LC[i%3]};box-shadow:0 0 6px ${INV_LC[i%3]};width:12px;height:12px"></span><span style="font-size:12px;font-weight:500">${l}</span></div>`;
+        const isAuto = (l === YOUNITED_LOAN_NAME || l === REVOLUT_LOAN_NAME);
+        h += `<div class="inv-loan-card"><div class="inv-flex inv-aic inv-gap2 inv-mb3"><span class="inv-dot" style="background:${INV_LC[i%3]};box-shadow:0 0 6px ${INV_LC[i%3]};width:12px;height:12px"></span><span style="font-size:12px;font-weight:500">${l}${isAuto ? ' 🔒' : ''}</span></div>`;
         h += `<label style="font-size:12px;color:var(--text-secondary);display:block;margin-bottom:4px">Restant dû (${lCur})${lEurNote}</label>`;
-        h += `<input class="inv-input loan" type="number" value="${lv}" onchange="invUpdateLoanForm('${l}',this.value)" placeholder="0"></div>`;
+        if (isAuto) {
+          h += `<input class="inv-input loan" type="number" value="${lv}" disabled style="opacity:0.55;cursor:not-allowed"><div style="font-size:0.62rem;color:var(--text-secondary);opacity:0.75;margin-top:4px">🔒 Auto — échéancier officiel</div></div>`;
+        } else {
+          h += `<input class="inv-input loan" type="number" value="${lv}" onchange="invUpdateLoanForm('${l}',this.value)" placeholder="0"></div>`;
+        }
       });
       h += '</div>';
     }
@@ -6318,10 +6323,14 @@ function invSaveMonth() {
     d.principal[p][invEditMonth] = Number(invFormData[p] && invFormData[p].principal) || 0;
   });
   (d.loanNames || []).forEach(l => {
+    if (l === YOUNITED_LOAN_NAME || l === REVOLUT_LOAN_NAME) return; // auto-gérés, ne pas écraser
     if (!d.loans[l]) d.loans[l] = [];
     while (d.loans[l].length <= invEditMonth) d.loans[l].push(0);
     d.loans[l][invEditMonth] = Number(invLoanFormData[l]) || 0;
   });
+  // Réappliquer les échéanciers auto après sauvegarde (au cas où)
+  syncYounitedLoan();
+  syncRevolutLoan();
   savePortfolioToFirebase();
   invEditing = false;
   invNotify('Sauvegardé !');
