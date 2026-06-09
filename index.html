@@ -5681,7 +5681,7 @@ let simState = {
   loanRate: 6.91,
   loanLabel: 'Younited (6,91%)',
   placReturn: 11,
-  placLabel: 'P2P net estimé (~11%)',
+  placLabel: 'Personnalisé',
   taxRate: 30
 };
 const SIM_LOANS = [
@@ -5690,14 +5690,28 @@ const SIM_LOANS = [
   { label: 'Immobilier CHF (1,05%)', rate: 1.05 },
   { label: 'Personnalisé', rate: null }
 ];
-const SIM_PLACEMENTS = [
-  { label: 'Debitum P2P (~15,6% brut)', ret: 15.6 },
-  { label: 'Lendermarket P2P (~16,6% brut)', ret: 16.6 },
-  { label: 'RealT loyers (~8% brut)', ret: 8 },
-  { label: 'ETF World actions (~8% brut)', ret: 8 },
-  { label: 'Livret A (~2,4%)', ret: 2.4 },
-  { label: 'Personnalisé', ret: null }
-];
+// Rendement annuel composé de Trading Auto, dérivé des mêmes données que la
+// projection de la page Trading Réel (getMonthlyReturnsByMonth respecte le mode Fixe/Cumulé)
+function simTradingAutoRate() {
+  try {
+    const m = getMonthlyReturnsByMonth();
+    let f = 1; m.forEach(rr => f *= (1 + rr/100));
+    return Math.round((f - 1) * 1000) / 10; // 1 décimale
+  } catch(e) { return 26; }
+}
+function getSimPlacements() {
+  const ta = simTradingAutoRate();
+  const modeLbl = (typeof projMode !== 'undefined' && projMode === 'reinvest') ? 'cumulé' : 'taille fixe';
+  return [
+    { label: `Trading Auto — projection ${modeLbl} (~${Math.round(ta)}%)`, ret: ta },
+    { label: 'Debitum P2P (~15,6% brut)', ret: 15.6 },
+    { label: 'Lendermarket P2P (~16,6% brut)', ret: 16.6 },
+    { label: 'RealT loyers (~8% brut)', ret: 8 },
+    { label: 'ETF World actions (~8% brut)', ret: 8 },
+    { label: 'Livret A (~2,4%)', ret: 2.4 },
+    { label: 'Personnalisé', ret: null }
+  ];
+}
 
 function simSetLoan(label) {
   const l = SIM_LOANS.find(x => x.label === label);
@@ -5706,7 +5720,7 @@ function simSetLoan(label) {
   renderPortfolioTab('simulateur');
 }
 function simSetPlacement(label) {
-  const p = SIM_PLACEMENTS.find(x => x.label === label);
+  const p = getSimPlacements().find(x => x.label === label);
   simState.placLabel = label;
   if (p && p.ret != null) simState.placReturn = p.ret;
   renderPortfolioTab('simulateur');
@@ -5752,7 +5766,7 @@ function invRenderSimulator() {
   h += `<input type="number" step="0.01" class="inv-input" value="${s.loanRate}" onchange="simSetField('loanRate',this.value)" style="margin-top:4px;font-size:0.8rem" title="Taux du prêt %"></div>`;
   // Placement
   h += `<div><label style="font-size:0.72rem;color:var(--text-secondary);font-weight:600;text-transform:uppercase">Placement envisagé</label>`;
-  h += `<select class="inv-input" onchange="simSetPlacement(this.value)" style="margin-top:4px">${SIM_PLACEMENTS.map(p => `<option value="${p.label}" ${p.label===s.placLabel?'selected':''}>${p.label}</option>`).join('')}</select>`;
+  h += `<select class="inv-input" onchange="simSetPlacement(this.value)" style="margin-top:4px">${getSimPlacements().map(p => `<option value="${p.label}" ${p.label===s.placLabel?'selected':''}>${p.label}</option>`).join('')}</select>`;
   h += `<input type="number" step="0.1" class="inv-input" value="${s.placReturn}" onchange="simSetField('placReturn',this.value)" style="margin-top:4px;font-size:0.8rem" title="Rendement brut %/an"></div>`;
   // Tax
   h += `<div><label style="font-size:0.72rem;color:var(--text-secondary);font-weight:600;text-transform:uppercase">Impôt sur gains (%)</label>`;
