@@ -5684,6 +5684,7 @@ let simState = {
 };
 const SIM_LOANS = [
   { label: 'Younited (6,91%)', rate: 6.91 },
+  { label: 'Revolut conso (6,86%)', rate: 6.86 },
   { label: 'Immobilier CHF (1,05%)', rate: 1.05 },
   { label: 'Personnalisé', rate: null }
 ];
@@ -6483,6 +6484,62 @@ function syncYounitedLoan() {
 }
 
 // ══════════════════════════════════════════════════════════════
+// SYNC EMPRUNT REVOLUT (échéancier déterministe — auto-rempli)
+// 20 000 € · TAEG 6,86% (nominal 6,65%) · 84 mois · prélèvement le 7 · fin 07/01/2032
+// Valeurs = CAPITAL restant dû (= 20 000 − cumul capital amorti), pas le solde débiteur
+// ══════════════════════════════════════════════════════════════
+const REVOLUT_LOAN_NAME = 'Emprunt Revolut';
+const REVOLUT_LOAN_PAYMENT = 298.42;
+const REVOLUT_LOAN_PAYDAY = 7;
+const REVOLUT_LOAN_SCHEDULE = {
+  '2024-12':20000.00, // mise à disposition (30/12/2024), avant 1re échéance
+  '2025-01':20000.00, // pas d'échéance avant le 07/02/2025
+  '2025-02':19814.42,'2025-03':19617.08,'2025-04':19429.33,'2025-05':19237.11,'2025-06':19047.19,
+  '2025-07':18852.87,'2025-08':18660.78,'2025-09':18467.76,'2025-10':18270.14,'2025-11':18074.95,
+  '2025-12':17875.23,'2026-01':17677.87,'2026-02':17479.27,'2026-03':17269.89,'2026-04':17069.12,
+  '2026-05':16864.00,'2026-06':16660.75,'2026-07':16453.53,'2026-08':16248.11,'2026-09':16041.45,
+  '2026-10':15830.63,'2026-11':15621.49,'2026-12':15408.57,'2027-01':15197.26,'2027-02':14984.71,
+  '2027-03':14762.73,'2027-04':14547.70,'2027-05':14328.78,'2027-06':14111.27,'2027-07':13889.95,
+  '2027-08':13669.96,'2027-09':13448.73,'2027-10':13223.81,'2027-11':13000.10,'2027-12':12772.78,
+  '2028-01':12546.59,'2028-02':12319.16,'2028-03':12085.70,'2028-04':11855.48,'2028-05':11621.86,
+  '2028-06':11389.16,'2028-07':11153.14,'2028-08':10917.65,'2028-09':10680.92,'2028-10':10441.00,
+  '2028-11':10201.48,'2028-12':9958.86,'2029-01':9716.55,'2029-02':9473.00,'2029-03':9223.02,
+  '2029-04':8976.68,'2029-05':8727.46,'2029-06':8478.33,'2029-07':8226.11,'2029-08':7974.19,
+  '2029-09':7720.72,'2029-10':7464.60,'2029-11':7208.34,'2029-12':6949.22,'2030-01':6690.17,
+  '2030-02':6429.57,'2030-03':6163.91,'2030-04':5900.21,'2030-05':5633.89,'2030-06':5367.40,
+  '2030-07':5098.38,'2030-08':4828.79,'2030-09':4557.65,'2030-10':4284.13,'2030-11':4009.89,
+  '2030-12':3733.37,'2031-01':3456.03,'2031-02':3177.14,'2031-03':2894.96,'2031-04':2612.97,
+  '2031-05':2328.95,'2031-06':2043.55,'2031-07':1756.23,'2031-08':1467.73,'2031-09':1177.68,
+  '2031-10':885.56,'2031-11':592.10,'2031-12':296.98,'2032-01':0.00
+};
+const REVOLUT_LOAN_FIRST_YM = '2024-12', REVOLUT_LOAN_LAST_YM = '2032-01';
+
+function syncRevolutLoan() {
+  if (!portfolioData || !portfolioData.loanNames) return;
+  if (!portfolioData.loanNames.includes(REVOLUT_LOAN_NAME)) return;
+  const d = portfolioData;
+  if (!d.loans[REVOLUT_LOAN_NAME]) d.loans[REVOLUT_LOAN_NAME] = [];
+  const arr = d.loans[REVOLUT_LOAN_NAME];
+  const today = new Date();
+  const curYm = today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0');
+  d.months.forEach((ym, i) => {
+    let val = null;
+    if (ym < REVOLUT_LOAN_FIRST_YM) val = 0;
+    else if (ym > REVOLUT_LOAN_LAST_YM) val = 0;
+    else if (REVOLUT_LOAN_SCHEDULE[ym] != null) {
+      if (ym === curYm && today.getDate() < REVOLUT_LOAN_PAYDAY && REVOLUT_LOAN_SCHEDULE[prevYm(ym)] != null) {
+        val = REVOLUT_LOAN_SCHEDULE[prevYm(ym)];
+      } else {
+        val = REVOLUT_LOAN_SCHEDULE[ym];
+      }
+    }
+    if (val != null) arr[i] = val;
+  });
+  if (!d.loanMonthlyPayments) d.loanMonthlyPayments = {};
+  d.loanMonthlyPayments[REVOLUT_LOAN_NAME] = REVOLUT_LOAN_PAYMENT;
+}
+
+// ══════════════════════════════════════════════════════════════
 // SYNC ETF REVOLUT (DCA programmé) — semi-auto
 // 20 € VUAA chaque mercredi + 10 € VFEA chaque jeudi
 // Les versements se calculent seuls ; la valeur réelle (avec plus-values)
@@ -6620,6 +6677,7 @@ Promise.all([
   }
   syncRobotTrading();
   syncYounitedLoan(); // auto-remplit l'emprunt Younited depuis l'échéancier officiel
+  syncRevolutLoan();  // auto-remplit l'emprunt Revolut depuis l'échéancier officiel
   syncRevolutDca();   // auto-remplit les versements ETF Revolut (DCA) depuis l'ancrage
   renderRealTab();
   tabRendered.real = true;
