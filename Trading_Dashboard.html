@@ -5074,7 +5074,9 @@ function invRenderLoans(t, labels, li) {
   h += '<div class="inv-grid-kpi" style="grid-template-columns:repeat(3,1fr)">';
   (d.loanNames || []).forEach((l, i) => {
     const cuRaw = (d.loans[l] || [])[li] || 0;
-    const iniRaw = (d.loans[l] || [])[0] || cuRaw;
+    // "Initial" = première valeur non nulle (le capital de départ), pas arr[0]
+    // qui vaut 0 pour les mois antérieurs à la souscription du prêt
+    const iniRaw = (d.loans[l] || []).find(v => v > 0) || cuRaw;
     const cu = invLoanToEur(l, cuRaw);
     const ini = invLoanToEur(l, iniRaw);
     const mo = (d.loanMonthlyPayments || {})[l] || 0;
@@ -6230,6 +6232,68 @@ function syncRobotTrading() {
   });
 }
 
+// ══════════════════════════════════════════════════════════════
+// SYNC EMPRUNT YOUNITED (échéancier déterministe — auto-rempli chaque mois)
+// 50 000 € · TAEG 6,91% · 84 mois · prélèvement le 4 · fin 04/11/2030
+// Valeurs = capital restant dû APRÈS l'échéance du mois (source : échéancier officiel)
+// ══════════════════════════════════════════════════════════════
+const YOUNITED_LOAN_NAME = 'Emprunt Younited';
+const YOUNITED_PAYMENT = 747.55;
+const YOUNITED_PAYDAY = 4;
+const YOUNITED_SCHEDULE = {
+  '2023-11':50000.00, // déblocage des fonds (02/11/2023), avant 1re échéance
+  '2023-12':51738.65,'2024-01':51222.46,'2024-02':50703.96,'2024-03':50183.14,'2024-04':49659.99,
+  '2024-05':49134.50,'2024-06':48606.66,'2024-07':48076.46,'2024-08':47543.89,'2024-09':47008.94,
+  '2024-10':46471.60,'2024-11':45931.86,'2024-12':45389.70,'2025-01':44845.12,'2025-02':44298.10,
+  '2025-03':43748.64,'2025-04':43196.72,'2025-05':42642.33,'2025-06':42085.46,'2025-07':41526.10,
+  '2025-08':40964.24,'2025-09':40399.87,'2025-10':39832.98,'2025-11':39263.55,'2025-12':38691.57,
+  '2026-01':38117.04,'2026-02':37539.94,'2026-03':36960.26,'2026-04':36377.99,'2026-05':35793.11,
+  '2026-06':35205.62,'2026-07':34615.50,'2026-08':34022.74,'2026-09':33427.33,'2026-10':32829.26,
+  '2026-11':32228.51,'2026-12':31625.08,'2027-01':31018.95,'2027-02':30410.11,'2027-03':29798.54,
+  '2027-04':29184.24,'2027-05':28567.19,'2027-06':27947.38,'2027-07':27324.80,'2027-08':26699.44,
+  '2027-09':26071.28,'2027-10':25440.31,'2027-11':24806.52,'2027-12':24169.90,'2028-01':23530.43,
+  '2028-02':22888.10,'2028-03':22242.90,'2028-04':21594.81,'2028-05':20943.83,'2028-06':20289.93,
+  '2028-07':19633.11,'2028-08':18973.35,'2028-09':18310.64,'2028-10':17644.97,'2028-11':16976.32,
+  '2028-12':16304.68,'2029-01':15630.04,'2029-02':14952.38,'2029-03':14271.69,'2029-04':13587.96,
+  '2029-05':12901.17,'2029-06':12211.31,'2029-07':11518.37,'2029-08':10822.33,'2029-09':10123.17,
+  '2029-10':9420.89,'2029-11':8715.47,'2029-12':8006.89,'2030-01':7295.14,'2030-02':6580.21,
+  '2030-03':5862.08,'2030-04':5140.74,'2030-05':4416.18,'2030-06':3688.38,'2030-07':2957.32,
+  '2030-08':2222.99,'2030-09':1485.38,'2030-10':744.47,'2030-11':0.00
+};
+const YOUNITED_FIRST_YM = '2023-11', YOUNITED_LAST_YM = '2030-11';
+
+function prevYm(ym) { let [y,m]=ym.split('-').map(Number); m--; if(m<1){m=12;y--;} return y+'-'+String(m).padStart(2,'0'); }
+
+function syncYounitedLoan() {
+  if (!portfolioData || !portfolioData.loanNames) return;
+  if (!portfolioData.loanNames.includes(YOUNITED_LOAN_NAME)) return;
+  const d = portfolioData;
+  if (!d.loans[YOUNITED_LOAN_NAME]) d.loans[YOUNITED_LOAN_NAME] = [];
+  const arr = d.loans[YOUNITED_LOAN_NAME];
+
+  const today = new Date();
+  const curYm = today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0');
+
+  d.months.forEach((ym, i) => {
+    let val = null;
+    if (ym < YOUNITED_FIRST_YM) val = 0;            // avant le prêt
+    else if (ym > YOUNITED_LAST_YM) val = 0;        // prêt soldé
+    else if (YOUNITED_SCHEDULE[ym] != null) {
+      // Mois courant avant le prélèvement du 4 → l'échéance n'est pas encore passée
+      if (ym === curYm && today.getDate() < YOUNITED_PAYDAY && YOUNITED_SCHEDULE[prevYm(ym)] != null) {
+        val = YOUNITED_SCHEDULE[prevYm(ym)];
+      } else {
+        val = YOUNITED_SCHEDULE[ym];
+      }
+    }
+    if (val != null) arr[i] = val;
+  });
+
+  // Mensualité officielle (pour les stats / affichage)
+  if (!d.loanMonthlyPayments) d.loanMonthlyPayments = {};
+  d.loanMonthlyPayments[YOUNITED_LOAN_NAME] = YOUNITED_PAYMENT;
+}
+
 function formatTimestamp(ts) {
   const dt = new Date(ts);
   const d = String(dt.getDate()).padStart(2, '0');
@@ -6290,6 +6354,7 @@ Promise.all([
     calMonth = parseInt(latest.substring(5,7)) - 1;
   }
   syncRobotTrading();
+  syncYounitedLoan(); // auto-remplit l'emprunt Younited depuis l'échéancier officiel
   renderRealTab();
   tabRendered.real = true;
   renderSubTabs();
