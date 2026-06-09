@@ -1420,6 +1420,7 @@
   <div id="tab-evolution" class="tab-content"></div>
   <div id="tab-loans" class="tab-content"></div>
   <div id="tab-realestate" class="tab-content"></div>
+  <div id="tab-simulateur" class="tab-content"></div>
   <div id="tab-repartition" class="tab-content"></div>
   <div id="tab-update" class="tab-content"></div>
 
@@ -4380,12 +4381,13 @@ const GROUP_TABS = {
     { id: 'evolution', label: 'Évolution' },
     { id: 'loans', label: 'Emprunts' },
     { id: 'realestate', label: '🏠 Immobilier' },
+    { id: 'simulateur', label: '🧮 Rembourser vs Placer' },
     { id: 'repartition', label: 'Répartition' },
     { id: 'update', label: 'Mise à jour' }
   ]
 };
 
-const ALL_TAB_IDS = ['real', 'fixed', 'reinvest', 'overview', 'interests', 'evolution', 'loans', 'realestate', 'repartition', 'update'];
+const ALL_TAB_IDS = ['real', 'fixed', 'reinvest', 'overview', 'interests', 'evolution', 'loans', 'realestate', 'simulateur', 'repartition', 'update'];
 
 function renderSubTabs() {
   const bar = document.getElementById('subTabBar');
@@ -4466,7 +4468,7 @@ function activateTab(tab) {
   }
 
   // Portfolio tabs
-  if (['overview', 'interests', 'evolution', 'loans', 'realestate', 'repartition', 'update'].includes(tab)) {
+  if (['overview', 'interests', 'evolution', 'loans', 'realestate', 'simulateur', 'repartition', 'update'].includes(tab)) {
     invDestroyCharts();
     renderPortfolioTab(tab);
   }
@@ -4896,6 +4898,7 @@ function renderPortfolioTab(tab) {
   else if (tab === 'evolution') h += invRenderEvolution(t, labels, li);
   else if (tab === 'loans') h += invRenderLoans(t, labels, li);
   else if (tab === 'realestate') h += invRenderRealEstate(t, labels, li);
+  else if (tab === 'simulateur') h += invRenderSimulator();
   else if (tab === 'repartition') h += invRenderRepartition(t, li);
   else if (tab === 'update') h += invRenderUpdate(t, li);
 
@@ -4911,6 +4914,7 @@ function renderPortfolioTab(tab) {
     else if (tab === 'evolution') invBuildEvolutionCharts(t, labels, li);
     else if (tab === 'loans') invBuildLoanCharts(t, labels, li);
     else if (tab === 'realestate') invBuildRealEstateCharts();
+    else if (tab === 'simulateur') invBuildSimulatorChart();
     else if (tab === 'repartition') invBuildRepartitionCharts(t, labels, li);
     invUpdateSyncIndicator();
   });
@@ -5643,6 +5647,169 @@ function invBuildRealEstateCharts() {
       }
     });
   }
+}
+
+// ══════════════════════════════════════════════════════════════
+// 🧮 SIMULATEUR "REMBOURSER vs PLACER"
+// ══════════════════════════════════════════════════════════════
+let simState = {
+  montant: 15000,
+  horizon: 5,
+  loanRate: 6.91,
+  loanLabel: 'Younited (6,91%)',
+  placReturn: 11,
+  placLabel: 'P2P net estimé (~11%)',
+  taxRate: 30
+};
+const SIM_LOANS = [
+  { label: 'Younited (6,91%)', rate: 6.91 },
+  { label: 'Immobilier CHF (1,05%)', rate: 1.05 },
+  { label: 'Personnalisé', rate: null }
+];
+const SIM_PLACEMENTS = [
+  { label: 'Debitum P2P (~15,6% brut)', ret: 15.6 },
+  { label: 'Lendermarket P2P (~16,6% brut)', ret: 16.6 },
+  { label: 'RealT loyers (~8% brut)', ret: 8 },
+  { label: 'ETF World actions (~8% brut)', ret: 8 },
+  { label: 'Livret A (~2,4%)', ret: 2.4 },
+  { label: 'Personnalisé', ret: null }
+];
+
+function simSetLoan(label) {
+  const l = SIM_LOANS.find(x => x.label === label);
+  simState.loanLabel = label;
+  if (l && l.rate != null) simState.loanRate = l.rate;
+  renderPortfolioTab('simulateur');
+}
+function simSetPlacement(label) {
+  const p = SIM_PLACEMENTS.find(x => x.label === label);
+  simState.placLabel = label;
+  if (p && p.ret != null) simState.placReturn = p.ret;
+  renderPortfolioTab('simulateur');
+}
+function simSetField(field, val) {
+  simState[field] = Number(val) || 0;
+  renderPortfolioTab('simulateur');
+}
+
+function invRenderSimulator() {
+  const s = simState;
+  const X = s.montant, T = s.horizon, r = s.loanRate/100, g = s.placReturn/100, tax = s.taxRate/100;
+  // Rembourser : rendement garanti = taux du prêt, non imposé
+  const gainRemb = X * (Math.pow(1+r, T) - 1);
+  const fvRemb = X + gainRemb;
+  // Placer : rendement brut, gains imposés à la flat tax
+  const gainPlacBrut = X * (Math.pow(1+g, T) - 1);
+  const gainPlacNet = gainPlacBrut * (1 - tax);
+  const fvPlacNet = X + gainPlacNet;
+  const diff = fvPlacNet - fvRemb;
+  const placWins = diff > 0;
+  // Rendement brut nécessaire pour battre le remboursement
+  const breakEvenG = (Math.pow(1 + gainRemb/(X*(1-tax)), 1/T) - 1) * 100;
+
+  const fmtE = v => Math.round(v).toLocaleString('fr-FR') + ' €';
+
+  let h = '';
+  h += `<div class="inv-card" style="padding:24px 28px;margin-bottom:20px">`;
+  h += `<h3 style="margin-top:0;display:flex;align-items:center;gap:8px"><span class="inv-chart-icon">🧮</span>Rembourser un emprunt vs Placer</h3>`;
+  h += `<p style="font-size:0.82rem;color:var(--text-secondary);margin:4px 0 18px">Compare ce que rapportent ${fmtE(X)} selon que tu rembourses un emprunt (gain = intérêts évités, garanti, non imposé) ou que tu places (gain brut, imposé à la flat tax).</p>`;
+
+  // ── Inputs ──
+  h += `<div class="inv-grid" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px">`;
+  // Montant
+  h += `<div><label style="font-size:0.72rem;color:var(--text-secondary);font-weight:600;text-transform:uppercase">Montant à allouer</label>`;
+  h += `<input type="number" step="1000" class="inv-input" value="${X}" onchange="simSetField('montant',this.value)" style="margin-top:4px"></div>`;
+  // Horizon
+  h += `<div><label style="font-size:0.72rem;color:var(--text-secondary);font-weight:600;text-transform:uppercase">Horizon (années)</label>`;
+  h += `<input type="number" step="1" min="1" max="30" class="inv-input" value="${T}" onchange="simSetField('horizon',this.value)" style="margin-top:4px"></div>`;
+  // Emprunt
+  h += `<div><label style="font-size:0.72rem;color:var(--text-secondary);font-weight:600;text-transform:uppercase">Emprunt à rembourser</label>`;
+  h += `<select class="inv-input" onchange="simSetLoan(this.value)" style="margin-top:4px">${SIM_LOANS.map(l => `<option value="${l.label}" ${l.label===s.loanLabel?'selected':''}>${l.label}</option>`).join('')}</select>`;
+  h += `<input type="number" step="0.01" class="inv-input" value="${s.loanRate}" onchange="simSetField('loanRate',this.value)" style="margin-top:4px;font-size:0.8rem" title="Taux du prêt %"></div>`;
+  // Placement
+  h += `<div><label style="font-size:0.72rem;color:var(--text-secondary);font-weight:600;text-transform:uppercase">Placement envisagé</label>`;
+  h += `<select class="inv-input" onchange="simSetPlacement(this.value)" style="margin-top:4px">${SIM_PLACEMENTS.map(p => `<option value="${p.label}" ${p.label===s.placLabel?'selected':''}>${p.label}</option>`).join('')}</select>`;
+  h += `<input type="number" step="0.1" class="inv-input" value="${s.placReturn}" onchange="simSetField('placReturn',this.value)" style="margin-top:4px;font-size:0.8rem" title="Rendement brut %/an"></div>`;
+  // Tax
+  h += `<div><label style="font-size:0.72rem;color:var(--text-secondary);font-weight:600;text-transform:uppercase">Impôt sur gains (%)</label>`;
+  h += `<input type="number" step="1" class="inv-input" value="${s.taxRate}" onchange="simSetField('taxRate',this.value)" style="margin-top:4px"><div style="font-size:0.62rem;color:var(--text-secondary);opacity:0.7;margin-top:2px">flat tax FR = 30%</div></div>`;
+  h += `</div></div>`;
+
+  // ── Verdict banner ──
+  const vColor = placWins ? '#10b981' : '#6366f1';
+  h += `<div class="inv-card" style="padding:18px 24px;margin-bottom:20px;border:1px solid ${vColor}55;background:${placWins?'rgba(16,185,129,0.06)':'rgba(99,102,241,0.06)'}">`;
+  h += `<div style="font-size:0.95rem;font-weight:700;color:${vColor}">${placWins ? '📈 Placer rapporte plus' : '🛡️ Rembourser est plus avantageux'} sur ${T} an${T>1?'s':''}</div>`;
+  h += `<div style="font-size:0.85rem;color:var(--text-secondary);margin-top:4px">Écart net : <strong style="color:${vColor}">${diff>=0?'+':''}${fmtE(diff)}</strong> en faveur de « ${placWins?'Placer':'Rembourser'} »${placWins ? ' — mais sans la garantie ni l\'absence de risque du remboursement.' : ' — et garanti, sans risque, non imposé.'}</div>`;
+  h += `</div>`;
+
+  // ── 2 cartes ──
+  h += `<div class="inv-grid inv-grid-2" style="margin-bottom:20px">`;
+  // Rembourser
+  h += `<div class="inv-card" style="padding:20px 24px;border:1px solid ${!placWins?'#6366f188':'rgba(255,255,255,0.06)'}">`;
+  h += `<div style="font-size:0.72rem;text-transform:uppercase;letter-spacing:1px;color:#6366f1;font-weight:700">🛡️ Rembourser ${s.loanLabel.split(' (')[0]}</div>`;
+  h += `<div style="font-size:1.6rem;font-weight:700;color:var(--text-primary);margin:6px 0">${fmtE(fvRemb)}</div>`;
+  h += `<div style="font-size:0.82rem;color:var(--text-secondary);display:flex;flex-direction:column;gap:5px;margin-top:8px">`;
+  h += `<div class="inv-flex inv-jcsb"><span>Intérêts évités (gain)</span><span style="color:#10b981;font-weight:600">+${fmtE(gainRemb)}</span></div>`;
+  h += `<div class="inv-flex inv-jcsb"><span>Rendement garanti</span><span style="color:var(--text-primary)">${s.loanRate.toFixed(2)}% net, sans risque</span></div>`;
+  h += `<div class="inv-flex inv-jcsb"><span>Imposition</span><span style="color:var(--text-primary)">aucune</span></div>`;
+  h += `</div></div>`;
+  // Placer
+  h += `<div class="inv-card" style="padding:20px 24px;border:1px solid ${placWins?'#10b98188':'rgba(255,255,255,0.06)'}">`;
+  h += `<div style="font-size:0.72rem;text-transform:uppercase;letter-spacing:1px;color:#10b981;font-weight:700">📈 Placer (${s.placReturn}% brut)</div>`;
+  h += `<div style="font-size:1.6rem;font-weight:700;color:var(--text-primary);margin:6px 0">${fmtE(fvPlacNet)}</div>`;
+  h += `<div style="font-size:0.82rem;color:var(--text-secondary);display:flex;flex-direction:column;gap:5px;margin-top:8px">`;
+  h += `<div class="inv-flex inv-jcsb"><span>Gain brut</span><span style="color:var(--text-primary)">+${fmtE(gainPlacBrut)}</span></div>`;
+  h += `<div class="inv-flex inv-jcsb"><span>Impôt (${s.taxRate}%)</span><span style="color:var(--negative)">−${fmtE(gainPlacBrut*tax)}</span></div>`;
+  h += `<div class="inv-flex inv-jcsb"><span>Gain net</span><span style="color:#10b981;font-weight:600">+${fmtE(gainPlacNet)}</span></div>`;
+  h += `</div></div>`;
+  h += `</div>`;
+
+  // ── Seuil de rentabilité ──
+  h += `<div class="inv-card" style="padding:16px 24px;margin-bottom:20px">`;
+  h += `<div style="font-size:0.85rem;color:var(--text-secondary)">🎯 Pour battre le remboursement de <strong style="color:var(--text-primary)">${s.loanLabel.split(' (')[0]}</strong>, ton placement doit rapporter plus de <strong style="color:#f59e0b;font-size:1.05rem">${breakEvenG.toFixed(2)}% brut/an</strong> (après flat tax ${s.taxRate}%).</div>`;
+  h += `<div style="font-size:0.75rem;color:var(--text-secondary);opacity:0.75;margin-top:4px">Règle simple : seuil ≈ taux du prêt ÷ (1 − impôt) = ${s.loanRate.toFixed(2)}% ÷ ${(1-tax).toFixed(2)} = ${(s.loanRate/(1-tax)).toFixed(2)}%</div>`;
+  h += `</div>`;
+
+  // ── Graphique ──
+  h += `<div class="inv-chart-card"><h3><span class="inv-chart-icon">📊</span>Évolution de la valeur nette sur ${T} an${T>1?'s':''}</h3><div class="inv-canvas-wrap" style="height:300px"><canvas id="sim-ch"></canvas></div></div>`;
+
+  // Note risque
+  h += `<div style="font-size:0.75rem;color:var(--text-secondary);opacity:0.7;margin-top:12px;line-height:1.5">⚠️ Le remboursement est un gain <strong>certain</strong> ; le placement est une <strong>espérance</strong> soumise au risque (défaut, volatilité, perte en capital). À rendement net égal, le remboursement est préférable. Simulation indicative, hors frais et hors réinvestissement des mensualités libérées.</div>`;
+
+  return h;
+}
+
+function invBuildSimulatorChart() {
+  const s = simState;
+  const X = s.montant, T = s.horizon, r = s.loanRate/100, g = s.placReturn/100, tax = s.taxRate/100;
+  const labels = [], remb = [], plac = [];
+  for (let y = 0; y <= T; y++) {
+    labels.push('Année ' + y);
+    remb.push(Math.round(X * Math.pow(1+r, y)));
+    plac.push(Math.round(X + X*(Math.pow(1+g, y)-1)*(1-tax)));
+  }
+  const ctx = document.getElementById('sim-ch');
+  if (!ctx) return;
+  if (invCharts.sim) invCharts.sim.destroy();
+  invCharts.sim = new Chart(ctx, {
+    type: 'line',
+    data: { labels, datasets: [
+      { label: 'Rembourser (garanti)', data: remb, borderColor: '#6366f1', backgroundColor: 'rgba(99,102,241,0.08)', borderWidth: 2, pointRadius: 0, fill: true, tension: 0.2 },
+      { label: 'Placer (net d\'impôt)', data: plac, borderColor: '#10b981', backgroundColor: 'rgba(16,185,129,0.08)', borderWidth: 2, pointRadius: 0, fill: true, tension: 0.2 }
+    ]},
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: true, labels: { color: '#8892a4', font: { size: 11 } } },
+        tooltip: { callbacks: { label: c => ` ${c.dataset.label}: ${Math.round(c.parsed.y).toLocaleString('fr-FR')} €` } }
+      },
+      scales: {
+        x: { ticks: { font: { size: 9 } }, grid: { display: false } },
+        y: { ticks: { callback: v => (v/1000).toFixed(0)+'k €', font: { size: 10 } }, grid: { color: 'rgba(99,102,241,0.08)' } }
+      }
+    }
+  });
 }
 
 // ── Repartition ──
