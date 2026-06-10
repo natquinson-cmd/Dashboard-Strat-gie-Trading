@@ -2257,7 +2257,9 @@ function getMonthlyReturnStd() {
   return Math.sqrt(variance); // en % par mois
 }
 
-function buildProjectionData(startPnL, lastDate, horizonMonths) {
+function buildProjectionData(startPnL, lastDate, horizonMonths, sigmaOffsetMonths = 0) {
+  // sigmaOffsetMonths : nb de mois réels déjà écoulés — le cône démarre au 1er mois
+  // de données réelles (janv 2026) et continue de s'élargir sur le futur
   const monthlyByMonth = getMonthlyReturnsByMonth();
   const std = getMonthlyReturnStd(); // volatilité mensuelle (%)
   const Z = 1; // ±1 écart-type ≈ 2 cas sur 3
@@ -2287,8 +2289,9 @@ function buildProjectionData(startPnL, lastDate, horizonMonths) {
       cumPnL += capital * (monthReturn / 100);
     }
 
-    // Cône d'incertitude : élargissement multiplicatif en √temps (loi log-normale)
-    const monthIdx = i + 1;
+    // Cône d'incertitude : élargissement multiplicatif en √temps (loi log-normale),
+    // le compteur continue depuis le début des données réelles (sigmaOffsetMonths)
+    const monthIdx = sigmaOffsetMonths + i + 1;
     const sigmaCum = (std / 100) * Math.sqrt(monthIdx);
     const factor = Math.exp(Z * sigmaCum);
     const vMed = capital + cumPnL;
@@ -2377,6 +2380,8 @@ function buildCumulativePnL() {
 
     let cumProj = 0;
     const projPast = [];
+    const conePastOpt = [], conePastPess = [];
+    const stdPast = getMonthlyReturnStd();
     for (let i = 0; i < rawDates.length; i++) {
       const mm = parseInt(rawDates[i].substring(5,7)) - 1; // 0-11
       const monthReturn = monthlyByMonth[mm];
@@ -2387,10 +2392,16 @@ function buildCumulativePnL() {
         cumProj += capital * (monthReturn / 100);
       }
       projPast.push(Math.round(cumProj * 100) / 100);
+      // Cône sur la période réelle : démarre au 1er mois de données (janv 2026)
+      const sigmaCum = (stdPast / 100) * Math.sqrt(i + 1);
+      const factor = Math.exp(sigmaCum); // Z = 1
+      const vMed = capital + cumProj;
+      conePastOpt.push(Math.round((vMed * factor - capital) * 100) / 100);
+      conePastPess.push(Math.round((vMed / factor - capital) * 100) / 100);
     }
 
-    // ── Projection sur les mois futurs ──
-    const proj = buildProjectionData(projPast[projPast.length - 1], lastDate, horizonMonths);
+    // ── Projection sur les mois futurs (le cône continue depuis le passé) ──
+    const proj = buildProjectionData(projPast[projPast.length - 1], lastDate, horizonMonths, projPast.length);
 
     // Extend labels & rawDates for future months
     allLabels = [...labels, ...proj.labels];
@@ -2409,10 +2420,9 @@ function buildCumulativePnL() {
     datasets[0].data = realDataFull;
 
     const realCount = values.length;
-    const junction = projPast[projPast.length - 1]; // point "présent" d'où part le cône
-    const conePrefix = new Array(Math.max(0, realCount - 1)).fill(null);
-    const projPessFull = [...conePrefix, junction, ...proj.valuesPess];
-    const projOptFull  = [...conePrefix, junction, ...proj.valuesOpt];
+    // Le cône couvre toute la période : du 1er mois réel (janv 2026) à la fin de l'horizon
+    const projPessFull = [...conePastPess, ...proj.valuesPess];
+    const projOptFull  = [...conePastOpt, ...proj.valuesOpt];
 
     // Ordre : réel (0), pessimiste (1), optimiste (2, remplit jusqu'à pessimiste = cône), médian (3, au-dessus)
     datasets.push({
