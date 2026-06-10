@@ -5741,6 +5741,7 @@ let simState = {
   loanLabel: 'Younited (6,91%)',
   placReturn: 11,
   placLabel: 'Personnalisé',
+  placGrowth: 'compound', // 'linear' (gains non réinvestis, ex. Trading taille fixe) | 'compound'
   taxRate: 30
 };
 const SIM_LOANS = [
@@ -5753,27 +5754,31 @@ const SIM_LOANS = [
 // que la projection de la page Trading Réel (moyenne mensuelle par mois sur tout
 // l'historique ~2018-2026, puis composée sur 12 mois). `sources` = [fDax,fNas]
 // pour la taille fixe, [rDax,rNas] pour le réinvestissement (cumulé).
-function simTradingAutoRate(sources) {
+// Statistiques annuelles du backtest, alignées sur la courbe MÉDIANE de la projection :
+// - taille fixe : la médiane croît LINÉAIREMENT (gains non réinvestis) → somme arithmétique des moyennes mensuelles
+// - cumulé : la médiane COMPOSE mois après mois → produit des (1+r) sur 12 mois
+function simTradingAutoStats(sources) {
   try {
     const byMonth = Array.from({length:12}, () => []);
     sources.forEach(ds => Object.values(ds).forEach(months => months.forEach((v,i) => { if (v !== 0) byMonth[i].push(v); })));
     const monthlyAvg = byMonth.map(arr => arr.length ? arr.reduce((a,b)=>a+b,0)/arr.length : 0);
+    const sum = monthlyAvg.reduce((a,b) => a+b, 0);
     let f = 1; monthlyAvg.forEach(rr => f *= (1 + rr/100));
-    return Math.round((f - 1) * 1000) / 10; // 1 décimale
-  } catch(e) { return 0; }
+    return { sum: Math.round(sum * 10) / 10, compound: Math.round((f - 1) * 1000) / 10 };
+  } catch(e) { return { sum: 0, compound: 0 }; }
 }
 function getSimPlacements() {
-  const taFixe = simTradingAutoRate([fDax, fNas]);
-  const taCumule = simTradingAutoRate([rDax, rNas]);
+  const taFixe = simTradingAutoStats([fDax, fNas]).sum;        // linéaire, comme la médiane Fixe
+  const taCumule = simTradingAutoStats([rDax, rNas]).compound; // composé, comme la médiane Cumulé
   return [
-    { label: `Trading Auto — taille fixe (~${Math.round(taFixe)}%)`, ret: taFixe },
-    { label: `Trading Auto — cumulé/réinvest (~${Math.round(taCumule)}%)`, ret: taCumule },
-    { label: 'Debitum P2P (~15,6% brut)', ret: 15.6 },
-    { label: 'Lendermarket P2P (~16,6% brut)', ret: 16.6 },
-    { label: 'RealT loyers (~8% brut)', ret: 8 },
-    { label: 'ETF World actions (~8% brut)', ret: 8 },
-    { label: 'Livret A (~2,4%)', ret: 2.4 },
-    { label: 'Personnalisé', ret: null }
+    { label: `Trading Auto — taille fixe (~${Math.round(taFixe)}%/an, linéaire)`, ret: taFixe, growth: 'linear' },
+    { label: `Trading Auto — cumulé/réinvest (~${Math.round(taCumule)}%/an, composé)`, ret: taCumule, growth: 'compound' },
+    { label: 'Debitum P2P (~15,6% brut)', ret: 15.6, growth: 'compound' },
+    { label: 'Lendermarket P2P (~16,6% brut)', ret: 16.6, growth: 'compound' },
+    { label: 'RealT loyers (~8% brut)', ret: 8, growth: 'compound' },
+    { label: 'ETF World actions (~8% brut)', ret: 8, growth: 'compound' },
+    { label: 'Livret A (~2,4%)', ret: 2.4, growth: 'compound' },
+    { label: 'Personnalisé', ret: null, growth: 'compound' }
   ];
 }
 
@@ -5787,6 +5792,7 @@ function simSetPlacement(label) {
   const p = getSimPlacements().find(x => x.label === label);
   simState.placLabel = label;
   if (p && p.ret != null) simState.placReturn = p.ret;
+  simState.placGrowth = (p && p.growth) || 'compound';
   renderPortfolioTab('simulateur');
 }
 function simSetField(field, val) {
@@ -5800,14 +5806,18 @@ function invRenderSimulator() {
   // Rembourser : rendement garanti = taux du prêt, non imposé
   const gainRemb = X * (Math.pow(1+r, T) - 1);
   const fvRemb = X + gainRemb;
-  // Placer : rendement brut, gains imposés à la flat tax
-  const gainPlacBrut = X * (Math.pow(1+g, T) - 1);
+  // Placer : rendement brut, gains imposés à la flat tax.
+  // 'linear' = gains non réinvestis (aligné sur la médiane Taille Fixe) ; 'compound' = intérêts composés
+  const isLinear = s.placGrowth === 'linear';
+  const gainPlacBrut = isLinear ? X * g * T : X * (Math.pow(1+g, T) - 1);
   const gainPlacNet = gainPlacBrut * (1 - tax);
   const fvPlacNet = X + gainPlacNet;
   const diff = fvPlacNet - fvRemb;
   const placWins = diff > 0;
-  // Rendement brut nécessaire pour battre le remboursement
-  const breakEvenG = (Math.pow(1 + gainRemb/(X*(1-tax)), 1/T) - 1) * 100;
+  // Rendement brut nécessaire pour battre le remboursement (selon le mode de croissance)
+  const breakEvenG = isLinear
+    ? (gainRemb / (X * T * (1-tax))) * 100
+    : (Math.pow(1 + gainRemb/(X*(1-tax)), 1/T) - 1) * 100;
 
   const fmtE = v => Math.round(v).toLocaleString('fr-FR') + ' €';
 
@@ -5857,19 +5867,20 @@ function invRenderSimulator() {
   h += `</div></div>`;
   // Placer
   h += `<div class="inv-card" style="padding:20px 24px;border:1px solid ${placWins?'#10b98188':'rgba(255,255,255,0.06)'}">`;
-  h += `<div style="font-size:0.72rem;text-transform:uppercase;letter-spacing:1px;color:#10b981;font-weight:700">📈 Placer (${s.placReturn}% brut)</div>`;
+  h += `<div style="font-size:0.72rem;text-transform:uppercase;letter-spacing:1px;color:#10b981;font-weight:700">📈 Placer (${s.placReturn}% brut${isLinear ? ' · linéaire' : ''})</div>`;
   h += `<div style="font-size:1.6rem;font-weight:700;color:var(--text-primary);margin:6px 0">${fmtE(fvPlacNet)}</div>`;
   h += `<div style="font-size:0.82rem;color:var(--text-secondary);display:flex;flex-direction:column;gap:5px;margin-top:8px">`;
   h += `<div class="inv-flex inv-jcsb"><span>Gain brut</span><span style="color:var(--text-primary)">+${fmtE(gainPlacBrut)}</span></div>`;
   h += `<div class="inv-flex inv-jcsb"><span>Impôt (${s.taxRate}%)</span><span style="color:var(--negative)">−${fmtE(gainPlacBrut*tax)}</span></div>`;
   h += `<div class="inv-flex inv-jcsb"><span>Gain net</span><span style="color:#10b981;font-weight:600">+${fmtE(gainPlacNet)}</span></div>`;
+  if (isLinear) h += `<div style="font-size:0.68rem;color:var(--text-secondary);opacity:0.75;margin-top:4px">Croissance linéaire : gains non réinvestis, comme la projection médiane Taille Fixe (positions constantes).</div>`;
   h += `</div></div>`;
   h += `</div>`;
 
   // ── Seuil de rentabilité ──
   h += `<div class="inv-card" style="padding:16px 24px;margin-bottom:20px">`;
-  h += `<div style="font-size:0.85rem;color:var(--text-secondary)">🎯 Pour battre le remboursement de <strong style="color:var(--text-primary)">${s.loanLabel.split(' (')[0]}</strong>, ton placement doit rapporter plus de <strong style="color:#f59e0b;font-size:1.05rem">${breakEvenG.toFixed(2)}% brut/an</strong> (après flat tax ${s.taxRate}%).</div>`;
-  h += `<div style="font-size:0.75rem;color:var(--text-secondary);opacity:0.75;margin-top:4px">Règle simple : seuil ≈ taux du prêt ÷ (1 − impôt) = ${s.loanRate.toFixed(2)}% ÷ ${(1-tax).toFixed(2)} = ${(s.loanRate/(1-tax)).toFixed(2)}%</div>`;
+  h += `<div style="font-size:0.85rem;color:var(--text-secondary)">🎯 Pour battre le remboursement de <strong style="color:var(--text-primary)">${s.loanLabel.split(' (')[0]}</strong>, ton placement doit rapporter plus de <strong style="color:#f59e0b;font-size:1.05rem">${breakEvenG.toFixed(2)}% brut/an</strong> (après flat tax ${s.taxRate}%${isLinear ? ', croissance linéaire' : ''}).</div>`;
+  if (!isLinear) h += `<div style="font-size:0.75rem;color:var(--text-secondary);opacity:0.75;margin-top:4px">Règle simple : seuil ≈ taux du prêt ÷ (1 − impôt) = ${s.loanRate.toFixed(2)}% ÷ ${(1-tax).toFixed(2)} = ${(s.loanRate/(1-tax)).toFixed(2)}%</div>`;
   h += `</div>`;
 
   // ── Graphique ──
@@ -5884,11 +5895,13 @@ function invRenderSimulator() {
 function invBuildSimulatorChart() {
   const s = simState;
   const X = s.montant, T = s.horizon, r = s.loanRate/100, g = s.placReturn/100, tax = s.taxRate/100;
+  const isLinear = s.placGrowth === 'linear';
   const labels = [], remb = [], plac = [];
   for (let y = 0; y <= T; y++) {
     labels.push('Année ' + y);
     remb.push(Math.round(X * Math.pow(1+r, y)));
-    plac.push(Math.round(X + X*(Math.pow(1+g, y)-1)*(1-tax)));
+    const gainBrutY = isLinear ? X * g * y : X * (Math.pow(1+g, y) - 1);
+    plac.push(Math.round(X + gainBrutY * (1-tax)));
   }
   const ctx = document.getElementById('sim-ch');
   if (!ctx) return;
