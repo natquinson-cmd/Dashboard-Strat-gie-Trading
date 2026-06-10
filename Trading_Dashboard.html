@@ -5690,20 +5690,25 @@ const SIM_LOANS = [
   { label: 'Immobilier CHF (1,05%)', rate: 1.05 },
   { label: 'Personnalisé', rate: null }
 ];
-// Rendement annuel composé de Trading Auto, dérivé des mêmes données que la
-// projection de la page Trading Réel (getMonthlyReturnsByMonth respecte le mode Fixe/Cumulé)
-function simTradingAutoRate() {
+// Rendement annuel composé de Trading Auto, dérivé des mêmes données de backtest
+// que la projection de la page Trading Réel (moyenne mensuelle par mois sur tout
+// l'historique ~2018-2026, puis composée sur 12 mois). `sources` = [fDax,fNas]
+// pour la taille fixe, [rDax,rNas] pour le réinvestissement (cumulé).
+function simTradingAutoRate(sources) {
   try {
-    const m = getMonthlyReturnsByMonth();
-    let f = 1; m.forEach(rr => f *= (1 + rr/100));
+    const byMonth = Array.from({length:12}, () => []);
+    sources.forEach(ds => Object.values(ds).forEach(months => months.forEach((v,i) => { if (v !== 0) byMonth[i].push(v); })));
+    const monthlyAvg = byMonth.map(arr => arr.length ? arr.reduce((a,b)=>a+b,0)/arr.length : 0);
+    let f = 1; monthlyAvg.forEach(rr => f *= (1 + rr/100));
     return Math.round((f - 1) * 1000) / 10; // 1 décimale
-  } catch(e) { return 26; }
+  } catch(e) { return 0; }
 }
 function getSimPlacements() {
-  const ta = simTradingAutoRate();
-  const modeLbl = (typeof projMode !== 'undefined' && projMode === 'reinvest') ? 'cumulé' : 'taille fixe';
+  const taFixe = simTradingAutoRate([fDax, fNas]);
+  const taCumule = simTradingAutoRate([rDax, rNas]);
   return [
-    { label: `Trading Auto — projection ${modeLbl} (~${Math.round(ta)}%)`, ret: ta },
+    { label: `Trading Auto — taille fixe (~${Math.round(taFixe)}%)`, ret: taFixe },
+    { label: `Trading Auto — cumulé/réinvest (~${Math.round(taCumule)}%)`, ret: taCumule },
     { label: 'Debitum P2P (~15,6% brut)', ret: 15.6 },
     { label: 'Lendermarket P2P (~16,6% brut)', ret: 16.6 },
     { label: 'RealT loyers (~8% brut)', ret: 8 },
