@@ -2075,6 +2075,8 @@ const travelingLightPlugin = {
 
     chart.data.datasets.forEach((ds, dsIdx) => {
       if (chart.config.type !== 'line') return;
+      // Pas de point lumineux sur les bornes du cône (optimiste/pessimiste)
+      if (ds.label && (ds.label.includes('Optimiste') || ds.label.includes('Pessimiste'))) return;
       const meta = chart.getDatasetMeta(dsIdx);
       if (!meta.visible || meta.data.length < 2) return;
 
@@ -2243,8 +2245,22 @@ function getMonthlyReturnsByMonth() {
   return byMonth.map(arr => arr.length ? arr.reduce((a,b) => a+b, 0) / arr.length : 0);
 }
 
+// Écart-type des rendements mensuels (tous mois/années confondus) du mode choisi.
+// Sert à construire le cône d'incertitude de la projection (volatilité réelle).
+function getMonthlyReturnStd() {
+  const sources = projMode === 'reinvest' ? [rDax, rNas] : [fDax, fNas];
+  const all = [];
+  sources.forEach(ds => Object.values(ds).forEach(months => months.forEach(v => { if (v !== 0) all.push(v); })));
+  if (all.length < 2) return 0;
+  const mean = all.reduce((a,b) => a+b, 0) / all.length;
+  const variance = all.reduce((a,b) => a + (b-mean)*(b-mean), 0) / all.length;
+  return Math.sqrt(variance); // en % par mois
+}
+
 function buildProjectionData(startPnL, lastDate, horizonMonths) {
   const monthlyByMonth = getMonthlyReturnsByMonth();
+  const std = getMonthlyReturnStd(); // volatilité mensuelle (%)
+  const Z = 1; // ±1 écart-type ≈ 2 cas sur 3
   const lastD = new Date(lastDate);
   let currentMonth = lastD.getMonth();
   let currentYear = lastD.getFullYear();
@@ -2256,6 +2272,8 @@ function buildProjectionData(startPnL, lastDate, horizonMonths) {
   let cumPnL = startPnL;
   const projLabels = [];
   const projValues = [];
+  const valuesOpt = [];
+  const valuesPess = [];
 
   for (let i = 0; i < horizonMonths; i++) {
     currentMonth++;
@@ -2269,11 +2287,19 @@ function buildProjectionData(startPnL, lastDate, horizonMonths) {
       cumPnL += capital * (monthReturn / 100);
     }
 
+    // Cône d'incertitude : élargissement multiplicatif en √temps (loi log-normale)
+    const monthIdx = i + 1;
+    const sigmaCum = (std / 100) * Math.sqrt(monthIdx);
+    const factor = Math.exp(Z * sigmaCum);
+    const vMed = capital + cumPnL;
+
     const yy = String(currentYear).substring(2);
     projLabels.push(monthNames[currentMonth] + ' ' + yy);
     projValues.push(Math.round(cumPnL * 100) / 100);
+    valuesOpt.push(Math.round((vMed * factor - capital) * 100) / 100);
+    valuesPess.push(Math.round((vMed / factor - capital) * 100) / 100);
   }
-  return { labels: projLabels, values: projValues };
+  return { labels: projLabels, values: projValues, valuesOpt, valuesPess };
 }
 
 function buildCumulativePnL() {
@@ -2375,24 +2401,38 @@ function buildCumulativePnL() {
       allRawDates.push(cy + '-' + String(cm+1).padStart(2,'0') + '-15');
     }
 
-    // Full projection data = past + future (continuous line)
-    const projDataFull = [...projPast, ...proj.values];
+    // Médian : passé fitté + futur médian (ligne principale)
+    const projMedianFull = [...projPast, ...proj.values];
 
     // Pad real data with nulls for future labels
     const realDataFull = [...values, ...new Array(horizonMonths).fill(null)];
     datasets[0].data = realDataFull;
 
     const realCount = values.length;
+    const junction = projPast[projPast.length - 1]; // point "présent" d'où part le cône
+    const conePrefix = new Array(Math.max(0, realCount - 1)).fill(null);
+    const projPessFull = [...conePrefix, junction, ...proj.valuesPess];
+    const projOptFull  = [...conePrefix, junction, ...proj.valuesOpt];
+
+    // Ordre : réel (0), pessimiste (1), optimiste (2, remplit jusqu'à pessimiste = cône), médian (3, au-dessus)
     datasets.push({
-      label:'Projection ' + (projMode === 'reinvest' ? 'Cumulé' : 'Fixe') + ' (€)', data: projDataFull,
-      borderColor:'rgba(99,102,241,0.8)', backgroundColor:'rgba(99,102,241,0.05)',
-      borderWidth:2, fill:true, tension:0.3,
-      borderDash:[8, 4],
-      pointRadius: projectionEnabled ? 4 : 3,
-      pointHitRadius:10,
-      pointBackgroundColor: projDataFull.map((v, i) => i < realCount ? 'rgba(99,102,241,0.6)' : 'rgba(99,102,241,0.9)'),
-      pointBorderColor: projDataFull.map((v, i) => i < realCount ? 'rgba(99,102,241,0.6)' : 'rgba(99,102,241,0.9)'),
-      pointStyle: projDataFull.map((v, i) => i === projDataFull.length - 1 ? 'rectRot' : 'circle')
+      label:'Pessimiste (−1σ)', data: projPessFull,
+      borderColor:'rgba(99,102,241,0.30)', backgroundColor:'transparent',
+      borderWidth:1, fill:false, tension:0.3, borderDash:[2,3], pointRadius:0, pointHitRadius:6
+    });
+    datasets.push({
+      label:'Optimiste (+1σ)', data: projOptFull,
+      borderColor:'rgba(99,102,241,0.30)', backgroundColor:'rgba(99,102,241,0.12)',
+      borderWidth:1, fill:'-1', tension:0.3, borderDash:[2,3], pointRadius:0, pointHitRadius:6
+    });
+    datasets.push({
+      label:'Projection médiane (€)', data: projMedianFull,
+      borderColor:'rgba(99,102,241,0.9)', backgroundColor:'transparent',
+      borderWidth:2, fill:false, tension:0.3, borderDash:[8, 4],
+      pointRadius: 3, pointHitRadius:10,
+      pointBackgroundColor: projMedianFull.map((v, i) => i < realCount ? 'rgba(99,102,241,0.6)' : 'rgba(99,102,241,0.9)'),
+      pointBorderColor: projMedianFull.map((v, i) => i < realCount ? 'rgba(99,102,241,0.6)' : 'rgba(99,102,241,0.9)'),
+      pointStyle: projMedianFull.map((v, i) => i === projMedianFull.length - 1 ? 'rectRot' : 'circle')
     });
   }
 
@@ -2419,19 +2459,28 @@ function buildCumulativePnL() {
             },
             label:c=>{
               if (c.parsed.y == null) return '';
-              const prefix = c.datasetIndex === 1 ? '📊 Proj: ' : '';
+              const lbl = c.dataset.label || '';
+              let prefix = '';
+              if (lbl.includes('médiane')) prefix = '📊 Médiane : ';
+              else if (lbl.includes('Optimiste')) prefix = '📈 Optimiste : ';
+              else if (lbl.includes('Pessimiste')) prefix = '📉 Pessimiste : ';
               const val = fmt(Math.round(c.parsed.y))+' €';
-              const prev = c.dataIndex > 0 ? c.dataset.data[c.dataIndex - 1] : null;
-              if (prev != null && c.parsed.y != null) {
-                const diff = Math.round(c.parsed.y - prev);
-                const diffStr = (diff >= 0 ? '+' : '') + fmt(diff) + ' €';
-                const diffColor = diff >= 0 ? '🟢' : '🔴';
-                return [prefix + val, '   ' + diffColor + ' ' + diffStr];
+              // Variation mois/mois uniquement sur la courbe réelle
+              if (c.datasetIndex === 0) {
+                const prev = c.dataIndex > 0 ? c.dataset.data[c.dataIndex - 1] : null;
+                if (prev != null) {
+                  const diff = Math.round(c.parsed.y - prev);
+                  const diffStr = (diff >= 0 ? '+' : '') + fmt(diff) + ' €';
+                  const diffColor = diff >= 0 ? '🟢' : '🔴';
+                  return [prefix + val, '   ' + diffColor + ' ' + diffStr];
+                }
               }
               return prefix + val;
             },
             labelColor: c => {
-              const color = c.datasetIndex === 1 ? 'rgba(99,102,241,0.9)' : (c.parsed.y >= 0 ? '#10b981' : '#ef4444');
+              const lbl = c.dataset.label || '';
+              const isProj = lbl.includes('médiane') || lbl.includes('Optimiste') || lbl.includes('Pessimiste');
+              const color = isProj ? 'rgba(99,102,241,0.9)' : (c.parsed.y >= 0 ? '#10b981' : '#ef4444');
               return { borderColor: color, backgroundColor: color, borderWidth: 0, borderRadius: 2 };
             }
           }}
