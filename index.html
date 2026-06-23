@@ -1422,6 +1422,7 @@
   <div id="tab-evolution" class="tab-content"></div>
   <div id="tab-loans" class="tab-content"></div>
   <div id="tab-realestate" class="tab-content"></div>
+  <div id="tab-darwinex" class="tab-content"></div>
   <div id="tab-simulateur" class="tab-content"></div>
   <div id="tab-repartition" class="tab-content"></div>
   <div id="tab-update" class="tab-content"></div>
@@ -4442,13 +4443,14 @@ const GROUP_TABS = {
     { id: 'evolution', label: 'Évolution' },
     { id: 'loans', label: 'Emprunts' },
     { id: 'realestate', label: '🏠 Immobilier' },
+    { id: 'darwinex', label: '🐦 Darwinex' },
     { id: 'simulateur', label: '🧮 Rembourser vs Placer' },
     { id: 'repartition', label: 'Répartition' },
     { id: 'update', label: 'Mise à jour' }
   ]
 };
 
-const ALL_TAB_IDS = ['real', 'fixed', 'reinvest', 'overview', 'interests', 'evolution', 'loans', 'realestate', 'simulateur', 'repartition', 'update'];
+const ALL_TAB_IDS = ['real', 'fixed', 'reinvest', 'overview', 'interests', 'evolution', 'loans', 'realestate', 'darwinex', 'simulateur', 'repartition', 'update'];
 
 function renderSubTabs() {
   const bar = document.getElementById('subTabBar');
@@ -4529,7 +4531,7 @@ function activateTab(tab) {
   }
 
   // Portfolio tabs
-  if (['overview', 'interests', 'evolution', 'loans', 'realestate', 'simulateur', 'repartition', 'update'].includes(tab)) {
+  if (['overview', 'interests', 'evolution', 'loans', 'realestate', 'darwinex', 'simulateur', 'repartition', 'update'].includes(tab)) {
     invDestroyCharts();
     renderPortfolioTab(tab);
   }
@@ -4959,6 +4961,7 @@ function renderPortfolioTab(tab) {
   else if (tab === 'evolution') h += invRenderEvolution(t, labels, li);
   else if (tab === 'loans') h += invRenderLoans(t, labels, li);
   else if (tab === 'realestate') h += invRenderRealEstate(t, labels, li);
+  else if (tab === 'darwinex') h += invRenderDarwinex();
   else if (tab === 'simulateur') h += invRenderSimulator();
   else if (tab === 'repartition') h += invRenderRepartition(t, li);
   else if (tab === 'update') h += invRenderUpdate(t, li);
@@ -4975,6 +4978,7 @@ function renderPortfolioTab(tab) {
     else if (tab === 'evolution') invBuildEvolutionCharts(t, labels, li);
     else if (tab === 'loans') invBuildLoanCharts(t, labels, li);
     else if (tab === 'realestate') invBuildRealEstateCharts();
+    else if (tab === 'darwinex') invBuildDarwinexCharts();
     else if (tab === 'simulateur') invBuildSimulatorChart();
     else if (tab === 'repartition') invBuildRepartitionCharts(t, labels, li);
     invUpdateSyncIndicator();
@@ -5729,6 +5733,172 @@ function invBuildRealEstateCharts() {
       }
     });
   }
+}
+
+// ══════════════════════════════════════════════════════════════
+// 🐦 DARWINEX — suivi des investissements (compte investisseur Darwinex Classic)
+// Données poussées par le collecteur VPS dans Firebase dashboard/darwinex,
+// ou saisies manuellement en attendant. Le navigateur ne touche jamais l'API
+// Darwinex (CORS + secret OAuth) — il ne lit que Firebase.
+// ══════════════════════════════════════════════════════════════
+let darwinexData = {
+  source: null,        // 'vps' | 'manual' | null
+  asOf: null,          // timestamp ms du dernier rafraîchissement
+  currency: 'EUR',
+  invested: 0,         // capital investi (cost basis)
+  currentValue: 0,     // valeur actuelle du portefeuille investisseur
+  feesTotal: 0,        // frais cumulés (gestion + performance)
+  positions: [],       // [{name, invested, value}] par DARWIN
+  history: []          // [{ym, value, invested, fees}] snapshots mensuels
+};
+
+function darwinexNormalize(v) {
+  const base = { source:null, asOf:null, currency:'EUR', invested:0, currentValue:0, feesTotal:0, positions:[], history:[] };
+  const d = Object.assign(base, v || {});
+  if (!Array.isArray(d.positions)) d.positions = d.positions ? Object.values(d.positions) : [];
+  if (!Array.isArray(d.history)) d.history = d.history ? Object.values(d.history) : [];
+  d.history.sort((a,b) => (a.ym||'').localeCompare(b.ym||''));
+  return d;
+}
+
+function loadDarwinexFromFirebase() {
+  if (typeof db === 'undefined') return Promise.resolve();
+  return db.ref('dashboard/darwinex').once('value').then(snap => {
+    const v = snap.val();
+    if (v && typeof v === 'object') darwinexData = darwinexNormalize(v);
+  }).catch(() => {});
+}
+
+function saveDarwinexManual() {
+  const invested = Number(document.getElementById('dwx-invested').value) || 0;
+  const currentValue = Number(document.getElementById('dwx-value').value) || 0;
+  const feesTotal = Number(document.getElementById('dwx-fees').value) || 0;
+  darwinexData.invested = invested;
+  darwinexData.currentValue = currentValue;
+  darwinexData.feesTotal = feesTotal;
+  darwinexData.source = 'manual';
+  darwinexData.asOf = Date.now();
+  const now = new Date();
+  const ym = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0');
+  if (!Array.isArray(darwinexData.history)) darwinexData.history = [];
+  const ex = darwinexData.history.find(x => x.ym === ym);
+  if (ex) { ex.value = currentValue; ex.invested = invested; ex.fees = feesTotal; }
+  else darwinexData.history.push({ ym, value: currentValue, invested, fees: feesTotal });
+  darwinexData.history.sort((a,b) => a.ym.localeCompare(b.ym));
+  if (typeof db !== 'undefined') db.ref('dashboard/darwinex').set(darwinexData);
+  renderPortfolioTab('darwinex');
+}
+
+function invRenderDarwinex() {
+  const d = darwinexData;
+  const fmtE = v => Math.round(v).toLocaleString('fr-FR') + ' €';
+  const pnl = (d.currentValue || 0) - (d.invested || 0);
+  const pnlPct = d.invested > 0 ? (pnl / d.invested * 100) : 0;
+  const hasData = (d.currentValue || 0) > 0 || (d.invested || 0) > 0;
+
+  let freshness;
+  if (d.asOf) {
+    const dt = new Date(d.asOf);
+    const ds = String(dt.getDate()).padStart(2,'0') + ' ' + monthNames[dt.getMonth()].toLowerCase() + ' ' + dt.getFullYear();
+    freshness = (d.source === 'vps' ? '🟢 Auto (collecteur VPS)' : '✏️ Saisie manuelle') + ' · ' + ds;
+  } else {
+    freshness = '⏳ En attente de données';
+  }
+
+  let h = '';
+
+  // ── HERO ──
+  h += `<div class="inv-card" style="background:linear-gradient(135deg, rgba(99,102,241,0.08), rgba(16,185,129,0.04));border:1px solid rgba(99,102,241,0.18);padding:24px 28px;margin-bottom:20px">`;
+  h += `<div class="inv-flex inv-jcsb" style="flex-wrap:wrap;gap:24px;align-items:flex-start">`;
+  h += `<div><div style="font-size:0.7rem;letter-spacing:1px;color:var(--text-secondary);text-transform:uppercase;font-weight:700">🐦 Darwinex Classic · compte investisseur</div>`;
+  h += `<div style="font-size:0.78rem;color:var(--text-secondary);margin-top:4px">${freshness}</div></div>`;
+  h += `<div style="text-align:right"><div style="font-size:0.7rem;color:var(--text-secondary);text-transform:uppercase;letter-spacing:1px;font-weight:700">Valeur actuelle</div>`;
+  h += `<div style="font-size:1.8rem;font-weight:700;color:${pnl>=0?'#10b981':'#ef4444'};line-height:1.1">${fmtE(d.currentValue||0)}</div>`;
+  h += `<div style="font-size:0.85rem;font-weight:600;color:${pnl>=0?'#10b981':'#ef4444'}">${pnl>=0?'+':''}${fmtE(pnl)} (${pnlPct>=0?'+':''}${pnlPct.toFixed(2)}%)</div></div>`;
+  h += `</div>`;
+  h += `<div class="inv-grid" style="grid-template-columns:repeat(3,1fr);gap:18px;margin-top:18px">`;
+  h += `<div><div style="font-size:0.7rem;color:var(--text-secondary);font-weight:600;text-transform:uppercase">Investi</div><div style="font-size:1.3rem;font-weight:700;color:var(--text-primary)">${fmtE(d.invested||0)}</div></div>`;
+  h += `<div><div style="font-size:0.7rem;color:var(--text-secondary);font-weight:600;text-transform:uppercase">Frais cumulés</div><div style="font-size:1.3rem;font-weight:700;color:var(--negative)">${fmtE(d.feesTotal||0)}</div></div>`;
+  h += `<div><div style="font-size:0.7rem;color:var(--text-secondary);font-weight:600;text-transform:uppercase">Plus-value nette</div><div style="font-size:1.3rem;font-weight:700;color:${pnl>=0?'#10b981':'#ef4444'}">${pnl>=0?'+':''}${fmtE(pnl)}</div></div>`;
+  h += `</div></div>`;
+
+  if (hasData) {
+    h += `<div class="inv-grid-kpi" style="grid-template-columns:repeat(4,1fr);margin-bottom:24px">`;
+    const kpis = [
+      { l:'Plus-value', v:(pnl>=0?'+':'')+fmtE(pnl), s:'Valeur − investi', c: pnl>=0?'#10b981':'#ef4444' },
+      { l:'Performance', v:(pnlPct>=0?'+':'')+pnlPct.toFixed(2)+'%', s:'Sur le capital investi', c: pnlPct>=0?'#10b981':'#ef4444' },
+      { l:'Frais cumulés', v:fmtE(d.feesTotal||0), s: d.invested>0 ? (d.feesTotal/d.invested*100).toFixed(1)+"% de l'investi" : 'gestion + performance', c:'#f59e0b' },
+      { l:'DARWINs', v: (d.positions && d.positions.length) ? String(d.positions.length) : '—', s:'Positions suivies', c:'#6366f1' }
+    ];
+    for (const k of kpis) {
+      h += `<div class="kpi-card"><div class="stripe" style="background:linear-gradient(90deg,${k.c},${k.c})"></div><div class="label">${k.l}</div><div class="value" style="color:${k.c};font-size:1.35rem">${k.v}</div><div class="sub">${k.s}</div></div>`;
+    }
+    h += `</div>`;
+
+    if (d.history && d.history.length > 0) {
+      h += `<div class="inv-chart-card"><h3><span class="inv-chart-icon">📈</span>Évolution valeur vs investi</h3><div class="inv-canvas-wrap" style="height:280px"><canvas id="dwx-ch"></canvas></div></div>`;
+    }
+
+    if (d.positions && d.positions.length > 0) {
+      h += `<div class="inv-card" style="padding:0;margin:20px 0">`;
+      h += `<h3 style="padding:18px 24px 0;margin:0">📋 DARWINs détenus</h3>`;
+      h += `<div style="padding:12px 24px 20px"><table style="width:100%;font-size:0.82rem;border-collapse:collapse">`;
+      h += `<thead><tr style="border-bottom:1px solid rgba(255,255,255,0.1)">`;
+      ['DARWIN','Investi','Valeur','P&L'].forEach((c,i)=>{ h += `<th style="text-align:${i===0?'left':'right'};padding:8px 6px;color:var(--text-secondary);font-weight:600">${c}</th>`; });
+      h += `</tr></thead><tbody>`;
+      for (const p of d.positions) {
+        const pp = (p.value||0) - (p.invested||0);
+        const ppPct = p.invested>0 ? (pp/p.invested*100) : 0;
+        h += `<tr style="border-bottom:1px solid rgba(255,255,255,0.04)">`;
+        h += `<td style="text-align:left;padding:7px 6px;font-weight:500">${p.name||'—'}</td>`;
+        h += `<td style="text-align:right;padding:7px 6px;color:var(--text-secondary)">${fmtE(p.invested||0)}</td>`;
+        h += `<td style="text-align:right;padding:7px 6px;font-weight:600">${fmtE(p.value||0)}</td>`;
+        h += `<td style="text-align:right;padding:7px 6px;color:${pp>=0?'#10b981':'#ef4444'};font-weight:600">${pp>=0?'+':''}${fmtE(pp)} (${ppPct>=0?'+':''}${ppPct.toFixed(1)}%)</td>`;
+        h += `</tr>`;
+      }
+      h += `</tbody></table></div></div>`;
+    }
+  } else {
+    h += `<div class="inv-card" style="padding:20px 24px;margin-bottom:20px;text-align:center;color:var(--text-secondary)">⏳ Aucune donnée Darwinex pour le moment. Saisis tes montants ci-dessous, ou attends que le collecteur VPS pousse les données automatiquement.</div>`;
+  }
+
+  // ── Saisie / correction manuelle ──
+  h += `<div class="inv-card" style="padding:20px 24px">`;
+  h += `<h3 style="margin-top:0">✏️ Saisie / correction manuelle</h3>`;
+  h += `<p style="font-size:0.78rem;color:var(--text-secondary);margin:2px 0 14px">En attendant l'automatisation, saisis tes montants ici. Dès que le collecteur VPS pousse les données, elles prennent le relais.</p>`;
+  h += `<div class="inv-grid" style="grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px">`;
+  h += `<div><label style="font-size:0.72rem;color:var(--text-secondary);font-weight:600;text-transform:uppercase">Investi (€)</label><input type="number" id="dwx-invested" class="inv-input" value="${d.invested||''}" step="100" style="margin-top:4px"></div>`;
+  h += `<div><label style="font-size:0.72rem;color:var(--text-secondary);font-weight:600;text-transform:uppercase">Valeur actuelle (€)</label><input type="number" id="dwx-value" class="inv-input" value="${d.currentValue||''}" step="10" style="margin-top:4px"></div>`;
+  h += `<div><label style="font-size:0.72rem;color:var(--text-secondary);font-weight:600;text-transform:uppercase">Frais cumulés (€)</label><input type="number" id="dwx-fees" class="inv-input" value="${d.feesTotal||''}" step="1" style="margin-top:4px"></div>`;
+  h += `</div>`;
+  h += `<div style="margin-top:14px;display:flex;justify-content:flex-end"><button class="inv-btn inv-btn-ok" onclick="saveDarwinexManual()">Enregistrer</button></div>`;
+  h += `</div>`;
+
+  h += `<div style="font-size:0.72rem;color:var(--text-secondary);opacity:0.7;margin-top:12px;line-height:1.5">🔗 Automatisation : un collecteur sur ton VPS récupère les données via l'API Darwinex (Investor Account Info) et les pousse dans Firebase (<code>dashboard/darwinex</code>). Le secret OAuth reste sur le VPS, jamais dans cette page.</div>`;
+
+  return h;
+}
+
+function invBuildDarwinexCharts() {
+  const d = darwinexData;
+  if (!d.history || d.history.length === 0) return;
+  const ctx = document.getElementById('dwx-ch');
+  if (!ctx) return;
+  if (invCharts.darwinex) invCharts.darwinex.destroy();
+  const labels = d.history.map(x => x.ym);
+  const valSeries = d.history.map(x => Math.round(x.value||0));
+  const invSeries = d.history.map(x => Math.round(x.invested||0));
+  invCharts.darwinex = new Chart(ctx, {
+    type:'line',
+    data:{ labels, datasets:[
+      { label:'Valeur', data:valSeries, borderColor:'#10b981', backgroundColor:'rgba(16,185,129,0.10)', borderWidth:2, pointRadius:2, fill:true, tension:0.2 },
+      { label:'Investi', data:invSeries, borderColor:'#6366f1', borderDash:[5,4], backgroundColor:'transparent', borderWidth:1.5, pointRadius:0, tension:0.2 }
+    ]},
+    options:{ responsive:true, maintainAspectRatio:false, interaction:{mode:'index',intersect:false},
+      plugins:{ legend:{display:true, labels:{color:'#8892a4', font:{size:11}}}, tooltip:{ callbacks:{ label:c=>` ${c.dataset.label}: ${Math.round(c.parsed.y).toLocaleString('fr-FR')} €` } } },
+      scales:{ x:{ticks:{font:{size:9}}, grid:{display:false}}, y:{ticks:{callback:v=>(v/1000).toFixed(1)+'k €', font:{size:10}}, grid:{color:'rgba(99,102,241,0.08)'}} }
+    }
+  });
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -6765,6 +6935,7 @@ Promise.all([
   loadBacktestFromFirebase(),
   loadPortfolioFromFirebase(),
   reLoadFromFirebase(),
+  loadDarwinexFromFirebase(),
   loadRevolutAnchor(),
   loadDataTimestamp(),
   fetchUsdEurRate(),
