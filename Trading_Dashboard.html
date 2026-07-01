@@ -1978,6 +1978,19 @@ function buildAdvancedKPIs() {
       : 'SILVER accessible' + (dwxCalibOK ? '' : ' après calibration') + ' — allocation si Rating ≥ 75 (piloté par le rendement 6 mois). GOLD non atteint.'),
     'Note : le DARWIN réel est re-scalé à 6,5% VaR — gains ET pertes amplifiés.',
   ].join('\n');
+  // Objectif GOLD (ratio 2,5) + track record — cards actionnables
+  const dwxTargetRet = 2.5 * dwxDDPct;               // rendement total requis pour ratio 2,5 à DD constant
+  const dwxGainNeeded = 2.5 * maxDD - totalPnL;      // € encore à gagner (sans creuser le DD)
+  const dwxDDforCur = dwxRetPct / 2.5;               // DD plafond au rendement actuel pour ratio 2,5
+  const dwxTrackLeft = 8 - dwxMonths;                // mois restants pour le seuil GOLD
+  const dwxReached = dwxRatio >= 2.5;
+  const dwxTipCible = 'Objectif GOLD (ratio Rdt/DD ≥ 2,5)\n'
+    + '• À drawdown constant (' + dwxDDPct.toFixed(1) + '%) : rendement total ' + Math.round(dwxTargetRet) + '% (+' + fmt(dwxGainNeeded) + ' € à gagner)\n'
+    + '• Levier alternatif : réduire le DD à ≤ ' + dwxDDforCur.toFixed(1) + '% au rendement actuel\n'
+    + '• Optimum : DD 8% + rendement 20% (valide aussi le palier GOLD 1 an)';
+  const dwxTipTrack = 'Track record = temps depuis le 1er trade.\n'
+    + 'GOLD exige > 8 mois. SILVER : aucun minimum requis.\n'
+    + 'Calibration DARWIN déjà validée (25 décisions / 15 jours de trading).';
 
   // Render cards
   const expColor = expectancy >= 0 ? 'var(--positive)' : 'var(--negative)';
@@ -1993,6 +2006,8 @@ function buildAdvancedKPIs() {
     { l:'Durée Moyenne', v:avgDurStr, s:'Min '+minDurStr+' · Max '+maxDurStr, c:'stripe-dax', vc:'var(--text-primary)' },
     { l:'Points Moy / Trade', v:avgPoints.toFixed(1)+' pts', s:'Max : '+maxPoints.toFixed(1)+' pts · '+pointsTrades.length+' trades', c:'stripe-merged', vc:'var(--text-primary)' },
     { l:'Moy. Trades/Jour', v:avgTradesPerDay.toFixed(1), s:tradingDays+' jours de trading', c:'stripe-merged', vc:'var(--text-primary)' },
+    { l:'Rdt cible GOLD', v:dwxReached?'✓ atteint':Math.round(dwxTargetRet)+'%', s:dwxReached?('ratio '+dwxRatioStr+' ≥ 2,5'):('ratio 2,5 · +'+fmt(dwxGainNeeded)+' €'), c:'stripe-merged', vc:dwxReached?'var(--positive)':'#f59e0b', t:dwxTipCible },
+    { l:'Track record', v:dwxMonths.toFixed(1)+' mois', s:dwxGoldTrack?'GOLD > 8 mois ✓':('GOLD > 8 mois · reste '+Math.max(0,dwxTrackLeft).toFixed(1)), c:'stripe-nas', vc:dwxGoldTrack?'var(--positive)':'#f59e0b', t:dwxTipTrack },
   ];
   document.getElementById('kpiAdvancedReal').innerHTML = kpis.map(k =>
     `<div class="kpi-card"${k.t?` title="${k.t.replace(/"/g,"'")}" style="cursor:help"`:''}><div class="stripe ${k.c}"></div><div class="label">${k.l}</div><div class="value" style="color:${k.vc}">${k.v}</div><div class="sub">${k.s}</div></div>`
