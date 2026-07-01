@@ -4548,7 +4548,8 @@ const INV_PLATFORM_COLORS = {
   "Mintos": "#10b981",        // Vert
   "Debitum": "#ec4899",       // Rose
   "Trading Auto": "#ef4444",  // Rouge
-  "RMM": "#f97316"            // Orange
+  "RMM": "#f97316",           // Orange
+  "Darwinex": "#22d3ee"       // Cyan
 };
 function invColor(p, i) { return INV_PLATFORM_COLORS[p] || INV_COLORS_FALLBACK[i % 10]; }
 // Legacy alias for indexed access
@@ -5786,6 +5787,7 @@ function saveDarwinexManual() {
   else darwinexData.history.push({ ym, value: currentValue, invested, fees: feesTotal });
   darwinexData.history.sort((a,b) => a.ym.localeCompare(b.ym));
   if (typeof db !== 'undefined') db.ref('dashboard/darwinex').set(darwinexData);
+  syncDarwinexPlatform(); // répercute dans le portfolio (Capital Brut, Répartition...)
   renderPortfolioTab('darwinex');
 }
 
@@ -5899,6 +5901,49 @@ function invBuildDarwinexCharts() {
       scales:{ x:{ticks:{font:{size:9}}, grid:{display:false}}, y:{ticks:{callback:v=>(v/1000).toFixed(1)+'k €', font:{size:10}}, grid:{color:'rgba(99,102,241,0.08)'}} }
     }
   });
+}
+
+// Intègre Darwinex comme PLATEFORME du portfolio (compte dans Capital Brut,
+// Répartition, Détails par plateforme, Évolution). La valeur vient de darwinexData
+// (page Darwinex, saisie manuelle ou push VPS) — pas éditable dans l'onglet Mise à jour.
+const DARWINEX_PLATFORM = 'Darwinex';
+function syncDarwinexPlatform() {
+  if (!portfolioData) return;
+  const d = portfolioData;
+  const dwx = darwinexData;
+  const hasData = (dwx.currentValue||0) > 0 || (dwx.invested||0) > 0 || (Array.isArray(dwx.history) && dwx.history.length > 0);
+  if (!hasData) return;
+
+  if (!d.platforms.includes(DARWINEX_PLATFORM)) d.platforms.push(DARWINEX_PLATFORM);
+  const n = d.months.length;
+  const prin = new Array(n).fill(0);
+  const intr = new Array(n).fill(0);
+  const idxOf = {};
+  d.months.forEach((ym, i) => { idxOf[ym] = i; });
+
+  // 1) Historique -> mois du portfolio qui correspondent
+  (dwx.history || []).forEach(hp => {
+    if (hp && hp.ym && idxOf[hp.ym] != null) prin[idxOf[hp.ym]] = Math.round((hp.value||0) * 100) / 100;
+  });
+
+  // 2) Valeur courante -> ancrée sur le dernier mois AFFICHÉ (li) + dernier mois du tableau,
+  //    car un relevé Darwinex peut être daté d'un mois plus récent que le portfolio (ex. juillet vs juin)
+  const liIdx = (typeof invLastCompletedMonth === 'function') ? invLastCompletedMonth() : n - 1;
+  const targets = [n - 1, liIdx].filter((v, i, a) => v >= 0 && v < n && a.indexOf(v) === i);
+  if ((dwx.currentValue || dwx.invested)) {
+    targets.forEach(i => { prin[i] = Math.round((dwx.currentValue||0) * 100) / 100; });
+  }
+
+  // 3) Report (carry-forward) du 1er mois rempli à la fin -> continuité de la courbe
+  const firstFilled = prin.findIndex(v => v > 0);
+  if (firstFilled >= 0) for (let i = firstFilled + 1; i < n; i++) if (prin[i] === 0) prin[i] = prin[i-1];
+
+  // 4) Plus-value (value - invested) affichée comme "gain" sur le mois courant
+  const curPnl = Math.round(((dwx.currentValue||0) - (dwx.invested||0)) * 100) / 100;
+  targets.forEach(i => { intr[i] = curPnl; });
+
+  d.principal[DARWINEX_PLATFORM] = prin;
+  d.interests[DARWINEX_PLATFORM] = intr;
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -6414,6 +6459,17 @@ function invRenderUpdate(t, li) {
         h += '</div></div>';
         return;
       }
+      if (p === 'Darwinex') {
+        const intVal = (d.interests[p] || [])[invEditMonth] || 0;
+        const prinVal = (d.principal[p] || [])[invEditMonth] || 0;
+        h += `<div class="inv-form-card" style="opacity:0.6"><div class="inv-flex inv-aic inv-gap2 inv-mb3"><span class="inv-dot" style="background:${invColor(p,i)};box-shadow:0 0 6px ${invColor(p,i)};width:12px;height:12px"></span><span style="font-size:12px;font-weight:500">${p} <span style="color:var(--text-secondary)">🔒</span></span></div>`;
+        h += '<div style="display:flex;flex-direction:column;gap:8px">';
+        h += `<div><label style="font-size:12px;color:var(--text-secondary);display:block;margin-bottom:4px">Gain (€)</label><div style="font-size:14px;font-weight:600;padding:8px 0;color:${intVal>=0?'#10b981':'#ef4444'}">${invFmt(intVal)}</div></div>`;
+        h += `<div><label style="font-size:12px;color:var(--text-secondary);display:block;margin-bottom:4px">Valeur (€)</label><div style="font-size:14px;font-weight:600;padding:8px 0">${invFmt(prinVal)}</div></div>`;
+        h += '<div style="font-size:12px;color:var(--text-secondary);margin-top:4px">→ Géré dans l\'onglet Darwinex</div>';
+        h += '</div></div>';
+        return;
+      }
       const intVal = invFormData[p] ? invFormData[p].interest : '';
       const prinVal = invFormData[p] ? invFormData[p].principal : '';
       h += `<div class="inv-form-card"><div class="inv-flex inv-aic inv-gap2 inv-mb3"><span class="inv-dot" style="background:${invColor(p,i)};box-shadow:0 0 6px ${invColor(p,i)};width:12px;height:12px"></span><span style="font-size:12px;font-weight:500">${p}</span></div>`;
@@ -6575,7 +6631,7 @@ function invUpdateLoanForm(loan, value) { invLoanFormData[loan] = value; }
 function invSaveMonth() {
   const d = portfolioData;
   d.platforms.forEach(p => {
-    if (p === 'Lendermarket' || p === 'Trading Auto') return;
+    if (p === 'Lendermarket' || p === 'Trading Auto' || p === 'Darwinex') return;
     if (!d.interests[p]) d.interests[p] = [];
     if (!d.principal[p]) d.principal[p] = [];
     while (d.interests[p].length <= invEditMonth) d.interests[p].push(0);
@@ -6952,6 +7008,7 @@ Promise.all([
   syncYounitedLoan(); // auto-remplit l'emprunt Younited depuis l'échéancier officiel
   syncRevolutLoan();  // auto-remplit l'emprunt Revolut depuis l'échéancier officiel
   syncRevolutDca();   // auto-remplit les versements ETF Revolut (DCA) depuis l'ancrage
+  syncDarwinexPlatform(); // intègre Darwinex comme plateforme du portfolio
   renderRealTab();
   tabRendered.real = true;
   renderSubTabs();
