@@ -4845,6 +4845,38 @@ function invLastCompletedMonth() {
   return d.months.length - 1; // fallback
 }
 
+// Étend portfolioData.months jusqu'au mois COURANT (au-delà du dernier mois de
+// trades) pour que le mois en cours soit sélectionnable (répartition, saisies...).
+// Ne change pas l'affichage "courant" (invLastCompletedMonth reste le mois précédent).
+function ensureMonthsUpToCurrent() {
+  const d = portfolioData;
+  if (!d || !Array.isArray(d.months) || d.months.length === 0) return;
+  const now = new Date();
+  const curYm = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+  let last = d.months[d.months.length - 1];
+  let guard = 0;
+  while (last < curYm && guard++ < 240) {
+    let [y, m] = last.split('-').map(Number);
+    m++; if (m > 12) { m = 1; y++; }
+    const ym = y + '-' + String(m).padStart(2, '0');
+    d.months.push(ym);
+    d.platforms.forEach(p => {
+      if (d.interests[p]) d.interests[p].push(0);
+      if (d.principal[p]) {
+        const lv = d.principal[p].length ? d.principal[p][d.principal[p].length - 1] : 0;
+        d.principal[p].push(p === 'Trading Auto' ? 0 : lv); // Trading Auto recalculé par syncRobotTrading
+      }
+    });
+    if (d.loanNames) d.loanNames.forEach(l => {
+      if (d.loans[l]) { const lv = d.loans[l].length ? d.loans[l][d.loans[l].length - 1] : 0; d.loans[l].push(lv); }
+    });
+    if (d.loanMonthlyPayments) Object.keys(d.loanMonthlyPayments).forEach(l => {
+      if (Array.isArray(d.loanMonthlyPayments[l])) { const lv = d.loanMonthlyPayments[l].length ? d.loanMonthlyPayments[l][d.loanMonthlyPayments[l].length - 1] : 0; d.loanMonthlyPayments[l].push(lv); }
+    });
+    last = ym;
+  }
+}
+
 function invCompute() {
   const d = portfolioData;
   const li = invLastCompletedMonth();
@@ -7039,6 +7071,7 @@ Promise.all([
     calYear = parseInt(latest.substring(0,4));
     calMonth = parseInt(latest.substring(5,7)) - 1;
   }
+  ensureMonthsUpToCurrent(); // étend les mois jusqu'au mois courant (sélectionnable partout)
   syncRobotTrading();
   syncYounitedLoan(); // auto-remplit l'emprunt Younited depuis l'échéancier officiel
   syncRevolutLoan();  // auto-remplit l'emprunt Revolut depuis l'échéancier officiel
