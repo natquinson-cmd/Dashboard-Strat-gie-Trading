@@ -481,6 +481,15 @@
     animation: holoBorder 8s ease infinite, holoGlow 6s ease infinite;
   }
   .kpi-card:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(0,0,0,0.3); }
+  /* Groupe de cards Darwinex : fond jaune fluo Darwinex Zero très transparent (chiffres restent lisibles) */
+  .kpi-grid .kpi-card.kpi-dwx {
+    animation: slideUp 0.5s ease backwards;
+    background: linear-gradient(rgba(217,252,0,0.07), rgba(217,252,0,0.07)), var(--bg-card);
+    border-color: rgba(217,252,0,0.45);
+    box-shadow: 0 0 16px rgba(217,252,0,0.08);
+  }
+  .kpi-grid .kpi-card.kpi-dwx:hover { transform: translateY(-2px); box-shadow: 0 0 22px rgba(217,252,0,0.16), 0 8px 30px rgba(0,0,0,0.35); }
+  .kpi-card.kpi-dwx .stripe { background: linear-gradient(90deg,#d9fc00,#aee000); }
   .kpi-card .label { font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; color: var(--text-secondary); margin-bottom: 8px; }
   .kpi-card .value { font-size: 1.8rem; font-weight: 800; letter-spacing: -0.5px; }
   .kpi-card .sub { font-size: 0.8rem; color: var(--text-secondary); margin-top: 4px; }
@@ -1850,6 +1859,55 @@ function toggleAdvanced() {
 // ══════════════════════════════════════════════════════════════
 // ADVANCED KPIs (Espérance, Recovery, Streaks, Long/Short, Durée, Points)
 // ══════════════════════════════════════════════════════════════
+// ── Darwinex : rendement/drawdown pondérés dans le temps (TWR, net des dépôts) ──
+// Calcule sur le COMPTE COMPLET (tous les trades + dépôts + frais + dividendes),
+// indépendamment du filtre actif : Darwinex évalue le compte/DARWIN entier.
+// Le TWR neutralise l'effet des dépôts étalés (comme la courbe cotée d'un DARWIN).
+function computeDarwinexTWR() {
+  const trades = (typeof realTrades !== 'undefined' && realTrades) ? realTrades : [];
+  if (!trades.length) return null;
+  const D = {};
+  const add = (d, k, v) => { if (!d) return; if (!D[d]) D[d] = { pnl:0, dep:0, fee:0, div:0 }; D[d][k] += v; };
+  trades.forEach(t => add(t[0], 'pnl', t[2]));
+  (typeof realDeposits !== 'undefined' ? realDeposits : []).forEach(x => add(x.date, 'dep', x.amount || 0));
+  (typeof realFees !== 'undefined' ? realFees : []).forEach(x => add(x.date, 'fee', x.amount || 0));
+  (typeof realDividends !== 'undefined' ? realDividends : []).forEach(x => add(x.date, 'div', x.amount || 0));
+  const dates = Object.keys(D).sort();
+  let E = 0, I = 1, peak = 1, maxDD = 0;
+  const dailyR = [], idxByMonth = {};
+  dates.forEach(d => {
+    const o = D[d]; const perf = o.pnl + o.fee + o.div; const Eb = E + o.dep; // dépôt = flux externe (neutre)
+    if (Eb > 0) {
+      const r = perf / Eb; I *= (1 + r); if (perf !== 0) dailyR.push(r);
+      if (I > peak) peak = I; const dd = (peak - I) / peak; if (dd > maxDD) maxDD = dd;
+    }
+    E = Eb + perf; idxByMonth[d.slice(0, 7)] = I;
+  });
+  const twrTotal = I - 1;
+  // Rendements mensuels (à partir de l'indice de fin de mois) — pour la VaR
+  const mk = Object.keys(idxByMonth).sort();
+  let prev = 1; const monthlyR = [];
+  mk.forEach(k => { const cur = idxByMonth[k]; monthlyR.push(cur / prev - 1); prev = cur; });
+  const z = 1.645; // 95% unilatéral
+  const dMean = dailyR.length ? dailyR.reduce((a, b) => a + b, 0) / dailyR.length : 0;
+  const dSd = dailyR.length > 1 ? Math.sqrt(dailyR.reduce((a, b) => a + (b - dMean) ** 2, 0) / (dailyR.length - 1)) : 0;
+  const spanDays = dates.length > 1 ? (new Date(dates[dates.length - 1]) - new Date(dates[0])) / 86400000 : 0;
+  const spanMonths = spanDays / 30.44;
+  const tdPerMonth = spanMonths > 0 ? dailyR.length / spanMonths : 0;
+  const sdM = dSd * Math.sqrt(tdPerMonth), meanM = dMean * tdPerMonth;
+  const varDrift = Math.max(0, z * sdM - meanM); // VaR mensuelle ajustée du drift positif
+  const months = dates.length > 1 ? (new Date(dates[dates.length - 1]) - new Date(dates[0])) / 86400000 / 30.44 : 0;
+  const tradingDays = new Set(trades.map(t => t[0])).size;
+  return {
+    retPct: twrTotal * 100,
+    ddPct: maxDD * 100,
+    ratio: maxDD > 0 ? twrTotal / maxDD : Infinity,
+    months, tradingDays, tradesCount: trades.length,
+    varDriftPct: varDrift * 100,
+    worstMonthPct: monthlyR.length ? Math.min(...monthlyR) * 100 : 0
+  };
+}
+
 function buildAdvancedKPIs() {
   const trades = getFilteredTrades();
   if (trades.length === 0) {
@@ -1934,61 +1992,61 @@ function buildAdvancedKPIs() {
   const avgPoints = points.length > 0 ? points.reduce((a,b)=>a+b,0)/points.length : 0;
   const maxPoints = points.length > 0 ? Math.max(...points) : 0;
 
-  // ── Rendement / Drawdown vs critères Darwinex ──
-  // Métrique centrale = ratio return_total% / maxDD% (méthode Darwinex, sur la période, pas annualisé).
-  // Comme les deux % ont le même dénominateur (capital versé), le ratio = totalPnL / maxDD.
-  const dwxDeposits = (typeof getTotalDeposits === 'function') ? getTotalDeposits() : 0;
-  const dwxRetPct = dwxDeposits > 0 ? (totalPnL / dwxDeposits * 100) : 0;
-  const dwxDDPct  = dwxDeposits > 0 ? (maxDD / dwxDeposits * 100) : 0;
-  const dwxRatio  = maxDD > 0 ? (totalPnL / maxDD) : Infinity;
-  // Track record (1er → dernier trade filtré) en jours / mois
-  const dwxDates = sorted.map(t => (t[8] || t[0])).filter(Boolean);
-  let dwxDays = 0, dwxMonths = 0;
-  if (dwxDates.length > 1) {
-    const d0 = new Date(dwxDates[0]).getTime(), d1 = new Date(dwxDates[dwxDates.length - 1]).getTime();
-    if (d1 > d0) { dwxDays = (d1 - d0) / 86400000; dwxMonths = dwxDays / 30.44; }
-  }
-  const dwxTradingDays = new Set(trades.map(t => t[0])).size;
-  const dwxAnnPct = dwxDays > 0 ? (dwxRetPct * 365.25 / dwxDays) : 0; // annualisé linéaire (info seule)
-  const dwxYears = dwxDays / 365.25;
+  // ── Rendement / Drawdown vs critères Darwinex (méthode TWR, net des dépôts) ──
+  // TWR = rendement pondéré dans le temps sur le COMPTE COMPLET : neutralise l'effet
+  // des dépôts étalés dans le temps (comme la courbe cotée d'un DARWIN). cf computeDarwinexTWR().
+  const twr = (typeof computeDarwinexTWR === 'function') ? computeDarwinexTWR() : null;
+  const dwxRetPct = twr ? twr.retPct : 0;
+  const dwxDDPct  = twr ? twr.ddPct  : 0;
+  const dwxRatio  = twr ? twr.ratio  : Infinity;
+  const dwxMonths = twr ? twr.months : 0;
+  const dwxTradingDays = twr ? twr.tradingDays : 0;
+  const dwxTradesCount = twr ? twr.tradesCount : 0;
+  const dwxVaR    = twr ? twr.varDriftPct : 0;
+  const dwxYears  = dwxMonths / 12;
+  const dwxAnnPct = dwxMonths > 0 ? (dwxRetPct * 12 / dwxMonths) : 0; // annualisé linéaire (info seule)
   // Palier de rendement GOLD selon l'ancienneté (plancher 1 an = 20%)
   const dwxTier = dwxYears >= 5 ? 40 : dwxYears >= 4 ? 35 : dwxYears >= 3 ? 30 : dwxYears >= 2 ? 25 : 20;
   const dwxDDneed = dwxTier / 2.5; // DD max toléré pour rester > 2,5 au palier courant
   // Verdicts par critère
-  const dwxCalibOK  = trades.length >= 25 && dwxTradingDays >= 15;
+  const dwxCalibOK   = dwxTradesCount >= 25 && dwxTradingDays >= 15;
   const dwxGoldTrack = dwxMonths > 8;
   const dwxGoldRatio = dwxRatio > 2.5;
   const dwxGoldRet   = dwxRetPct >= dwxTier;
   const dwxGold = dwxGoldTrack && dwxGoldRatio && dwxYears >= 1 && dwxGoldRet;
   const dwxRatioStr = dwxRatio === Infinity ? '∞' : dwxRatio.toFixed(2);
   const dwxColor = dwxRatio >= 2.5 ? 'var(--positive)' : dwxRatio >= 1 ? '#f59e0b' : 'var(--negative)';
-  const dwxShort = dwxGold ? 'GOLD ✓' : (dwxCalibOK ? 'SILVER ✓ · GOLD ✗' : 'calibration en cours');
+  const dwxShort = dwxGold ? 'GOLD ✓' : (dwxGoldRatio ? 'ratio GOLD ✓ · <8 mois' : (dwxCalibOK ? 'SILVER ✓ · GOLD ✗' : 'calibration'));
   const dwxChk = b => b ? '✓' : '✗';
   const dwxTip = [
-    'Critères Darwinex (compte brut) :',
+    'Critères Darwinex — méthode TWR (net des dépôts, compte complet) :',
     '• Ratio Rdt/DD : ' + dwxRatioStr + '  → GOLD exige > 2,5  ' + dwxChk(dwxGoldRatio) + '  (réf. Darwinex 3,05)',
-    '• Rendement période : ' + (dwxRetPct >= 0 ? '+' : '') + dwxRetPct.toFixed(1) + '%  · annualisé ~' + (dwxAnnPct >= 0 ? '+' : '') + dwxAnnPct.toFixed(0) + '%/an (linéaire)',
-    '• Max Drawdown : ' + dwxDDPct.toFixed(1) + '%  → pour GOLD (' + dwxTier + '% de rdt) il faut DD < ' + dwxDDneed.toFixed(0) + '%',
+    '• Rendement TWR : ' + (dwxRetPct >= 0 ? '+' : '') + dwxRetPct.toFixed(1) + '%  · annualisé ~' + (dwxAnnPct >= 0 ? '+' : '') + dwxAnnPct.toFixed(0) + '%/an (linéaire)',
+    '• Max Drawdown TWR : ' + dwxDDPct.toFixed(1) + '%  → pour GOLD (' + dwxTier + '% de rdt) il faut DD < ' + dwxDDneed.toFixed(0) + '%',
     '• Track record : ' + dwxMonths.toFixed(1) + ' mois  → GOLD exige > 8 mois  ' + dwxChk(dwxGoldTrack),
-    '• Calibration DARWIN : ' + trades.length + ' trades / ' + dwxTradingDays + ' j  → ' + dwxChk(dwxCalibOK) + ' (≥25 trades, ≥15 j de trading)',
-    '• VaR système : normalisée à 6,5%/mois @95% (imposée par Darwinex, non visée)',
+    '• Calibration DARWIN : ' + dwxTradesCount + ' trades / ' + dwxTradingDays + ' j  → ' + dwxChk(dwxCalibOK) + ' (≥25 trades, ≥15 j de trading)',
+    '• VaR mensuelle est. : ~' + dwxVaR.toFixed(0) + '%/mois → Darwinex re-scale à 6,5% (' + (dwxVaR > 6.5 ? 'DARWIN dé-leveragé' : 'DARWIN leveragé') + ')',
     '',
     'Verdict : ' + (dwxGold
       ? 'GOLD potentiellement éligible (à confirmer sur le DARWIN coté).'
-      : 'SILVER accessible' + (dwxCalibOK ? '' : ' après calibration') + ' — allocation si Rating ≥ 75 (piloté par le rendement 6 mois). GOLD non atteint.'),
-    'Note : le DARWIN réel est re-scalé à 6,5% VaR — gains ET pertes amplifiés.',
+      : (dwxGoldRatio && !dwxGoldTrack
+          ? 'Qualité GOLD atteinte sur le ratio — il ne manque que le track record (> 8 mois). SILVER accessible en attendant.'
+          : 'SILVER accessible' + (dwxCalibOK ? '' : ' après calibration') + ' — allocation si Rating ≥ 75 (rendement 6 mois). GOLD non atteint.')),
+    'Note : rendement & DD en TWR (dépôts neutralisés). Le DARWIN réel est re-scalé à 6,5% VaR.',
   ].join('\n');
-  // Objectif GOLD (ratio 2,5) + track record — cards actionnables
-  const dwxTargetRet = 2.5 * dwxDDPct;               // rendement total requis pour ratio 2,5 à DD constant
-  const dwxGainNeeded = 2.5 * maxDD - totalPnL;      // € encore à gagner (sans creuser le DD)
-  const dwxDDforCur = dwxRetPct / 2.5;               // DD plafond au rendement actuel pour ratio 2,5
-  const dwxTrackLeft = 8 - dwxMonths;                // mois restants pour le seuil GOLD
-  const dwxReached = dwxRatio >= 2.5;
-  const dwxTipCible = 'Objectif GOLD (ratio Rdt/DD ≥ 2,5)\n'
-    + '• À drawdown constant (' + dwxDDPct.toFixed(1) + '%) : rendement total ' + Math.round(dwxTargetRet) + '% (+' + fmt(dwxGainNeeded) + ' € à gagner)\n'
-    + '• Levier alternatif : réduire le DD à ≤ ' + dwxDDforCur.toFixed(1) + '% au rendement actuel\n'
+  // Objectif GOLD (ratio 2,5) + track record — cards actionnables (méthode TWR)
+  const dwxTargetRet = 2.5 * dwxDDPct;              // rendement TWR requis pour ratio 2,5 à DD constant
+  const dwxRetGap    = dwxTargetRet - dwxRetPct;    // points de rendement manquants (< 0 si atteint)
+  const dwxDDforCur  = dwxRetPct / 2.5;             // DD plafond au rendement actuel pour ratio 2,5
+  const dwxTrackLeft = 8 - dwxMonths;               // mois restants pour le seuil GOLD
+  const dwxReached   = dwxRatio >= 2.5;
+  const dwxTipCible = 'Objectif GOLD (ratio Rdt/DD ≥ 2,5) — méthode TWR\n'
+    + (dwxReached
+        ? '✓ Déjà atteint : ratio ' + dwxRatioStr + ' (rendement ' + dwxRetPct.toFixed(0) + '% / DD ' + dwxDDPct.toFixed(1) + '%).\n'
+        : '• À drawdown constant (' + dwxDDPct.toFixed(1) + '%) : rendement ' + Math.round(dwxTargetRet) + '% (+' + Math.max(0, dwxRetGap).toFixed(0) + ' pts à gagner)\n'
+          + '• Ou réduire le DD à ≤ ' + dwxDDforCur.toFixed(1) + '% au rendement actuel\n')
     + '• Optimum : DD 8% + rendement 20% (valide aussi le palier GOLD 1 an)';
-  const dwxTipTrack = 'Track record = temps depuis le 1er trade.\n'
+  const dwxTipTrack = 'Track record = temps depuis le 1er trade (compte complet).\n'
     + 'GOLD exige > 8 mois. SILVER : aucun minimum requis.\n'
     + 'Calibration DARWIN déjà validée (25 décisions / 15 jours de trading).';
 
@@ -1998,7 +2056,6 @@ function buildAdvancedKPIs() {
   const kpis = [
     { l:'Espérance / Trade', v:(expectancy>=0?'+':'')+expectancy.toFixed(2)+' €', s:'(WR×GainMoy) - (LR×PerteMoy)', c:'stripe-merged', vc:expColor },
     { l:'Recovery Factor', v:recoveryFactor===Infinity?'∞':recoveryFactor.toFixed(2), s:'Gain Total / Drawdown Max', c:'stripe-nas', vc:rfColor },
-    { l:'Rdt / DD Darwinex', v:dwxRatioStr, s:'GOLD ≥ 2,5 · '+dwxShort, c:'stripe-merged', vc:dwxColor, t:dwxTip },
     { l:'Série Gagnante', v:curWinStreak > 0 ? curWinStreak+' en cours' : maxWinStreak+'', s:'Max historique : '+maxWinStreak+' trades', c:'stripe-green', vc:curWinStreak > 0 ? 'var(--positive)' : 'var(--text-primary)' },
     { l:'Série Perdante', v:curLossStreak > 0 ? curLossStreak+' en cours' : maxLossStreak+'', s:'Max historique : '+maxLossStreak+' trades', c:'stripe-dax', vc:'var(--negative)' },
     { l:'Long (achat)', v:longPnL>=0?'+'+longPnL.toFixed(2)+' €':longPnL.toFixed(2)+' €', s:longTrades.length+' trades · WR '+longWR.toFixed(0)+'%', c:'stripe-green', vc:longPnL>=0?'var(--positive)':'var(--negative)' },
@@ -2006,11 +2063,12 @@ function buildAdvancedKPIs() {
     { l:'Durée Moyenne', v:avgDurStr, s:'Min '+minDurStr+' · Max '+maxDurStr, c:'stripe-dax', vc:'var(--text-primary)' },
     { l:'Points Moy / Trade', v:avgPoints.toFixed(1)+' pts', s:'Max : '+maxPoints.toFixed(1)+' pts · '+pointsTrades.length+' trades', c:'stripe-merged', vc:'var(--text-primary)' },
     { l:'Moy. Trades/Jour', v:avgTradesPerDay.toFixed(1), s:tradingDays+' jours de trading', c:'stripe-merged', vc:'var(--text-primary)' },
-    { l:'Rdt cible GOLD', v:dwxReached?'✓ atteint':Math.round(dwxTargetRet)+'%', s:dwxReached?('ratio '+dwxRatioStr+' ≥ 2,5'):('ratio 2,5 · +'+fmt(dwxGainNeeded)+' €'), c:'stripe-merged', vc:dwxReached?'var(--positive)':'#f59e0b', t:dwxTipCible },
-    { l:'Track record', v:dwxMonths.toFixed(1)+' mois', s:dwxGoldTrack?'GOLD > 8 mois ✓':('GOLD > 8 mois · reste '+Math.max(0,dwxTrackLeft).toFixed(1)), c:'stripe-nas', vc:dwxGoldTrack?'var(--positive)':'#f59e0b', t:dwxTipTrack },
+    { l:'Rdt / DD Darwinex', v:dwxRatioStr, s:'GOLD ≥ 2,5 · '+dwxShort, c:'stripe-merged', vc:dwxColor, t:dwxTip, cls:'kpi-dwx' },
+    { l:'Rdt cible GOLD', v:dwxReached?'✓ atteint':Math.round(dwxTargetRet)+'%', s:dwxReached?('ratio '+dwxRatioStr+' ≥ 2,5'):('ratio 2,5 · +'+Math.max(0,dwxRetGap).toFixed(0)+' pts'), c:'stripe-merged', vc:dwxReached?'var(--positive)':'#f59e0b', t:dwxTipCible, cls:'kpi-dwx' },
+    { l:'Track record', v:dwxMonths.toFixed(1)+' mois', s:dwxGoldTrack?'GOLD > 8 mois ✓':('GOLD > 8 mois · reste '+Math.max(0,dwxTrackLeft).toFixed(1)), c:'stripe-nas', vc:dwxGoldTrack?'var(--positive)':'#f59e0b', t:dwxTipTrack, cls:'kpi-dwx' },
   ];
   document.getElementById('kpiAdvancedReal').innerHTML = kpis.map(k =>
-    `<div class="kpi-card"${k.t?` title="${k.t.replace(/"/g,"'")}" style="cursor:help"`:''}><div class="stripe ${k.c}"></div><div class="label">${k.l}</div><div class="value" style="color:${k.vc}">${k.v}</div><div class="sub">${k.s}</div></div>`
+    `<div class="kpi-card ${k.cls||''}"${k.t?` title="${k.t.replace(/"/g,"'")}" style="cursor:help"`:''}><div class="stripe ${k.c}"></div><div class="label">${k.l}</div><div class="value" style="color:${k.vc}">${k.v}</div><div class="sub">${k.s}</div></div>`
   ).join('');
 }
 
