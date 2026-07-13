@@ -88,7 +88,11 @@ def today_str():
 # ─────────────────────────────────────────────────────────────────────────────
 def fb_write(cfg, path, payload, method="PATCH"):
     fb = cfg["firebase"]
-    url = f"{fb['database_url'].rstrip('/')}/{path}.json?auth={fb['database_secret']}"
+    # Le secret est OPTIONNEL : si les règles de la base autorisent l'écriture non
+    # authentifiée (cas de ce dashboard), on omet ?auth. Sinon on l'utilise.
+    secret = (fb.get("database_secret") or "").strip()
+    q = f"?auth={secret}" if secret and not secret.startswith("TON_") else ""
+    url = f"{fb['database_url'].rstrip('/')}/{path}.json{q}"
     data = json.dumps(payload).encode("utf-8")
     req = urllib.request.Request(url, data=data, method=method,
                                  headers={"Content-Type": "application/json"})

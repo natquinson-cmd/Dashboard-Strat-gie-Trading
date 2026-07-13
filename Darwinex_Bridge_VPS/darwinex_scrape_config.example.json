@@ -3,9 +3,9 @@
     "investor_account_id": "1000025396",
     "_aide": "ID du compte investisseur REEL (visible dans les URLs d'API /investoraccount/<id>/...). Ici 1000025396."
   },
+  "database_secret_OPTIONNEL": "Laisse database_secret vide (\"\") si les règles de ta base autorisent l'écriture non authentifiée (cas de ce dashboard). Sinon : Console Firebase > Paramètres du projet > Comptes de service > Secrets de base de données (hérités). À ne JAMAIS committer.",
   "firebase": {
     "database_url": "https://portfolio-dashboard-f0c69-default-rtdb.firebaseio.com",
-    "database_secret": "TON_DATABASE_SECRET_FIREBASE",
-    "_aide": "database_secret = Console Firebase > Paramètres du projet > Comptes de service > Secrets de base de données (hérités). À ne JAMAIS committer."
+    "database_secret": ""
   }
 }

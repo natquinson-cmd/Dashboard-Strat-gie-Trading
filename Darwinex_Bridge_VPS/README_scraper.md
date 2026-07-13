@@ -22,7 +22,9 @@ Le P&L Darwinex est **déjà net des dépôts** → stocké directement dans `pn
 py -m pip install playwright
 py -m playwright install chromium
 copy darwinex_scrape_config.example.json darwinex_scrape_config.json
-:: éditer darwinex_scrape_config.json : mettre le database_secret Firebase
+:: database_secret : laisser vide ("") — les règles de la base autorisent
+:: l'écriture non authentifiée (comme le dashboard). Le mettre seulement si tu
+:: verrouilles les règles plus tard.
 ```
 
 ## Utilisation
