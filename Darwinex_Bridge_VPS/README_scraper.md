@@ -34,11 +34,15 @@ py darwinex_scrape_daily.py --dump       :: debug : réponses brutes
 ```
 
 ## Planification (Task Scheduler Windows, ~23h30)
-Créer une tâche quotidienne (comme le PontDarwinex) qui lance :
+Le plus simple : lancer une fois **`darwinex_scrape_install_task.bat`** (crée la tâche
+`DarwinexScraperDaily` à 23h30, qui exécute `darwinex_scrape_run.bat` → `--once`).
 ```
-py C:\chemin\Darwinex_Bridge_VPS\darwinex_scrape_daily.py --once
+schtasks /Query  /TN DarwinexScraperDaily   :: vérifier
+schtasks /Run    /TN DarwinexScraperDaily   :: tester tout de suite
+schtasks /Delete /TN DarwinexScraperDaily /F:: supprimer
 ```
-`--once` à 23h30 capture le P&L de fin de journée (le dernier point de `/1D`).
+`--once` à 23h30 capture le P&L de fin de journée (dernier point de `/1D`) et met à
+jour value + pnl + invested + feesTotal. Log dans `darwinex_scrape.log`.
 
 ## Session expirée
 Si un run échoue (redirection login / réponse non-JSON), le script écrit

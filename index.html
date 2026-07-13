@@ -5949,6 +5949,7 @@ function saveDarwinexManual() {
 }
 
 function invRenderDarwinex() {
+  dwxSyncAggregateFromDaily(); // valeurs réelles depuis la série quotidienne
   const d = darwinexData;
   const fmtE = v => Math.round(v).toLocaleString('fr-FR') + ' €';
   const pnl = (d.currentValue || 0) - (d.invested || 0);
@@ -6037,45 +6038,28 @@ function invRenderDarwinex() {
   h += `<div class="stats-bar" id="dwx-month-stats"></div>`;
   h += `</div></div>`;
 
-  // ── Relevé quotidien (BOOTSTRAP — sera retiré quand le collecteur VPS alimentera tout) ──
-  const dwxTodayIso = (function(){ const n=new Date(); return n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0')+'-'+String(n.getDate()).padStart(2,'0'); })();
-  h += `<div class="inv-card" id="dwx-daily-form" style="padding:20px 24px;margin-top:4px">`;
-  h += `<h3 style="margin-top:0">✏️ Relevé quotidien <span style="font-size:0.62rem;color:var(--text-secondary);font-weight:500;text-transform:none;opacity:0.8">(temporaire · remplacé par le VPS)</span></h3>`;
-  h += `<p style="font-size:0.78rem;color:var(--text-secondary);margin:2px 0 14px">Saisie de test / backfill. P&L du jour = valeur − valeur de la veille − dépôt du jour.</p>`;
-  h += `<div class="inv-grid" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:16px">`;
-  h += `<div><label style="font-size:0.72rem;color:var(--text-secondary);font-weight:600;text-transform:uppercase">Date</label><input type="date" id="dwx-daily-date" class="inv-input" value="${dwxTodayIso}" style="margin-top:4px"></div>`;
-  h += `<div><label style="font-size:0.72rem;color:var(--text-secondary);font-weight:600;text-transform:uppercase">Valeur portefeuille (€)</label><input type="number" id="dwx-daily-value" class="inv-input" step="1" placeholder="ex : 12840" style="margin-top:4px"></div>`;
-  h += `<div><label style="font-size:0.72rem;color:var(--text-secondary);font-weight:600;text-transform:uppercase">Dépôt/retrait du jour (€)</label><input type="number" id="dwx-daily-deposit" class="inv-input" step="1" value="0" style="margin-top:4px"></div>`;
-  h += `</div>`;
-  h += `<div style="margin-top:14px;display:flex;justify-content:flex-end"><button class="inv-btn inv-btn-ok" onclick="dwxSaveDaily()">Enregistrer le relevé</button></div>`;
-  h += `</div>`;
-
-  // ── Saisie / correction manuelle ──
-  h += `<div class="inv-card" style="padding:20px 24px">`;
-  h += `<h3 style="margin-top:0">✏️ Saisie / correction manuelle</h3>`;
-  h += `<p style="font-size:0.78rem;color:var(--text-secondary);margin:2px 0 14px">En attendant l'automatisation, saisis tes montants ici. Dès que le collecteur VPS pousse les données, elles prennent le relais.</p>`;
-  h += `<div class="inv-grid" style="grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px">`;
-  h += `<div><label style="font-size:0.72rem;color:var(--text-secondary);font-weight:600;text-transform:uppercase">Investi (€)</label><input type="number" id="dwx-invested" class="inv-input" value="${d.invested||''}" step="100" style="margin-top:4px"></div>`;
-  h += `<div><label style="font-size:0.72rem;color:var(--text-secondary);font-weight:600;text-transform:uppercase">Valeur actuelle (€)</label><input type="number" id="dwx-value" class="inv-input" value="${d.currentValue||''}" step="10" style="margin-top:4px"></div>`;
-  h += `<div><label style="font-size:0.72rem;color:var(--text-secondary);font-weight:600;text-transform:uppercase">Frais cumulés (€)</label><input type="number" id="dwx-fees" class="inv-input" value="${d.feesTotal||''}" step="1" style="margin-top:4px"></div>`;
-  h += `</div>`;
-  h += `<div style="margin-top:14px;display:flex;justify-content:flex-end"><button class="inv-btn inv-btn-ok" onclick="saveDarwinexManual()">Enregistrer</button></div>`;
-  h += `</div>`;
-
-  h += `<div style="font-size:0.72rem;color:var(--text-secondary);opacity:0.7;margin-top:12px;line-height:1.5">🔗 Automatisation : un collecteur sur ton VPS récupère les données via l'API Darwinex (Investor Account Info) et les pousse dans Firebase (<code>dashboard/darwinex</code>). Le secret OAuth reste sur le VPS, jamais dans cette page.</div>`;
+  // ── Note automatisation (plus de saisie manuelle) ──
+  h += `<div style="font-size:0.72rem;color:var(--text-secondary);opacity:0.78;margin-top:12px;line-height:1.5">🟢 Valeurs alimentées automatiquement par le collecteur Darwinex du VPS (endpoints JSON internes de darwinex.com, poussés chaque soir dans <code>dashboard/darwinex</code>). Le P&L affiché est déjà net de frais.</div>`;
 
   return h;
 }
 
 function invBuildDarwinexCharts() {
-  const d = darwinexData;
-  if (!d.history || d.history.length === 0) return;
   const ctx = document.getElementById('dwx-ch');
   if (!ctx) return;
   if (invCharts.darwinex) invCharts.darwinex.destroy();
-  const labels = d.history.map(x => x.ym);
-  const valSeries = d.history.map(x => Math.round(x.value||0));
-  const invSeries = d.history.map(x => Math.round(x.invested||0));
+  // Courbe QUOTIDIENNE réelle : valeur du portefeuille vs capital investi (dépôts)
+  const keys = Object.keys(darwinexDaily || {}).filter(k => /^\d{4}-\d{2}-\d{2}$/.test(k)).sort();
+  if (keys.length < 2) return;
+  const dd = dwxComputeDaily();
+  let cum = 0; const labels = [], valSeries = [], invSeries = [];
+  for (const k of keys) {
+    if (dd[k]) cum += dd[k].pnl;
+    const val = Number(darwinexDaily[k].value) || 0;
+    labels.push(k.slice(5)); // MM-DD
+    valSeries.push(Math.round(val));
+    invSeries.push(Math.round(val - cum)); // dépôts investis à cette date
+  }
   invCharts.darwinex = new Chart(ctx, {
     type:'line',
     data:{ labels, datasets:[
@@ -6129,6 +6113,34 @@ function dwxComputeDaily() {
     prev = val; // le tout premier relevé sans pnl sert de base
   }
   return out;
+}
+
+// Dérive l'agrégat darwinexData (hero + intégration portfolio) depuis la série
+// quotidienne RÉELLE : valeur = dernier relevé ; investi (dépôts) = valeur − P&L cumulé ;
+// P&L = somme des P&L quotidiens. Reconstruit aussi l'historique mensuel. feesTotal
+// n'est pas touché (alimenté par le collecteur).
+function dwxSyncAggregateFromDaily() {
+  const keys = Object.keys(darwinexDaily || {}).filter(k => /^\d{4}-\d{2}-\d{2}$/.test(k)).sort();
+  if (!keys.length) return;
+  const dd = dwxComputeDaily();
+  const lastK = keys[keys.length - 1];
+  const value = Number(darwinexDaily[lastK].value) || 0;
+  let cum = 0; const monthEnd = {};
+  for (const k of keys) {
+    if (dd[k]) cum += dd[k].pnl;
+    monthEnd[k.substring(0, 7)] = { value: Number(darwinexDaily[k].value) || 0, cum };
+  }
+  darwinexData.currentValue = Math.round(value * 100) / 100;
+  darwinexData.invested = Math.round((value - cum) * 100) / 100; // dépôts (cost basis)
+  darwinexData.source = 'vps';
+  const [ly, lm, ld] = lastK.split('-').map(Number);
+  darwinexData.asOf = new Date(ly, lm - 1, ld, 23, 30).getTime();
+  darwinexData.history = Object.keys(monthEnd).sort().map(ym => ({
+    ym,
+    value: Math.round(monthEnd[ym].value * 100) / 100,
+    invested: Math.round((monthEnd[ym].value - monthEnd[ym].cum) * 100) / 100,
+    fees: darwinexData.feesTotal || 0
+  }));
 }
 
 // Valeur (equity) au début d'un mois = dernier relevé strictement avant le 1er du mois.
@@ -7431,6 +7443,7 @@ Promise.all([
   syncYounitedLoan(); // auto-remplit l'emprunt Younited depuis l'échéancier officiel
   syncRevolutLoan();  // auto-remplit l'emprunt Revolut depuis l'échéancier officiel
   syncRevolutDca();   // auto-remplit les versements ETF Revolut (DCA) depuis l'ancrage
+  dwxSyncAggregateFromDaily(); // agrégat Darwinex (valeur/investi/P&L) depuis la série quotidienne réelle
   syncDarwinexPlatform(); // intègre Darwinex comme plateforme du portfolio
   renderRealTab();
   tabRendered.real = true;

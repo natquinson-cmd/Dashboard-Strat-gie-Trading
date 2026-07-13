@@ -185,6 +185,19 @@ def last_pl(pl_json):
     return float(pl_json[-1][1] or 0.0)
 
 
+def sum_fees(pl_json):
+    """Somme des frais/commissions (entrées négatives des colonnes >= 2 de la série /pl)."""
+    fees = 0.0
+    if isinstance(pl_json, list):
+        for pt in pl_json:
+            for i in range(2, len(pt)):
+                if isinstance(pt[i], list):
+                    for f in pt[i]:
+                        if isinstance(f, list) and len(f) >= 2 and isinstance(f[1], (int, float)) and f[1] < 0:
+                            fees += f[1]
+    return round(abs(fees), 2)
+
+
 def deposits_from_value_series(value_json):
     """Courbe indice: [[ts, idx, [[depTs, depAmt], ...], []], ...] -> [(depTs, depAmt), ...] triés."""
     deps = []
@@ -206,22 +219,27 @@ def run_once(cfg, dump=False):
     paths = {
         "account": "/api/investment/investoraccount",
         "pl1d": f"/api/investment/graphic/portfolio/pl/{acc}/1D",
+        "plAll": f"/api/investment/graphic/portfolio/pl/{acc}/ALL",
+        "valAll": f"/api/investment/graphic/portfolio/{acc}/ALL",
     }
     data = fetch_json(cfg, paths)
     if dump:
         print(json.dumps(data, indent=2)[:6000]); return
-    equity, invested, open_pnl = account_equity(data["account"], acc)
+    equity, _, open_pnl = account_equity(data["account"], acc)
     pnl_today = round(last_pl(data["pl1d"]), 2)
+    deposits_total = round(sum(a for _, a in deposits_from_value_series(data["valAll"])), 2)
+    fees_total = sum_fees(data["plAll"])
     day = today_str()
     # 1) point quotidien
     fb_write(cfg, f"dashboard/darwinex/daily/{day}",
              {"value": round(equity, 2), "pnl": pnl_today}, method="PUT")
     # 2) snapshot agrégé (hero/portfolio) — source 'vps'
     fb_write(cfg, "dashboard/darwinex",
-             {"source": "vps", "asOf": int(time.time() * 1000),
-              "currency": "EUR", "currentValue": round(equity, 2)})
+             {"source": "vps", "asOf": int(time.time() * 1000), "currency": "EUR",
+              "currentValue": round(equity, 2), "invested": deposits_total, "feesTotal": fees_total})
     set_collector_status(cfg, "ok", f"{day} value={round(equity,2)} pnl={pnl_today}")
-    print(f"[OK] {day} : valeur={round(equity,2)} € · P&L jour={pnl_today} € (investi={invested}, openPnL={round(open_pnl,2)})")
+    print(f"[OK] {day} : valeur={round(equity,2)} € · P&L jour={pnl_today} € "
+          f"(investi/dépôts={deposits_total}, frais={fees_total}, openPnL={round(open_pnl,2)})")
 
 
 def run_backfill(cfg):
