@@ -29,7 +29,7 @@ copy darwinex_scrape_config.example.json darwinex_scrape_config.json
 
 ## Utilisation
 ```bat
-py darwinex_scrape_daily.py --login      :: 1x : connexion manuelle, sauvegarde storage_state.json
+py darwinex_scrape_daily.py --login      :: 1x : connexion manuelle dans le vrai Chrome (profil pw_profile/)
 py darwinex_scrape_daily.py --backfill   :: (optionnel) reconstruit tout l'historique quotidien
 py darwinex_scrape_daily.py --once       :: pousse le point du jour (value + pnl)
 py darwinex_scrape_daily.py --dump       :: debug : réponses brutes
@@ -56,7 +56,7 @@ Si un run échoue (redirection login / réponse non-JSON), le script écrit
 Relancer alors `--login` pour re-sauvegarder la session.
 
 ## Sécurité
-`darwinex_scrape_config.json` (secret Firebase) et `storage_state.json` (cookies de
+`darwinex_scrape_config.json` (secret Firebase) et `pw_profile/` (cookies de
 session) sont **gitignorés**. Ne jamais les committer.
 
 > `darwinex_to_firebase.py` (ancien scaffold OAuth) est **obsolète** : l'API OAuth

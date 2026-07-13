@@ -3,5 +3,6 @@ config.json
 darwinex_scrape_config.json
 darwinex_config.json
 storage_state.json
+pw_profile/
 *.log
 __pycache__/

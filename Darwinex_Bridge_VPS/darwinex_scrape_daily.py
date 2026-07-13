@@ -11,9 +11,10 @@ que le Trading Dashboard lit pour les 2 calendriers Darwinex (journalier + mensu
 Pourquoi Playwright + session persistée ?
   - L'API OAuth publique Darwinex est morte (host down). MAIS la plateforme web
     expose des endpoints JSON internes, authentifiés par simple COOKIE de session.
-  - Pas de 2FA sur ce compte : on se logue UNE fois à la main (--login), Playwright
-    sauvegarde les cookies dans storage_state.json, et les runs suivants sont
-    headless et réutilisent cette session. Re-login manuel seulement à l'expiration.
+  - Pas de 2FA : on se logue UNE fois à la main (--login) dans le VRAI Chrome avec
+    anti-détection (sinon Darwinex bloque le login dans un navigateur automatisé : le
+    clic sur LOG IN ne fait rien). La session est gardée dans un profil persistant
+    (pw_profile/) ; les runs suivants sont headless et la réutilisent.
 
 Endpoints utilisés (investorAccountId dans la config) :
   - /api/investment/investoraccount ................ equity (valeur €), invested, openPnL
@@ -33,8 +34,8 @@ INSTALLATION (VPS Windows, à côté du PontDarwinex) :
   6) Planificateur de tâches Windows : tâche quotidienne ~23h30 lançant --once
        (comme la tâche du PontDarwinex).
 
-AUCUN secret dans le repo : darwinex_scrape_config.json et storage_state.json
-sont à exclure de git.
+AUCUN secret dans le repo : darwinex_scrape_config.json et le profil pw_profile/
+(cookies de session) sont à exclure de git.
 ===============================================================================
 """
 
@@ -54,9 +55,13 @@ except Exception:
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 CONFIG_PATH = os.path.join(HERE, "darwinex_scrape_config.json")
-STATE_PATH = os.path.join(HERE, "storage_state.json")
+PROFILE_DIR = os.path.join(HERE, "pw_profile")  # profil Chrome persistant (garde la session)
 BASE = "https://www.darwinex.com"
 PORTFOLIO_URL = BASE + "/fr/portfolio/chart"
+
+# Anti-détection : sans ça, Darwinex bloque la connexion dans un navigateur "automatisé"
+# (le clic sur LOG IN ne fait rien). On utilise le vrai Chrome installé (channel="chrome").
+_ANTI_DETECT_ARGS = ["--disable-blink-features=AutomationControlled"]
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -124,45 +129,53 @@ def _require_playwright():
                  "  py -m playwright install chromium")
 
 
+def _persistent_context(p, headless):
+    """Contexte Chrome PERSISTANT (profil pw_profile) + anti-détection.
+    Essaie le vrai Chrome installé (channel='chrome'), sinon le Chromium de Playwright."""
+    kwargs = dict(user_data_dir=PROFILE_DIR, headless=headless,
+                  args=_ANTI_DETECT_ARGS, ignore_default_args=["--enable-automation"])
+    try:
+        return p.chromium.launch_persistent_context(channel="chrome", **kwargs)
+    except Exception:
+        return p.chromium.launch_persistent_context(**kwargs)
+
+
 def do_login():
-    """Ouvre une fenêtre, laisse l'utilisateur se connecter, sauvegarde la session."""
+    """Ouvre le vrai Chrome (profil persistant), laisse l'utilisateur se connecter.
+    La session reste gardée dans le profil : rien à sauvegarder manuellement."""
     sync_playwright = _require_playwright()
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=False)
-        ctx = browser.new_context()
-        page = ctx.new_page()
+        ctx = _persistent_context(p, headless=False)
+        page = ctx.pages[0] if ctx.pages else ctx.new_page()
         page.goto(PORTFOLIO_URL)
-        print("\n>>> Connecte-toi à Darwinex dans la fenêtre, va sur ta page portefeuille,")
-        input(">>> puis reviens ici et appuie sur Entrée pour sauvegarder la session... ")
-        ctx.storage_state(path=STATE_PATH)
-        browser.close()
-        print(f"[OK] Session sauvegardée : {STATE_PATH}")
+        print("\n>>> Connecte-toi à Darwinex dans la fenêtre (le bouton LOG IN fonctionne),")
+        print(">>> va sur ta page portefeuille (le graphique doit s'afficher),")
+        input(">>> puis reviens ici et appuie sur Entrée... ")
+        ctx.close()  # le profil persistant garde les cookies
+        print(f"[OK] Session gardée dans le profil : {PROFILE_DIR}")
 
 
 def fetch_json(cfg, paths):
-    """Charge la session et récupère plusieurs endpoints. Retourne {key: obj} ou lève SessionExpired."""
+    """Rouvre le profil (headless) et récupère les endpoints. {key: obj} ou lève SessionExpired."""
     sync_playwright = _require_playwright()
-    if not os.path.exists(STATE_PATH):
-        sys.exit(f"[ERREUR] Session absente ({STATE_PATH}). Lance d'abord : py {os.path.basename(__file__)} --login")
+    if not os.path.isdir(PROFILE_DIR):
+        sys.exit(f"[ERREUR] Profil absent ({PROFILE_DIR}). Lance d'abord : py {os.path.basename(__file__)} --login")
     out = {}
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
-        ctx = browser.new_context(storage_state=STATE_PATH)
+        ctx = _persistent_context(p, headless=True)
         req = ctx.request
-        for key, path in paths.items():
-            r = req.get(BASE + path, timeout=30000)
-            if r.status in (401, 403) or "/login" in (r.url or "") or "trading-accounts" in (r.url or ""):
-                browser.close()
-                raise SessionExpired(f"{path} -> HTTP {r.status} / redirection login")
-            txt = r.text()
-            try:
-                out[key] = json.loads(txt)
-            except Exception:
-                browser.close()
-                raise SessionExpired(f"{path} -> réponse non-JSON (session probablement expirée)")
-        # rafraîchit la session sur disque (prolonge les cookies)
-        ctx.storage_state(path=STATE_PATH)
-        browser.close()
+        try:
+            for key, path in paths.items():
+                r = req.get(BASE + path, timeout=30000)
+                if r.status in (401, 403) or "/login" in (r.url or "") or "trading-accounts" in (r.url or ""):
+                    raise SessionExpired(f"{path} -> HTTP {r.status} / redirection login")
+                txt = r.text()
+                try:
+                    out[key] = json.loads(txt)
+                except Exception:
+                    raise SessionExpired(f"{path} -> réponse non-JSON (session probablement expirée)")
+        finally:
+            ctx.close()
     return out
 
 
@@ -326,7 +339,7 @@ if __name__ == "__main__":
             sys.exit(f"[SESSION EXPIRÉE] {e}\nRelance : py {os.path.basename(__file__)} --login")
     else:
         print("Usage: py darwinex_scrape_daily.py [--login | --once | --backfill | --dump]\n"
-              "  --login    : connexion manuelle unique, sauvegarde la session (storage_state.json)\n"
+              "  --login    : connexion manuelle unique dans le vrai Chrome (profil persistant pw_profile/)\n"
               "  --once     : pousse le point du jour (value + pnl) dans Firebase  [tâche 23h30]\n"
               "  --backfill : reconstruit tout l'historique quotidien depuis l'ouverture du compte\n"
               "  --dump     : imprime les réponses brutes des endpoints (debug)")
