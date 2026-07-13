@@ -8,13 +8,13 @@ INTERNES de darwinex.com (ceux qu'appelle la page /fr/portfolio/chart) et les
 pousse dans Firebase sur `dashboard/darwinex/daily/<YYYY-MM-DD> = { value, pnl }`,
 que le Trading Dashboard lit pour les 2 calendriers Darwinex (journalier + mensuel).
 
-Pourquoi Playwright + session persistée ?
+Pourquoi un Chrome débogué (et pas un login automatisé) ?
   - L'API OAuth publique Darwinex est morte (host down). MAIS la plateforme web
     expose des endpoints JSON internes, authentifiés par simple COOKIE de session.
-  - Pas de 2FA : on se logue UNE fois à la main (--login) dans le VRAI Chrome avec
-    anti-détection (sinon Darwinex bloque le login dans un navigateur automatisé : le
-    clic sur LOG IN ne fait rien). La session est gardée dans un profil persistant
-    (pw_profile/) ; les runs suivants sont headless et la réutilisent.
+  - Darwinex BLOQUE la connexion dans un navigateur piloté (le clic sur LOG IN ne
+    fait rien). On ne se logue donc PAS via le script : on lance un VRAI Chrome en
+    mode débogage (start_chrome_debug.bat), on s'y connecte à la main (login normal,
+    ça marche), et le script s'y branche via CDP pour lire les endpoints. Pas de 2FA.
 
 Endpoints utilisés (investorAccountId dans la config) :
   - /api/investment/investoraccount ................ equity (valeur €), invested, openPnL
@@ -24,17 +24,16 @@ Endpoints utilisés (investorAccountId dans la config) :
 
 -------------------------------------------------------------------------------
 INSTALLATION (VPS Windows, à côté du PontDarwinex) :
-  1) py -m pip install playwright
-     py -m playwright install chromium
+  1) py -m pip install playwright        (Chrome doit être installé sur le VPS)
   2) Copier darwinex_scrape_config.example.json -> darwinex_scrape_config.json et remplir.
-  3) Login initial (fenêtre visible) :   py darwinex_scrape_daily.py --login
-       -> connecte-toi, va sur ta page portefeuille, puis reviens ici et Entrée.
-  4) (optionnel) Backfill de tout l'historique :   py darwinex_scrape_daily.py --backfill
-  5) Test d'un run :   py darwinex_scrape_daily.py --once
-  6) Planificateur de tâches Windows : tâche quotidienne ~23h30 lançant --once
-       (comme la tâche du PontDarwinex).
+  3) Lance start_chrome_debug.bat -> un Chrome s'ouvre : connecte-toi à Darwinex
+     (coche « Keep me logged in ») et va sur ta page portefeuille. Laisse-le ouvert.
+  4) Vérifie :   py darwinex_scrape_daily.py --login   (doit dire "session valide")
+  5) Backfill :  py darwinex_scrape_daily.py --backfill
+  6) Tâche planifiée 00h30 : darwinex_scrape_install_task.bat (via darwinex_scrape_run.bat,
+     qui relance start_chrome_debug.bat au besoin).
 
-AUCUN secret dans le repo : darwinex_scrape_config.json et le profil pw_profile/
+AUCUN secret dans le repo : darwinex_scrape_config.json et le profil chrome_profile/
 (cookies de session) sont à exclure de git.
 ===============================================================================
 """
@@ -55,13 +54,9 @@ except Exception:
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 CONFIG_PATH = os.path.join(HERE, "darwinex_scrape_config.json")
-PROFILE_DIR = os.path.join(HERE, "pw_profile")  # profil Chrome persistant (garde la session)
 BASE = "https://www.darwinex.com"
 PORTFOLIO_URL = BASE + "/fr/portfolio/chart"
-
-# Anti-détection : sans ça, Darwinex bloque la connexion dans un navigateur "automatisé"
-# (le clic sur LOG IN ne fait rien). On utilise le vrai Chrome installé (channel="chrome").
-_ANTI_DETECT_ARGS = ["--disable-blink-features=AutomationControlled"]
+DEFAULT_CDP_URL = "http://localhost:9222"  # Chrome lancé par start_chrome_debug.bat
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -129,53 +124,54 @@ def _require_playwright():
                  "  py -m playwright install chromium")
 
 
-def _persistent_context(p, headless):
-    """Contexte Chrome PERSISTANT (profil pw_profile) + anti-détection.
-    Essaie le vrai Chrome installé (channel='chrome'), sinon le Chromium de Playwright."""
-    kwargs = dict(user_data_dir=PROFILE_DIR, headless=headless,
-                  args=_ANTI_DETECT_ARGS, ignore_default_args=["--enable-automation"])
+def _cdp_url(cfg):
+    return (cfg.get("darwinex", {}) or {}).get("chrome_debug_url") or DEFAULT_CDP_URL
+
+
+def _cdp_context(p, cfg):
+    """Se branche sur le Chrome lancé en mode débogage (start_chrome_debug.bat), où TU
+    t'es connecté à Darwinex normalement. Aucun login automatisé (Darwinex bloque les
+    navigateurs pilotés) : on réutilise simplement ta session réelle. Renvoie (browser, context)."""
+    url = _cdp_url(cfg)
     try:
-        return p.chromium.launch_persistent_context(channel="chrome", **kwargs)
-    except Exception:
-        return p.chromium.launch_persistent_context(**kwargs)
+        browser = p.chromium.connect_over_cdp(url)
+    except Exception as e:
+        sys.exit(f"[ERREUR] Chrome en mode débogage introuvable sur {url}.\n"
+                 f"Lance d'abord start_chrome_debug.bat, connecte-toi à Darwinex, puis réessaie.\n({e})")
+    ctx = browser.contexts[0] if browser.contexts else browser.new_context()
+    return browser, ctx
 
 
-def do_login():
-    """Ouvre le vrai Chrome (profil persistant), laisse l'utilisateur se connecter.
-    La session reste gardée dans le profil : rien à sauvegarder manuellement."""
+def do_login(cfg):
+    """Ne logue rien : vérifie que le Chrome débogué est bien connecté à Darwinex."""
     sync_playwright = _require_playwright()
     with sync_playwright() as p:
-        ctx = _persistent_context(p, headless=False)
-        page = ctx.pages[0] if ctx.pages else ctx.new_page()
-        page.goto(PORTFOLIO_URL)
-        print("\n>>> Connecte-toi à Darwinex dans la fenêtre (le bouton LOG IN fonctionne),")
-        print(">>> va sur ta page portefeuille (le graphique doit s'afficher),")
-        input(">>> puis reviens ici et appuie sur Entrée... ")
-        ctx.close()  # le profil persistant garde les cookies
-        print(f"[OK] Session gardée dans le profil : {PROFILE_DIR}")
+        _, ctx = _cdp_context(p, cfg)
+        r = ctx.request.get(BASE + "/api/investment/investoraccount", timeout=30000)
+        ok = (r.status == 200 and r.text().strip().startswith("["))
+        if ok:
+            print("[OK] Chrome débogué connecté à Darwinex — session valide. Lance : py darwinex_scrape_daily.py --backfill")
+        else:
+            print(f"[!] Pas connecté (HTTP {r.status}). Dans le Chrome ouvert par start_chrome_debug.bat, "
+                  f"connecte-toi à Darwinex (coche « Keep me logged in ») et va sur ta page portefeuille, puis relance ceci.")
 
 
 def fetch_json(cfg, paths):
-    """Rouvre le profil (headless) et récupère les endpoints. {key: obj} ou lève SessionExpired."""
+    """Récupère les endpoints via le Chrome débogué. {key: obj} ou lève SessionExpired."""
     sync_playwright = _require_playwright()
-    if not os.path.isdir(PROFILE_DIR):
-        sys.exit(f"[ERREUR] Profil absent ({PROFILE_DIR}). Lance d'abord : py {os.path.basename(__file__)} --login")
     out = {}
     with sync_playwright() as p:
-        ctx = _persistent_context(p, headless=True)
+        _, ctx = _cdp_context(p, cfg)  # ne pas fermer : c'est le vrai Chrome de l'utilisateur
         req = ctx.request
-        try:
-            for key, path in paths.items():
-                r = req.get(BASE + path, timeout=30000)
-                if r.status in (401, 403) or "/login" in (r.url or "") or "trading-accounts" in (r.url or ""):
-                    raise SessionExpired(f"{path} -> HTTP {r.status} / redirection login")
-                txt = r.text()
-                try:
-                    out[key] = json.loads(txt)
-                except Exception:
-                    raise SessionExpired(f"{path} -> réponse non-JSON (session probablement expirée)")
-        finally:
-            ctx.close()
+        for key, path in paths.items():
+            r = req.get(BASE + path, timeout=30000)
+            if r.status in (401, 403) or "/login" in (r.url or "") or "trading-accounts" in (r.url or ""):
+                raise SessionExpired(f"{path} -> HTTP {r.status} / redirection login")
+            txt = r.text()
+            try:
+                out[key] = json.loads(txt)
+            except Exception:
+                raise SessionExpired(f"{path} -> réponse non-JSON (session probablement expirée)")
     return out
 
 
@@ -320,7 +316,7 @@ def run_backfill(cfg):
 if __name__ == "__main__":
     args = set(sys.argv[1:])
     if "--login" in args:
-        do_login()
+        do_login(load_config())
     elif "--dump" in args:
         run_once(load_config(), dump=True)
     elif "--backfill" in args:
@@ -329,17 +325,18 @@ if __name__ == "__main__":
             run_backfill(cfg)
         except SessionExpired as e:
             set_collector_status(cfg, "expired", str(e))
-            sys.exit(f"[SESSION EXPIRÉE] {e}\nRelance : py {os.path.basename(__file__)} --login")
+            sys.exit(f"[SESSION EXPIRÉE] {e}\nDans le Chrome de start_chrome_debug.bat, reconnecte-toi à Darwinex, puis réessaie.")
     elif "--once" in args:
         cfg = load_config()
         try:
             run_once(cfg)
         except SessionExpired as e:
             set_collector_status(cfg, "expired", str(e))
-            sys.exit(f"[SESSION EXPIRÉE] {e}\nRelance : py {os.path.basename(__file__)} --login")
+            sys.exit(f"[SESSION EXPIRÉE] {e}\nDans le Chrome de start_chrome_debug.bat, reconnecte-toi à Darwinex, puis réessaie.")
     else:
-        print("Usage: py darwinex_scrape_daily.py [--login | --once | --backfill | --dump]\n"
-              "  --login    : connexion manuelle unique dans le vrai Chrome (profil persistant pw_profile/)\n"
-              "  --once     : pousse le point du jour (value + pnl) dans Firebase  [tâche 23h30]\n"
-              "  --backfill : reconstruit tout l'historique quotidien depuis l'ouverture du compte\n"
+        print("Prérequis : lance start_chrome_debug.bat et connecte-toi à Darwinex (une fois).\n"
+              "Usage: py darwinex_scrape_daily.py [--login | --once | --backfill | --dump]\n"
+              "  --login    : vérifie que le Chrome débogué est bien connecté à Darwinex\n"
+              "  --once     : pousse le point du jour (value + pnl) dans Firebase\n"
+              "  --backfill : reconstruit tout l'historique quotidien  [tâche 00h30]\n"
               "  --dump     : imprime les réponses brutes des endpoints (debug)")

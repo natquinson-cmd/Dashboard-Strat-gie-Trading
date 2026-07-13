@@ -17,20 +17,29 @@ Playwright garde la session ; les runs nocturnes sont headless.
 
 Le P&L Darwinex est **déjà net des dépôts** → stocké directement dans `pnl`.
 
+> ⚠️ Darwinex **bloque le login dans un navigateur piloté**. On ne se logue donc pas
+> via le script : on lance un **vrai Chrome en mode débogage** où tu te connectes à la
+> main, et le script s'y branche (CDP) pour lire les données. Chrome doit être installé.
+
 ## Installation (VPS Windows, à côté du PontDarwinex)
 ```bat
 py -m pip install playwright
-py -m playwright install chromium
 copy darwinex_scrape_config.example.json darwinex_scrape_config.json
 :: database_secret : laisser vide ("") — les règles de la base autorisent
-:: l'écriture non authentifiée (comme le dashboard). Le mettre seulement si tu
-:: verrouilles les règles plus tard.
+:: l'écriture non authentifiée (comme le dashboard).
+```
+
+## Connexion (une fois)
+1. Lance **`start_chrome_debug.bat`** → un Chrome s'ouvre sur ta page portefeuille.
+2. Connecte-toi à Darwinex **normalement** (le login marche), coche « Keep me logged in ».
+3. Laisse ce Chrome **ouvert**. Vérifie :
+```bat
+py darwinex_scrape_daily.py --login      :: doit afficher "session valide"
 ```
 
 ## Utilisation
 ```bat
-py darwinex_scrape_daily.py --login      :: 1x : connexion manuelle dans le vrai Chrome (profil pw_profile/)
-py darwinex_scrape_daily.py --backfill   :: (optionnel) reconstruit tout l'historique quotidien
+py darwinex_scrape_daily.py --backfill   :: reconstruit tout l'historique quotidien
 py darwinex_scrape_daily.py --once       :: pousse le point du jour (value + pnl)
 py darwinex_scrape_daily.py --dump       :: debug : réponses brutes
 ```
@@ -48,16 +57,18 @@ schtasks /Delete /TN DarwinexScraperDaily /F:: supprimer
 reçoit son P&L final, et c'est auto-correctif (comble tout trou, idempotent). Il met
 aussi à jour value + invested + feesTotal (agrégat hero). Log dans `darwinex_scrape.log`.
 
-(`--once` reste dispo pour un check manuel en journée : enregistre le jour courant.)
+`darwinex_scrape_run.bat` relance `start_chrome_debug.bat` si le Chrome débogué n'est
+pas déjà ouvert. **Le Chrome débogué doit rester connecté** : ajoute `start_chrome_debug.bat`
+au démarrage Windows (autologon) pour qu'il soit toujours dispo à 00h30.
 
 ## Session expirée
 Si un run échoue (redirection login / réponse non-JSON), le script écrit
-`dashboard/darwinex/collectorStatus = { status: "expired", ... }`.
-Relancer alors `--login` pour re-sauvegarder la session.
+`dashboard/darwinex/collectorStatus = { status: "expired", ... }`. Dans le Chrome de
+`start_chrome_debug.bat`, reconnecte-toi à Darwinex.
 
 ## Sécurité
-`darwinex_scrape_config.json` (secret Firebase) et `pw_profile/` (cookies de
-session) sont **gitignorés**. Ne jamais les committer.
+`darwinex_scrape_config.json` et le profil `chrome_profile/` (cookies de session) sont
+**gitignorés**. Ne jamais les committer.
 
 > `darwinex_to_firebase.py` (ancien scaffold OAuth) est **obsolète** : l'API OAuth
 > publique Darwinex est morte. Utiliser `darwinex_scrape_daily.py`.

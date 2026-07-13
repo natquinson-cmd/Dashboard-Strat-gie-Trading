@@ -1,7 +1,8 @@
 {
   "darwinex": {
     "investor_account_id": "1000025396",
-    "_aide": "ID du compte investisseur REEL (visible dans les URLs d'API /investoraccount/<id>/...). Ici 1000025396."
+    "chrome_debug_url": "http://localhost:9222",
+    "_aide": "investor_account_id = ID du compte REEL (visible dans les URLs d'API /investoraccount/<id>/...). chrome_debug_url = le Chrome lancé par start_chrome_debug.bat (laisser tel quel sauf si tu changes le port)."
   },
   "database_secret_OPTIONNEL": "Laisse database_secret vide (\"\") si les règles de ta base autorisent l'écriture non authentifiée (cas de ce dashboard). Sinon : Console Firebase > Paramètres du projet > Comptes de service > Secrets de base de données (hérités). À ne JAMAIS committer.",
   "firebase": {
