@@ -33,16 +33,20 @@ py darwinex_scrape_daily.py --once       :: pousse le point du jour (value + pnl
 py darwinex_scrape_daily.py --dump       :: debug : réponses brutes
 ```
 
-## Planification (Task Scheduler Windows, ~23h30)
+## Planification (Task Scheduler Windows, 00h30)
 Le plus simple : lancer une fois **`darwinex_scrape_install_task.bat`** (crée la tâche
-`DarwinexScraperDaily` à 23h30, qui exécute `darwinex_scrape_run.bat` → `--once`).
+`DarwinexScraperDaily` à **00h30**, qui exécute `darwinex_scrape_run.bat` → `--backfill`).
 ```
 schtasks /Query  /TN DarwinexScraperDaily   :: vérifier
 schtasks /Run    /TN DarwinexScraperDaily   :: tester tout de suite
 schtasks /Delete /TN DarwinexScraperDaily /F:: supprimer
 ```
-`--once` à 23h30 capture le P&L de fin de journée (dernier point de `/1D`) et met à
-jour value + pnl + invested + feesTotal. Log dans `darwinex_scrape.log`.
+**Pourquoi 00h30 + `--backfill`** : après minuit, la journée de trading est complète.
+`--backfill` recalcule chaque jour à sa vraie date depuis le P&L cumulé → la veille
+reçoit son P&L final, et c'est auto-correctif (comble tout trou, idempotent). Il met
+aussi à jour value + invested + feesTotal (agrégat hero). Log dans `darwinex_scrape.log`.
+
+(`--once` reste dispo pour un check manuel en journée : enregistre le jour courant.)
 
 ## Session expirée
 Si un run échoue (redirection login / réponse non-JSON), le script écrit

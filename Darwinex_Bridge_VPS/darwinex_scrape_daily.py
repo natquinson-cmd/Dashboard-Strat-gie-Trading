@@ -214,7 +214,17 @@ def deposits_from_value_series(value_json):
 # ─────────────────────────────────────────────────────────────────────────────
 # Modes
 # ─────────────────────────────────────────────────────────────────────────────
+def push_aggregate(cfg, equity, deposits_total, fees_total):
+    """Snapshot agrégé (hero + intégration portfolio), source 'vps'."""
+    fb_write(cfg, "dashboard/darwinex",
+             {"source": "vps", "asOf": int(time.time() * 1000), "currency": "EUR",
+              "currentValue": round(equity, 2), "invested": round(deposits_total, 2),
+              "feesTotal": round(fees_total, 2)})
+
+
 def run_once(cfg, dump=False):
+    """Enregistre le jour COURANT (P&L intraday). Utile pour un check manuel en journée.
+    La tâche nocturne (00h30) utilise plutôt --backfill (journée complète, auto-correctif)."""
     acc = cfg["darwinex"]["investor_account_id"]
     paths = {
         "account": "/api/investment/investoraccount",
@@ -227,24 +237,21 @@ def run_once(cfg, dump=False):
         print(json.dumps(data, indent=2)[:6000]); return
     equity, _, open_pnl = account_equity(data["account"], acc)
     pnl_today = round(last_pl(data["pl1d"]), 2)
-    deposits_total = round(sum(a for _, a in deposits_from_value_series(data["valAll"])), 2)
+    deposits_total = sum(a for _, a in deposits_from_value_series(data["valAll"]))
     fees_total = sum_fees(data["plAll"])
     day = today_str()
-    # 1) point quotidien
     fb_write(cfg, f"dashboard/darwinex/daily/{day}",
              {"value": round(equity, 2), "pnl": pnl_today}, method="PUT")
-    # 2) snapshot agrégé (hero/portfolio) — source 'vps'
-    fb_write(cfg, "dashboard/darwinex",
-             {"source": "vps", "asOf": int(time.time() * 1000), "currency": "EUR",
-              "currentValue": round(equity, 2), "invested": deposits_total, "feesTotal": fees_total})
+    push_aggregate(cfg, equity, deposits_total, fees_total)
     set_collector_status(cfg, "ok", f"{day} value={round(equity,2)} pnl={pnl_today}")
     print(f"[OK] {day} : valeur={round(equity,2)} € · P&L jour={pnl_today} € "
-          f"(investi/dépôts={deposits_total}, frais={fees_total}, openPnL={round(open_pnl,2)})")
+          f"(investi/dépôts={round(deposits_total,2)}, frais={fees_total}, openPnL={round(open_pnl,2)})")
 
 
 def run_backfill(cfg):
     acc = cfg["darwinex"]["investor_account_id"]
     paths = {
+        "account": "/api/investment/investoraccount",
         "plAll": f"/api/investment/graphic/portfolio/pl/{acc}/ALL",
         "valAll": f"/api/investment/graphic/portfolio/{acc}/ALL",
     }
@@ -277,8 +284,15 @@ def run_backfill(cfg):
         prev_cum = cum
 
     status, txt = fb_write(cfg, "dashboard/darwinex/daily", payload, method="PATCH")
+    # agrégat hero/portfolio (valeur = equity live, dépôts = somme, frais = /pl)
+    equity, _, _ = account_equity(data["account"], acc)
+    deposits_total = sum(a for _, a in deps)
+    fees_total = sum_fees(pl)
+    push_aggregate(cfg, equity, deposits_total, fees_total)
     if status == 200:
-        print(f"[OK] Backfill : {len(payload)} jours écrits ({days[0]} -> {days[-1]}).")
+        set_collector_status(cfg, "ok", f"backfill {len(payload)} jours -> {days[-1]}")
+        print(f"[OK] Backfill : {len(payload)} jours écrits ({days[0]} -> {days[-1]}). "
+              f"Valeur={round(equity,2)} € · dépôts={round(deposits_total,2)} · frais={fees_total}")
     else:
         print(f"[ERREUR] Backfill Firebase ({status}) : {txt[:300]}")
 
