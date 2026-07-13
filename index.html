@@ -6308,8 +6308,8 @@ const DARWINEX_PLATFORM = 'Darwinex';
 function syncDarwinexPlatform() {
   if (!portfolioData) return;
   const d = portfolioData;
-  const dwx = darwinexData;
-  const hasData = (dwx.currentValue||0) > 0 || (dwx.invested||0) > 0 || (Array.isArray(dwx.history) && dwx.history.length > 0);
+  const keys = Object.keys(darwinexDaily || {}).filter(k => /^\d{4}-\d{2}-\d{2}$/.test(k)).sort();
+  const hasData = keys.length > 0 || (darwinexData.currentValue || 0) > 0;
   if (!hasData) return;
 
   if (!d.platforms.includes(DARWINEX_PLATFORM)) d.platforms.push(DARWINEX_PLATFORM);
@@ -6319,26 +6319,31 @@ function syncDarwinexPlatform() {
   const idxOf = {};
   d.months.forEach((ym, i) => { idxOf[ym] = i; });
 
-  // 1) Historique -> mois du portfolio qui correspondent
-  (dwx.history || []).forEach(hp => {
-    if (hp && hp.ym && idxOf[hp.ym] != null) prin[idxOf[hp.ym]] = Math.round((hp.value||0) * 100) / 100;
+  // IMPORTANT : dans les AUTRES onglets du portfolio, Darwinex n'apparaît que jusqu'au
+  // MOIS PRÉCÉDENT (mois complétés). Le mois en cours (valeur live) n'est montré que dans
+  // l'onglet Darwinex. On alimente donc les mois strictement antérieurs au mois courant,
+  // puis on reporte la valeur du dernier mois complété (figée) sur le mois en cours.
+  const now = new Date();
+  const curYm = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+
+  const dd = dwxComputeDaily();
+  const monthVal = {}, monthPnl = {};
+  for (const k of keys) {
+    const ym = k.substring(0, 7);
+    monthVal[ym] = Number(darwinexDaily[k].value) || 0; // dernière valeur du mois (keys triées)
+    if (dd[k]) monthPnl[ym] = (monthPnl[ym] || 0) + dd[k].pnl;
+  }
+  Object.keys(monthVal).forEach(ym => {
+    if (ym < curYm && idxOf[ym] != null) {              // mois complété uniquement
+      prin[idxOf[ym]] = Math.round(monthVal[ym] * 100) / 100;
+      intr[idxOf[ym]] = Math.round((monthPnl[ym] || 0) * 100) / 100; // P&L du mois
+    }
   });
 
-  // 2) Valeur courante -> ancrée sur le dernier mois AFFICHÉ (li) + dernier mois du tableau,
-  //    car un relevé Darwinex peut être daté d'un mois plus récent que le portfolio (ex. juillet vs juin)
-  const liIdx = (typeof invLastCompletedMonth === 'function') ? invLastCompletedMonth() : n - 1;
-  const targets = [n - 1, liIdx].filter((v, i, a) => v >= 0 && v < n && a.indexOf(v) === i);
-  if ((dwx.currentValue || dwx.invested)) {
-    targets.forEach(i => { prin[i] = Math.round((dwx.currentValue||0) * 100) / 100; });
-  }
-
-  // 3) Report (carry-forward) du 1er mois rempli à la fin -> continuité de la courbe
+  // Report (carry-forward) du dernier mois complété vers les mois suivants, mois en cours
+  // inclus : valeur FIGÉE (pas de plus-value live), pas de nouveau P&L.
   const firstFilled = prin.findIndex(v => v > 0);
-  if (firstFilled >= 0) for (let i = firstFilled + 1; i < n; i++) if (prin[i] === 0) prin[i] = prin[i-1];
-
-  // 4) Plus-value (value - invested) affichée comme "gain" sur le mois courant
-  const curPnl = Math.round(((dwx.currentValue||0) - (dwx.invested||0)) * 100) / 100;
-  targets.forEach(i => { intr[i] = curPnl; });
+  if (firstFilled >= 0) for (let i = firstFilled + 1; i < n; i++) if (prin[i] === 0) prin[i] = prin[i - 1];
 
   d.principal[DARWINEX_PLATFORM] = prin;
   d.interests[DARWINEX_PLATFORM] = intr;
