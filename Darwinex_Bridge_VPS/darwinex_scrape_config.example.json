@@ -1,0 +1,11 @@
+{
+  "darwinex": {
+    "investor_account_id": "1000025396",
+    "_aide": "ID du compte investisseur REEL (visible dans les URLs d'API /investoraccount/<id>/...). Ici 1000025396."
+  },
+  "firebase": {
+    "database_url": "https://portfolio-dashboard-f0c69-default-rtdb.firebaseio.com",
+    "database_secret": "TON_DATABASE_SECRET_FIREBASE",
+    "_aide": "database_secret = Console Firebase > Paramètres du projet > Comptes de service > Secrets de base de données (hérités). À ne JAMAIS committer."
+  }
+}

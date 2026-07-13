@@ -1,0 +1,7 @@
+# Secrets et session — ne JAMAIS committer
+config.json
+darwinex_scrape_config.json
+darwinex_config.json
+storage_state.json
+*.log
+__pycache__/

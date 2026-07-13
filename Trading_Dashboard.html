@@ -6108,8 +6108,10 @@ function loadDarwinexDailyFromFirebase() {
   }).catch(() => { darwinexDaily = {}; });
 }
 
-// P&L net dépôts par jour à partir de la série de valeurs (à partir du 2e relevé).
-// → { 'YYYY-MM-DD': { pnl, value, deposit, prevValue } }
+// P&L net dépôts par jour. → { 'YYYY-MM-DD': { pnl, value, deposit, prevValue } }
+// Deux sources possibles par entrée :
+//  - collecteur VPS : { value, pnl } → le P&L (déjà net dépôts, calculé par Darwinex) est utilisé tel quel ;
+//  - saisie manuelle : { value, deposit } → P&L = value(j) − value(j-1) − deposit(j).
 function dwxComputeDaily() {
   const keys = Object.keys(darwinexDaily || {}).filter(k => /^\d{4}-\d{2}-\d{2}$/.test(k)).sort();
   const out = {};
@@ -6118,8 +6120,13 @@ function dwxComputeDaily() {
     const e = darwinexDaily[k] || {};
     const val = Number(e.value) || 0;
     const dep = Number(e.deposit) || 0;
-    if (prev !== null) out[k] = { pnl: val - prev - dep, value: val, deposit: dep, prevValue: prev };
-    prev = val; // le tout premier relevé sert de base (pas de P&L)
+    const hasPnl = (typeof e.pnl === 'number' && isFinite(e.pnl));
+    if (hasPnl) {
+      out[k] = { pnl: e.pnl, value: val, deposit: dep, prevValue: (prev !== null ? prev : val - e.pnl) };
+    } else if (prev !== null) {
+      out[k] = { pnl: val - prev - dep, value: val, deposit: dep, prevValue: prev };
+    }
+    prev = val; // le tout premier relevé sans pnl sert de base
   }
   return out;
 }
