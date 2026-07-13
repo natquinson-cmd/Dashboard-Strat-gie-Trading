@@ -671,6 +671,7 @@
   .day-cell { cursor:pointer; }
   .day-cell:hover { transform:scale(1.05); }
   .day-cell.selected { outline:2px solid var(--accent-dax-light); outline-offset:-2px; }
+  .heatmap-table td.selected { outline:2px solid var(--accent-dax-light); outline-offset:-2px; }
   .day-cell .day-num { font-size:0.65rem; color:var(--text-secondary); margin-bottom:2px; }
   .day-cell .day-pnl { font-size:0.82rem; font-weight:700; }
   .day-cell .day-trades { font-size:0.58rem; color:var(--text-secondary); margin-top:1px; }
@@ -6028,6 +6029,7 @@ function invRenderDarwinex() {
   h += `<label class="toggle-wrap"><span class="toggle-val">€</span><input type="checkbox" id="dwx-day-pct" onchange="dwxBuildDailyCalendar(); this.parentElement.querySelector('.toggle-val').textContent=this.checked?'%':'€'"><span class="toggle-track"></span><span class="toggle-val">%</span></label></h3>`;
   h += `<div class="cal-nav"><button onclick="dwxCalPrev()">◀</button><span class="cal-title" id="dwx-cal-title"></span><button onclick="dwxCalNext()">▶</button></div>`;
   h += `<div class="day-grid" id="dwx-day-grid"></div>`;
+  h += `<div class="day-detail-panel" id="dwx-day-detail"></div>`;
   h += `<div class="stats-bar" id="dwx-day-stats"></div>`;
   h += `</div></div>`;
 
@@ -6035,6 +6037,7 @@ function invRenderDarwinex() {
   h += `<h3 style="justify-content:space-between;flex-wrap:wrap;"><span style="display:flex;align-items:center;gap:8px;"><span class="icon icon-heat">📊</span> Performance Mensuelle Darwinex</span>`;
   h += `<label class="toggle-wrap"><span class="toggle-val">€</span><input type="checkbox" id="dwx-month-pct" onchange="dwxBuildMonthlyHeat(); this.parentElement.querySelector('.toggle-val').textContent=this.checked?'%':'€'"><span class="toggle-track"></span><span class="toggle-val">%</span></label></h3>`;
   h += `<div class="heatmap-container" id="dwx-month-heat"></div>`;
+  h += `<div class="day-detail-panel" id="dwx-month-detail"></div>`;
   h += `<div class="stats-bar" id="dwx-month-stats"></div>`;
   h += `</div></div>`;
 
@@ -6212,7 +6215,7 @@ function dwxBuildDailyCalendar() {
       const intensity = maxAbsPnl > 0 ? 0.08 + (Math.abs(data.pnl) / maxAbsPnl) * 0.37 : 0.12;
       const bg = data.pnl >= 0 ? `rgba(16,185,129,${intensity.toFixed(2)})` : `rgba(239,68,68,${intensity.toFixed(2)})`;
       const valTitle = `Valeur : ${Math.round(data.value).toLocaleString('fr-FR')} €${data.deposit ? ' · dépôt ' + data.deposit + ' €' : ''}`;
-      html += `<div class="day-cell ${cls} ${otherCls} ${isToday ? 'today' : ''}" style="background:${bg}" title="${valTitle}"><span class="day-num">${dnum}</span><span class="day-pnl">${disp}</span><span class="day-trades">${Math.round(data.value).toLocaleString('fr-FR')} €</span></div>`;
+      html += `<div class="day-cell ${cls} ${otherCls} ${isToday ? 'today' : ''}" style="background:${bg};cursor:pointer" title="${valTitle}" onclick="dwxShowDayDetail('${dateStr}', this)"><span class="day-num">${dnum}</span><span class="day-pnl">${disp}</span><span class="day-trades">${Math.round(data.value).toLocaleString('fr-FR')} €</span></div>`;
     } else {
       html += `<div class="day-cell no-trade ${otherCls} ${isToday ? 'today' : ''}"><span class="day-num">${dnum}</span></div>`;
     }
@@ -6264,7 +6267,7 @@ function dwxBuildMonthlyHeat() {
         const bg = pnl >= 0 ? `rgba(16,185,129,${(0.12 + intensity * 0.55).toFixed(2)})` : `rgba(239,68,68,${(0.12 + intensity * 0.55).toFixed(2)})`;
         const c = pnl >= 0 ? '#10b981' : '#ef4444'; const sign = pnl >= 0 ? '+' : '';
         const disp = showPct ? `${sign}${pct.toFixed(1)}%` : `${sign}${pnl.toFixed(0)}€`;
-        html += `<td style="background:${bg};color:${c};" title="${sign}${pnl.toFixed(2)}€"><div>${disp}</div></td>`;
+        html += `<td style="background:${bg};color:${c};cursor:pointer" title="${sign}${pnl.toFixed(2)}€" onclick="dwxShowMonthDetail('${key}', this)"><div>${disp}</div></td>`;
       } else {
         html += '<td style="background:rgba(30,42,58,0.2);color:#444;">—</td>';
       }
@@ -6299,6 +6302,97 @@ function dwxSaveDaily() {
   dwxCalYear = parseInt(date.substring(0, 4)); dwxCalMonth = parseInt(date.substring(5, 7)) - 1;
   dwxBuildDailyCalendar(); dwxBuildMonthlyHeat();
   if (valEl) valEl.value = ''; if (depEl) depEl.value = '0';
+}
+
+// ── Détail par DARWIN au clic sur une tuile (jour ou mois) ──
+// Données par jour dans darwinexDaily[date].darwins = { TICKER: {inv, pnl, pct} }
+// où pnl = P&L Ouvert CUMULÉ € (collecté par le VPS). P&L du jour = pnl(j) − pnl(j-1).
+let dwxSelectedCell = null;
+function dwxDarwinDates() {
+  return Object.keys(darwinexDaily || {}).filter(k => /^\d{4}-\d{2}-\d{2}$/.test(k) && darwinexDaily[k] && darwinexDaily[k].darwins).sort();
+}
+function dwxPrevDarwinDate(date) {
+  const dd = dwxDarwinDates().filter(k => k < date);
+  return dd.length ? dd[dd.length - 1] : null;
+}
+function dwxCloseDetail() {
+  ['dwx-day-detail', 'dwx-month-detail'].forEach(id => { const p = document.getElementById(id); if (p) { p.classList.remove('visible'); p.textContent = ''; } });
+  if (dwxSelectedCell) { dwxSelectedCell.classList.remove('selected'); dwxSelectedCell = null; }
+}
+function dwxRenderDetail(panelId, titleLabel, rows, totalPnl, note) {
+  const panel = document.getElementById(panelId);
+  if (!panel) return;
+  let h = `<div class="detail-header"><h4>🐦 ${titleLabel}</h4><span class="detail-close" onclick="dwxCloseDetail()">✕</span></div>`;
+  if (note) h += `<div style="font-size:0.78rem;color:var(--text-secondary);padding:2px 0 8px">${note}</div>`;
+  if (rows.length) {
+    h += '<table class="day-detail-table"><thead><tr><th>DARWIN</th><th>Investi</th><th class="td-r">%</th><th class="td-r">P&L</th></tr></thead><tbody>';
+    for (const r of rows) {
+      const c = r.pnl >= 0 ? 'var(--positive)' : 'var(--negative)';
+      h += `<tr><td style="font-weight:600">${r.ticker}</td><td>${fmt(Math.round(r.inv))} €</td><td class="td-r" style="color:${c}">${r.pct >= 0 ? '+' : ''}${r.pct.toFixed(2)}%</td><td class="td-r" style="font-weight:700;color:${c}">${r.pnl >= 0 ? '+' : ''}${r.pnl.toFixed(2)} €</td></tr>`;
+    }
+    h += '</tbody></table>';
+    const tc = totalPnl >= 0 ? 'var(--positive)' : 'var(--negative)';
+    h += `<div class="day-detail-summary"><span><strong>Total DARWINs :</strong> <span style="color:${tc};font-weight:700">${totalPnl >= 0 ? '+' : ''}${totalPnl.toFixed(2)} €</span></span></div>`;
+  }
+  dwxHTML(panel, h);
+  panel.classList.add('visible');
+  panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+function dwxBreakdown(curDarwins, prevDarwins) {
+  // Retourne [{ticker, inv, pnl(delta €), pct}] trié desc + total
+  const rows = []; let total = 0;
+  for (const t of Object.keys(curDarwins)) {
+    const cur = curDarwins[t]; const inv = Number(cur.inv) || 0; const curPnl = Number(cur.pnl) || 0;
+    const prevPnl = (prevDarwins && prevDarwins[t]) ? Number(prevDarwins[t].pnl) || 0 : null;
+    const pnl = (prevPnl !== null) ? (curPnl - prevPnl) : curPnl; // delta = P&L de la période
+    const base = inv + (prevPnl !== null ? prevPnl : 0);          // valeur de position au début
+    const pct = base > 0 ? (pnl / base * 100) : 0;
+    rows.push({ ticker: t, inv, pnl: Math.round(pnl * 100) / 100, pct });
+    total += pnl;
+  }
+  rows.sort((a, b) => b.pnl - a.pnl);
+  return { rows, total: Math.round(total * 100) / 100 };
+}
+function dwxShowDayDetail(dateStr, cellEl) {
+  if (dwxSelectedCell === cellEl) { dwxCloseDetail(); return; }
+  if (dwxSelectedCell) dwxSelectedCell.classList.remove('selected');
+  cellEl.classList.add('selected'); dwxSelectedCell = cellEl;
+  const [y, m, d] = dateStr.split('-');
+  const dayNames = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
+  const label = `${dayNames[new Date(+y, +m - 1, +d).getDay()]} ${+d} ${monthNames[+m - 1]} ${y} — par DARWIN`;
+  const dd = dwxComputeDaily();
+  const totalDay = dd[dateStr] ? dd[dateStr].pnl : 0;
+  const entry = darwinexDaily[dateStr];
+  const darwins = entry && entry.darwins;
+  if (!darwins) {
+    const firstD = dwxDarwinDates()[0];
+    dwxRenderDetail('dwx-day-detail', label, [], 0,
+      `Détail par DARWIN pas encore collecté ce jour${firstD ? ` (collecte depuis le ${firstD})` : ' (le collecteur VPS l\'ajoute à partir de sa 1re nuit)'}. P&L total du jour : ${totalDay >= 0 ? '+' : ''}${totalDay.toFixed(2)} €.`);
+    return;
+  }
+  const prevDate = dwxPrevDarwinDate(dateStr);
+  const { rows, total } = dwxBreakdown(darwins, prevDate ? darwinexDaily[prevDate].darwins : null);
+  dwxRenderDetail('dwx-day-detail', label, rows, total, prevDate ? null : '1er jour de collecte : P&L ouvert cumulé affiché (pas de variation de la veille).');
+}
+function dwxShowMonthDetail(ym, cellEl) {
+  if (dwxSelectedCell === cellEl) { dwxCloseDetail(); return; }
+  if (dwxSelectedCell) dwxSelectedCell.classList.remove('selected');
+  cellEl.classList.add('selected'); dwxSelectedCell = cellEl;
+  const [y, m] = ym.split('-');
+  const label = `${monthNames[+m - 1]} ${y} — par DARWIN`;
+  const dd = dwxComputeDaily();
+  const totalMonth = Object.entries(dd).filter(([k]) => k.startsWith(ym)).reduce((a, [, v]) => a + v.pnl, 0);
+  const inMonth = dwxDarwinDates().filter(k => k.startsWith(ym));
+  if (!inMonth.length) {
+    const firstD = dwxDarwinDates()[0];
+    dwxRenderDetail('dwx-month-detail', label, [], 0,
+      `Détail par DARWIN pas encore collecté ce mois${firstD ? ` (collecte depuis le ${firstD})` : ''}. P&L total du mois : ${totalMonth >= 0 ? '+' : ''}${totalMonth.toFixed(2)} €.`);
+    return;
+  }
+  const monthEnd = inMonth[inMonth.length - 1];
+  const startRef = dwxPrevDarwinDate(inMonth[0]);
+  const { rows, total } = dwxBreakdown(darwinexDaily[monthEnd].darwins, startRef ? darwinexDaily[startRef].darwins : null);
+  dwxRenderDetail('dwx-month-detail', label, rows, total, startRef ? null : 'Depuis le 1er relevé par DARWIN du mois.');
 }
 
 // Intègre Darwinex comme PLATEFORME du portfolio (compte dans Capital Brut,

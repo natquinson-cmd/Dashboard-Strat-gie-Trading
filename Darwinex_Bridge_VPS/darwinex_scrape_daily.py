@@ -40,6 +40,7 @@ AUCUN secret dans le repo : darwinex_scrape_config.json et le profil chrome_prof
 
 import json
 import os
+import re
 import sys
 import time
 import datetime as dt
@@ -56,7 +57,22 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 CONFIG_PATH = os.path.join(HERE, "darwinex_scrape_config.json")
 BASE = "https://www.darwinex.com"
 PORTFOLIO_URL = BASE + "/fr/portfolio/chart"
+DARWINS_URL = BASE + "/fr/portfolio/darwins"  # page ventilation par DARWIN (investi, P&L ouvert)
 DEFAULT_CDP_URL = "http://localhost:9222"  # Chrome lancé par start_chrome_debug.bat
+
+# Une ligne de la page darwins : TICKER investi€ risque€ alloc% levier prixMoy prixAct devise fx% pnlOuvert€ (pnl%)
+_DARWIN_ROW = re.compile(
+    r"([A-Z][A-Z0-9]{1,7})\s+"      # ticker
+    r"([\d.,]+)\s*€\s+"       # investi
+    r"[\d.,]+\s*€\s+"        # risque sur capital
+    r"([\d.,]+)\s*%\s+"           # allocation
+    r"[\d.]+\s+"                  # levier
+    r"[\d.,]+\s+[\d.,]+\s+"       # prix moyen, prix actuel
+    r"[A-Z]{3}\s+"               # devise
+    r"-?[\d.,]+\s*%\s+"          # impact devise
+    r"(-?[\d.,]+)\s*€\s*"   # P&L ouvert €
+    r"\(\s*(-?[\d.,]+)\s*%\s*\)"  # P&L ouvert %
+)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -175,6 +191,44 @@ def fetch_json(cfg, paths):
     return out
 
 
+def _num(s):
+    return float(s.replace(",", ""))  # "5,000.00" -> 5000.00 ; "-155.92" -> -155.92
+
+
+def fetch_darwins(cfg):
+    """Rend la page /fr/portfolio/darwins et parse la ventilation par DARWIN.
+    Retourne { ticker: {inv, alloc, pnl, pct} } (pnl = P&L Ouvert CUMULÉ €). {} si échec.
+    Best-effort : si la page ne rend pas, on renvoie {} (le jour n'aura pas le détail)."""
+    sync_playwright = _require_playwright()
+    text = ""
+    try:
+        with sync_playwright() as p:
+            _, ctx = _cdp_context(p, cfg)
+            page = ctx.new_page()
+            try:
+                page.goto(DARWINS_URL, timeout=45000, wait_until="domcontentloaded")
+                try:
+                    page.wait_for_selector("text=P&L Ouvert", timeout=20000)
+                except Exception:
+                    pass
+                page.wait_for_timeout(2500)  # laisse React peupler le tableau
+                text = page.inner_text("body")
+            finally:
+                page.close()
+    except Exception as e:
+        print(f"[WARN] fetch_darwins: {e}")
+        return {}
+    out = {}
+    for m in _DARWIN_ROW.finditer(text):
+        out[m.group(1)] = {
+            "inv": round(_num(m.group(2)), 2),
+            "alloc": round(_num(m.group(3)), 2),
+            "pnl": round(_num(m.group(4)), 2),
+            "pct": round(_num(m.group(5)), 2),
+        }
+    return out
+
+
 class SessionExpired(Exception):
     pass
 
@@ -253,12 +307,15 @@ def run_once(cfg, dump=False):
     deposits_total = sum(a for _, a in deposits_from_value_series(data["valAll"]))
     fees_total = sum_fees(data["plAll"])
     day = today_str()
-    fb_write(cfg, f"dashboard/darwinex/daily/{day}",
-             {"value": round(equity, 2), "pnl": pnl_today}, method="PUT")
+    darwins = fetch_darwins(cfg)  # ventilation par DARWIN (best-effort)
+    day_payload = {"value": round(equity, 2), "pnl": pnl_today}
+    if darwins:
+        day_payload["darwins"] = darwins
+    fb_write(cfg, f"dashboard/darwinex/daily/{day}", day_payload, method="PUT")
     push_aggregate(cfg, equity, deposits_total, fees_total)
-    set_collector_status(cfg, "ok", f"{day} value={round(equity,2)} pnl={pnl_today}")
+    set_collector_status(cfg, "ok", f"{day} value={round(equity,2)} pnl={pnl_today} darwins={len(darwins)}")
     print(f"[OK] {day} : valeur={round(equity,2)} € · P&L jour={pnl_today} € "
-          f"(investi/dépôts={round(deposits_total,2)}, frais={fees_total}, openPnL={round(open_pnl,2)})")
+          f"(investi/dépôts={round(deposits_total,2)}, frais={fees_total}, darwins={len(darwins)}, openPnL={round(open_pnl,2)})")
 
 
 def run_backfill(cfg):
@@ -302,10 +359,14 @@ def run_backfill(cfg):
     deposits_total = sum(a for _, a in deps)
     fees_total = sum_fees(pl)
     push_aggregate(cfg, equity, deposits_total, fees_total)
+    # Ventilation par DARWIN : seulement l'instantané du jour (l'API n'a pas d'historique par DARWIN)
+    darwins = fetch_darwins(cfg)
+    if darwins:
+        fb_write(cfg, f"dashboard/darwinex/daily/{today_str()}/darwins", darwins, method="PUT")
     if status == 200:
-        set_collector_status(cfg, "ok", f"backfill {len(payload)} jours -> {days[-1]}")
+        set_collector_status(cfg, "ok", f"backfill {len(payload)} jours -> {days[-1]} darwins={len(darwins)}")
         print(f"[OK] Backfill : {len(payload)} jours écrits ({days[0]} -> {days[-1]}). "
-              f"Valeur={round(equity,2)} € · dépôts={round(deposits_total,2)} · frais={fees_total}")
+              f"Valeur={round(equity,2)} € · dépôts={round(deposits_total,2)} · frais={fees_total} · darwins={len(darwins)}")
     else:
         print(f"[ERREUR] Backfill Firebase ({status}) : {txt[:300]}")
 
