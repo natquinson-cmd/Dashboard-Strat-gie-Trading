@@ -5130,7 +5130,13 @@ function renderPortfolioTab(tab) {
     else if (tab === 'evolution') invBuildEvolutionCharts(t, labels, li);
     else if (tab === 'loans') invBuildLoanCharts(t, labels, li);
     else if (tab === 'realestate') invBuildRealEstateCharts();
-    else if (tab === 'darwinex') invBuildDarwinexCharts();
+    else if (tab === 'darwinex') {
+      invBuildDarwinexCharts();
+      const dwxDk = Object.keys(darwinexDaily || {}).filter(k => /^\d{4}-\d{2}-\d{2}$/.test(k)).sort();
+      if (dwxDk.length) { const last = dwxDk[dwxDk.length - 1]; dwxCalYear = parseInt(last.substring(0, 4)); dwxCalMonth = parseInt(last.substring(5, 7)) - 1; }
+      dwxBuildDailyCalendar();
+      dwxBuildMonthlyHeat();
+    }
     else if (tab === 'simulateur') invBuildSimulatorChart();
     else if (tab === 'repartition') invBuildRepartitionCharts(t, labels, li);
     invUpdateSyncIndicator();
@@ -6015,6 +6021,35 @@ function invRenderDarwinex() {
     h += `<div class="inv-card" style="padding:20px 24px;margin-bottom:20px;text-align:center;color:var(--text-secondary)">⏳ Aucune donnée Darwinex pour le moment. Saisis tes montants ci-dessous, ou attends que le collecteur VPS pousse les données automatiquement.</div>`;
   }
 
+  // ── Calendriers P&L quotidien / mensuel (série journalière, net dépôts) ──
+  h += `<div class="chart-full" style="margin-top:4px"><div class="chart-card">`;
+  h += `<h3 style="justify-content:space-between;flex-wrap:wrap;"><span style="display:flex;align-items:center;gap:8px;"><span class="icon icon-heat">📅</span> Calendrier Journalier Darwinex</span>`;
+  h += `<label class="toggle-wrap"><span class="toggle-val">€</span><input type="checkbox" id="dwx-day-pct" onchange="dwxBuildDailyCalendar(); this.parentElement.querySelector('.toggle-val').textContent=this.checked?'%':'€'"><span class="toggle-track"></span><span class="toggle-val">%</span></label></h3>`;
+  h += `<div class="cal-nav"><button onclick="dwxCalPrev()">◀</button><span class="cal-title" id="dwx-cal-title"></span><button onclick="dwxCalNext()">▶</button></div>`;
+  h += `<div class="day-grid" id="dwx-day-grid"></div>`;
+  h += `<div class="stats-bar" id="dwx-day-stats"></div>`;
+  h += `</div></div>`;
+
+  h += `<div class="chart-full"><div class="chart-card">`;
+  h += `<h3 style="justify-content:space-between;flex-wrap:wrap;"><span style="display:flex;align-items:center;gap:8px;"><span class="icon icon-heat">📊</span> Performance Mensuelle Darwinex</span>`;
+  h += `<label class="toggle-wrap"><span class="toggle-val">€</span><input type="checkbox" id="dwx-month-pct" onchange="dwxBuildMonthlyHeat(); this.parentElement.querySelector('.toggle-val').textContent=this.checked?'%':'€'"><span class="toggle-track"></span><span class="toggle-val">%</span></label></h3>`;
+  h += `<div class="heatmap-container" id="dwx-month-heat"></div>`;
+  h += `<div class="stats-bar" id="dwx-month-stats"></div>`;
+  h += `</div></div>`;
+
+  // ── Relevé quotidien (BOOTSTRAP — sera retiré quand le collecteur VPS alimentera tout) ──
+  const dwxTodayIso = (function(){ const n=new Date(); return n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0')+'-'+String(n.getDate()).padStart(2,'0'); })();
+  h += `<div class="inv-card" id="dwx-daily-form" style="padding:20px 24px;margin-top:4px">`;
+  h += `<h3 style="margin-top:0">✏️ Relevé quotidien <span style="font-size:0.62rem;color:var(--text-secondary);font-weight:500;text-transform:none;opacity:0.8">(temporaire · remplacé par le VPS)</span></h3>`;
+  h += `<p style="font-size:0.78rem;color:var(--text-secondary);margin:2px 0 14px">Saisie de test / backfill. P&L du jour = valeur − valeur de la veille − dépôt du jour.</p>`;
+  h += `<div class="inv-grid" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:16px">`;
+  h += `<div><label style="font-size:0.72rem;color:var(--text-secondary);font-weight:600;text-transform:uppercase">Date</label><input type="date" id="dwx-daily-date" class="inv-input" value="${dwxTodayIso}" style="margin-top:4px"></div>`;
+  h += `<div><label style="font-size:0.72rem;color:var(--text-secondary);font-weight:600;text-transform:uppercase">Valeur portefeuille (€)</label><input type="number" id="dwx-daily-value" class="inv-input" step="1" placeholder="ex : 12840" style="margin-top:4px"></div>`;
+  h += `<div><label style="font-size:0.72rem;color:var(--text-secondary);font-weight:600;text-transform:uppercase">Dépôt/retrait du jour (€)</label><input type="number" id="dwx-daily-deposit" class="inv-input" step="1" value="0" style="margin-top:4px"></div>`;
+  h += `</div>`;
+  h += `<div style="margin-top:14px;display:flex;justify-content:flex-end"><button class="inv-btn inv-btn-ok" onclick="dwxSaveDaily()">Enregistrer le relevé</button></div>`;
+  h += `</div>`;
+
   // ── Saisie / correction manuelle ──
   h += `<div class="inv-card" style="padding:20px 24px">`;
   h += `<h3 style="margin-top:0">✏️ Saisie / correction manuelle</h3>`;
@@ -6052,6 +6087,199 @@ function invBuildDarwinexCharts() {
       scales:{ x:{ticks:{font:{size:9}}, grid:{display:false}}, y:{ticks:{callback:v=>(v/1000).toFixed(1)+'k €', font:{size:10}}, grid:{color:'rgba(99,102,241,0.08)'}} }
     }
   });
+}
+
+// ══════════════════════════════════════════════════════════════
+// Darwinex — série QUOTIDIENNE (valeur du portefeuille jour par jour)
+// Firebase: dashboard/darwinex/daily/<YYYY-MM-DD> = { value, deposit }
+// P&L net dépôts du jour = value(j) − value(j-1) − deposit(j).
+// Alimenté par le collecteur VPS (Phase 2) ou la saisie manuelle (bootstrap).
+// ══════════════════════════════════════════════════════════════
+let darwinexDaily = {};                       // { 'YYYY-MM-DD': { value, deposit } }
+let dwxCalYear = new Date().getFullYear();
+let dwxCalMonth = new Date().getMonth();       // 0-indexé
+function dwxHTML(el, html) { if (!el) return; el.textContent = ''; el.insertAdjacentHTML('beforeend', html); }
+
+function loadDarwinexDailyFromFirebase() {
+  if (typeof db === 'undefined') return Promise.resolve();
+  return db.ref('dashboard/darwinex/daily').once('value').then(snap => {
+    const v = snap.val();
+    darwinexDaily = (v && typeof v === 'object') ? v : {};
+  }).catch(() => { darwinexDaily = {}; });
+}
+
+// P&L net dépôts par jour à partir de la série de valeurs (à partir du 2e relevé).
+// → { 'YYYY-MM-DD': { pnl, value, deposit, prevValue } }
+function dwxComputeDaily() {
+  const keys = Object.keys(darwinexDaily || {}).filter(k => /^\d{4}-\d{2}-\d{2}$/.test(k)).sort();
+  const out = {};
+  let prev = null;
+  for (const k of keys) {
+    const e = darwinexDaily[k] || {};
+    const val = Number(e.value) || 0;
+    const dep = Number(e.deposit) || 0;
+    if (prev !== null) out[k] = { pnl: val - prev - dep, value: val, deposit: dep, prevValue: prev };
+    prev = val; // le tout premier relevé sert de base (pas de P&L)
+  }
+  return out;
+}
+
+// Valeur (equity) au début d'un mois = dernier relevé strictement avant le 1er du mois.
+function dwxCapAtMonth(y, m) {
+  const first = `${y}-${String(m + 1).padStart(2, '0')}-01`;
+  const keys = Object.keys(darwinexDaily || {}).filter(k => /^\d{4}-\d{2}-\d{2}$/.test(k)).sort();
+  let cap = 0;
+  for (const k of keys) { if (k < first) cap = Number(darwinexDaily[k].value) || cap; else break; }
+  return cap;
+}
+
+function dwxCalPrev() { dwxCalMonth--; if (dwxCalMonth < 0) { dwxCalMonth = 11; dwxCalYear--; } dwxBuildDailyCalendar(); }
+function dwxCalNext() { dwxCalMonth++; if (dwxCalMonth > 11) { dwxCalMonth = 0; dwxCalYear++; } dwxBuildDailyCalendar(); }
+
+function dwxBuildDailyCalendar() {
+  const grid = document.getElementById('dwx-day-grid');
+  if (!grid) return;
+  const dayData = dwxComputeDaily();
+  const showPct = document.getElementById('dwx-day-pct') && document.getElementById('dwx-day-pct').checked;
+  const titleEl = document.getElementById('dwx-cal-title');
+  if (titleEl) titleEl.textContent = monthNamesFull[dwxCalMonth] + ' ' + dwxCalYear;
+
+  const daysInMonth = new Date(dwxCalYear, dwxCalMonth + 1, 0).getDate();
+  const ymd = dt => dt.getFullYear() + '-' + String(dt.getMonth() + 1).padStart(2, '0') + '-' + String(dt.getDate()).padStart(2, '0');
+  const startCap = dwxCapAtMonth(dwxCalYear, dwxCalMonth);
+  const today = new Date(); const todayStr = ymd(today);
+
+  let firstWeekdayDate = 1;
+  while (true) { const dw = new Date(dwxCalYear, dwxCalMonth, firstWeekdayDate).getDay(); if (dw >= 1 && dw <= 5) break; firstWeekdayDate++; }
+  const fwDow = new Date(dwxCalYear, dwxCalMonth, firstWeekdayDate).getDay();
+  const gridStart = new Date(dwxCalYear, dwxCalMonth, firstWeekdayDate - (fwDow - 1));
+  let lastWeekdayDate = daysInMonth;
+  while (true) { const dw = new Date(dwxCalYear, dwxCalMonth, lastWeekdayDate).getDay(); if (dw >= 1 && dw <= 5) break; lastWeekdayDate--; }
+  const lwDow = new Date(dwxCalYear, dwxCalMonth, lastWeekdayDate).getDay();
+  const gridEnd = new Date(dwxCalYear, dwxCalMonth, lastWeekdayDate + (5 - lwDow));
+
+  const dates = [];
+  for (let dt = new Date(gridStart); dt <= gridEnd; dt.setDate(dt.getDate() + 1)) {
+    const dw = dt.getDay(); if (dw === 0 || dw === 6) continue; dates.push(new Date(dt));
+  }
+  const isInMonth = dt => dt.getMonth() === dwxCalMonth && dt.getFullYear() === dwxCalYear;
+  const maxAbsPnl = Math.max(1, ...dates.map(dt => { const v = dayData[ymd(dt)]; return v ? Math.abs(v.pnl) : 0; }));
+
+  let html = '';
+  ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Σ'].forEach(d => { html += `<div class="day-header">${d}</div>`; });
+  let winDays = 0, lossDays = 0, activeDays = 0, weekTotal = 0;
+
+  function emitWeek() {
+    const sign = weekTotal >= 0 ? '+' : '';
+    const disp = showPct ? `${sign}${(startCap > 0 ? (weekTotal / startCap * 100) : 0).toFixed(2)}%` : `${sign}${weekTotal.toFixed(0)}€`;
+    const wtI = Math.min(Math.abs(weekTotal) / (maxAbsPnl * 3 || 1), 1);
+    const wtBg = weekTotal >= 0 ? `rgba(16,185,129,${(0.12 + wtI * 0.55).toFixed(2)})` : `rgba(239,68,68,${(0.12 + wtI * 0.55).toFixed(2)})`;
+    const wtC = weekTotal >= 0 ? 'var(--positive)' : 'var(--negative)';
+    html += `<div class="day-cell week-total" style="background:${wtBg}"><span class="day-pnl" style="color:${wtC}">${disp}</span></div>`;
+    weekTotal = 0;
+  }
+
+  dates.forEach(dateObj => {
+    const dow = dateObj.getDay(); const dnum = dateObj.getDate(); const dateStr = ymd(dateObj);
+    const inMonth = isInMonth(dateObj); const otherCls = inMonth ? '' : 'other-month';
+    const data = dayData[dateStr]; const isToday = dateStr === todayStr;
+    if (data) {
+      if (inMonth) { activeDays++; if (data.pnl >= 0) winDays++; else lossDays++; }
+      const cls = data.pnl >= 0 ? 'win' : 'loss'; const sign = data.pnl >= 0 ? '+' : '';
+      let disp;
+      if (showPct) { const pct = data.prevValue > 0 ? (data.pnl / data.prevValue * 100) : 0; disp = `${sign}${pct.toFixed(2)}%`; }
+      else disp = `${sign}${data.pnl.toFixed(0)}€`;
+      weekTotal += data.pnl;
+      const intensity = maxAbsPnl > 0 ? 0.08 + (Math.abs(data.pnl) / maxAbsPnl) * 0.37 : 0.12;
+      const bg = data.pnl >= 0 ? `rgba(16,185,129,${intensity.toFixed(2)})` : `rgba(239,68,68,${intensity.toFixed(2)})`;
+      const valTitle = `Valeur : ${Math.round(data.value).toLocaleString('fr-FR')} €${data.deposit ? ' · dépôt ' + data.deposit + ' €' : ''}`;
+      html += `<div class="day-cell ${cls} ${otherCls} ${isToday ? 'today' : ''}" style="background:${bg}" title="${valTitle}"><span class="day-num">${dnum}</span><span class="day-pnl">${disp}</span><span class="day-trades">${Math.round(data.value).toLocaleString('fr-FR')} €</span></div>`;
+    } else {
+      html += `<div class="day-cell no-trade ${otherCls} ${isToday ? 'today' : ''}"><span class="day-num">${dnum}</span></div>`;
+    }
+    if (dow === 5) emitWeek();
+  });
+
+  dwxHTML(grid, html);
+
+  const winPct = activeDays > 0 ? (winDays / activeDays * 100).toFixed(0) : '0';
+  const lossPct = activeDays > 0 ? (lossDays / activeDays * 100).toFixed(0) : '0';
+  const prefix = `${dwxCalYear}-${String(dwxCalMonth + 1).padStart(2, '0')}`;
+  const monthTotal = Object.entries(dayData).filter(([d]) => d.startsWith(prefix)).reduce((a, [, v]) => a + v.pnl, 0);
+  const monthPct = startCap > 0 ? (monthTotal / startCap * 100).toFixed(2) : '0';
+  const monthDisp = showPct ? `${monthTotal >= 0 ? '+' : ''}${monthPct}%` : `${monthTotal >= 0 ? '+' : ''}${monthTotal.toFixed(2)} €`;
+  dwxHTML(document.getElementById('dwx-day-stats'), `
+    <div class="stat-item"><span class="stat-dot green"></span>${winDays} jours gagnants (${winPct}%)</div>
+    <div class="stat-item"><span class="stat-dot red"></span>${lossDays} jours perdants (${lossPct}%)</div>
+    <div class="stat-item"><strong>P&L du mois :</strong>&nbsp;<span style="color:${monthTotal >= 0 ? 'var(--positive)' : 'var(--negative)'};font-weight:700">${monthDisp}</span></div>
+    <div class="stat-item" style="color:var(--text-secondary);font-size:0.72rem;">Valeur début mois : ${fmt(Math.round(startCap))} €</div>`);
+}
+
+function dwxBuildMonthlyHeat() {
+  const container = document.getElementById('dwx-month-heat');
+  if (!container) return;
+  const dayData = dwxComputeDaily();
+  const showPct = document.getElementById('dwx-month-pct') && document.getElementById('dwx-month-pct').checked;
+  const monthData = {}; // 'YYYY-MM' -> pnl cumulé
+  for (const [d, v] of Object.entries(dayData)) { const k = d.substring(0, 7); monthData[k] = (monthData[k] || 0) + v.pnl; }
+  const years = [...new Set(Object.keys(monthData).map(k => parseInt(k.substring(0, 4))))].sort((a, b) => b - a);
+  if (years.length === 0) {
+    dwxHTML(container, '<div style="color:var(--text-secondary);font-size:0.8rem;padding:12px">Pas encore assez de relevés quotidiens (il en faut au moins 2).</div>');
+    dwxHTML(document.getElementById('dwx-month-stats'), '');
+    return;
+  }
+  const mh = ['Année', ...monthNames, 'Total'];
+  let html = '<table class="heatmap-table"><thead><tr>' + mh.map(x => `<th>${x}</th>`).join('') + '</tr></thead><tbody>';
+  let winM = 0, lossM = 0, totM = 0;
+  for (const y of years) {
+    html += '<tr><td class="year-cell">' + y + '</td>';
+    let yearTotal = 0, yearTotalPct = 0;
+    for (let m = 0; m < 12; m++) {
+      const key = `${y}-${String(m + 1).padStart(2, '0')}`;
+      if (monthData[key] !== undefined) {
+        totM++; const pnl = monthData[key]; if (pnl >= 0) winM++; else lossM++;
+        yearTotal += pnl;
+        const capStart = dwxCapAtMonth(y, m);
+        const pct = capStart > 0 ? (pnl / capStart * 100) : 0; yearTotalPct += pct;
+        const intensity = Math.min(showPct ? Math.abs(pct) / 8 : Math.abs(pnl) / 500, 1);
+        const bg = pnl >= 0 ? `rgba(16,185,129,${(0.12 + intensity * 0.55).toFixed(2)})` : `rgba(239,68,68,${(0.12 + intensity * 0.55).toFixed(2)})`;
+        const c = pnl >= 0 ? '#10b981' : '#ef4444'; const sign = pnl >= 0 ? '+' : '';
+        const disp = showPct ? `${sign}${pct.toFixed(1)}%` : `${sign}${pnl.toFixed(0)}€`;
+        html += `<td style="background:${bg};color:${c};" title="${sign}${pnl.toFixed(2)}€"><div>${disp}</div></td>`;
+      } else {
+        html += '<td style="background:rgba(30,42,58,0.2);color:#444;">—</td>';
+      }
+    }
+    const totVal = showPct ? yearTotalPct : yearTotal;
+    const tI = Math.min(Math.abs(showPct ? yearTotalPct / 10 : yearTotal / 1000), 1);
+    const totBg = totVal >= 0 ? `rgba(16,185,129,${(0.12 + tI * 0.55).toFixed(2)})` : `rgba(239,68,68,${(0.12 + tI * 0.55).toFixed(2)})`;
+    const totC = totVal >= 0 ? '#10b981' : '#ef4444';
+    const totDisp = showPct ? `${totVal >= 0 ? '+' : ''}${totVal.toFixed(1)}%` : `${totVal >= 0 ? '+' : ''}${totVal.toFixed(0)}€`;
+    html += `<td class="total-cell" style="background:${totBg};color:${totC};">${totDisp}</td></tr>`;
+  }
+  html += '</tbody></table>';
+  dwxHTML(container, html);
+  const wp = totM > 0 ? (winM / totM * 100).toFixed(0) : '0';
+  const lp = totM > 0 ? (lossM / totM * 100).toFixed(0) : '0';
+  dwxHTML(document.getElementById('dwx-month-stats'),
+    `<div class="stat-item"><span class="stat-dot green"></span>${winM} mois gagnants (${wp}%)</div><div class="stat-item"><span class="stat-dot red"></span>${lossM} mois perdants (${lp}%)</div>`);
+}
+
+// Saisie manuelle d'un relevé quotidien (BOOTSTRAP — retiré en Phase 2 quand le VPS alimente tout)
+function dwxSaveDaily() {
+  const dateEl = document.getElementById('dwx-daily-date');
+  const valEl = document.getElementById('dwx-daily-value');
+  const depEl = document.getElementById('dwx-daily-deposit');
+  const date = dateEl && dateEl.value;
+  const value = Number(valEl && valEl.value);
+  const deposit = Number(depEl && depEl.value) || 0;
+  if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) { alert('Date invalide.'); return; }
+  if (!(value > 0)) { alert('Valeur du portefeuille invalide.'); return; }
+  darwinexDaily[date] = { value, deposit };
+  if (typeof db !== 'undefined') db.ref('dashboard/darwinex/daily/' + date).set({ value, deposit });
+  dwxCalYear = parseInt(date.substring(0, 4)); dwxCalMonth = parseInt(date.substring(5, 7)) - 1;
+  dwxBuildDailyCalendar(); dwxBuildMonthlyHeat();
+  if (valEl) valEl.value = ''; if (depEl) depEl.value = '0';
 }
 
 // Intègre Darwinex comme PLATEFORME du portfolio (compte dans Capital Brut,
@@ -7178,6 +7406,7 @@ Promise.all([
   loadPortfolioFromFirebase(),
   reLoadFromFirebase(),
   loadDarwinexFromFirebase(),
+  loadDarwinexDailyFromFirebase(),
   loadRevolutAnchor(),
   loadDataTimestamp(),
   fetchUsdEurRate(),
