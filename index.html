@@ -5979,14 +5979,14 @@ function invRenderDarwinex() {
   h += `</div>`;
   h += `<div class="inv-grid" style="grid-template-columns:repeat(3,1fr);gap:18px;margin-top:18px">`;
   h += `<div><div style="font-size:0.7rem;color:var(--text-secondary);font-weight:600;text-transform:uppercase">Investi</div><div style="font-size:1.3rem;font-weight:700;color:var(--text-primary)">${fmtE(d.invested||0)}</div></div>`;
-  h += `<div><div style="font-size:0.7rem;color:var(--text-secondary);font-weight:600;text-transform:uppercase">Frais cumulés</div><div style="font-size:1.3rem;font-weight:700;color:var(--negative)">${fmtE(d.feesTotal||0)}</div></div>`;
-  h += `<div><div style="font-size:0.7rem;color:var(--text-secondary);font-weight:600;text-transform:uppercase">Plus-value nette</div><div style="font-size:1.3rem;font-weight:700;color:${pnl>=0?'#10b981':'#ef4444'}">${pnl>=0?'+':''}${fmtE(pnl)}</div></div>`;
+  h += `<div><div style="font-size:0.7rem;color:var(--text-secondary);font-weight:600;text-transform:uppercase">Frais cumulés</div><div style="font-size:1.3rem;font-weight:700;color:var(--negative)">${fmtE(d.feesTotal||0)}</div><div style="font-size:0.62rem;color:var(--text-secondary);margin-top:2px">déjà déduits de la valeur</div></div>`;
+  h += `<div><div style="font-size:0.7rem;color:var(--text-secondary);font-weight:600;text-transform:uppercase">Plus-value nette</div><div style="font-size:1.3rem;font-weight:700;color:${pnl>=0?'#10b981':'#ef4444'}">${pnl>=0?'+':''}${fmtE(pnl)}</div><div style="font-size:0.62rem;color:var(--text-secondary);margin-top:2px">brute ${(pnl+(d.feesTotal||0))>=0?'+':''}${fmtE(pnl+(d.feesTotal||0))} − frais ${fmtE(d.feesTotal||0)}</div></div>`;
   h += `</div></div>`;
 
   if (hasData) {
     h += `<div class="inv-grid-kpi" style="grid-template-columns:repeat(4,1fr);margin-bottom:24px">`;
     const kpis = [
-      { l:'Plus-value', v:(pnl>=0?'+':'')+fmtE(pnl), s:'Valeur − investi', c: pnl>=0?'#10b981':'#ef4444' },
+      { l:'Plus-value nette', v:(pnl>=0?'+':'')+fmtE(pnl), s:'frais déjà déduits (net Darwinex)', c: pnl>=0?'#10b981':'#ef4444' },
       { l:'Performance', v:(pnlPct>=0?'+':'')+pnlPct.toFixed(2)+'%', s:'Sur le capital investi', c: pnlPct>=0?'#10b981':'#ef4444' },
       { l:'Frais cumulés', v:fmtE(d.feesTotal||0), s: d.invested>0 ? (d.feesTotal/d.invested*100).toFixed(1)+"% de l'investi" : 'gestion + performance', c:'#f59e0b' },
       { l:'DARWINs', v: (d.positions && d.positions.length) ? String(d.positions.length) : '—', s:'Positions suivies', c:'#6366f1' }
