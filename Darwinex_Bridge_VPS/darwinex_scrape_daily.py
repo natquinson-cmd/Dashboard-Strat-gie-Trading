@@ -359,10 +359,12 @@ def run_backfill(cfg):
     deposits_total = sum(a for _, a in deps)
     fees_total = sum_fees(pl)
     push_aggregate(cfg, equity, deposits_total, fees_total)
-    # Ventilation par DARWIN : seulement l'instantané du jour (l'API n'a pas d'historique par DARWIN)
+    # Ventilation par DARWIN : instantané "maintenant" = clôture du DERNIER jour complété
+    # (à 00h30, "aujourd'hui" vient de démarrer et n'a pas encore de value/pnl). On l'attache
+    # donc à days[-1] (le dernier jour qui a une value/pnl), jamais à un jour vide.
     darwins = fetch_darwins(cfg)
-    if darwins:
-        fb_write(cfg, f"dashboard/darwinex/daily/{today_str()}/darwins", darwins, method="PUT")
+    if darwins and days:
+        fb_write(cfg, f"dashboard/darwinex/daily/{days[-1]}/darwins", darwins, method="PUT")
     if status == 200:
         set_collector_status(cfg, "ok", f"backfill {len(payload)} jours -> {days[-1]} darwins={len(darwins)}")
         print(f"[OK] Backfill : {len(payload)} jours écrits ({days[0]} -> {days[-1]}). "

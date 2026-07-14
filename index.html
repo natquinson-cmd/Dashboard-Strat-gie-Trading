@@ -6105,15 +6105,17 @@ function dwxComputeDaily() {
   let prev = null;
   for (const k of keys) {
     const e = darwinexDaily[k] || {};
-    const val = Number(e.value) || 0;
-    const dep = Number(e.deposit) || 0;
+    const hasVal = (typeof e.value === 'number' && isFinite(e.value) && e.value > 0);
     const hasPnl = (typeof e.pnl === 'number' && isFinite(e.pnl));
+    if (!hasVal && !hasPnl) continue; // ex : entrée 'darwins' seule (pas de valeur) -> pas de tuile fantôme
+    const val = hasVal ? e.value : 0;
+    const dep = Number(e.deposit) || 0;
     if (hasPnl) {
       out[k] = { pnl: e.pnl, value: val, deposit: dep, prevValue: (prev !== null ? prev : val - e.pnl) };
     } else if (prev !== null) {
       out[k] = { pnl: val - prev - dep, value: val, deposit: dep, prevValue: prev };
     }
-    prev = val; // le tout premier relevé sans pnl sert de base
+    if (hasVal) prev = val; // le tout premier relevé sans pnl sert de base
   }
   return out;
 }
