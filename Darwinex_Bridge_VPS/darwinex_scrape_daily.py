@@ -336,22 +336,37 @@ def run_backfill(cfg):
         eod[day_of(ts)] = cum  # dernière valeur du jour (série chronologique)
     days = sorted(eod.keys())
 
-    def deposits_upto(day):
+    def end_ms_of(day):
         end = dt.datetime.strptime(day, "%Y-%m-%d")
         if TZ:
             end = end.replace(tzinfo=TZ)
-        end = end + dt.timedelta(days=1)  # fin de journée
-        end_ms = end.timestamp() * 1000
-        return sum(a for (t, a) in deps if t <= end_ms)
+        return (end + dt.timedelta(days=1)).timestamp() * 1000  # fin de journée
+
+    # Frais de gestion : montants négatifs des colonnes >= 2 de la série /pl. Le cumPnl
+    # (colonne 1) NE les déduit PAS -> on les soustrait pour que la valeur = Capital réel
+    # du compte (net de frais de gestion, qui grossissent ~chaque jour).
+    fee_events = []
+    for pt in pl:
+        for i in range(2, len(pt)):
+            if isinstance(pt[i], list):
+                for f in pt[i]:
+                    if isinstance(f, list) and len(f) >= 2 and isinstance(f[1], (int, float)) and f[1] < 0:
+                        fee_events.append((int(f[0]), float(f[1])))
+
+    def deposits_upto(day):
+        return sum(a for (t, a) in deps if t <= end_ms_of(day))
+    def fees_upto(day):  # somme (négative) des frais jusqu'à la fin du jour
+        return sum(a for (t, a) in fee_events if t <= end_ms_of(day))
 
     payload = {}
-    prev_cum = 0.0
+    prev_cum, prev_fee = 0.0, 0.0
     for day in days:
         cum = eod[day]
-        pnl = round(cum - prev_cum, 2)
-        value = round(deposits_upto(day) + cum, 2)
+        fee = fees_upto(day)
+        value = round(deposits_upto(day) + cum + fee, 2)      # NET des frais de gestion
+        pnl = round((cum - prev_cum) + (fee - prev_fee), 2)   # P&L net du jour (brut + frais du jour)
         payload[day] = {"value": value, "pnl": pnl}
-        prev_cum = cum
+        prev_cum, prev_fee = cum, fee
 
     status, txt = fb_write(cfg, "dashboard/darwinex/daily", payload, method="PATCH")
     # agrégat hero/portfolio (valeur = equity live, dépôts = somme, frais = /pl)
