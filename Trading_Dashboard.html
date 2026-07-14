@@ -6102,7 +6102,9 @@ function loadDarwinexDailyFromFirebase() {
 function dwxComputeDaily() {
   const keys = Object.keys(darwinexDaily || {}).filter(k => /^\d{4}-\d{2}-\d{2}$/.test(k)).sort();
   const out = {};
-  let prev = null;
+  let prev = null;     // valeur de l'entrée précédente (pour le delta brut)
+  let baseVal = null;  // valeur du dernier JOUR OUVRÉ émis (base du % du prochain jour ouvré)
+  let carry = 0;       // P&L des jours non-ouvrés (week-ends) reporté sur le prochain jour ouvré
   for (const k of keys) {
     const e = darwinexDaily[k] || {};
     const hasVal = (typeof e.value === 'number' && isFinite(e.value) && e.value > 0);
@@ -6110,12 +6112,21 @@ function dwxComputeDaily() {
     if (!hasVal && !hasPnl) continue; // ex : entrée 'darwins' seule (pas de valeur) -> pas de tuile fantôme
     const val = hasVal ? e.value : 0;
     const dep = Number(e.deposit) || 0;
-    if (hasPnl) {
-      out[k] = { pnl: e.pnl, value: val, deposit: dep, prevValue: (prev !== null ? prev : val - e.pnl) };
-    } else if (prev !== null) {
-      out[k] = { pnl: val - prev - dep, value: val, deposit: dep, prevValue: prev };
+    const pnl = hasPnl ? e.pnl : (prev !== null ? val - prev - dep : null);
+    const isWeekday = (function(){ const d = new Date(k + 'T12:00:00').getDay(); return d >= 1 && d <= 5; })();
+    if (pnl !== null) {
+      if (isWeekday) {
+        // le calendrier n'affiche que les jours ouvrés : ce jour absorbe le P&L du/des week-end(s)
+        // précédent(s) pour que sa variation colle à celle de la valeur depuis le jour ouvré d'avant.
+        out[k] = { pnl: pnl + carry, value: val, deposit: dep, prevValue: (baseVal !== null ? baseVal : (prev !== null ? prev : val - pnl)) };
+        carry = 0; baseVal = val;
+      } else {
+        carry += pnl; // week-end -> reporté
+      }
+    } else if (isWeekday) {
+      baseVal = val; // 1er relevé (base) sur un jour ouvré
     }
-    if (hasVal) prev = val; // le tout premier relevé sans pnl sert de base
+    if (hasVal) prev = val;
   }
   return out;
 }
