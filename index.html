@@ -5989,7 +5989,7 @@ function invRenderDarwinex() {
       { l:'Plus-value nette', v:(pnl>=0?'+':'')+fmtE(pnl), s:'frais déjà déduits (net Darwinex)', c: pnl>=0?'#10b981':'#ef4444' },
       { l:'Performance', v:(pnlPct>=0?'+':'')+pnlPct.toFixed(2)+'%', s:'Sur le capital investi', c: pnlPct>=0?'#10b981':'#ef4444' },
       { l:'Frais cumulés', v:fmtE(d.feesTotal||0), s: d.invested>0 ? (d.feesTotal/d.invested*100).toFixed(1)+"% de l'investi" : 'gestion + performance', c:'#f59e0b' },
-      { l:'DARWINs', v: (d.positions && d.positions.length) ? String(d.positions.length) : '—', s:'Positions suivies', c:'#6366f1' }
+      { l:'DARWINs', v:(function(){ const dts=(typeof dwxDarwinDates==='function')?dwxDarwinDates():[]; return dts.length ? String(Object.keys(darwinexDaily[dts[dts.length-1]].darwins||{}).length) : ((d.positions&&d.positions.length)?String(d.positions.length):'—'); })(), s:'DARWINs détenus', c:'#6366f1' }
     ];
     for (const k of kpis) {
       h += `<div class="kpi-card"><div class="stripe" style="background:linear-gradient(90deg,${k.c},${k.c})"></div><div class="label">${k.l}</div><div class="value" style="color:${k.c};font-size:1.35rem">${k.v}</div><div class="sub">${k.s}</div></div>`;
@@ -6063,11 +6063,17 @@ function invBuildDarwinexCharts() {
     valSeries.push(Math.round(val));
     invSeries.push(Math.round(val - cum)); // dépôts investis à cette date
   }
+  // Démarre après la montée en charge des dépôts (skip le ramp d'inception) pour mieux
+  // voir l'écart valeur/investi : 1er jour où l'investi atteint ~90 % de son plateau.
+  const invFinal = invSeries[invSeries.length - 1] || 0;
+  let sIdx = 0;
+  if (invFinal > 0) { for (let i = 0; i < invSeries.length - 1; i++) { if (invSeries[i] >= invFinal * 0.9) { sIdx = i; break; } } }
+  const L = labels.slice(sIdx), V = valSeries.slice(sIdx), I = invSeries.slice(sIdx);
   invCharts.darwinex = new Chart(ctx, {
     type:'line',
-    data:{ labels, datasets:[
-      { label:'Valeur', data:valSeries, borderColor:'#10b981', backgroundColor:'rgba(16,185,129,0.10)', borderWidth:2, pointRadius:2, fill:true, tension:0.2 },
-      { label:'Investi', data:invSeries, borderColor:'#6366f1', borderDash:[5,4], backgroundColor:'transparent', borderWidth:1.5, pointRadius:0, tension:0.2 }
+    data:{ labels: L, datasets:[
+      { label:'Valeur', data:V, borderColor:'#10b981', backgroundColor:'rgba(16,185,129,0.10)', borderWidth:2, pointRadius:2, fill:true, tension:0.2 },
+      { label:'Investi', data:I, borderColor:'#6366f1', borderDash:[5,4], backgroundColor:'transparent', borderWidth:1.5, pointRadius:0, tension:0.2 }
     ]},
     options:{ responsive:true, maintainAspectRatio:false, interaction:{mode:'index',intersect:false},
       plugins:{ legend:{display:true, labels:{color:'#8892a4', font:{size:11}}}, tooltip:{ callbacks:{ label:c=>` ${c.dataset.label}: ${Math.round(c.parsed.y).toLocaleString('fr-FR')} €` } } },
