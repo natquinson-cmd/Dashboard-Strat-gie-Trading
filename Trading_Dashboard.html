@@ -6168,6 +6168,21 @@ function dwxCapAtMonth(y, m) {
   return cap;
 }
 
+// % d'un mois = profit du mois / capital déployé (= valeur de fin de mois − profit du mois,
+// c.-à-d. le capital effectivement en place : mise de départ + dépôts). Robuste aux dépôts ET
+// au mois d'inception (où "capital avant le mois" = 0 faisait afficher 0 % à tort).
+// dd = sortie de dwxComputeDaily().
+function dwxMonthPct(dd, ym) {
+  let pnl = 0, endVal = 0, endK = '';
+  for (const k of Object.keys(dd)) {
+    if (k.substring(0, 7) !== ym) continue;
+    pnl += dd[k].pnl;
+    if (k > endK) { endK = k; endVal = dd[k].value; }
+  }
+  const base = endVal - pnl; // capital en place à la fin du mois, hors profit du mois
+  return base > 0 ? (pnl / base * 100) : 0;
+}
+
 function dwxCalPrev() { dwxCalMonth--; if (dwxCalMonth < 0) { dwxCalMonth = 11; dwxCalYear--; } dwxBuildDailyCalendar(); }
 function dwxCalNext() { dwxCalMonth++; if (dwxCalMonth > 11) { dwxCalMonth = 0; dwxCalYear++; } dwxBuildDailyCalendar(); }
 
@@ -6241,7 +6256,7 @@ function dwxBuildDailyCalendar() {
   const lossPct = activeDays > 0 ? (lossDays / activeDays * 100).toFixed(0) : '0';
   const prefix = `${dwxCalYear}-${String(dwxCalMonth + 1).padStart(2, '0')}`;
   const monthTotal = Object.entries(dayData).filter(([d]) => d.startsWith(prefix)).reduce((a, [, v]) => a + v.pnl, 0);
-  const monthPct = startCap > 0 ? (monthTotal / startCap * 100).toFixed(2) : '0';
+  const monthPct = dwxMonthPct(dayData, prefix).toFixed(2); // TWR (robuste dépôts / inception)
   const monthDisp = showPct ? `${monthTotal >= 0 ? '+' : ''}${monthPct}%` : `${monthTotal >= 0 ? '+' : ''}${monthTotal.toFixed(2)} €`;
   dwxHTML(document.getElementById('dwx-day-stats'), `
     <div class="stat-item"><span class="stat-dot green"></span>${winDays} jours gagnants (${winPct}%)</div>
@@ -6268,14 +6283,14 @@ function dwxBuildMonthlyHeat() {
   let winM = 0, lossM = 0, totM = 0;
   for (const y of years) {
     html += '<tr><td class="year-cell">' + y + '</td>';
-    let yearTotal = 0, yearTotalPct = 0;
+    let yearTotal = 0, yearFactor = 1;
     for (let m = 0; m < 12; m++) {
       const key = `${y}-${String(m + 1).padStart(2, '0')}`;
       if (monthData[key] !== undefined) {
         totM++; const pnl = monthData[key]; if (pnl >= 0) winM++; else lossM++;
         yearTotal += pnl;
-        const capStart = dwxCapAtMonth(y, m);
-        const pct = capStart > 0 ? (pnl / capStart * 100) : 0; yearTotalPct += pct;
+        const pct = dwxMonthPct(dayData, key); // rendement TWR du mois (robuste aux dépôts / inception)
+        yearFactor *= (1 + pct / 100);
         const intensity = Math.min(showPct ? Math.abs(pct) / 8 : Math.abs(pnl) / 500, 1);
         const bg = pnl >= 0 ? `rgba(16,185,129,${(0.12 + intensity * 0.55).toFixed(2)})` : `rgba(239,68,68,${(0.12 + intensity * 0.55).toFixed(2)})`;
         const c = pnl >= 0 ? '#10b981' : '#ef4444'; const sign = pnl >= 0 ? '+' : '';
@@ -6285,8 +6300,9 @@ function dwxBuildMonthlyHeat() {
         html += '<td style="background:rgba(30,42,58,0.2);color:#444;">—</td>';
       }
     }
-    const totVal = showPct ? yearTotalPct : yearTotal;
-    const tI = Math.min(Math.abs(showPct ? yearTotalPct / 10 : yearTotal / 1000), 1);
+    const yearPct = (yearFactor - 1) * 100; // total = composition des mois (TWR annuel)
+    const totVal = showPct ? yearPct : yearTotal;
+    const tI = Math.min(Math.abs(showPct ? yearPct / 10 : yearTotal / 1000), 1);
     const totBg = totVal >= 0 ? `rgba(16,185,129,${(0.12 + tI * 0.55).toFixed(2)})` : `rgba(239,68,68,${(0.12 + tI * 0.55).toFixed(2)})`;
     const totC = totVal >= 0 ? '#10b981' : '#ef4444';
     const totDisp = showPct ? `${totVal >= 0 ? '+' : ''}${totVal.toFixed(1)}%` : `${totVal >= 0 ? '+' : ''}${totVal.toFixed(0)}€`;
