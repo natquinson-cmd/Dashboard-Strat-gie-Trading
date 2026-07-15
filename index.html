@@ -6223,16 +6223,19 @@ function dwxBuildDailyCalendar() {
 
   let html = '';
   ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Σ'].forEach(d => { html += `<div class="day-header">${d}</div>`; });
-  let winDays = 0, lossDays = 0, activeDays = 0, weekTotal = 0;
+  let winDays = 0, lossDays = 0, activeDays = 0, weekTotal = 0, weekEndVal = null;
 
   function emitWeek() {
     const sign = weekTotal >= 0 ? '+' : '';
-    const disp = showPct ? `${sign}${(startCap > 0 ? (weekTotal / startCap * 100) : 0).toFixed(2)}%` : `${sign}${weekTotal.toFixed(0)}€`;
+    // % de la semaine = P&L / capital déployé en fin de semaine (valeur de fin − P&L du mois).
+    // Robuste aux dépôts ET au mois d'inception (où "capital avant le mois" = 0 -> donnait 0 %).
+    const wBase = (weekEndVal !== null) ? (weekEndVal - weekTotal) : 0;
+    const disp = showPct ? `${sign}${(wBase > 0 ? (weekTotal / wBase * 100) : 0).toFixed(2)}%` : `${sign}${weekTotal.toFixed(0)}€`;
     const wtI = Math.min(Math.abs(weekTotal) / (maxAbsPnl * 3 || 1), 1);
     const wtBg = weekTotal >= 0 ? `rgba(16,185,129,${(0.12 + wtI * 0.55).toFixed(2)})` : `rgba(239,68,68,${(0.12 + wtI * 0.55).toFixed(2)})`;
     const wtC = weekTotal >= 0 ? 'var(--positive)' : 'var(--negative)';
     html += `<div class="day-cell week-total" style="background:${wtBg}"><span class="day-pnl" style="color:${wtC}">${disp}</span></div>`;
-    weekTotal = 0;
+    weekTotal = 0; weekEndVal = null;
   }
 
   dates.forEach(dateObj => {
@@ -6245,7 +6248,7 @@ function dwxBuildDailyCalendar() {
       let disp;
       if (showPct) { const pct = data.prevValue > 0 ? (data.pnl / data.prevValue * 100) : 0; disp = `${sign}${pct.toFixed(2)}%`; }
       else disp = `${sign}${data.pnl.toFixed(0)}€`;
-      weekTotal += data.pnl;
+      weekTotal += data.pnl; weekEndVal = data.value; // dernière valeur de la semaine = base du %
       const intensity = maxAbsPnl > 0 ? 0.08 + (Math.abs(data.pnl) / maxAbsPnl) * 0.37 : 0.12;
       const bg = data.pnl >= 0 ? `rgba(16,185,129,${intensity.toFixed(2)})` : `rgba(239,68,68,${intensity.toFixed(2)})`;
       const valTitle = `Valeur : ${Math.round(data.value).toLocaleString('fr-FR')} €${data.deposit ? ' · dépôt ' + data.deposit + ' €' : ''}`;
@@ -6268,7 +6271,7 @@ function dwxBuildDailyCalendar() {
     <div class="stat-item"><span class="stat-dot green"></span>${winDays} jours gagnants (${winPct}%)</div>
     <div class="stat-item"><span class="stat-dot red"></span>${lossDays} jours perdants (${lossPct}%)</div>
     <div class="stat-item"><strong>P&L du mois :</strong>&nbsp;<span style="color:${monthTotal >= 0 ? 'var(--positive)' : 'var(--negative)'};font-weight:700">${monthDisp}</span></div>
-    <div class="stat-item" style="color:var(--text-secondary);font-size:0.72rem;">Valeur début mois : ${fmt(Math.round(startCap))} €</div>`);
+    <div class="stat-item" style="color:var(--text-secondary);font-size:0.72rem;">Valeur début mois : ${fmt(Math.round(startCap > 0 ? startCap : ((function(){ const f = Object.keys(dayData).filter(k => k.startsWith(prefix)).sort()[0]; return f && dayData[f] ? (dayData[f].prevValue || 0) : 0; })())))} €</div>`);
 }
 
 function dwxBuildMonthlyHeat() {
