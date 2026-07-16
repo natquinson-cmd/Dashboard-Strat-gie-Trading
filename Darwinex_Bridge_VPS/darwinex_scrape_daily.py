@@ -368,7 +368,14 @@ def run_backfill(cfg):
         payload[day] = {"value": value, "pnl": pnl}
         prev_cum, prev_fee = cum, fee
 
-    status, txt = fb_write(cfg, "dashboard/darwinex/daily", payload, method="PATCH")
+    # PATCH par CHAMP (clés "jour/champ") et non par jour : un PATCH de daily/<jour>
+    # complet REMPLACE le nœud et effacerait la ventilation `darwins` déjà collectée
+    # ce jour-là (bug : seul le dernier jour la gardait, l'historique s'effaçait chaque nuit).
+    flat = {}
+    for day, v in payload.items():
+        flat[f"{day}/value"] = v["value"]
+        flat[f"{day}/pnl"] = v["pnl"]
+    status, txt = fb_write(cfg, "dashboard/darwinex/daily", flat, method="PATCH")
     # agrégat hero/portfolio (valeur = equity live, dépôts = somme, frais = /pl)
     equity, _, _ = account_equity(data["account"], acc)
     deposits_total = sum(a for _, a in deps)
