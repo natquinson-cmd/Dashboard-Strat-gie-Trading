@@ -1691,6 +1691,36 @@ function aggregateByMonth(trades) {
   return m;
 }
 
+// ── Trading réel : rendement pondéré dans le temps (TWR) + drawdown en rendement ──
+// Neutralise l'effet du capital : comme les positions sont dimensionnées au capital,
+// un même % pèse plus lourd en euros quand le capital est gros. Le TWR mesure la
+// performance par unité de capital engagé, indépendamment du timing des dépôts.
+// L'écart TWR vs rendement cash = coût du capital déployé tardivement (bonne/mauvaise
+// synchro des dépôts avec les bonnes/mauvaises passes). Compte complet, hors filtre.
+function computeRealReturnMetrics() {
+  const trades = (typeof realTrades !== 'undefined' && realTrades) ? [...realTrades] : [];
+  if (!trades.length) return null;
+  trades.sort((a, b) => (a[0] || '').localeCompare(b[0] || ''));
+  const deps = (typeof realDeposits !== 'undefined' && realDeposits) ? realDeposits : [];
+  const depositsUpTo = (day) => deps.reduce((s, d) => s + (((d.date || '') <= day) ? (d.amount || 0) : 0), 0);
+  let cum = 0, idx = 1, peak = 1, maxDDret = 0;
+  for (const t of trades) {
+    const day = t[0] || '', g = t[2] || 0;
+    const base = depositsUpTo(day) + cum; // equity juste avant le trade
+    if (base > 0) {
+      idx *= (1 + g / base);
+      if (idx > peak) peak = idx;
+      const dd = (peak - idx) / peak;
+      if (dd > maxDDret) maxDDret = dd;
+    }
+    cum += g;
+  }
+  const twrPct = (idx - 1) * 100;
+  const totalDeposits = (typeof getTotalDeposits === 'function') ? getTotalDeposits() : deps.reduce((s, d) => s + (d.amount || 0), 0);
+  const cashPct = totalDeposits > 0 ? (cum / totalDeposits * 100) : 0;
+  return { twrPct, ddRetPct: maxDDret * 100, cashPct, gapPts: twrPct - cashPct };
+}
+
 function buildRealKPIs() {
   const trades = getFilteredTrades();
   const gains = trades.map(t => t[2]);
@@ -1841,6 +1871,21 @@ function buildRealKPIs() {
     { l:'Drawdown Max', v:'-'+maxDD.toFixed(2)+' €', s:totalDeposits > 0 ? '-'+(maxDD/totalDeposits*100).toFixed(2)+'% du capital' : '', c:'stripe-dax', vc:'var(--negative)' },
     { l:'Dividendes', v:(totalDiv>=0?'+':'')+totalDiv.toFixed(2)+' €', s:realDividends.length+' versement(s)', c:'stripe-green', vc:totalDiv>=0?'var(--positive)':'var(--negative)' },
   ];
+
+  // ── Rendement neutre au capital (TWR) + drawdown en rendement ──
+  const rm = computeRealReturnMetrics();
+  if (rm) {
+    kpis.push({
+      l:'Rdt pondéré temps', v:(rm.twrPct>=0?'+':'')+rm.twrPct.toFixed(1)+'%',
+      s:'Cash '+(rm.cashPct>=0?'+':'')+rm.cashPct.toFixed(1)+'% · écart '+(rm.gapPts>=0?'+':'')+Math.round(rm.gapPts)+' pts',
+      c:'stripe-merged', vc: rm.twrPct>=0?'var(--positive)':'var(--negative)'
+    });
+    kpis.push({
+      l:'Drawdown rendement', v:'-'+rm.ddRetPct.toFixed(1)+'%',
+      s:'Neutre au capital · € : -'+fmt(Math.round(maxDD))+' €',
+      c:'stripe-dax', vc:'var(--negative)'
+    });
+  }
   document.getElementById('kpiReal').innerHTML = kpis.map(k =>
     `<div class="kpi-card"><div class="stripe ${k.c}"></div><div class="label">${k.l}</div><div class="value" style="color:${k.vc}">${k.v}</div><div class="sub">${k.s}</div></div>`
   ).join('');
