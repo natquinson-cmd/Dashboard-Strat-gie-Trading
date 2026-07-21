@@ -965,8 +965,8 @@
       <p id="headerSubtitle">DAX 40 (IntradayGrafV4-3) & NASDAQ 100 (NAS 15 OPR R2.2)</p>
     </div>
     <div class="group-bar">
-      <button class="group-btn active" onclick="switchGroup('trading')">📈 Trading Auto</button>
-      <button class="group-btn" onclick="switchGroup('invest')">💼 Portfolio</button>
+      <button class="group-btn active" onclick="switchGroup('trading')">Trading Auto</button>
+      <button class="group-btn" onclick="switchGroup('invest')">Portfolio</button>
     </div>
   </div>
 
@@ -979,20 +979,20 @@
   <div id="tab-real" class="tab-content active">
     <div class="real-header-row">
       <div class="asset-filter">
-        <button class="filter-btn active" onclick="setAssetFilter('all')">📊 Tout</button>
-        <button class="filter-btn" onclick="setAssetFilter('NASDAQ')">🟦 NASDAQ</button>
-        <button class="filter-btn" onclick="setAssetFilter('DAX')">🟪 DAX</button>
+        <button class="filter-btn active" onclick="setAssetFilter('all')">Tout</button>
+        <button class="filter-btn" onclick="setAssetFilter('NASDAQ')">NASDAQ</button>
+        <button class="filter-btn" onclick="setAssetFilter('DAX')">DAX</button>
       </div>
       <div style="display:flex;gap:8px;align-items:center;">
-        <button class="csv-btn" onclick="syncFromIG()" id="btnIgSync" style="background:linear-gradient(135deg,rgba(29,158,116,0.15),rgba(46,181,160,0.15));border-color:rgba(29,158,116,0.3);">🔄 Synchroniser IG</button>
-        <button class="csv-btn" onclick="syncFromIG(true)" id="btnIgFull" title="Recharger tout l'historique depuis IG" style="font-size:0.7rem;padding:6px 10px;opacity:0.7;">🔁 Historique complet</button>
+        <button class="csv-btn" onclick="syncFromIG()" id="btnIgSync" style="background:linear-gradient(135deg,rgba(29,158,116,0.15),rgba(46,181,160,0.15));border-color:rgba(29,158,116,0.3);">Synchroniser IG</button>
+        <button class="csv-btn" onclick="syncFromIG(true)" id="btnIgFull" title="Recharger tout l'historique depuis IG" style="font-size:0.7rem;padding:6px 10px;opacity:0.7;">Historique complet</button>
       </div>
     </div>
     <div class="hero-kpi" id="heroReal"></div>
     <div class="kpi-grid" id="kpiReal"></div>
     <div style="margin-top:28px;margin-bottom:20px;">
       <h3 onclick="toggleAdvanced()" style="font-size:1rem;font-weight:700;color:var(--text-primary);display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none;">
-        <span id="advancedChevron" style="transition:transform .2s;transform:rotate(0deg);display:inline-block;">▶</span> 📐 Analyse Avancée
+        <span id="advancedChevron" style="transition:transform .2s;transform:rotate(0deg);display:inline-block;">▶</span> Analyse Avancée
       </h3>
     </div>
     <div id="advancedSection" style="display:none;">
@@ -1000,7 +1000,7 @@
     </div>
     <div class="date-range-wrap">
       <div class="date-range-header">
-        <span>📅 Période d'analyse</span>
+        <span>Période d'analyse</span>
         <span class="date-range-label" id="dateRangeLabel"></span>
       </div>
       <div class="dual-range">
@@ -1012,7 +1012,7 @@
     </div>
     <div class="chart-full"><div class="chart-card proj-chart-card">
       <h3 style="display:flex;justify-content:space-between;align-items:center;">
-        <span style="display:flex;align-items:center;gap:8px;"><span class="icon icon-merged">💹</span> P&L Cumulé</span>
+        <span style="display:flex;align-items:center;gap:8px;">P&L Cumulé</span>
         <label class="toggle-wrap" title="Activer la projection">
           <span class="toggle-label">Projection</span>
           <input type="checkbox" id="projToggle" onchange="toggleProjection()">
@@ -1039,12 +1039,12 @@
       </div>
     </div></div>
     <div class="chart-row">
-      <div class="chart-card"><h3><span class="icon icon-dax">📊</span> Gain Moyen</h3><canvas id="avgGainReal"></canvas></div>
-      <div class="chart-card"><h3 style="display:flex;justify-content:space-between;align-items:center;"><span style="display:flex;align-items:center;gap:8px;white-space:nowrap;"><span class="icon icon-nas">📊</span> Gagnants vs Perdants par Jour</span><label class="toggle-wrap"><span class="toggle-val">#</span><input type="checkbox" id="winLossPctToggle" onchange="rebuildWinLossDay()"><span class="toggle-track"></span><span class="toggle-val">€</span></label></h3><canvas id="winLossDayReal"></canvas></div>
+      <div class="chart-card"><h3>Gain Moyen</h3><canvas id="avgGainReal"></canvas></div>
+      <div class="chart-card"><h3 style="display:flex;justify-content:space-between;align-items:center;"><span style="display:flex;align-items:center;gap:8px;white-space:nowrap;">Gagnants vs Perdants par Jour</span><label class="toggle-wrap"><span class="toggle-val">#</span><input type="checkbox" id="winLossPctToggle" onchange="rebuildWinLossDay()"><span class="toggle-track"></span><span class="toggle-val">€</span></label></h3><canvas id="winLossDayReal"></canvas></div>
     </div>
     <div class="chart-full"><div class="chart-card">
       <h3 style="justify-content:space-between;flex-wrap:wrap;">
-        <span style="display:flex;align-items:center;gap:8px;"><span class="icon icon-heat">📅</span> Calendrier Journalier</span>
+        <span style="display:flex;align-items:center;gap:8px;">Calendrier Journalier</span>
         <label class="toggle-wrap">
           <span class="toggle-val">€</span>
           <input type="checkbox" id="dayPctToggle" onchange="buildDailyCalendar(); this.parentElement.querySelector('.toggle-val').textContent=this.checked?'%':'€'">
@@ -1063,7 +1063,7 @@
     </div></div>
     <div class="chart-full"><div class="chart-card">
       <h3 style="justify-content:space-between;flex-wrap:wrap;">
-        <span style="display:flex;align-items:center;gap:8px;"><span class="icon icon-heat">📊</span> Performance Mensuelle</span>
+        <span style="display:flex;align-items:center;gap:8px;">Performance Mensuelle</span>
         <label class="toggle-wrap">
           <span class="toggle-val">€</span>
           <input type="checkbox" id="monthPctToggle" onchange="buildMonthlyHeatReal(); this.parentElement.querySelector('.toggle-val').textContent=this.checked?'%':'€'">
@@ -1075,7 +1075,7 @@
       <div class="stats-bar" id="monthStats"></div>
     </div></div>
     <div class="chart-full"><div class="chart-card">
-      <h3><span class="icon icon-heat">📉</span> Drawdown depuis le Plus Haut</h3>
+      <h3>Drawdown depuis le Plus Haut</h3>
       <canvas id="drawdownReal"></canvas>
     </div></div>
   </div>
@@ -1090,7 +1090,7 @@
   <!-- CSV Modal -->
   <div class="csv-modal" id="csvModal">
     <div class="csv-modal-content">
-      <h3>📂 Mettre à jour les données</h3>
+      <h3>Mettre à jour les données</h3>
       <p>Sélectionnez votre fichier CSV « Transaction History » exporté depuis IG.</p>
       <div class="csv-mode-selector">
         <label class="csv-mode-option">
@@ -1100,13 +1100,13 @@
         </label>
         <label class="csv-mode-option">
           <input type="radio" name="csvMode" value="replace">
-          <span class="csv-mode-label">🔄 Remplacer tout</span>
+          <span class="csv-mode-label">Remplacer tout</span>
           <span class="csv-mode-desc">Remplace toute la base par le contenu du CSV</span>
         </label>
       </div>
       <label class="file-drop-zone" id="fileDropZone">
         <input type="file" id="csvFileInput" accept=".csv" style="display:none" onchange="handleFileSelect(this)">
-        <div class="file-drop-icon">📄</div>
+        <div class="file-drop-icon"></div>
         <div class="file-drop-text">Cliquez ou glissez votre fichier ici</div>
         <div class="file-drop-hint">.csv — TransactionHistory IG</div>
         <div class="file-drop-selected" id="fileSelectedName" style="display:none"></div>
@@ -1123,7 +1123,7 @@
   <!-- Backtest CSV Modal -->
   <div class="csv-modal" id="btCsvModal">
     <div class="csv-modal-content" style="max-width:600px;">
-      <h3>📂 Mettre à jour les données Backtest</h3>
+      <h3>Mettre à jour les données Backtest</h3>
       <p id="btModalSubtitle">Chargez les fichiers CSV ProRealTime (Rapport détaillé ProBacktest).</p>
       <div class="csv-mode-selector">
         <label class="csv-mode-option">
@@ -1133,25 +1133,25 @@
         </label>
         <label class="csv-mode-option">
           <input type="radio" name="btCsvMode" value="replace">
-          <span class="csv-mode-label">🔄 Remplacer tout</span>
+          <span class="csv-mode-label">Remplacer tout</span>
           <span class="csv-mode-desc">Remplace toutes les données par le contenu du CSV</span>
         </label>
       </div>
       <div style="display:flex;gap:16px;">
         <div style="flex:1;">
-          <div style="font-size:0.82rem;font-weight:700;color:var(--text-primary);margin-bottom:6px;">🟪 DAX 40</div>
+          <div style="font-size:0.82rem;font-weight:700;color:var(--text-primary);margin-bottom:6px;">DAX 40</div>
           <label class="file-drop-zone" id="btDropDax" style="min-height:100px;">
             <input type="file" id="btFileDax" accept=".csv" style="display:none" onchange="handleBtFile(this,'dax')">
-            <div class="file-drop-icon" style="font-size:1.4rem;">📄</div>
+            <div class="file-drop-icon" style="font-size:1.4rem;"></div>
             <div class="file-drop-text" style="font-size:0.72rem;">Cliquez ou glissez</div>
             <div class="file-drop-selected" id="btNameDax" style="display:none;font-size:0.72rem;"></div>
           </label>
         </div>
         <div style="flex:1;">
-          <div style="font-size:0.82rem;font-weight:700;color:var(--text-primary);margin-bottom:6px;">🟦 NASDAQ 100</div>
+          <div style="font-size:0.82rem;font-weight:700;color:var(--text-primary);margin-bottom:6px;">NASDAQ 100</div>
           <label class="file-drop-zone" id="btDropNas" style="min-height:100px;">
             <input type="file" id="btFileNas" accept=".csv" style="display:none" onchange="handleBtFile(this,'nas')">
-            <div class="file-drop-icon" style="font-size:1.4rem;">📄</div>
+            <div class="file-drop-icon" style="font-size:1.4rem;"></div>
             <div class="file-drop-text" style="font-size:0.72rem;">Cliquez ou glissez</div>
             <div class="file-drop-selected" id="btNameNas" style="display:none;font-size:0.72rem;"></div>
           </label>
@@ -1167,12 +1167,12 @@
   <!-- ═══════════════════════ TAB 1 : FIXED ═══════════════════════ -->
   <div id="tab-fixed" class="tab-content">
     <div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
-      <button class="csv-btn" onclick="openBacktestModal('fixed')">📂 Mettre à jour CSV</button>
+      <button class="csv-btn" onclick="openBacktestModal('fixed')">Mettre à jour CSV</button>
     </div>
     <!-- Capital Selector -->
     <div class="capital-selector" id="capitalFixed">
       <div class="capital-header">
-        <h3><span class="c-icon">💰</span> Capital initial total</h3>
+        <h3>Capital initial total</h3>
         <div class="capital-value-display">
           <span class="capital-amount" id="capAmountFixed">10 000 €</span>
           <span class="capital-detail" id="capDetailFixed">→ 5 000 € par stratégie</span>
@@ -1186,7 +1186,7 @@
     <!-- Period Selector -->
     <div class="period-selector" id="periodFixed">
       <div class="period-header">
-        <h3><span class="p-icon">📅</span> Période d'analyse</h3>
+        <h3>Période d'analyse</h3>
         <span class="period-summary" id="summaryFixed">Déc 2017 → Fév 2026</span>
         <div class="period-presets" id="presetsFixed"></div>
       </div>
@@ -1207,42 +1207,42 @@
     <div class="kpi-grid" id="kpiFixed"></div>
     <div style="margin-top:28px;margin-bottom:20px;">
       <h3 onclick="toggleAdvancedBt('Fixed')" style="font-size:1rem;font-weight:700;color:var(--text-primary);display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none;">
-        <span id="advancedChevronFixed" style="transition:transform .2s;transform:rotate(0deg);display:inline-block;">▶</span> 📐 Analyse Avancée
+        <span id="advancedChevronFixed" style="transition:transform .2s;transform:rotate(0deg);display:inline-block;">▶</span> Analyse Avancée
       </h3>
     </div>
     <div id="advancedSectionFixed" style="display:none;">
       <div class="kpi-grid" id="kpiAdvancedFixed"></div>
     </div>
     <div class="chart-full"><div class="chart-card">
-      <h3><span class="icon icon-merged">📈</span> Courbe de Capital — Taille Fixe</h3>
+      <h3>Courbe de Capital — Taille Fixe</h3>
       <canvas id="eqFixed"></canvas>
     </div></div>
     <div class="chart-full"><div class="chart-card">
-      <h3><span class="icon icon-merged">📊</span> Performance Annuelle Comparée</h3>
+      <h3>Performance Annuelle Comparée</h3>
       <canvas id="annFixed"></canvas>
     </div></div>
     <div class="chart-row">
-      <div class="chart-card"><h3><span class="icon icon-dax">📉</span> Mensuel — DAX 40</h3><canvas id="mDaxFixed"></canvas></div>
-      <div class="chart-card"><h3><span class="icon icon-nas">📉</span> Mensuel — NASDAQ 100</h3><canvas id="mNasFixed"></canvas></div>
+      <div class="chart-card"><h3>Mensuel — DAX 40</h3><canvas id="mDaxFixed"></canvas></div>
+      <div class="chart-card"><h3>Mensuel — NASDAQ 100</h3><canvas id="mNasFixed"></canvas></div>
     </div>
     <div class="chart-row">
-      <div class="chart-card"><h3><span class="icon icon-merged">⚡</span> Mensuel Combiné (moyenne)</h3><canvas id="mCombFixed"></canvas></div>
-      <div class="chart-card"><h3><span class="icon icon-merged">🔄</span> Glissant 12 mois</h3><canvas id="r12Fixed"></canvas></div>
+      <div class="chart-card"><h3>Mensuel Combiné (moyenne)</h3><canvas id="mCombFixed"></canvas></div>
+      <div class="chart-card"><h3>Glissant 12 mois</h3><canvas id="r12Fixed"></canvas></div>
     </div>
     <div class="chart-full"><div class="chart-card">
-      <h3><span class="icon icon-dax">🟪</span> Heatmap — DAX 40 <span class="badge badge-dax">IntradayGrafV4-3</span></h3>
+      <h3>Heatmap — DAX 40 <span class="badge badge-dax">IntradayGrafV4-3</span></h3>
       <div class="heatmap-container" id="hmDaxFixed"></div>
     </div></div>
     <div class="chart-full"><div class="chart-card">
-      <h3><span class="icon icon-nas">🟦</span> Heatmap — NASDAQ 100 <span class="badge badge-nas">NAS 15 OPR R2.2</span></h3>
+      <h3>Heatmap — NASDAQ 100 <span class="badge badge-nas">NAS 15 OPR R2.2</span></h3>
       <div class="heatmap-container" id="hmNasFixed"></div>
     </div></div>
     <div class="chart-full"><div class="chart-card">
-      <h3><span class="icon icon-merged">🟣</span> Heatmap Combinée</h3>
+      <h3>Heatmap Combinée</h3>
       <div class="heatmap-container" id="hmMergedFixed"></div>
     </div></div>
     <div class="chart-full"><div class="chart-card">
-      <h3><span class="icon icon-heat">🔻</span> Drawdown depuis le plus haut</h3>
+      <h3>Drawdown depuis le plus haut</h3>
       <canvas id="ddFixed"></canvas>
     </div></div>
   </div>
@@ -1250,12 +1250,12 @@
   <!-- ═══════════════════════ TAB 2 : REINVEST ═══════════════════════ -->
   <div id="tab-reinvest" class="tab-content">
     <div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
-      <button class="csv-btn" onclick="openBacktestModal('reinvest')">📂 Mettre à jour CSV</button>
+      <button class="csv-btn" onclick="openBacktestModal('reinvest')">Mettre à jour CSV</button>
     </div>
     <!-- Capital Selector -->
     <div class="capital-selector" id="capitalReinvest">
       <div class="capital-header">
-        <h3><span class="c-icon">💰</span> Capital initial total</h3>
+        <h3>Capital initial total</h3>
         <div class="capital-value-display">
           <span class="capital-amount" id="capAmountReinvest">10 000 €</span>
           <span class="capital-detail" id="capDetailReinvest">→ 5 000 € par stratégie</span>
@@ -1269,7 +1269,7 @@
     <!-- Period Selector -->
     <div class="period-selector" id="periodReinvest">
       <div class="period-header">
-        <h3><span class="p-icon">📅</span> Période d'analyse</h3>
+        <h3>Période d'analyse</h3>
         <span class="period-summary" id="summaryReinvest">Déc 2017 → Fév 2026</span>
         <div class="period-presets" id="presetsReinvest"></div>
       </div>
@@ -1290,42 +1290,42 @@
     <div class="kpi-grid" id="kpiReinvest"></div>
     <div style="margin-top:28px;margin-bottom:20px;">
       <h3 onclick="toggleAdvancedBt('Reinvest')" style="font-size:1rem;font-weight:700;color:var(--text-primary);display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none;">
-        <span id="advancedChevronReinvest" style="transition:transform .2s;transform:rotate(0deg);display:inline-block;">▶</span> 📐 Analyse Avancée
+        <span id="advancedChevronReinvest" style="transition:transform .2s;transform:rotate(0deg);display:inline-block;">▶</span> Analyse Avancée
       </h3>
     </div>
     <div id="advancedSectionReinvest" style="display:none;">
       <div class="kpi-grid" id="kpiAdvancedReinvest"></div>
     </div>
     <div class="chart-full"><div class="chart-card">
-      <h3><span class="icon icon-merged">🚀</span> Courbe de Capital — Réinvestissement</h3>
+      <h3>Courbe de Capital — Réinvestissement</h3>
       <canvas id="eqReinvest"></canvas>
     </div></div>
     <div class="chart-full"><div class="chart-card">
-      <h3><span class="icon icon-merged">📊</span> Performance Annuelle Comparée</h3>
+      <h3>Performance Annuelle Comparée</h3>
       <canvas id="annReinvest"></canvas>
     </div></div>
     <div class="chart-row">
-      <div class="chart-card"><h3><span class="icon icon-dax">📉</span> Mensuel — DAX 40</h3><canvas id="mDaxReinvest"></canvas></div>
-      <div class="chart-card"><h3><span class="icon icon-nas">📉</span> Mensuel — NASDAQ 100</h3><canvas id="mNasReinvest"></canvas></div>
+      <div class="chart-card"><h3>Mensuel — DAX 40</h3><canvas id="mDaxReinvest"></canvas></div>
+      <div class="chart-card"><h3>Mensuel — NASDAQ 100</h3><canvas id="mNasReinvest"></canvas></div>
     </div>
     <div class="chart-row">
-      <div class="chart-card"><h3><span class="icon icon-merged">⚡</span> Mensuel Combiné (moyenne)</h3><canvas id="mCombReinvest"></canvas></div>
-      <div class="chart-card"><h3><span class="icon icon-merged">🔄</span> Glissant 12 mois</h3><canvas id="r12Reinvest"></canvas></div>
+      <div class="chart-card"><h3>Mensuel Combiné (moyenne)</h3><canvas id="mCombReinvest"></canvas></div>
+      <div class="chart-card"><h3>Glissant 12 mois</h3><canvas id="r12Reinvest"></canvas></div>
     </div>
     <div class="chart-full"><div class="chart-card">
-      <h3><span class="icon icon-dax">🟪</span> Heatmap — DAX 40 <span class="badge badge-dax">IntradayGrafV4-3</span></h3>
+      <h3>Heatmap — DAX 40 <span class="badge badge-dax">IntradayGrafV4-3</span></h3>
       <div class="heatmap-container" id="hmDaxReinvest"></div>
     </div></div>
     <div class="chart-full"><div class="chart-card">
-      <h3><span class="icon icon-nas">🟦</span> Heatmap — NASDAQ 100 <span class="badge badge-nas">NAS 15 OPR R2.2</span></h3>
+      <h3>Heatmap — NASDAQ 100 <span class="badge badge-nas">NAS 15 OPR R2.2</span></h3>
       <div class="heatmap-container" id="hmNasReinvest"></div>
     </div></div>
     <div class="chart-full"><div class="chart-card">
-      <h3><span class="icon icon-merged">🟣</span> Heatmap Combinée</h3>
+      <h3>Heatmap Combinée</h3>
       <div class="heatmap-container" id="hmMergedReinvest"></div>
     </div></div>
     <div class="chart-full"><div class="chart-card">
-      <h3><span class="icon icon-heat">🔻</span> Drawdown depuis le plus haut</h3>
+      <h3>Drawdown depuis le plus haut</h3>
       <canvas id="ddReinvest"></canvas>
     </div></div>
   </div>
@@ -1698,7 +1698,7 @@ function buildRealKPIs() {
   // ── HERO ROW ──
   document.getElementById('heroReal').innerHTML = `
     <div class="hero-card capital" style="position:relative;">
-      <div class="hero-label">💰 Capital Actuel${isATH ? ' <span style="display:inline-flex;align-items:center;gap:5px;margin-left:10px;background:linear-gradient(135deg,#f59e0b,#fbbf24);color:#000;font-size:0.85rem;font-weight:700;padding:4px 12px;border-radius:20px;vertical-align:middle;animation:athPulse 2s ease-in-out infinite;letter-spacing:0.5px;">🏆 ATH</span>' : ''}</div>
+      <div class="hero-label">Capital Actuel${isATH ? ' <span style="display:inline-flex;align-items:center;gap:5px;margin-left:10px;background:linear-gradient(135deg,#f59e0b,#fbbf24);color:#000;font-size:0.85rem;font-weight:700;padding:4px 12px;border-radius:20px;vertical-align:middle;animation:athPulse 2s ease-in-out infinite;letter-spacing:0.5px;">ATH</span>' : ''}</div>
       <div style="display:flex;align-items:baseline;gap:12px;">
         <div class="hero-value" style="background:linear-gradient(135deg,${totalAll>=0?'#1d9e74,#34d399':'#dd5f66,#f87171'});-webkit-background-clip:text;-webkit-text-fill-color:transparent;">
           ${fmt(Math.round(capitalActuel))} €
@@ -1707,14 +1707,14 @@ function buildRealKPIs() {
       </div>
       <div style="font-size:0.92rem;color:var(--text-secondary);margin-top:8px;">Capital versé : ${fmt(totalDeposits)} € · <span style="color:var(--negative)">Frais : ${fmt(Math.round(totalFees))} €</span></div>
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:10px;padding-top:10px;border-top:1px solid rgba(34,49,77,0.08);font-size:0.9rem;">
-        <span style="color:var(--text-secondary);">🏔️ ATH : <strong style="color:var(--text-primary);font-weight:700;">${fmt(Math.round(athCapital))} €</strong>${athDateLabel ? ` <span style="opacity:0.7;">(${athDateLabel})</span>` : ''}</span>
+        <span style="color:var(--text-secondary);">ATH : <strong style="color:var(--text-primary);font-weight:700;">${fmt(Math.round(athCapital))} €</strong>${athDateLabel ? ` <span style="opacity:0.7;">(${athDateLabel})</span>` : ''}</span>
         ${isATH
-          ? '<span style="color:var(--positive);font-weight:600;display:inline-flex;align-items:center;gap:4px;">· 🏆 Au plus haut</span>'
+          ? '<span style="color:var(--positive);font-weight:600;display:inline-flex;align-items:center;gap:4px;">· Au plus haut</span>'
           : `<span style="color:var(--negative);font-weight:600;">· ${fmt(Math.round(distToAthEUR))} € (${distToAthPct.toFixed(2)}%)</span>`}
       </div>
     </div>
     <div class="hero-card" style="position:relative;">
-      <div class="hero-label">📈 Gain Total</div>
+      <div class="hero-label">Gain Total</div>
       <div style="position:absolute;top:16px;right:16px;display:flex;flex-direction:column;align-items:center;">
         <svg width="52" height="52" viewBox="0 0 52 52">
           <circle cx="26" cy="26" r="20" fill="none" stroke="rgba(34,49,77,0.08)" stroke-width="6"/>
@@ -1745,7 +1745,7 @@ function buildRealKPIs() {
       </div>
     </div>
     <div class="hero-card">
-      <div class="hero-label">🎯 Trades Gagnants</div>
+      <div class="hero-label">Trades Gagnants</div>
       <div class="donut-wrap">
         <svg class="donut-svg" viewBox="0 0 64 64">
           <circle class="donut-bg" cx="32" cy="32" r="28"/>
@@ -2551,9 +2551,9 @@ function buildCumulativePnL() {
               if (c.parsed.y == null) return '';
               const lbl = c.dataset.label || '';
               let prefix = '';
-              if (lbl.includes('médiane')) prefix = '📊 Médiane : ';
-              else if (lbl.includes('Optimiste')) prefix = '📈 Optimiste : ';
-              else if (lbl.includes('Pessimiste')) prefix = '📉 Pessimiste : ';
+              if (lbl.includes('médiane')) prefix = 'Médiane : ';
+              else if (lbl.includes('Optimiste')) prefix = 'Optimiste : ';
+              else if (lbl.includes('Pessimiste')) prefix = 'Pessimiste : ';
               const val = fmt(Math.round(c.parsed.y))+' €';
               // Variation mois/mois uniquement sur la courbe réelle
               if (c.datasetIndex === 0) {
@@ -3015,7 +3015,7 @@ function showDayDetail(dateStr, cellEl) {
   const dateLabel = `${dayName} ${parseInt(d)} ${monthNames[parseInt(m)-1]} ${y}`;
 
   let h = '<div class="detail-header">';
-  h += `<h4>📋 ${dateLabel} — ${trades.length} trade${trades.length>1?'s':''}</h4>`;
+  h += `<h4>${dateLabel} — ${trades.length} trade${trades.length>1?'s':''}</h4>`;
   h += '<span class="detail-close" onclick="closeDayDetail()">✕</span></div>';
 
   h += '<table class="day-detail-table"><thead><tr>';
@@ -3254,7 +3254,7 @@ async function syncFromIG(fullSync) {
   } catch (err) {
     btn.textContent = origText;
     btn.disabled = false;
-    alert('❌ Erreur synchronisation IG: ' + err.message);
+    alert('Erreur synchronisation IG : ' + err.message);
   }
 }
 
@@ -3339,7 +3339,7 @@ function mergeIgData(data) {
   const dMsg = newDivs.length > 0 ? ` + ${newDivs.length} dividende(s)` : '';
   const depMsg = newDeps.length > 0 ? ` + ${newDeps.length} dépôt(s)` : '';
   const feeMsg = newFees.length > 0 ? ` + ${newFees.length} frais` : '';
-  const msg = `🔄 Sync IG : ${tMsg}${dMsg}${depMsg}${feeMsg}.`;
+  const msg = `Sync IG : ${tMsg}${dMsg}${depMsg}${feeMsg}.`;
 
   return { msg, newCount, updatedCount, dupCount };
 }
@@ -3517,7 +3517,7 @@ function applyBacktestCsv() {
   if (mode === 'replace') {
     if (pendingBtTab === 'fixed') { fDax = daxData; fNas = nasData; }
     else { rDax = daxData; rNas = nasData; }
-    msg = `🔄 Données remplacées : ${Object.keys(daxData).length} année(s) DAX + ${Object.keys(nasData).length} année(s) NASDAQ.`;
+    msg = `Données remplacées : ${Object.keys(daxData).length} année(s) DAX + ${Object.keys(nasData).length} année(s) NASDAQ.`;
   } else {
     // Merge : on ne met à jour que les années présentes dans le CSV
     const target = pendingBtTab === 'fixed' ? [fDax, fNas] : [rDax, rNas];
@@ -3622,7 +3622,7 @@ function applyCsv() {
     saveDepositsToFirebase(deps);
     realFees = fes;
     saveFeesToFirebase(fes);
-    msg = `🔄 Base remplacée : ${parsed.length} trade(s), ${divs.length} dividende(s), ${deps.length} dépôt(s), ${fes.length} frais importé(s).`;
+    msg = `Base remplacée : ${parsed.length} trade(s), ${divs.length} dividende(s), ${deps.length} dépôt(s), ${fes.length} frais importé(s).`;
   } else {
     // Merge trades + mise à jour date d'ouverture pour les trades existants
     const existingByKey = {};
@@ -4512,18 +4512,18 @@ const tabRendered = { real: false, fixed: false, reinvest: false };
 
 const GROUP_TABS = {
   trading: [
-    { id: 'real', label: '💹 Trading Réel' },
-    { id: 'fixed', label: '📊 Taille Fixe' },
-    { id: 'reinvest', label: '🚀 Réinvestissement' }
+    { id: 'real', label: 'Trading Réel' },
+    { id: 'fixed', label: 'Taille Fixe' },
+    { id: 'reinvest', label: 'Réinvestissement' }
   ],
   invest: [
     { id: 'overview', label: "Vue d'ensemble" },
     { id: 'interests', label: 'Intérêts' },
     { id: 'evolution', label: 'Évolution' },
     { id: 'loans', label: 'Emprunts' },
-    { id: 'realestate', label: '🏠 Immobilier' },
+    { id: 'realestate', label: 'Immobilier' },
     { id: 'darwinex', label: '<svg width="15" height="15" viewBox="0 0 32 32" style="vertical-align:-3px;margin-right:4px" xmlns="http://www.w3.org/2000/svg"><path d="M2 3 L12 12 L16 9 L20 12 L30 3 L26.5 19 C26 25 21 29 16 30 C11 29 6 25 5.5 19 Z" fill="#17c4c4"/><path d="M2 3 L12 12 L16 9 L16 30 C11 29 6 25 5.5 19 Z" fill="#0fa5a5"/><circle cx="12" cy="17" r="1.6" fill="#082a33"/><circle cx="20" cy="17" r="1.6" fill="#082a33"/></svg>Darwinex' },
-    { id: 'simulateur', label: '🧮 Rembourser vs Placer' },
+    { id: 'simulateur', label: 'Rembourser vs Placer' },
     { id: 'repartition', label: 'Répartition' },
     { id: 'update', label: 'Mise à jour' }
   ]
@@ -4538,8 +4538,8 @@ function renderSubTabs() {
     `<button class="sub-tab-btn${t.id === currentTab ? ' active' : ''}" onclick="switchTab('${t.id}')">${t.label}</button>`
   ).join('');
   if (currentGroup === 'invest') {
-    html += `<span id="eurUsdRate" style="margin-left:auto;font-size:0.7rem;color:var(--text-secondary);display:flex;align-items:center;gap:4px;padding-right:4px">💱 EUR/USD : ${(1/usdEurRate).toFixed(4)}</span>`;
-    html += `<span id="eurChfRate" style="font-size:0.7rem;color:var(--text-secondary);display:flex;align-items:center;gap:4px;padding-right:4px">💱 EUR/CHF : ${chfEurRate.toFixed(4)}</span>`;
+    html += `<span id="eurUsdRate" style="margin-left:auto;font-size:0.7rem;color:var(--text-secondary);display:flex;align-items:center;gap:4px;padding-right:4px">EUR/USD : ${(1/usdEurRate).toFixed(4)}</span>`;
+    html += `<span id="eurChfRate" style="font-size:0.7rem;color:var(--text-secondary);display:flex;align-items:center;gap:4px;padding-right:4px">EUR/CHF : ${chfEurRate.toFixed(4)}</span>`;
   }
   bar.innerHTML = html;
 }
@@ -5058,7 +5058,7 @@ function renderPortfolioTab(tab) {
   kpis.forEach((k, i) => {
     h += `<div class="kpi-card">`;
     h += `<div class="stripe" style="background:linear-gradient(90deg,${k.c},${k.c2||k.c})"></div>`;
-    h += `<div class="label"><span style="margin-right:5px">${k.i}</span>${k.l}</div>`;
+    h += `<div class="label">${k.l}</div>`;
     h += `<div class="value" style="color:${k.c};font-size:1.5rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${k.v}</div>`;
     h += `${k.d || ''}<div class="sub">${k.s}</div>`;
     h += `</div>`;
@@ -5117,24 +5117,24 @@ function invRenderOverview(t, labels, li) {
     const versSinceAnchor = curVal - (revolutAnchor.value || 0);
     h += `<div class="inv-card" style="padding:16px 20px;margin-bottom:16px;border:1px solid rgba(95,139,242,0.18)">`;
     h += `<div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:12px">`;
-    h += `<div><div style="font-size:0.92rem;font-weight:600;display:flex;align-items:center;gap:6px">📈 ETF Revolut <span style="font-size:0.6rem;background:rgba(29,158,116,0.15);color:#1d9e74;padding:2px 8px;border-radius:10px;font-weight:700">DCA AUTO</span></div>`;
+    h += `<div><div style="font-size:0.92rem;font-weight:600;display:flex;align-items:center;gap:6px">ETF Revolut <span style="font-size:0.6rem;background:rgba(29,158,116,0.15);color:#1d9e74;padding:2px 8px;border-radius:10px;font-weight:700">DCA AUTO</span></div>`;
     h += `<div style="font-size:0.76rem;color:var(--text-secondary);margin-top:4px">20 € VUAA/mer + 10 € VFEA/jeu · valeur auto : <strong style="color:var(--text-primary)">${invFmt(Math.round(curVal))}</strong> <span style="opacity:0.8">(dont +${invFmt(Math.round(versSinceAnchor))} versés depuis ${anchorTxt})</span></div></div>`;
     h += `<div style="display:flex;align-items:flex-end;gap:8px">`;
     h += `<div><label style="font-size:0.6rem;color:var(--text-secondary);text-transform:uppercase;font-weight:600;display:block;margin-bottom:3px">Valeur réelle actuelle</label>`;
     h += `<input type="number" id="revolut-anchor-input" class="inv-input" placeholder="${Math.round(curVal)}" style="max-width:140px;font-size:0.85rem"></div>`;
     h += `<button class="inv-btn inv-btn-ok" onclick="revolutSetAnchorValue(document.getElementById('revolut-anchor-input').value)" style="white-space:nowrap">Réancrer</button>`;
     h += `</div></div>`;
-    h += `<div style="font-size:0.66rem;color:var(--text-secondary);opacity:0.72;margin-top:8px">💡 Saisis la valeur réelle affichée dans Revolut (tous les 3-6 mois) pour intégrer les plus-values. Entre deux, la valeur grandit automatiquement des versements.</div>`;
+    h += `<div style="font-size:0.66rem;color:var(--text-secondary);opacity:0.72;margin-top:8px">Saisis la valeur réelle affichée dans Revolut (tous les 3-6 mois) pour intégrer les plus-values. Entre deux, la valeur grandit automatiquement des versements.</div>`;
     h += `</div>`;
   }
 
   h += '<div class="inv-grid inv-grid-2">';
-  h += '<div class="inv-chart-card"><h3><span class="inv-chart-icon">📈</span>Évolution capital brut vs net</h3><div class="inv-canvas-wrap"><canvas id="inv-ch-capital"></canvas></div></div>';
-  h += '<div class="inv-chart-card"><h3><span class="inv-chart-icon">🥧</span>Répartition actuelle</h3><div class="inv-canvas-wrap"><canvas id="inv-ch-pie"></canvas></div></div>';
+  h += '<div class="inv-chart-card"><h3>Évolution capital brut vs net</h3><div class="inv-canvas-wrap"><canvas id="inv-ch-capital"></canvas></div></div>';
+  h += '<div class="inv-chart-card"><h3>Répartition actuelle</h3><div class="inv-canvas-wrap"><canvas id="inv-ch-pie"></canvas></div></div>';
   h += '</div>';
   h += '<div class="inv-grid inv-grid-2">';
-  h += '<div class="inv-chart-card"><h3><span class="inv-chart-icon">📊</span>Intérêts mensuels</h3><div class="inv-canvas-wrap"><canvas id="inv-ch-intbar"></canvas></div></div>';
-  h += '<div class="inv-card"><h3 style="font-size:1rem;font-weight:600;margin-bottom:20px;display:flex;align-items:center;gap:8px"><span class="inv-chart-icon">💼</span>Détails par plateforme</h3><div style="display:flex;flex-direction:column;gap:12px">';
+  h += '<div class="inv-chart-card"><h3>Intérêts mensuels</h3><div class="inv-canvas-wrap"><canvas id="inv-ch-intbar"></canvas></div></div>';
+  h += '<div class="inv-card"><h3 style="font-size:1rem;font-weight:600;margin-bottom:20px;display:flex;align-items:center;gap:8px">Détails par plateforme</h3><div style="display:flex;flex-direction:column;gap:12px">';
   d.platforms.forEach((p, i) => {
     const v = invToEur(p, (d.principal[p] || [])[li] || 0);
     const pc = t.tp > 0 ? (v / t.tp * 100).toFixed(1) : 0;
@@ -5175,10 +5175,10 @@ function invBuildOverviewCharts(t, labels, li) {
 function invRenderInterests(t, labels) {
   const d = portfolioData;
   let h = '<div class="inv-grid">';
-  h += '<div class="inv-chart-card"><h3><span class="inv-chart-icon">📈</span>Intérêts cumulés par plateforme</h3><div class="inv-canvas-wrap" style="height:350px"><canvas id="inv-ch-cumul"></canvas></div></div>';
+  h += '<div class="inv-chart-card"><h3>Intérêts cumulés par plateforme</h3><div class="inv-canvas-wrap" style="height:350px"><canvas id="inv-ch-cumul"></canvas></div></div>';
   h += '<div class="inv-grid inv-grid-2">';
-  h += '<div class="inv-chart-card"><h3><span class="inv-chart-icon">🥧</span>Répartition des intérêts</h3><div class="inv-canvas-wrap" style="height:280px"><canvas id="inv-ch-intpie"></canvas></div></div>';
-  h += '<div class="inv-card"><h3 style="font-size:1rem;font-weight:600;margin-bottom:16px;display:flex;align-items:center;gap:8px"><span class="inv-chart-icon">🏆</span>Classement par plateforme</h3><div style="display:flex;flex-direction:column;gap:12px">';
+  h += '<div class="inv-chart-card"><h3>Répartition des intérêts</h3><div class="inv-canvas-wrap" style="height:280px"><canvas id="inv-ch-intpie"></canvas></div></div>';
+  h += '<div class="inv-card"><h3 style="font-size:1rem;font-weight:600;margin-bottom:16px;display:flex;align-items:center;gap:8px">Classement par plateforme</h3><div style="display:flex;flex-direction:column;gap:12px">';
   const n = t.li + 1;
   const sorted = d.platforms.map((p, i) => ({ name: p, total: invIntArr(p, n).reduce((a, b) => a + b, 0), color: invColor(p,i) })).filter(x => x.total > 0).sort((a, b) => b.total - a.total);
   const mx = sorted.length > 0 ? sorted[0].total : 1;
@@ -5187,7 +5187,7 @@ function invRenderInterests(t, labels) {
     h += `<div class="inv-neon-bar"><div class="inv-neon-fill" style="width:${x.total/mx*100}%;background:${x.color}"></div></div></div>`;
   });
   h += '</div></div></div>';
-  h += '<div class="inv-chart-card"><h3><span class="inv-chart-icon">📊</span>Évolution mensuelle des intérêts</h3><div class="inv-canvas-wrap"><canvas id="inv-ch-intline"></canvas></div></div>';
+  h += '<div class="inv-chart-card"><h3>Évolution mensuelle des intérêts</h3><div class="inv-canvas-wrap"><canvas id="inv-ch-intline"></canvas></div></div>';
   h += '</div>';
   return h;
 }
@@ -5215,10 +5215,10 @@ function invBuildInterestCharts(t, labels) {
 // ── Evolution ──
 function invRenderEvolution(t, labels, li) {
   let h = '<div class="inv-grid">';
-  h += '<div class="inv-chart-card"><h3><span class="inv-chart-icon">📈</span>Capital par plateforme (empilé)</h3><div class="inv-canvas-wrap" style="height:380px"><canvas id="inv-ch-stack"></canvas></div></div>';
+  h += '<div class="inv-chart-card"><h3>Capital par plateforme (empilé)</h3><div class="inv-canvas-wrap" style="height:380px"><canvas id="inv-ch-stack"></canvas></div></div>';
   h += '<div class="inv-grid inv-grid-2">';
-  h += '<div class="inv-chart-card"><h3><span class="inv-chart-icon">📊</span>Variation mensuelle du capital</h3><div class="inv-canvas-wrap"><canvas id="inv-ch-var"></canvas></div></div>';
-  h += '<div class="inv-chart-card"><h3><span class="inv-chart-icon">🔄</span>Mois actuel vs précédent</h3><div class="inv-canvas-wrap"><canvas id="inv-ch-compare"></canvas></div></div>';
+  h += '<div class="inv-chart-card"><h3>Variation mensuelle du capital</h3><div class="inv-canvas-wrap"><canvas id="inv-ch-var"></canvas></div></div>';
+  h += '<div class="inv-chart-card"><h3>Mois actuel vs précédent</h3><div class="inv-canvas-wrap"><canvas id="inv-ch-compare"></canvas></div></div>';
   h += '</div></div>';
   return h;
 }
@@ -5315,10 +5315,10 @@ function invRenderLoans(t, labels, li) {
     h += '</div></div>';
   });
   h += '</div>';
-  h += '<div class="inv-chart-card"><h3><span class="inv-chart-icon">💳</span>Évolution des emprunts</h3><div class="inv-canvas-wrap"><canvas id="inv-ch-loans"></canvas></div></div>';
+  h += '<div class="inv-chart-card"><h3>Évolution des emprunts</h3><div class="inv-canvas-wrap"><canvas id="inv-ch-loans"></canvas></div></div>';
   h += '<div class="inv-grid inv-grid-2">';
-  h += '<div class="inv-chart-card"><h3><span class="inv-chart-icon">🏦</span>Capital net vs dette</h3><div class="inv-canvas-wrap"><canvas id="inv-ch-netdebt"></canvas></div></div>';
-  h += '<div class="inv-card"><h3 style="font-size:1rem;font-weight:600;margin-bottom:20px;display:flex;align-items:center;gap:8px"><span class="inv-chart-icon">⚡</span>Indicateurs clés</h3><div style="display:flex;flex-direction:column;gap:16px">';
+  h += '<div class="inv-chart-card"><h3>Capital net vs dette</h3><div class="inv-canvas-wrap"><canvas id="inv-ch-netdebt"></canvas></div></div>';
+  h += '<div class="inv-card"><h3 style="font-size:1rem;font-weight:600;margin-bottom:20px;display:flex;align-items:center;gap:8px">Indicateurs clés</h3><div style="display:flex;flex-direction:column;gap:16px">';
   h += `<div class="inv-ind-card"><div style="font-size:12px;color:var(--text-secondary);margin-bottom:4px">Taux d'endettement</div><div style="font-size:18px;font-weight:700">${t.tp > 0 ? (t.tl / t.tp * 100).toFixed(1) : 0}%</div><div style="font-size:12px;color:var(--text-secondary)">Dette / Capital brut</div></div>`;
   h += `<div class="inv-ind-card"><div style="font-size:12px;color:var(--text-secondary);margin-bottom:4px">Couverture remboursements</div><div style="font-size:18px;font-weight:700;color:${t.lmi >= t.tmp ? '#1d9e74' : '#dd5f66'}">${t.tmp > 0 ? (t.lmi / t.tmp).toFixed(2) + 'x' : 'N/A'}</div><div style="font-size:12px;color:var(--text-secondary)">Intérêts / Mensualités</div></div>`;
   h += `<div class="inv-ind-card"><div style="font-size:12px;color:var(--text-secondary);margin-bottom:4px">Rendement net</div><div style="font-size:18px;font-weight:700;color:${t.nmi >= 0 ? '#1d9e74' : '#dd5f66'}">${t.tp > 0 ? (t.nmi * 12 / t.tp * 100).toFixed(1) : 0}% / an</div><div style="font-size:12px;color:var(--text-secondary)">(Intérêts - Remb.) × 12 / Capital</div></div>`;
@@ -5578,7 +5578,7 @@ function invRenderRealEstate(t, labels, li) {
   // ── HERO ──
   h += `<div class="inv-card" style="background:linear-gradient(135deg, rgba(95,139,242,0.08), rgba(29,158,116,0.04));border:1px solid rgba(95,139,242,0.18);padding:24px 28px;margin-bottom:20px">`;
   h += `<div class="inv-flex inv-jcsb" style="flex-wrap:wrap;gap:24px;align-items:flex-start">`;
-  h += `<div><div style="font-size:0.7rem;letter-spacing:1px;color:var(--text-secondary);text-transform:uppercase;font-weight:700">🏠 Maison Annecy · 170 m²</div>`;
+  h += `<div><div style="font-size:0.7rem;letter-spacing:1px;color:var(--text-secondary);text-transform:uppercase;font-weight:700">Maison Annecy · 170 m²</div>`;
   h += `<div style="font-size:0.85rem;color:var(--text-secondary);margin-top:4px">${cfg.propertyAddress}</div></div>`;
   h += `<div style="text-align:right"><div style="font-size:0.7rem;color:var(--text-secondary);text-transform:uppercase;letter-spacing:1px;font-weight:700">Net Equity</div>`;
   h += `<div style="font-size:1.8rem;font-weight:700;color:${netEquityEUR>=0?'#1d9e74':'#dd5f66'};line-height:1.1">${reFmtEUR(netEquityEUR)}</div></div>`;
@@ -5616,13 +5616,13 @@ function invRenderRealEstate(t, labels, li) {
 
   // ── 2 graphiques côte à côte ──
   h += `<div class="inv-grid inv-grid-2" style="margin-bottom:20px">`;
-  h += `<div class="inv-chart-card"><h3><span class="inv-chart-icon">📉</span>Évolution du capital restant dû</h3><div class="inv-canvas-wrap" style="height:280px"><canvas id="re-ch-capital"></canvas></div></div>`;
-  h += `<div class="inv-chart-card"><h3><span class="inv-chart-icon">💱</span>Impact du cours de change</h3><div class="inv-canvas-wrap" style="height:280px"><canvas id="re-ch-fx"></canvas></div></div>`;
+  h += `<div class="inv-chart-card"><h3>Évolution du capital restant dû</h3><div class="inv-canvas-wrap" style="height:280px"><canvas id="re-ch-capital"></canvas></div></div>`;
+  h += `<div class="inv-chart-card"><h3>Impact du cours de change</h3><div class="inv-canvas-wrap" style="height:280px"><canvas id="re-ch-fx"></canvas></div></div>`;
   h += `</div>`;
 
   // ── Simulateur "Si je vends aujourd'hui" ──
   h += `<div class="inv-card" style="margin-bottom:20px;padding:24px 28px">`;
-  h += `<h3 style="margin-top:0">🏷️ Simulateur de vente — Si je vends maintenant</h3>`;
+  h += `<h3 style="margin-top:0">Simulateur de vente — Si je vends maintenant</h3>`;
   h += `<div class="inv-grid" style="grid-template-columns:repeat(2,1fr);gap:20px;margin-top:16px">`;
   h += `<div style="background:rgba(29,158,116,0.06);border:1px solid rgba(29,158,116,0.18);border-radius:10px;padding:16px">`;
   h += `<div style="font-size:0.72rem;text-transform:uppercase;letter-spacing:1px;color:#1d9e74;font-weight:700;margin-bottom:8px">🔵 Scénario réel (cours actuel ${realEstateData.currentFxRate})</div>`;
@@ -5633,7 +5633,7 @@ function invRenderRealEstate(t, labels, li) {
   h += `<div class="inv-flex inv-jcsb" style="border-top:1px solid rgba(34,49,77,0.10);padding-top:6px;margin-top:4px"><span style="font-weight:700">Surplus</span><span style="color:#1d9e74;font-weight:700;font-size:1.1rem">${reFmtCHF(surplusCHF)}</span></div>`;
   h += `<div class="inv-flex inv-jcsb"><span style="font-weight:700">En euros</span><span style="color:#1d9e74;font-weight:700;font-size:1.1rem">${reFmtEUR(surplusEUR)}</span></div></div></div>`;
   h += `<div style="background:rgba(95,139,242,0.06);border:1px solid rgba(95,139,242,0.18);border-radius:10px;padding:16px">`;
-  h += `<div style="font-size:0.72rem;text-transform:uppercase;letter-spacing:1px;color:#6366f1;font-weight:700;margin-bottom:8px">💭 Scénario "cours figé contrat" (${cfg.loanStartFxRate})</div>`;
+  h += `<div style="font-size:0.72rem;text-transform:uppercase;letter-spacing:1px;color:#6366f1;font-weight:700;margin-bottom:8px">Scénario "cours figé contrat" (${cfg.loanStartFxRate})</div>`;
   h += `<div style="font-size:0.85rem;color:var(--text-secondary);display:flex;flex-direction:column;gap:6px">`;
   h += `<div class="inv-flex inv-jcsb"><span>Conversion CHF (cours 2020)</span><span style="color:var(--text-primary);font-weight:600">${reFmtCHF(saleCHFatInitial)}</span></div>`;
   h += `<div class="inv-flex inv-jcsb"><span>Capital à rembourser</span><span style="color:#dd5f66;font-weight:600">−${reFmtCHF(currentCapCHF)}</span></div>`;
@@ -5644,7 +5644,7 @@ function invRenderRealEstate(t, labels, li) {
 
   // ── Section Info prêt ──
   h += `<div class="inv-card" style="padding:20px 24px;margin-bottom:20px">`;
-  h += `<h3 style="margin-top:0">📄 Détails du prêt — Contrat n° ${cfg.loanNumber}</h3>`;
+  h += `<h3 style="margin-top:0">Détails du prêt — Contrat n° ${cfg.loanNumber}</h3>`;
   h += `<div class="inv-grid" style="grid-template-columns:repeat(3,1fr);gap:16px;font-size:0.85rem;color:var(--text-secondary)">`;
   const totalAcq = cfg.propertyPurchasePriceEUR + cfg.notaryFeesEUR + cfg.agencyFeesEUR;
   const propAppreciationEUR = propValue - cfg.propertyPurchasePriceEUR;
@@ -5671,7 +5671,7 @@ function invRenderRealEstate(t, labels, li) {
   // ── Tableau d'amortissement (collapsible) ──
   h += `<div class="inv-card" style="padding:0;margin-bottom:20px">`;
   h += `<div onclick="reToggleSchedule()" style="cursor:pointer;padding:18px 24px;display:flex;justify-content:space-between;align-items:center;user-select:none">`;
-  h += `<h3 style="margin:0;display:flex;align-items:center;gap:8px"><span id="re-sched-chevron">▶</span> 📋 Tableau d'amortissement complet (${all.length} mois)</h3>`;
+  h += `<h3 style="margin:0;display:flex;align-items:center;gap:8px"><span id="re-sched-chevron">▶</span> Tableau d'amortissement complet (${all.length} mois)</h3>`;
   h += `<span style="font-size:0.78rem;color:var(--text-secondary)">cliquer pour afficher</span></div>`;
   h += `<div id="re-sched-content" style="display:none;padding:0 24px 24px;max-height:480px;overflow-y:auto">`;
   h += `<table style="width:100%;font-size:0.78rem;border-collapse:collapse">`;
@@ -5683,8 +5683,8 @@ function invRenderRealEstate(t, labels, li) {
   for (const row of all) {
     const fx = reFxRateFor(row.ym);
     const eurCap = row.capital / fx;
-    const statusBadge = row.isExtra ? '<span style="color:#a855f7">💰 +2e pilier</span>' : ({
-      'init': '<span style="color:#6366f1">📅 Init</span>',
+    const statusBadge = row.isExtra ? '<span style="color:#a855f7">+2e pilier</span>' : ({
+      'init': '<span style="color:#6366f1">Init</span>',
       'paid': '<span style="color:#1d9e74">✓ Payé</span>',
       'suspended': '<span style="color:#f59e0b">⏸ Suspendu</span>',
       'future': '<span style="color:var(--text-secondary)">⏳ Projection</span>'
@@ -5930,7 +5930,7 @@ function invRenderDarwinex() {
   // ── HERO ──
   h += `<div class="inv-card" style="background:linear-gradient(135deg, rgba(95,139,242,0.08), rgba(29,158,116,0.04));border:1px solid rgba(95,139,242,0.18);padding:24px 28px;margin-bottom:20px">`;
   h += `<div class="inv-flex inv-jcsb" style="flex-wrap:wrap;gap:24px;align-items:flex-start">`;
-  h += `<div><div style="font-size:0.7rem;letter-spacing:1px;color:var(--text-secondary);text-transform:uppercase;font-weight:700">🐦 Darwinex Classic · compte investisseur</div>`;
+  h += `<div><div style="font-size:0.7rem;letter-spacing:1px;color:var(--text-secondary);text-transform:uppercase;font-weight:700">Darwinex Classic · compte investisseur</div>`;
   h += `<div style="font-size:0.78rem;color:var(--text-secondary);margin-top:4px">${freshness}</div></div>`;
   h += `<div style="text-align:right"><div style="font-size:0.7rem;color:var(--text-secondary);text-transform:uppercase;letter-spacing:1px;font-weight:700">Valeur actuelle</div>`;
   h += `<div style="font-size:1.8rem;font-weight:700;color:${pnl>=0?'#1d9e74':'#dd5f66'};line-height:1.1">${fmtE(d.currentValue||0)}</div>`;
@@ -5956,12 +5956,12 @@ function invRenderDarwinex() {
     h += `</div>`;
 
     if (d.history && d.history.length > 0) {
-      h += `<div class="inv-chart-card"><h3><span class="inv-chart-icon">📈</span>Évolution valeur vs investi</h3><div class="inv-canvas-wrap" style="height:280px"><canvas id="dwx-ch"></canvas></div></div>`;
+      h += `<div class="inv-chart-card"><h3>Évolution valeur vs investi</h3><div class="inv-canvas-wrap" style="height:280px"><canvas id="dwx-ch"></canvas></div></div>`;
     }
 
     if (d.positions && d.positions.length > 0) {
       h += `<div class="inv-card" style="padding:0;margin:20px 0">`;
-      h += `<h3 style="padding:18px 24px 0;margin:0">📋 DARWINs détenus</h3>`;
+      h += `<h3 style="padding:18px 24px 0;margin:0">DARWINs détenus</h3>`;
       h += `<div style="padding:12px 24px 20px"><table style="width:100%;font-size:0.82rem;border-collapse:collapse">`;
       h += `<thead><tr style="border-bottom:1px solid rgba(34,49,77,0.12)">`;
       ['DARWIN','Investi','Valeur','P&L'].forEach((c,i)=>{ h += `<th style="text-align:${i===0?'left':'right'};padding:8px 6px;color:var(--text-secondary);font-weight:600">${c}</th>`; });
@@ -5984,7 +5984,7 @@ function invRenderDarwinex() {
 
   // ── Calendriers P&L quotidien / mensuel (série journalière, net dépôts) ──
   h += `<div class="chart-full" style="margin-top:4px"><div class="chart-card">`;
-  h += `<h3 style="justify-content:space-between;flex-wrap:wrap;"><span style="display:flex;align-items:center;gap:8px;"><span class="icon icon-heat">📅</span> Calendrier Journalier Darwinex</span>`;
+  h += `<h3 style="justify-content:space-between;flex-wrap:wrap;"><span style="display:flex;align-items:center;gap:8px;">Calendrier Journalier Darwinex</span>`;
   h += `<label class="toggle-wrap"><span class="toggle-val">€</span><input type="checkbox" id="dwx-day-pct" onchange="dwxBuildDailyCalendar(); this.parentElement.querySelector('.toggle-val').textContent=this.checked?'%':'€'"><span class="toggle-track"></span><span class="toggle-val">%</span></label></h3>`;
   h += `<div class="cal-nav"><button onclick="dwxCalPrev()">◀</button><span class="cal-title" id="dwx-cal-title"></span><button onclick="dwxCalNext()">▶</button></div>`;
   h += `<div class="day-grid" id="dwx-day-grid"></div>`;
@@ -5993,7 +5993,7 @@ function invRenderDarwinex() {
   h += `</div></div>`;
 
   h += `<div class="chart-full"><div class="chart-card">`;
-  h += `<h3 style="justify-content:space-between;flex-wrap:wrap;"><span style="display:flex;align-items:center;gap:8px;"><span class="icon icon-heat">📊</span> Performance Mensuelle Darwinex</span>`;
+  h += `<h3 style="justify-content:space-between;flex-wrap:wrap;"><span style="display:flex;align-items:center;gap:8px;">Performance Mensuelle Darwinex</span>`;
   h += `<label class="toggle-wrap"><span class="toggle-val">€</span><input type="checkbox" id="dwx-month-pct" onchange="dwxBuildMonthlyHeat(); this.parentElement.querySelector('.toggle-val').textContent=this.checked?'%':'€'"><span class="toggle-track"></span><span class="toggle-val">%</span></label></h3>`;
   h += `<div class="heatmap-container" id="dwx-month-heat"></div>`;
   h += `<div class="day-detail-panel" id="dwx-month-detail"></div>`;
@@ -6325,7 +6325,7 @@ function dwxCloseDetail() {
 function dwxRenderDetail(panelId, titleLabel, rows, totalPnl, note, recon) {
   const panel = document.getElementById(panelId);
   if (!panel) return;
-  let h = `<div class="detail-header"><h4>🐦 ${titleLabel}</h4><span class="detail-close" onclick="dwxCloseDetail()">✕</span></div>`;
+  let h = `<div class="detail-header"><h4>${titleLabel}</h4><span class="detail-close" onclick="dwxCloseDetail()">✕</span></div>`;
   if (note) h += `<div style="font-size:0.78rem;color:var(--text-secondary);padding:2px 0 8px">${note}</div>`;
   if (rows.length) {
     h += '<table class="day-detail-table"><thead><tr><th>DARWIN</th><th>Investi</th><th class="td-r">%</th><th class="td-r">P&L</th></tr></thead><tbody>';
@@ -6549,7 +6549,7 @@ function invRenderSimulator() {
 
   let h = '';
   h += `<div class="inv-card" style="padding:24px 28px;margin-bottom:20px">`;
-  h += `<h3 style="margin-top:0;display:flex;align-items:center;gap:8px"><span class="inv-chart-icon">🧮</span>Rembourser un emprunt vs Placer</h3>`;
+  h += `<h3 style="margin-top:0;display:flex;align-items:center;gap:8px">Rembourser un emprunt vs Placer</h3>`;
   h += `<p style="font-size:0.82rem;color:var(--text-secondary);margin:4px 0 18px">Compare ce que rapportent ${fmtE(X)} selon que tu rembourses un emprunt (gain = intérêts évités, garanti, non imposé) ou que tu places (gain brut, imposé à la flat tax).</p>`;
 
   // ── Inputs ──
@@ -6576,7 +6576,7 @@ function invRenderSimulator() {
   // ── Verdict banner ──
   const vColor = placWins ? '#1d9e74' : '#6366f1';
   h += `<div class="inv-card" style="padding:18px 24px;margin-bottom:20px;border:1px solid ${vColor}55;background:${placWins?'rgba(29,158,116,0.06)':'rgba(95,139,242,0.06)'}">`;
-  h += `<div style="font-size:0.95rem;font-weight:700;color:${vColor}">${placWins ? '📈 Placer rapporte plus' : '🛡️ Rembourser est plus avantageux'} sur ${T} an${T>1?'s':''}</div>`;
+  h += `<div style="font-size:0.95rem;font-weight:700;color:${vColor}">${placWins ? 'Placer rapporte plus' : 'Rembourser est plus avantageux'} sur ${T} an${T>1?'s':''}</div>`;
   h += `<div style="font-size:0.85rem;color:var(--text-secondary);margin-top:4px">Écart net : <strong style="color:${vColor}">${diff>=0?'+':''}${fmtE(diff)}</strong> en faveur de « ${placWins?'Placer':'Rembourser'} »${placWins ? ' — mais sans la garantie ni l\'absence de risque du remboursement.' : ' — et garanti, sans risque, non imposé.'}</div>`;
   h += `</div>`;
 
@@ -6584,7 +6584,7 @@ function invRenderSimulator() {
   h += `<div class="inv-grid inv-grid-2" style="margin-bottom:20px">`;
   // Rembourser
   h += `<div class="inv-card" style="padding:20px 24px;border:1px solid ${!placWins?'#6366f188':'rgba(34,49,77,0.08)'}">`;
-  h += `<div style="font-size:0.72rem;text-transform:uppercase;letter-spacing:1px;color:#6366f1;font-weight:700">🛡️ Rembourser ${s.loanLabel.split(' (')[0]}</div>`;
+  h += `<div style="font-size:0.72rem;text-transform:uppercase;letter-spacing:1px;color:#6366f1;font-weight:700">Rembourser ${s.loanLabel.split(' (')[0]}</div>`;
   h += `<div style="font-size:1.6rem;font-weight:700;color:var(--text-primary);margin:6px 0">${fmtE(fvRemb)}</div>`;
   h += `<div style="font-size:0.82rem;color:var(--text-secondary);display:flex;flex-direction:column;gap:5px;margin-top:8px">`;
   h += `<div class="inv-flex inv-jcsb"><span>Intérêts évités (gain)</span><span style="color:#1d9e74;font-weight:600">+${fmtE(gainRemb)}</span></div>`;
@@ -6593,7 +6593,7 @@ function invRenderSimulator() {
   h += `</div></div>`;
   // Placer
   h += `<div class="inv-card" style="padding:20px 24px;border:1px solid ${placWins?'#1d9e7488':'rgba(34,49,77,0.08)'}">`;
-  h += `<div style="font-size:0.72rem;text-transform:uppercase;letter-spacing:1px;color:#1d9e74;font-weight:700">📈 Placer (${s.placReturn}% brut${isLinear ? ' · linéaire' : ''})</div>`;
+  h += `<div style="font-size:0.72rem;text-transform:uppercase;letter-spacing:1px;color:#1d9e74;font-weight:700">Placer (${s.placReturn}% brut${isLinear ? ' · linéaire' : ''})</div>`;
   h += `<div style="font-size:1.6rem;font-weight:700;color:var(--text-primary);margin:6px 0">${fmtE(fvPlacNet)}</div>`;
   h += `<div style="font-size:0.82rem;color:var(--text-secondary);display:flex;flex-direction:column;gap:5px;margin-top:8px">`;
   h += `<div class="inv-flex inv-jcsb"><span>Gain brut</span><span style="color:var(--text-primary)">+${fmtE(gainPlacBrut)}</span></div>`;
@@ -6605,12 +6605,12 @@ function invRenderSimulator() {
 
   // ── Seuil de rentabilité ──
   h += `<div class="inv-card" style="padding:16px 24px;margin-bottom:20px">`;
-  h += `<div style="font-size:0.85rem;color:var(--text-secondary)">🎯 Pour battre le remboursement de <strong style="color:var(--text-primary)">${s.loanLabel.split(' (')[0]}</strong>, ton placement doit rapporter plus de <strong style="color:#f59e0b;font-size:1.05rem">${breakEvenG.toFixed(2)}% brut/an</strong> (après flat tax ${s.taxRate}%${isLinear ? ', croissance linéaire' : ''}).</div>`;
+  h += `<div style="font-size:0.85rem;color:var(--text-secondary)">Pour battre le remboursement de <strong style="color:var(--text-primary)">${s.loanLabel.split(' (')[0]}</strong>, ton placement doit rapporter plus de <strong style="color:#f59e0b;font-size:1.05rem">${breakEvenG.toFixed(2)}% brut/an</strong> (après flat tax ${s.taxRate}%${isLinear ? ', croissance linéaire' : ''}).</div>`;
   if (!isLinear) h += `<div style="font-size:0.75rem;color:var(--text-secondary);opacity:0.75;margin-top:4px">Règle simple : seuil ≈ taux du prêt ÷ (1 − impôt) = ${s.loanRate.toFixed(2)}% ÷ ${(1-tax).toFixed(2)} = ${(s.loanRate/(1-tax)).toFixed(2)}%</div>`;
   h += `</div>`;
 
   // ── Graphique ──
-  h += `<div class="inv-chart-card"><h3><span class="inv-chart-icon">📊</span>Évolution de la valeur nette sur ${T} an${T>1?'s':''}</h3><div class="inv-canvas-wrap" style="height:300px"><canvas id="sim-ch"></canvas></div></div>`;
+  h += `<div class="inv-chart-card"><h3>Évolution de la valeur nette sur ${T} an${T>1?'s':''}</h3><div class="inv-canvas-wrap" style="height:300px"><canvas id="sim-ch"></canvas></div></div>`;
 
   // Note risque
   h += `<div style="font-size:0.75rem;color:var(--text-secondary);opacity:0.7;margin-top:12px;line-height:1.5">⚠️ Le remboursement est un gain <strong>certain</strong> ; le placement est une <strong>espérance</strong> soumise au risque (défaut, volatilité, perte en capital). À rendement net égal, le remboursement est préférable. Simulation indicative, hors frais et hors réinvestissement des mensualités libérées.</div>`;
@@ -6672,7 +6672,7 @@ function invRenderRepartition(t, li) {
     const col = INV_MEMBER_COLORS[m];
     h += `<div class="kpi-card">`;
     h += `<div class="stripe" style="background:linear-gradient(90deg,${col},${col}99)"></div>`;
-    h += `<div class="label"><span style="margin-right:5px">👤</span>${m}</div>`;
+    h += `<div class="label">${m}</div>`;
     h += `<div class="value" style="color:${col};font-size:1.5rem">${invFmt(cap)}</div>`;
     h += `<div class="sub">${(pct*100).toFixed(1)}% · <span style="color:#1d9e74">+${invFmt(memberInt)}/mois</span></div>`;
     h += `<div class="inv-neon-bar inv-mt2"><div class="inv-neon-fill" style="width:${pct*100}%;background:${col}"></div></div></div>`;
@@ -6688,15 +6688,15 @@ function invRenderRepartition(t, li) {
 
   // Charts
   h += '<div class="inv-grid inv-grid-2">';
-  h += '<div class="inv-chart-card"><h3><span class="inv-chart-icon">🥧</span>Répartition du capital</h3><div class="inv-canvas-wrap" style="height:250px"><canvas id="inv-ch-rep-pie"></canvas></div></div>';
-  h += '<div class="inv-chart-card"><h3><span class="inv-chart-icon">💰</span>Répartition des intérêts</h3><div class="inv-canvas-wrap" style="height:250px"><canvas id="inv-ch-rep-int"></canvas></div></div>';
+  h += '<div class="inv-chart-card"><h3>Répartition du capital</h3><div class="inv-canvas-wrap" style="height:250px"><canvas id="inv-ch-rep-pie"></canvas></div></div>';
+  h += '<div class="inv-chart-card"><h3>Répartition des intérêts</h3><div class="inv-canvas-wrap" style="height:250px"><canvas id="inv-ch-rep-int"></canvas></div></div>';
   h += '</div>';
 
   // Évolution des parts par personne (historique mensuel)
-  h += '<div class="inv-chart-card" style="margin-bottom:20px"><h3><span class="inv-chart-icon">📈</span>Évolution des montants par personne</h3><div class="inv-canvas-wrap" style="height:300px"><canvas id="inv-ch-rep-evo"></canvas></div></div>';
+  h += '<div class="inv-chart-card" style="margin-bottom:20px"><h3>Évolution des montants par personne</h3><div class="inv-canvas-wrap" style="height:300px"><canvas id="inv-ch-rep-evo"></canvas></div></div>';
 
   // Monthly update section
-  h += '<div class="inv-card"><h3 style="font-size:1rem;font-weight:600;margin-bottom:20px;display:flex;align-items:center;gap:8px"><span class="inv-chart-icon">📅</span>1. Mise à jour mensuelle</h3>';
+  h += '<div class="inv-card"><h3 style="font-size:1rem;font-weight:600;margin-bottom:20px;display:flex;align-items:center;gap:8px">1. Mise à jour mensuelle</h3>';
   h += '<p style="font-size:12px;color:var(--text-secondary);margin-bottom:16px">Entre le nouveau capital total Lendermarket et les intérêts du mois. La croissance et les intérêts sont répartis proportionnellement.</p>';
   if (!invRepMonthlyMode) {
     h += '<button class="inv-btn inv-btn-p" onclick="invStartRepMonthly()">Mettre à jour</button>';
@@ -6733,7 +6733,7 @@ function invRenderRepartition(t, li) {
   h += '</div>';
 
   // Adjustment section
-  h += '<div class="inv-card"><h3 style="font-size:1rem;font-weight:600;margin-bottom:20px;display:flex;align-items:center;gap:8px"><span class="inv-chart-icon">⚡</span>2. Ajustement ponctuel (dépôt / retrait)</h3>';
+  h += '<div class="inv-card"><h3 style="font-size:1rem;font-weight:600;margin-bottom:20px;display:flex;align-items:center;gap:8px">2. Ajustement ponctuel (dépôt / retrait)</h3>';
   h += '<p style="font-size:12px;color:var(--text-secondary);margin-bottom:16px">Ajoute ou retire une somme pour une personne. Les pourcentages se recalculent automatiquement.</p>';
   if (!invRepAdjMode) {
     h += '<button class="inv-btn inv-btn-p" onclick="invStartRepAdj()" style="background:linear-gradient(135deg,#06b6d4,#6366f1)">Ajustement</button>';
@@ -6782,7 +6782,7 @@ function invRenderRepartition(t, li) {
   h += '</div>';
 
   // History
-  h += '<div class="inv-card"><h3 style="font-size:1rem;font-weight:600;margin-bottom:20px;display:flex;align-items:center;gap:8px"><span class="inv-chart-icon">🕒</span>Historique des mouvements</h3>';
+  h += '<div class="inv-card"><h3 style="font-size:1rem;font-weight:600;margin-bottom:20px;display:flex;align-items:center;gap:8px">Historique des mouvements</h3>';
   const hist = (rep.history || []).slice().reverse();
   if (hist.length > 0) {
     h += '<div class="inv-ox"><table class="inv-table"><thead><tr><th>Date</th><th>Mouvement</th><th class="th-r">Moi</th><th class="th-r">Noah</th><th class="th-r">Elie</th><th class="th-r">Total</th></tr></thead><tbody>';
@@ -6953,7 +6953,7 @@ function invRenderUpdate(t, li) {
   let h = '<div class="inv-grid">';
   // Data management
   h += '<div class="inv-card"><div class="inv-flex inv-jcsb inv-aic inv-fw inv-gap4" style="flex-wrap:wrap">';
-  h += '<div><h3 style="font-size:1rem;font-weight:600;display:flex;align-items:center;gap:8px"><span class="inv-chart-icon">💾</span>Gestion des données</h3><p style="font-size:12px;color:var(--text-secondary);margin-top:6px">Sauvegarde automatique. Export JSON pour transférer vers un autre appareil.</p></div>';
+  h += '<div><h3 style="font-size:1rem;font-weight:600;display:flex;align-items:center;gap:8px">Gestion des données</h3><p style="font-size:12px;color:var(--text-secondary);margin-top:6px">Sauvegarde automatique. Export JSON pour transférer vers un autre appareil.</p></div>';
   h += '<div class="inv-flex inv-fw inv-gap2">';
   h += '<button class="inv-btn inv-btn-ok" onclick="invExportJSON()">Exporter JSON</button>';
   h += '<button class="inv-btn inv-btn-s" onclick="document.getElementById(\'invFileInput\').click()">Importer JSON</button>';
@@ -6971,7 +6971,7 @@ function invRenderUpdate(t, li) {
 
   // Monthly update
   h += '<div class="inv-card"><div class="inv-flex inv-jcsb inv-aic inv-fw inv-gap4 inv-mb6" style="flex-wrap:wrap">';
-  h += '<h3 style="font-size:1rem;font-weight:600;display:flex;align-items:center;gap:8px"><span class="inv-chart-icon">✏️</span>Mise à jour mensuelle</h3>';
+  h += '<h3 style="font-size:1rem;font-weight:600;display:flex;align-items:center;gap:8px">Mise à jour mensuelle</h3>';
   h += '<div class="inv-flex inv-aic inv-gap3">';
   h += '<select class="inv-select" onchange="invChangeEditMonth(this.value)" style="width:auto">';
   d.months.forEach((m, i) => { h += `<option value="${i}"${invEditMonth === i ? ' selected' : ''}>${invFmMonth(m)}</option>`; });
