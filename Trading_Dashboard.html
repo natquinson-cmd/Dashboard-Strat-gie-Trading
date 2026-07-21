@@ -2478,31 +2478,41 @@ function buildCumulativePnL() {
     const lastDate = rawDates[rawDates.length - 1];
 
     // ── Projection sur les mois passés (réels) ──
+    // Le passé du cône applique les % du backtest au capital RÉELLEMENT déposé
+    // chaque mois (7k en fév., 12k en avr., 20k depuis juin), pas au total
+    // d'aujourd'hui rétroactivement : sinon la médiane crédite au backtest des
+    // euros impossibles sur les petits mois et biaise la comparaison réel/cône.
     const monthlyByMonth = getMonthlyReturnsByMonth();
     let totalDeposits = 0;
     for (const dep of realDeposits) totalDeposits += dep.amount;
-    const capital = totalDeposits > 0 ? totalDeposits : 10000;
+    const fallbackCap = totalDeposits > 0 ? totalDeposits : 10000;
+    const depUpToMonth = (ym) => {
+      const c = realDeposits.reduce((s, d) => s + (((d.date || '') <= ym + '-31') ? (d.amount || 0) : 0), 0);
+      return c > 0 ? c : fallbackCap;
+    };
 
     let cumProj = 0;
     const projPast = [];
     const conePastOpt = [], conePastPess = [];
     const stdPast = getMonthlyReturnStd();
     for (let i = 0; i < rawDates.length; i++) {
+      const ymCur = rawDates[i].substring(0,7);
       const mm = parseInt(rawDates[i].substring(5,7)) - 1; // 0-11
       const monthReturn = monthlyByMonth[mm];
+      const capReal = depUpToMonth(ymCur); // capital déployé ce mois-là
       if (projMode === 'reinvest') {
-        const currentCapital = capital + cumProj;
+        const currentCapital = capReal + cumProj;
         cumProj += currentCapital * (monthReturn / 100);
       } else {
-        cumProj += capital * (monthReturn / 100);
+        cumProj += capReal * (monthReturn / 100);
       }
       projPast.push(Math.round(cumProj * 100) / 100);
       // Cône sur la période réelle : démarre au 1er mois de données (janv 2026)
       const sigmaCum = (stdPast / 100) * Math.sqrt(i + 1);
       const factor = Math.exp(sigmaCum); // Z = 1
-      const vMed = capital + cumProj;
-      conePastOpt.push(Math.round((vMed * factor - capital) * 100) / 100);
-      conePastPess.push(Math.round((vMed / factor - capital) * 100) / 100);
+      const vMed = capReal + cumProj;
+      conePastOpt.push(Math.round((vMed * factor - capReal) * 100) / 100);
+      conePastPess.push(Math.round((vMed / factor - capReal) * 100) / 100);
     }
 
     // ── Projection sur les mois futurs (le cône continue depuis le passé) ──
