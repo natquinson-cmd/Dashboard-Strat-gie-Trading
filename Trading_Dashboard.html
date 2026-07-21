@@ -3891,7 +3891,7 @@ function buildDrawdownChart() {
     datasets.push({
       label: 'DAX',
       data: daxValues,
-      borderColor: '#6366f1',
+      borderColor: '#2f5fd0',
       backgroundColor: 'transparent',
       borderWidth: 1.5,
       borderDash: [],
@@ -4221,7 +4221,7 @@ function buildDrawdown(canvasId, daxD, nasD, slice, totalCapital) {
       labels: dE.labels,
       datasets: [
         { label:'Combiné', data:computeDrawdown(cE), borderColor:'#a78bfa', backgroundColor:'rgba(167,139,250,0.1)', borderWidth:2, fill:true, tension:0.3, pointRadius:0 },
-        { label:'DAX 40', data:computeDrawdown(dE.equity), borderColor:'#6366f1', backgroundColor:'rgba(95,139,242,0.06)', borderWidth:1.5, fill:true, tension:0.3, pointRadius:0 },
+        { label:'DAX 40', data:computeDrawdown(dE.equity), borderColor:'#2f5fd0', backgroundColor:'rgba(95,139,242,0.06)', borderWidth:1.5, fill:true, tension:0.3, pointRadius:0 },
         { label:'NASDAQ 100', data:computeDrawdown(nE.equity), borderColor:'#06b6d4', backgroundColor:'rgba(46,181,160,0.06)', borderWidth:1.5, fill:true, tension:0.3, pointRadius:0 }
       ]
     },
