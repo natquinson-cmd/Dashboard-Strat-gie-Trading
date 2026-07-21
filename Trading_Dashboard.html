@@ -10,36 +10,47 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
 
   :root {
     color-scheme: dark; /* contrôles natifs (selects, listes déroulantes, scrollbars) rendus en sombre */
-    --bg-primary: #0a0e1a;
-    --bg-card: #111827;
-    --bg-card-hover: #1a2235;
-    --border: #1e2a3a;
-    --text-primary: #f0f4f8;
-    --text-secondary: #8899aa;
-    --accent-dax: #6366f1;
-    --accent-dax-light: #818cf8;
-    --accent-nas: #06b6d4;
-    --accent-nas-light: #22d3ee;
-    --accent-merged: #a78bfa;
-    --positive: #10b981;
-    --negative: #ef4444;
-    --gradient-dax: linear-gradient(135deg, #6366f1, #818cf8);
-    --gradient-nas: linear-gradient(135deg, #06b6d4, #22d3ee);
-    --gradient-merged: linear-gradient(135deg, #8b5cf6, #a78bfa);
+    --bg-primary: #0b0f1a;
+    --bg-card: #141b2b;
+    --bg-card-hover: #1a2233;
+    --border: rgba(255,255,255,0.07);
+    --border-strong: rgba(255,255,255,0.12);
+    --text-primary: #eef2f9;
+    --text-secondary: #93a0b8;
+    --text-muted: #5f6a82;
+    --accent-dax: #3b74ff;
+    --accent-dax-light: #6f97ff;
+    --accent-nas: #18b6d4;
+    --accent-nas-light: #3fd0ea;
+    --accent-merged: #8b6bff;
+    --positive: #22c98a;
+    --negative: #ff5d6c;
+    --gradient-dax: linear-gradient(158deg, #3b74ff, #2b57d6);
+    --gradient-nas: linear-gradient(158deg, #18b6d4, #0f95b3);
+    --gradient-merged: linear-gradient(158deg, #8b6bff, #6f47f0);
+    --gradient-green: linear-gradient(158deg, #18c98b, #0fa870);
+    --gradient-red: linear-gradient(158deg, #ff6b6b, #e14b5a);
+    --gradient-dwx: linear-gradient(158deg, #d9fc00, #b6e400);
+    --radius: 16px;
   }
 
   * { margin: 0; padding: 0; box-sizing: border-box; }
 
   body {
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-    background: var(--bg-primary);
+    font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    background:
+      radial-gradient(1200px 720px at 82% -10%, #17203a 0%, transparent 55%),
+      var(--bg-primary);
+    background-attachment: fixed;
     color: var(--text-primary);
     min-height: 100vh;
     overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+    font-feature-settings: 'tnum' 1;
   }
 
   .dashboard { max-width: 1440px; margin: 0 auto; padding: 32px 40px; }
@@ -51,22 +62,14 @@
   }
   .header::after {
     content: ''; position: absolute; bottom: -16px; left: 0; right: 0;
-    height: 2px;
-    background: linear-gradient(90deg, transparent, var(--accent-dax), var(--accent-nas), transparent);
-    border-radius: 3px;
+    height: 1px;
+    background: var(--border);
   }
   .header-left { display: flex; flex-direction: column; }
   .header h1 {
-    font-size: 2.2rem; font-weight: 800; letter-spacing: -0.5px;
-    background: linear-gradient(90deg, #10b981, #06b6d4, #8b5cf6, #ec4899, #f59e0b, #10b981);
-    background-size: 300% 100%;
-    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-    animation: title-shift 6s linear infinite;
+    font-size: 1.9rem; font-weight: 800; letter-spacing: -0.03em;
+    color: var(--text-primary);
     margin-bottom: 4px;
-  }
-  @keyframes title-shift {
-    0% { background-position: 0% 50%; }
-    100% { background-position: 300% 50%; }
   }
   .header p { color: var(--text-secondary); font-size: 0.85rem; }
 
@@ -140,109 +143,20 @@
     color: var(--text-primary); font-weight: 600;
   }
   @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
-  @keyframes holoShift {
-    0%   { background-position: 0% 50%; }
-    50%  { background-position: 100% 50%; }
-    100% { background-position: 0% 50%; }
-  }
-  @keyframes holoBorder {
-    0%   { border-color: rgba(99,102,241,0.3); }
-    33%  { border-color: rgba(6,182,212,0.3); }
-    66%  { border-color: rgba(16,185,129,0.3); }
-    100% { border-color: rgba(99,102,241,0.3); }
-  }
-  @keyframes holoGlow {
-    0%   { box-shadow: 0 0 15px rgba(99,102,241,0.12), 0 0 35px rgba(6,182,212,0.06); }
-    33%  { box-shadow: 0 0 20px rgba(6,182,212,0.16), 0 0 45px rgba(16,185,129,0.08); }
-    66%  { box-shadow: 0 0 18px rgba(16,185,129,0.14), 0 0 40px rgba(167,139,250,0.07); }
-    100% { box-shadow: 0 0 15px rgba(99,102,241,0.12), 0 0 35px rgba(6,182,212,0.06); }
-  }
-  @keyframes slideUp { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }
-  @keyframes shimmer {
-    0%   { background-position: -200% 0; }
-    100% { background-position: 200% 0; }
-  }
-
-  /* ═══════════ TRAVELING LIGHT on card borders ═══════════ */
-  @keyframes athPulse {
-    0%, 100% { opacity: 1; box-shadow: 0 0 4px rgba(245,158,11,0.4); }
-    50% { opacity: 0.85; box-shadow: 0 0 12px rgba(245,158,11,0.7); }
-  }
-  @keyframes borderLight {
-    0%   { --light-angle: 0deg; }
-    100% { --light-angle: 360deg; }
-  }
-  @property --light-angle {
-    syntax: '<angle>';
-    initial-value: 0deg;
-    inherits: false;
-  }
+  @keyframes slideUp { from { opacity:0; transform:translateY(14px); } to { opacity:1; transform:translateY(0); } }
   .hero-card, .kpi-card, .chart-card, .capital-selector, .inv-card, .inv-chart-card {
     position: relative;
   }
-  .hero-card::after, .kpi-card::after, .chart-card::after, .capital-selector::after, .inv-card::after, .inv-chart-card::after {
-    content: '';
-    position: absolute;
-    inset: -1px;
-    border-radius: inherit;
-    padding: 1px;
-    background: conic-gradient(
-      from var(--light-angle),
-      transparent 0%,
-      transparent 70%,
-      rgba(99,102,241,0.6) 76%,
-      rgba(6,182,212,0.8) 80%,
-      rgba(16,185,129,0.6) 84%,
-      transparent 90%,
-      transparent 100%
-    );
-    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-    -webkit-mask-composite: xor;
-    mask-composite: exclude;
-    animation: borderLight 6s linear infinite;
-    pointer-events: none;
-    z-index: 1;
-  }
-  .hero-card.capital::after {
-    animation: borderLight 4s linear infinite;
-    background: conic-gradient(
-      from var(--light-angle),
-      transparent 0%,
-      transparent 65%,
-      rgba(16,185,129,0.7) 72%,
-      rgba(6,182,212,0.9) 78%,
-      rgba(99,102,241,0.7) 84%,
-      rgba(167,139,250,0.5) 88%,
-      transparent 95%,
-      transparent 100%
-    );
-    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-    -webkit-mask-composite: xor;
-    mask-composite: exclude;
-  }
-  /* Stagger the light rotation per card for variety */
-  .kpi-grid .kpi-card:nth-child(2)::after { animation-delay: -1s; }
-  .kpi-grid .kpi-card:nth-child(3)::after { animation-delay: -2s; }
-  .kpi-grid .kpi-card:nth-child(4)::after { animation-delay: -3s; }
-  .kpi-grid .kpi-card:nth-child(5)::after { animation-delay: -4s; }
-  .kpi-grid .kpi-card:nth-child(6)::after { animation-delay: -5s; }
-  .hero-kpi .hero-card:nth-child(2)::after { animation-delay: -2s; }
-  .hero-kpi .hero-card:nth-child(3)::after { animation-delay: -4s; }
-  .chart-row .chart-card:nth-child(2)::after { animation-delay: -3s; }
-  .kpi-card .stripe {
-    background-size: 200% 100%;
-    animation: shimmer 3s linear infinite;
-  }
-  .kpi-grid .kpi-card { animation: holoBorder 8s ease infinite, holoGlow 6s ease infinite, slideUp 0.5s ease backwards; }
-  .kpi-grid .kpi-card:nth-child(1) { animation-delay: 0s, 0s, 0.05s; }
-  .kpi-grid .kpi-card:nth-child(2) { animation-delay: 0.5s, 0.5s, 0.1s; }
-  .kpi-grid .kpi-card:nth-child(3) { animation-delay: 1s, 1s, 0.15s; }
-  .kpi-grid .kpi-card:nth-child(4) { animation-delay: 1.5s, 1.5s, 0.2s; }
-  .kpi-grid .kpi-card:nth-child(5) { animation-delay: 2s, 2s, 0.25s; }
-  .kpi-grid .kpi-card:nth-child(6) { animation-delay: 2.5s, 2.5s, 0.3s; }
-  .hero-kpi .hero-card:nth-child(1) { animation-delay: 0s, 0s; }
-  .hero-kpi .hero-card:nth-child(2) { animation-delay: 0.4s, 0.3s; }
-  .hero-kpi .hero-card:nth-child(3) { animation-delay: 0.8s, 0.6s; }
+  .kpi-grid .kpi-card, .inv-grid-kpi .kpi-card { animation: slideUp 0.45s ease backwards; }
+  .kpi-grid .kpi-card:nth-child(1) { animation-delay: 0.03s; }
+  .kpi-grid .kpi-card:nth-child(2) { animation-delay: 0.06s; }
+  .kpi-grid .kpi-card:nth-child(3) { animation-delay: 0.09s; }
+  .kpi-grid .kpi-card:nth-child(4) { animation-delay: 0.12s; }
+  .kpi-grid .kpi-card:nth-child(5) { animation-delay: 0.15s; }
+  .kpi-grid .kpi-card:nth-child(6) { animation-delay: 0.18s; }
+  .hero-kpi .hero-card { animation: slideUp 0.45s ease backwards; }
+  .hero-kpi .hero-card:nth-child(2) { animation-delay: 0.08s; }
+  .hero-kpi .hero-card:nth-child(3) { animation-delay: 0.16s; }
 
   /* ═══════════ CAPITAL SELECTOR ═══════════ */
   .capital-selector {
@@ -472,32 +386,31 @@
     opacity: 1;
   }
 
-  /* KPI Cards */
-  .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 40px; }
+  /* KPI Cards — surfaces pleines couleur (mix : couleur par catégorie, rouge pour les négatifs) */
+  .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 16px; margin-bottom: 40px; }
   .kpi-card {
     background: var(--bg-card); border: 1px solid var(--border);
-    border-radius: 16px; padding: 24px; position: relative;
-    overflow: hidden; transition: transform 0.2s, box-shadow 0.2s;
-    animation: holoBorder 8s ease infinite, holoGlow 6s ease infinite;
+    border-radius: var(--radius); padding: 20px 20px 18px; position: relative;
+    overflow: hidden; transition: transform 0.18s ease, box-shadow 0.18s ease;
+    box-shadow: 0 8px 22px rgba(0,0,0,0.22);
   }
-  .kpi-card:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(0,0,0,0.3); }
-  /* Groupe de cards Darwinex : fond jaune fluo Darwinex Zero très transparent (chiffres restent lisibles) */
-  .kpi-grid .kpi-card.kpi-dwx {
-    animation: slideUp 0.5s ease backwards;
-    background: linear-gradient(rgba(217,252,0,0.07), rgba(217,252,0,0.07)), var(--bg-card);
-    border-color: rgba(217,252,0,0.45);
-    box-shadow: 0 0 16px rgba(217,252,0,0.08);
-  }
-  .kpi-grid .kpi-card.kpi-dwx:hover { transform: translateY(-2px); box-shadow: 0 0 22px rgba(217,252,0,0.16), 0 8px 30px rgba(0,0,0,0.35); }
-  .kpi-card.kpi-dwx .stripe { background: linear-gradient(90deg,#d9fc00,#aee000); }
-  .kpi-card .label { font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; color: var(--text-secondary); margin-bottom: 8px; }
-  .kpi-card .value { font-size: 1.8rem; font-weight: 800; letter-spacing: -0.5px; }
-  .kpi-card .sub { font-size: 0.8rem; color: var(--text-secondary); margin-top: 4px; }
-  .kpi-card .stripe { position: absolute; top: 0; left: 0; right: 0; height: 3px; }
-  .stripe-dax { background: var(--gradient-dax); }
-  .stripe-nas { background: var(--gradient-nas); }
-  .stripe-merged { background: var(--gradient-merged); }
-  .stripe-green { background: linear-gradient(90deg, #10b981, #34d399); }
+  .kpi-card::after { content:''; position:absolute; inset:0; pointer-events:none;
+    background: linear-gradient(180deg, rgba(255,255,255,0.13), transparent 42%); }
+  .kpi-card > * { position: relative; z-index: 1; }
+  .kpi-card:hover { transform: translateY(-3px); box-shadow: 0 16px 34px rgba(0,0,0,0.34); }
+  .kpi-card.kpi-dax    { background: var(--gradient-dax);    border-color: transparent; }
+  .kpi-card.kpi-nas    { background: var(--gradient-nas);    border-color: transparent; }
+  .kpi-card.kpi-merged { background: var(--gradient-merged); border-color: transparent; }
+  .kpi-card.kpi-green  { background: var(--gradient-green);  border-color: transparent; }
+  .kpi-card.kpi-neg    { background: var(--gradient-red);    border-color: transparent; }
+  .kpi-card .label { font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: rgba(255,255,255,0.82); margin-bottom: 12px; }
+  .kpi-card .value { font-size: 1.7rem; font-weight: 800; letter-spacing: -0.02em; color: #fff; font-variant-numeric: tabular-nums; }
+  .kpi-card .sub { font-size: 0.74rem; color: rgba(255,255,255,0.74); margin-top: 5px; font-weight: 500; }
+  /* Darwinex : lime Darwin Zero, texte sombre pour le contraste */
+  .kpi-card.kpi-dwx { background: var(--gradient-dwx); border-color: transparent; }
+  .kpi-card.kpi-dwx .label { color: rgba(12,26,0,0.72); }
+  .kpi-card.kpi-dwx .value { color: #0a1600; }
+  .kpi-card.kpi-dwx .sub { color: rgba(12,26,0,0.66); }
 
   /* ═══════════ HERO KPI — Capital Total ═══════════ */
   .hero-kpi {
@@ -506,32 +419,28 @@
   }
   .hero-kpi { animation: slideUp 0.5s ease backwards; }
   .hero-card {
-    animation: holoBorder 6s ease infinite, holoGlow 4s ease infinite;
     background:var(--bg-card); border:1px solid var(--border);
-    border-radius:16px; padding:28px; position:relative; overflow:hidden;
-    transition:transform 0.2s, box-shadow 0.2s;
+    border-radius:var(--radius); padding:26px 28px; position:relative; overflow:hidden;
+    transition:transform 0.18s ease, box-shadow 0.18s ease;
+    box-shadow:0 8px 22px rgba(0,0,0,0.22);
   }
-  .hero-card:hover { transform:translateY(-2px); box-shadow:0 8px 30px rgba(0,0,0,0.3); }
+  .hero-card:hover { transform:translateY(-3px); box-shadow:0 16px 34px rgba(0,0,0,0.32); }
   .hero-card.capital {
-    background: linear-gradient(135deg, rgba(16,185,129,0.08), rgba(6,182,212,0.06), rgba(99,102,241,0.06));
-    background-size: 200% 200%;
-    animation: holoBorder 6s ease infinite, holoGlow 4s ease infinite, holoShift 8s ease infinite;
-    border-color:rgba(16,185,129,0.3);
+    background: linear-gradient(158deg, rgba(24,201,139,0.14), rgba(24,182,212,0.05) 62%), var(--bg-card);
+    border-color: rgba(24,201,139,0.28);
   }
   .hero-card.capital::before {
     content:''; position:absolute; top:0; left:0; right:0; height:3px;
-    background:linear-gradient(90deg, #10b981, #06b6d4, #6366f1, #a78bfa, #10b981);
-    background-size:300% 100%;
-    animation:holoShift 4s linear infinite;
+    background: linear-gradient(90deg, var(--positive), var(--accent-nas));
   }
-  .hero-card .hero-label { font-size:0.72rem; font-weight:600; text-transform:uppercase; letter-spacing:1.2px; color:var(--text-secondary); margin-bottom:10px; }
-  .hero-card .hero-value { font-size:2.2rem; font-weight:800; letter-spacing:-1px; line-height:1.1; }
+  .hero-card .hero-label { font-size:0.7rem; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:var(--text-secondary); margin-bottom:12px; }
+  .hero-card .hero-value { font-size:2.1rem; font-weight:800; letter-spacing:-0.03em; line-height:1.1; color:var(--text-primary); font-variant-numeric:tabular-nums; }
   .hero-card .hero-sub { font-size:0.78rem; color:var(--text-secondary); margin-top:8px; }
   .hero-card .hero-badge {
-    display:inline-block; padding:4px 12px; border-radius:20px; font-size:0.72rem; font-weight:700; margin-top:8px;
+    display:inline-block; padding:4px 12px; border-radius:8px; font-size:0.72rem; font-weight:700; margin-top:10px;
   }
-  .hero-badge.pos { background:rgba(16,185,129,0.12); color:#10b981; }
-  .hero-badge.neg { background:rgba(239,68,68,0.12); color:#ef4444; }
+  .hero-badge.pos { background:rgba(34,201,138,0.14); color:var(--positive); }
+  .hero-badge.neg { background:rgba(255,93,108,0.14); color:var(--negative); }
 
   /* Win rate donut */
   .donut-wrap { display:flex; align-items:center; gap:20px; margin-top:8px; }
@@ -1887,7 +1796,7 @@ function buildRealKPIs() {
     });
   }
   document.getElementById('kpiReal').innerHTML = kpis.map(k =>
-    `<div class="kpi-card"><div class="stripe ${k.c}"></div><div class="label">${k.l}</div><div class="value" style="color:${k.vc}">${k.v}</div><div class="sub">${k.s}</div></div>`
+    kpiHTML(k)
   ).join('');
 }
 
@@ -1909,6 +1818,16 @@ function toggleAdvanced() {
 // Calcule sur le COMPTE COMPLET (tous les trades + dépôts + frais + dividendes),
 // indépendamment du filtre actif : Darwinex évalue le compte/DARWIN entier.
 // Le TWR neutralise l'effet des dépôts étalés (comme la courbe cotée d'un DARWIN).
+// Rendu unifié d'une card KPI. Mix couleur : couleur par catégorie (dax/nas/merged/green),
+// ROUGE si la valeur est négative (perte/drawdown), lime pour le groupe Darwinex (kpi-dwx).
+function kpiHTML(k) {
+  const cat = (k.c || 'stripe-merged').replace('stripe-', '');
+  const isDwx = /kpi-dwx/.test(k.cls || '');
+  const neg = !isDwx && /negative/.test(k.vc || '');
+  const cls = 'kpi-card kpi-' + (neg ? 'neg' : cat) + (k.cls ? ' ' + k.cls : '');
+  const tip = k.t ? ` title="${k.t.replace(/"/g, "'")}" style="cursor:help"` : '';
+  return `<div class="${cls}"${tip}><div class="label">${k.l}</div><div class="value">${k.v}</div><div class="sub">${k.s}</div></div>`;
+}
 function computeDarwinexTWR() {
   const trades = (typeof realTrades !== 'undefined' && realTrades) ? realTrades : [];
   if (!trades.length) return null;
@@ -2114,7 +2033,7 @@ function buildAdvancedKPIs() {
     { l:'Track record', v:dwxMonths.toFixed(1)+' mois', s:dwxGoldTrack?'GOLD > 8 mois ✓':('GOLD > 8 mois · reste '+Math.max(0,dwxTrackLeft).toFixed(1)), c:'stripe-nas', vc:dwxGoldTrack?'var(--positive)':'#f59e0b', t:dwxTipTrack, cls:'kpi-dwx' },
   ];
   document.getElementById('kpiAdvancedReal').innerHTML = kpis.map(k =>
-    `<div class="kpi-card ${k.cls||''}"${k.t?` title="${k.t.replace(/"/g,"'")}" style="cursor:help"`:''}><div class="stripe ${k.c}"></div><div class="label">${k.l}</div><div class="value" style="color:${k.vc}">${k.v}</div><div class="sub">${k.s}</div></div>`
+    kpiHTML(k)
   ).join('');
 }
 
@@ -2220,7 +2139,7 @@ function buildAdvancedKPIsBt(suffix, daxD, nasD, slice, totalCapital) {
     { l:'Moy. Mensuelle', v:(avgMonthly>=0?'+':'')+avgMonthly.toFixed(2)+' %', s:winMonths.length+' mois gagnants / '+lossMonths.length+' perdants', c:'stripe-merged', vc:avgMonthly>=0?'var(--positive)':'var(--negative)' },
   ];
   container.innerHTML = kpis.map(k =>
-    `<div class="kpi-card"><div class="stripe ${k.c}"></div><div class="label">${k.l}</div><div class="value" style="color:${k.vc}">${k.v}</div><div class="sub">${k.s}</div></div>`
+    kpiHTML(k)
   ).join('');
 }
 
@@ -4183,7 +4102,7 @@ function buildKPIs(containerId, daxD, nasD, slice, totalCapital) {
     { l:'Max DD Combiné', v:`${ddC}%`, s:`${nbMonths} mois analysés`, c:'stripe-merged', vc:'var(--negative)' },
   ];
   document.getElementById(containerId).innerHTML = kpis.map(k =>
-    `<div class="kpi-card"><div class="stripe ${k.c}"></div><div class="label">${k.l}</div><div class="value" style="color:${k.vc}">${k.v}</div><div class="sub">${k.s}</div></div>`
+    kpiHTML(k)
   ).join('');
 }
 
