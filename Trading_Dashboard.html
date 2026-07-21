@@ -6394,15 +6394,21 @@ let dwxSelectedCell = null;
 function dwxDarwinDates() {
   return Object.keys(darwinexDaily || {}).filter(k => /^\d{4}-\d{2}-\d{2}$/.test(k) && darwinexDaily[k] && darwinexDaily[k].darwins).sort();
 }
+function dwxIsWeekday(k) { const g = new Date(k + 'T12:00:00').getDay(); return g >= 1 && g <= 5; }
 function dwxPrevDarwinDate(date) {
-  const dd = dwxDarwinDates().filter(k => k < date);
-  return dd.length ? dd[dd.length - 1] : null;
+  // Baseline du détail = jour DARWIN précédent EN SEMAINE (on saute le week-end).
+  // Les tuiles du calendrier sont en semaine et absorbent le P&L du week-end
+  // (voir dwxComputeDaily : le lundi = vendredi→lundi). Le détail par DARWIN doit
+  // couvrir la MÊME fenêtre, sinon la Σ par DARWIN et le P&L de la tuile divergent.
+  const all = dwxDarwinDates().filter(k => k < date);
+  const wd = all.filter(dwxIsWeekday);
+  return wd.length ? wd[wd.length - 1] : (all.length ? all[all.length - 1] : null);
 }
 function dwxCloseDetail() {
   ['dwx-day-detail', 'dwx-month-detail'].forEach(id => { const p = document.getElementById(id); if (p) { p.classList.remove('visible'); p.textContent = ''; } });
   if (dwxSelectedCell) { dwxSelectedCell.classList.remove('selected'); dwxSelectedCell = null; }
 }
-function dwxRenderDetail(panelId, titleLabel, rows, totalPnl, note) {
+function dwxRenderDetail(panelId, titleLabel, rows, totalPnl, note, recon) {
   const panel = document.getElementById(panelId);
   if (!panel) return;
   let h = `<div class="detail-header"><h4>🐦 ${titleLabel}</h4><span class="detail-close" onclick="dwxCloseDetail()">✕</span></div>`;
@@ -6415,7 +6421,14 @@ function dwxRenderDetail(panelId, titleLabel, rows, totalPnl, note) {
     }
     h += '</tbody></table>';
     const tc = totalPnl >= 0 ? 'var(--positive)' : 'var(--negative)';
-    h += `<div class="day-detail-summary"><span><strong>Total DARWINs :</strong> <span style="color:${tc};font-weight:700">${totalPnl >= 0 ? '+' : ''}${totalPnl.toFixed(2)} €</span></span></div>`;
+    h += '<div class="day-detail-summary">';
+    h += `<span><strong>Σ DARWINs (latent) :</strong> <span style="color:${tc};font-weight:700">${totalPnl >= 0 ? '+' : ''}${totalPnl.toFixed(2)} €</span></span>`;
+    if (recon && isFinite(recon.netDay)) {
+      const nc = recon.netDay >= 0 ? 'var(--positive)' : 'var(--negative)';
+      const resid = recon.netDay - totalPnl;
+      h += `<span style="margin-left:18px;color:var(--text-secondary)">P&L net ${recon.periodLabel || 'du jour'} <span style="color:${nc};font-weight:700">${recon.netDay >= 0 ? '+' : ''}${recon.netDay.toFixed(2)} €</span> <span style="opacity:0.72">· écart frais/réalisé ${resid >= 0 ? '+' : ''}${resid.toFixed(2)} €</span></span>`;
+    }
+    h += '</div>';
   }
   dwxHTML(panel, h);
   panel.classList.add('visible');
@@ -6455,7 +6468,9 @@ function dwxShowDayDetail(dateStr, cellEl) {
   }
   const prevDate = dwxPrevDarwinDate(dateStr);
   const { rows, total } = dwxBreakdown(darwins, prevDate ? darwinexDaily[prevDate].darwins : null);
-  dwxRenderDetail('dwx-day-detail', label, rows, total, prevDate ? null : '1er jour de collecte : P&L ouvert cumulé affiché (pas de variation de la veille).');
+  dwxRenderDetail('dwx-day-detail', label, rows, total,
+    prevDate ? null : '1er jour de collecte : P&L ouvert cumulé affiché (pas de variation de la veille).',
+    prevDate ? { netDay: totalDay, periodLabel: 'du jour' } : null);
 }
 function dwxShowMonthDetail(ym, cellEl) {
   if (dwxSelectedCell === cellEl) { dwxCloseDetail(); return; }
@@ -6475,7 +6490,9 @@ function dwxShowMonthDetail(ym, cellEl) {
   const monthEnd = inMonth[inMonth.length - 1];
   const startRef = dwxPrevDarwinDate(inMonth[0]);
   const { rows, total } = dwxBreakdown(darwinexDaily[monthEnd].darwins, startRef ? darwinexDaily[startRef].darwins : null);
-  dwxRenderDetail('dwx-month-detail', label, rows, total, startRef ? null : 'Depuis le 1er relevé par DARWIN du mois.');
+  dwxRenderDetail('dwx-month-detail', label, rows, total,
+    startRef ? null : 'Depuis le 1er relevé par DARWIN du mois.',
+    startRef ? { netDay: totalMonth, periodLabel: 'du mois' } : null);
 }
 
 // Intègre Darwinex comme PLATEFORME du portfolio (compte dans Capital Brut,
