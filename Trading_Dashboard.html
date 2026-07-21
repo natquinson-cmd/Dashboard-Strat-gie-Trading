@@ -1622,7 +1622,30 @@ function computeRealReturnMetrics() {
   const twrPct = (idx - 1) * 100;
   const totalDeposits = (typeof getTotalDeposits === 'function') ? getTotalDeposits() : deps.reduce((s, d) => s + (d.amount || 0), 0);
   const cashPct = totalDeposits > 0 ? (cum / totalDeposits * 100) : 0;
-  return { twrPct, ddRetPct: maxDDret * 100, cashPct, gapPts: twrPct - cashPct };
+  const curDDretPct = peak > 0 ? ((peak - idx) / peak) * 100 : 0; // drawdown TWR actuel (distance au plus haut)
+  return { twrPct, ddRetPct: maxDDret * 100, curDDretPct, cashPct, gapPts: twrPct - cashPct };
+}
+
+// Rendements TWR JOURNALIERS d'un jeu de trades (base = equity du matin : dépôts,
+// dividendes et frais À LEUR DATE + P&L cumulé des trades passés du même jeu).
+// C'est la brique des % du calendrier / heatmap / graphe de drawdown : un même %
+// pèse son vrai poids quel que soit le capital du moment, un dépôt ne dilue rien.
+function realTWRDaily(trades) {
+  const dayData = aggregateByDay(trades);
+  const flows = {};
+  const addF = (d, v) => { if (d) flows[d] = (flows[d] || 0) + v; };
+  (realDeposits || []).forEach(x => addF(x.date, x.amount || 0));
+  (realDividends || []).forEach(x => addF(x.date, x.amount || 0));
+  (realFees || []).forEach(x => addF(x.date, x.amount || 0));
+  const days = [...new Set([...Object.keys(dayData), ...Object.keys(flows)])].sort();
+  let eq = 0; const r = {}, baseByDay = {};
+  for (const d of days) {
+    eq += flows[d] || 0;
+    const pnl = dayData[d] ? dayData[d].pnl : 0;
+    if (eq > 0 && dayData[d]) { r[d] = pnl / eq; baseByDay[d] = eq; }
+    eq += pnl;
+  }
+  return { r, baseByDay };
 }
 
 function buildRealKPIs() {
@@ -1664,8 +1687,9 @@ function buildRealKPIs() {
   const totalDeposits = getTotalDeposits();
   const totalFees = getTotalFees();
   const capitalActuel = totalDeposits + totalAll + totalDiv + totalFees;
-  const capitalBase = totalDeposits > 0 ? totalDeposits : 1; // évite division par zéro
-  const perfPct = totalDeposits > 0 ? (totalAll / capitalBase * 100) : 0;
+  // % en TWR (rendement pondéré temps, dépôts neutralisés à leur date) — les € restent cash
+  const rmHero = computeRealReturnMetrics();
+  const perfPct = rmHero ? rmHero.twrPct : 0;
 
   // ── ATH du CAPITAL : courbe d'equity chronologique (dépôts + trades + dividendes + frais) ──
   const equityEvents = [];
@@ -1682,7 +1706,7 @@ function buildRealKPIs() {
     : '';
   // capitalActuel = dernier point de la courbe ; athCapital = plus haut atteint (>= capitalActuel)
   const distToAthEUR = capitalActuel - athCapital; // <= 0
-  const distToAthPct = athCapital > 0 ? (distToAthEUR / athCapital * 100) : 0;
+  const distToAthPct = rmHero ? -rmHero.curDDretPct : 0; // distance au plus haut en TWR (négatif)
   const isATH = realTrades.length > 0 && capitalActuel >= athCapital - 0.5 && capitalActuel > 0;
 
   // Donut SVG for win rate
@@ -1703,14 +1727,14 @@ function buildRealKPIs() {
         <div class="hero-value" style="background:linear-gradient(135deg,${totalAll>=0?'#1d9e74,#34d399':'#dd5f66,#f87171'});-webkit-background-clip:text;-webkit-text-fill-color:transparent;">
           ${fmt(Math.round(capitalActuel))} €
         </div>
-        <span class="hero-badge ${perfPct>=0?'pos':'neg'}" style="font-size:0.95rem;padding:5px 14px;">${perfPct>=0?'+':''}${perfPct.toFixed(2)}%</span>
+        <span class="hero-badge ${perfPct>=0?'pos':'neg'}" style="font-size:0.95rem;padding:5px 14px;" title="Rendement pondéré temps (TWR) : dépôts neutralisés à leur date">${perfPct>=0?'+':''}${perfPct.toFixed(2)}% <span style="font-size:0.62rem;opacity:0.75;">TWR</span></span>
       </div>
       <div style="font-size:0.92rem;color:var(--text-secondary);margin-top:8px;">Capital versé : ${fmt(totalDeposits)} € · <span style="color:var(--negative)">Frais : ${fmt(Math.round(totalFees))} €</span></div>
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:10px;padding-top:10px;border-top:1px solid rgba(34,49,77,0.08);font-size:0.9rem;">
         <span style="color:var(--text-secondary);">ATH : <strong style="color:var(--text-primary);font-weight:700;">${fmt(Math.round(athCapital))} €</strong>${athDateLabel ? ` <span style="opacity:0.7;">(${athDateLabel})</span>` : ''}</span>
         ${isATH
           ? '<span style="color:var(--positive);font-weight:600;display:inline-flex;align-items:center;gap:4px;">· Au plus haut</span>'
-          : `<span style="color:var(--negative);font-weight:600;">· ${fmt(Math.round(distToAthEUR))} € (${distToAthPct.toFixed(2)}%)</span>`}
+          : `<span style="color:var(--negative);font-weight:600;">· ${fmt(Math.round(distToAthEUR))} € (${distToAthPct.toFixed(2)}% TWR)</span>`}
       </div>
     </div>
     <div class="hero-card" style="position:relative;">
@@ -1767,22 +1791,23 @@ function buildRealKPIs() {
   // ── KPI GRID (smaller cards) ──
   const pfColor = pf >= 1 ? 'var(--positive)' : 'var(--negative)';
   const rrColor = rr >= 1 ? 'var(--positive)' : 'var(--negative)';
+  const rmDD = computeRealReturnMetrics(); // métriques TWR partagées (cards Drawdown + Rdt)
   const kpis = [
     { l:'Profit Factor', v:pf === Infinity ? '∞' : pf.toFixed(2), s:'Gains / Pertes brutes', c:'stripe-merged', vc:pfColor },
     { l:'Risk/Reward', v:rr === Infinity ? '∞' : rr.toFixed(2), s:'Gain moy / Perte moy', c:'stripe-nas', vc:rrColor },
     { l:'Gain Moyen', v:'+'+avgWin.toFixed(2)+' €', s:'Max : +'+best.toFixed(2)+' €', c:'stripe-green', vc:'var(--positive)' },
     { l:'Perte Moyenne', v:avgLoss.toFixed(2)+' €', s:'Max : '+worst.toFixed(2)+' €', c:'stripe-dax', vc:'var(--negative)' },
-    { l:'Drawdown Max', v:'-'+maxDD.toFixed(2)+' €', s:totalDeposits > 0 ? '-'+(maxDD/totalDeposits*100).toFixed(2)+'% du capital' : '', c:'stripe-dax', vc:'var(--negative)' },
+    { l:'Drawdown Max', v:'-'+maxDD.toFixed(2)+' €', s:rmDD ? '-'+rmDD.ddRetPct.toFixed(1)+'% en rendement (TWR)' : '', c:'stripe-dax', vc:'var(--negative)' },
     { l:'Dividendes', v:(totalDiv>=0?'+':'')+totalDiv.toFixed(2)+' €', s:realDividends.length+' versement(s)', c:'stripe-green', vc:totalDiv>=0?'var(--positive)':'var(--negative)' },
   ];
 
   // ── Rendement neutre au capital (TWR) + drawdown en rendement ──
-  const rm = computeRealReturnMetrics();
+  const rm = rmDD;
   if (rm) {
     kpis.push({
       l:'Rdt pondéré temps', v:(rm.twrPct>=0?'+':'')+rm.twrPct.toFixed(1)+'%',
       s:'Cash '+(rm.cashPct>=0?'+':'')+rm.cashPct.toFixed(1)+'% · écart '+(rm.gapPts>=0?'+':'')+Math.round(rm.gapPts)+' pts',
-      c:'stripe-merged', vc: rm.twrPct>=0?'var(--positive)':'var(--negative)'
+      c:'stripe-green', vc: rm.twrPct>=0?'var(--positive)':'var(--negative)'
     });
     kpis.push({
       l:'Drawdown rendement', v:'-'+rm.ddRetPct.toFixed(1)+'%',
@@ -2902,10 +2927,8 @@ function buildDailyCalendar() {
 
   const isInMonth = dt => dt.getMonth() === calMonth && dt.getFullYear() === calYear;
 
-  // runningCap pour le mode % : rembobiner le capital avant les jours débordants du début
-  let leadingSum = 0;
-  for (const dt of dates) { if (isInMonth(dt)) break; const v = dayData[ymd(dt)]; if (v) leadingSum += v.pnl; }
-  let runningCap = startCap - leadingSum;
+  // Mode % : rendements TWR journaliers (base = equity du matin, dépôts datés)
+  const twrCal = realTWRDaily(trades);
 
   // Max |pnl| sur tous les jours affichés (intensité du dégradé)
   const maxAbsPnl = Math.max(1, ...dates.map(dt => { const v = dayData[ymd(dt)]; return v ? Math.abs(v.pnl) : 0; }));
@@ -2916,11 +2939,12 @@ function buildDailyCalendar() {
   });
 
   let totalWinDays = 0, totalLossDays = 0, totalTradeDays = 0;
-  let weekTotal = 0;
+  let weekTotal = 0, weekFactor = 1, monthFactor = 1;
 
   function emitWeekTotal() {
     const sign = weekTotal >= 0 ? '+' : '';
-    const weekDisp = showPct ? `${sign}${(startCap>0?(weekTotal/startCap*100):0).toFixed(2)}%` : `${sign}${weekTotal.toFixed(0)}€`;
+    const weekPct = (weekFactor - 1) * 100; // TWR composé de la semaine
+    const weekDisp = showPct ? `${weekPct>=0?'+':''}${weekPct.toFixed(2)}%` : `${sign}${weekTotal.toFixed(0)}€`;
     const wtIntensity = Math.min(Math.abs(weekTotal) / (maxAbsPnl * 3 || 1), 1);
     const wtBg = weekTotal >= 0
       ? `rgba(29,158,116,${(0.12 + wtIntensity * 0.55).toFixed(2)})`
@@ -2929,7 +2953,7 @@ function buildDailyCalendar() {
     html += `<div class="day-cell week-total" style="background:${wtBg}">
       <span class="day-pnl" style="color:${wtColor}">${weekDisp}</span>
     </div>`;
-    weekTotal = 0;
+    weekTotal = 0; weekFactor = 1;
   }
 
   dates.forEach(dateObj => {
@@ -2945,15 +2969,17 @@ function buildDailyCalendar() {
       if (inMonth) { totalTradeDays++; if (data.pnl >= 0) totalWinDays++; else totalLossDays++; }
       const cls = data.pnl >= 0 ? 'win' : 'loss';
       const sign = data.pnl >= 0 ? '+' : '';
+      const rDay = twrCal.r[dateStr] || 0; // rendement TWR du jour
       let displayVal;
       if (showPct) {
-        const pct = runningCap > 0 ? (data.pnl / runningCap * 100) : 0;
-        displayVal = `${sign}${pct.toFixed(2)}%`;
+        const pct = rDay * 100;
+        displayVal = `${pct>=0?'+':''}${pct.toFixed(2)}%`;
       } else {
         displayVal = `${sign}${data.pnl.toFixed(0)}€`;
       }
-      runningCap += data.pnl;
       weekTotal += data.pnl; // le total hebdo inclut les jours débordants
+      weekFactor *= (1 + rDay);
+      if (inMonth) monthFactor *= (1 + rDay);
       const intensity = maxAbsPnl > 0 ? 0.08 + (Math.abs(data.pnl) / maxAbsPnl) * 0.37 : 0.12;
       const bgColor = data.pnl >= 0
         ? `rgba(29,158,116,${intensity.toFixed(2)})`
@@ -2978,9 +3004,9 @@ function buildDailyCalendar() {
   const monthTotal = Object.entries(dayData)
     .filter(([d]) => d.startsWith(prefix))
     .reduce((a, [,v]) => a + v.pnl, 0);
-  const monthPct = startCap > 0 ? (monthTotal / startCap * 100).toFixed(2) : '0';
+  const monthPctNum = (monthFactor - 1) * 100; // TWR composé du mois
   const monthDisplay = showPct
-    ? `${monthTotal>=0?'+':''}${monthPct}%`
+    ? `${monthPctNum>=0?'+':''}${monthPctNum.toFixed(2)}%`
     : `${monthTotal>=0?'+':''}${monthTotal.toFixed(2)} €`;
   document.getElementById('dayStats').innerHTML = `
     <div class="stat-item"><span class="stat-dot green"></span>${totalWinDays} jours gagnants (${winPct}%)</div>
@@ -3094,10 +3120,18 @@ function buildMonthlyHeatReal() {
   const mh = ['Année', ...monthNames, 'Total'];
   let html = '<table class="heatmap-table"><thead><tr>' + mh.map(h=>`<th>${h}</th>`).join('') + '</tr></thead><tbody>';
 
+  // % TWR par mois : composition des rendements journaliers (dépôts datés neutralisés)
+  const twrHeat = realTWRDaily(trades);
+  const monthFactorMap = {};
+  for (const [d, rv] of Object.entries(twrHeat.r)) {
+    const ym = d.slice(0, 7);
+    monthFactorMap[ym] = (monthFactorMap[ym] || 1) * (1 + rv);
+  }
+
   let totalWinMonths = 0, totalLossMonths = 0, totalMonths = 0;
   for (const y of years) {
     html += '<tr><td class="year-cell">' + y + '</td>';
-    let yearTotal = 0, yearTotalPct = 0;
+    let yearTotal = 0, yearFactor = 1;
     for (let m = 0; m < 12; m++) {
       const key = `${y}-${String(m+1).padStart(2,'0')}`;
       const data = monthData[key];
@@ -3105,9 +3139,8 @@ function buildMonthlyHeatReal() {
         totalMonths++;
         if (data.pnl >= 0) totalWinMonths++; else totalLossMonths++;
         yearTotal += data.pnl;
-        const capStart = capitalAtMonth(y, m);
-        const pct = capStart > 0 ? (data.pnl / capStart * 100) : 0;
-        yearTotalPct += pct;
+        const pct = ((monthFactorMap[key] || 1) - 1) * 100; // TWR du mois
+        yearFactor *= (monthFactorMap[key] || 1);
         const intensityRef = showPct ? Math.abs(pct) / 8 : Math.abs(data.pnl) / 500;
         const intensity = Math.min(intensityRef, 1);
         const bg = data.pnl >= 0
@@ -3121,8 +3154,9 @@ function buildMonthlyHeatReal() {
         html += '<td style="background:rgba(34,49,77,0.05);color:#94a0b4;">—</td>';
       }
     }
-    const totVal = showPct ? yearTotalPct : yearTotal;
-    const tI = Math.min(Math.abs(showPct ? yearTotalPct/10 : yearTotal/1000), 1);
+    const yearPctTWR = (yearFactor - 1) * 100; // TWR annuel = composition des mois
+    const totVal = showPct ? yearPctTWR : yearTotal;
+    const tI = Math.min(Math.abs(showPct ? yearPctTWR/10 : yearTotal/1000), 1);
     const totBg = totVal >= 0
       ? `rgba(29,158,116,${(0.12+tI*0.55).toFixed(2)})`
       : `rgba(221,95,102,${(0.12+tI*0.55).toFixed(2)})`;
@@ -3799,78 +3833,44 @@ function parseCsvText(csvText) {
 
 // ── Drawdown Chart ──
 function buildDrawdownChart() {
-  // Compute drawdown series for a set of trades
-  function computeDrawdown(trades, initialCap) {
-    const sorted = [...trades].sort((a,b) => a[0].localeCompare(b[0]));
-    const dayMap = {};
-    for (const [d, , g] of sorted) {
-      if (!dayMap[d]) dayMap[d] = 0;
-      dayMap[d] += g;
-    }
-    const days = Object.keys(dayMap).sort();
-    let equity = initialCap;
-    let peak = initialCap;
-    const labels = [], values = [], rawDates = [];
-    let lastYM = '';
-    for (const d of days) {
-      equity += dayMap[d];
-      if (equity > peak) peak = equity;
-      const dd = peak > 0 ? ((equity - peak) / peak) * 100 : 0;
-      const day = parseInt(d.substring(8));
-      const mm = parseInt(d.substring(5,7));
-      const yy = d.substring(2,4);
-      const ym = d.substring(0,7);
-      labels.push(ym !== lastYM ? day + ' ' + monthNames[mm-1] + ' ' + yy : day + ' ' + monthNames[mm-1]);
-      lastYM = ym;
-      rawDates.push(d);
+  // Drawdown en RENDEMENT (TWR) : indice multiplicatif des rendements journaliers,
+  // dépôts/flux neutralisés À LEUR DATE (base = equity du matin). L'ancienne version
+  // supposait tout le capital présent dès le 1er jour, ce qui sous-estimait les
+  // drawdowns de la période petit capital et ne collait à aucune réalité du compte.
+  function computeDrawdownTWR(trades, masterDaysList) {
+    const twr = realTWRDaily(trades);
+    let idx = 1, peak = 1;
+    const values = [];
+    for (const d of masterDaysList) {
+      if (twr.r[d] !== undefined) idx *= (1 + twr.r[d]);
+      if (idx > peak) peak = idx;
+      const dd = ((idx - peak) / peak) * 100;
       values.push(Math.round(dd * 100) / 100);
     }
-    return { labels, values, rawDates };
+    return values;
   }
 
-  const initCap = getTotalDeposits();
   const filteredTrades = getFilteredTrades();
 
-  // Compute for all, DAX, NASDAQ
-  const allData = computeDrawdown(filteredTrades, initCap);
+  // Timeline maîtresse = tous les jours de trade du jeu filtré
+  const masterRawDates = [...new Set(filteredTrades.map(t => t[0]))].sort();
+  let lastYM = '';
+  const masterDays = masterRawDates.map(d => {
+    const day = parseInt(d.substring(8));
+    const mm = parseInt(d.substring(5,7));
+    const yy = d.substring(2,4);
+    const ym = d.substring(0,7);
+    const lab = ym !== lastYM ? day + ' ' + monthNames[mm-1] + ' ' + yy : day + ' ' + monthNames[mm-1];
+    lastYM = ym;
+    return lab;
+  });
 
   const daxTrades = filteredTrades.filter(t => t[1] === 'DAX');
   const nasTrades = filteredTrades.filter(t => t[1] === 'NASDAQ');
 
-  // Use same timeline (allData.labels) for alignment
-  const masterDays = allData.labels;
-  const masterRawDates = allData.rawDates;
-
-  // For per-asset: compute full series then align to master labels
-  function alignToMaster(trades) {
-    const sorted = [...trades].sort((a,b) => a[0].localeCompare(b[0]));
-    const dayMap = {};
-    for (const [d, , g] of sorted) {
-      if (!dayMap[d]) dayMap[d] = 0;
-      dayMap[d] += g;
-    }
-    // Need full dates for alignment
-    const allSorted = [...filteredTrades].sort((a,b) => a[0].localeCompare(b[0]));
-    const allDayMap = {};
-    for (const [d] of allSorted) {
-      if (!allDayMap[d]) allDayMap[d] = true;
-    }
-    const allDays = Object.keys(allDayMap).sort();
-
-    let equity = initCap;
-    let peak = initCap;
-    const result = [];
-    for (const d of allDays) {
-      if (dayMap[d]) equity += dayMap[d];
-      if (equity > peak) peak = equity;
-      const dd = peak > 0 ? ((equity - peak) / peak) * 100 : 0;
-      result.push(Math.round(dd * 100) / 100);
-    }
-    return result;
-  }
-
-  const daxValues = alignToMaster(daxTrades);
-  const nasValues = alignToMaster(nasTrades);
+  const allData = { labels: masterDays, values: computeDrawdownTWR(filteredTrades, masterRawDates), rawDates: masterRawDates };
+  const daxValues = computeDrawdownTWR(daxTrades, masterRawDates);
+  const nasValues = computeDrawdownTWR(nasTrades, masterRawDates);
 
   const datasets = [
     {
