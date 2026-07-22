@@ -4908,7 +4908,9 @@ function migrateRobotToTradingAuto(d) {
     d.platforms[idx] = nw;
     if (d.interests[old]) { d.interests[nw] = d.interests[old]; delete d.interests[old]; }
     if (d.principal[old]) { d.principal[nw] = d.principal[old]; delete d.principal[old]; }
-    if (d.repartition) {
+    // `repartition` est un OBJET (capital/history), pas une liste de plateformes :
+    // appeler .indexOf dessus levait une TypeError en pleine migration.
+    if (Array.isArray(d.repartition)) {
       const ri = d.repartition.indexOf(old);
       if (ri !== -1) d.repartition[ri] = nw;
     }
@@ -5132,13 +5134,37 @@ function invGetRepPct(member) { const t = invGetRepTotal(); return t > 0 ? (invG
 // Seuls le dernier mois clôturé et le précédent sont modifiables (pas d'édition
 // rétroactive au-delà : elle réécrirait un passé dont dépend tout l'historique).
 function invRepEditableMonths() {
-  const last = invLastCompletedMonth();
+  const months = portfolioData.months || [];
+  const now = new Date();
+  const curYM = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+  let last = -1;
+  for (let i = months.length - 1; i >= 0; i--) { if (months[i] < curYM) { last = i; break; } }
+  if (last < 0) return []; // aucun mois clôturé : rien à mettre à jour
   const out = [];
   if (last - 1 >= 0) out.push(last - 1);
-  if (last >= 0) out.push(last);
+  out.push(last);
   return out;
 }
-function invRepMonthAllowed(mi) { return invRepEditableMonths().indexOf(Number(mi)) !== -1; }
+function invRepMonthAllowed(mi) {
+  const n = Number(mi);
+  return Number.isInteger(n) && invRepEditableMonths().indexOf(n) !== -1;
+}
+// Un dépôt/retrait a lieu MAINTENANT : le mois courant doit rester saisissable,
+// sinon tout ajustement serait forcément mal daté (et casserait la chronologie).
+function invRepAdjustableMonths() {
+  const months = portfolioData.months || [];
+  const out = invRepEditableMonths().slice();
+  const now = new Date();
+  const curYM = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+  const ci = months.indexOf(curYM);
+  const cur = ci >= 0 ? ci : months.length - 1;
+  if (cur >= 0 && out.indexOf(cur) === -1) out.push(cur);
+  return out.sort((a, b) => a - b);
+}
+function invRepAdjMonthAllowed(mi) {
+  const n = Number(mi);
+  return Number.isInteger(n) && invRepAdjustableMonths().indexOf(n) !== -1;
+}
 
 function invRepHist() { const rep = invGetRep(); return (rep.history || []); }
 
@@ -5150,6 +5176,8 @@ function invRepUpdateIdx(hist, ym) {
 
 // Capitaux par personne juste AVANT la mise à jour du mois ym : ce sont ces
 // parts-là qui servent à répartir, pas celles d'aujourd'hui.
+// Renvoie NULL si rien ne précède ce mois : on refuse alors de répartir plutôt
+// que de retomber sur les parts d'aujourd'hui (c'était précisément le bug).
 function invRepStateBefore(hist, ym) {
   const u = invRepUpdateIdx(hist, ym);
   const stop = u >= 0 ? u : hist.length;
@@ -5160,29 +5188,57 @@ function invRepStateBefore(hist, ym) {
     if (u < 0 && e.date > ym) break; // mois pas encore saisi : on s'arrête à ym
     ref = e;
   }
+  if (!ref) return null;
   const st = {};
-  INV_REP_MEMBERS.forEach(m => { st[m] = ref ? (Number(ref[m]) || 0) : (invGetRep().capital[m] || 0); });
+  INV_REP_MEMBERS.forEach(m => { st[m] = Number(ref[m]) || 0; });
   return st;
 }
 
-// Répartit un total selon des parts de référence (arrondis absorbés par "Moi")
+// Répartit un total selon des parts de référence. Le résidu d'arrondi va au plus
+// gros porteur (jamais à "Moi" par défaut : sa part peut être nulle -> négatif).
 function invRepDistribute(total, refState) {
+  const T = Math.round(Number(total) || 0);
   const rt = INV_REP_MEMBERS.reduce((s, m) => s + (refState[m] || 0), 0);
   const d = {};
-  INV_REP_MEMBERS.forEach(m => { d[m] = Math.round(total * (rt > 0 ? (refState[m] || 0) / rt : 1 / 3)); });
+  INV_REP_MEMBERS.forEach(m => { d[m] = Math.round(T * (rt > 0 ? (refState[m] || 0) / rt : 1 / 3)); });
   const s = INV_REP_MEMBERS.reduce((a, m) => a + d[m], 0);
-  d["Moi"] += Math.round(total) - s;
+  const big = INV_REP_MEMBERS.reduce((a, m) => (d[m] > d[a] ? m : a), INV_REP_MEMBERS[0]);
+  d[big] += T - s;
+  INV_REP_MEMBERS.forEach(m => { if (d[m] < 0) d[m] = 0; });
   return d;
 }
 
 // Valeurs à pré-remplir pour le mois mi : ce qui a été RÉELLEMENT saisi.
 function invRepPrefill(mi) {
   const ym = (portfolioData.months || [])[mi];
+  if (!ym) return { total: 0, interest: 0 };
   const hist = invRepHist();
   const u = invRepUpdateIdx(hist, ym);
   if (u >= 0) return { total: Math.round(Number(hist[u].total) || 0), interest: Math.round(Number(hist[u].interest) || 0) };
   const st = invRepStateBefore(hist, ym);
+  if (!st) return { total: 0, interest: 0 };
   return { total: Math.round(INV_REP_MEMBERS.reduce((s, m) => s + st[m], 0)), interest: 0 };
+}
+
+// Intérêts TOTAUX d'un mois, lus dans l'historique (repli : la part de Moi telle
+// quelle, jamais divisée par un pourcentage qui a changé depuis).
+function invRepMonthInterest(mi, fallbackMoi) {
+  const ym = (portfolioData.months || [])[mi];
+  if (!ym) return fallbackMoi || 0;
+  const hist = invRepHist();
+  const u = invRepUpdateIdx(hist, ym);
+  if (u >= 0) return Math.round(Number(hist[u].interest) || 0);
+  return fallbackMoi || 0;
+}
+
+// Les mouvements postérieurs sont-ils tous rejouables ? (une MAJ sans total
+// exploitable remettrait la cagnotte à zéro et propagerait des valeurs fausses)
+function invRepChainReplayable(hist, from) {
+  for (let i = from + 1; i < hist.length; i++) {
+    const e = hist[i];
+    if (e && e.type === 'update' && !(Number(e.total) > 0)) return false;
+  }
+  return true;
 }
 
 // Rejoue les mouvements situés APRÈS l'index `from` pour que l'état courant reste
@@ -5222,8 +5278,16 @@ function invSetLendermarketMonth(mi, moiCap, moiInterest) {
 
 // Reconstruit principal/intérêts Lendermarket ("Moi") depuis l'historique :
 // capital = dernier mouvement du mois, intérêts = part de Moi dans la MAJ du mois.
-function invRebuildLendermarketFromHistory() {
-  const hist = invRepHist(), months = portfolioData.months || [];
+// `fromMi` limite la réécriture aux mois >= à celui édité : les mois antérieurs
+// peuvent avoir été saisis à la main dans l'onglet Mise à jour, on n'y touche pas.
+// L'ordre est résolu par DATE (tri stable) et non par ordre d'insertion, sinon un
+// événement inséré hors chronologie ferait passer un mauvais "dernier du mois".
+function invRebuildLendermarketFromHistory(fromMi) {
+  const months = portfolioData.months || [];
+  const hist = invRepHist().slice()
+    .map((e, i) => ({ e, i }))
+    .sort((a, b) => String(a.e && a.e.date).localeCompare(String(b.e && b.e.date)) || (a.i - b.i))
+    .map(x => x.e);
   const lastByMonth = {}, updByMonth = {};
   hist.forEach(e => {
     if (!e || !e.date) return;
@@ -5233,6 +5297,7 @@ function invRebuildLendermarketFromHistory() {
   Object.keys(lastByMonth).forEach(ym => {
     const mi = months.indexOf(ym);
     if (mi < 0) return;
+    if (typeof fromMi === 'number' && mi < fromMi) return;
     const u = updByMonth[ym];
     const tot = u ? (Number(u.total) || 0) : 0;
     const inte = (u && tot > 0) ? Math.round((Number(u.interest) || 0) * ((Number(u["Moi"]) || 0) / tot)) : undefined;
@@ -6891,8 +6956,9 @@ function invRenderRepartition(t, li) {
   const rep = invGetRep();
   const totalCap = invGetRepTotal();
   const moiIntStored = (d.interests["Lendermarket"] || [])[li] || 0;
-  const moiPct = invGetRepPct("Moi");
-  const totalInterest = moiPct > 0 ? Math.round(moiIntStored / moiPct) : moiIntStored;
+  // Intérêts TOTAUX = ceux enregistrés dans l'historique du mois. Ne jamais les
+  // reconstituer en divisant la part de Moi par son pourcentage actuel.
+  const totalInterest = invRepMonthInterest(li, moiIntStored);
 
   let h = '<div class="inv-grid">';
   // 3 member cards
@@ -6950,15 +7016,18 @@ function invRenderRepartition(t, li) {
     const previewTotal = invRepForm.total || 0;
     const previewInt = invRepForm.interest || 0;
     // Parts de référence = celles en vigueur AVANT la MAJ de ce mois-là
-    const refSt = invRepStateBefore(invRepHist(), d.months[repMi]);
+    const refStRaw = invRepStateBefore(invRepHist(), d.months[repMi]);
+    const refSt = refStRaw || {};
     const refTot = INV_REP_MEMBERS.reduce((s, m) => s + (refSt[m] || 0), 0);
-    const distPrev = invRepDistribute(previewTotal, refSt);
+    const distPrev = refStRaw ? invRepDistribute(previewTotal, refSt) : {};
+    if (!refStRaw) h += '<div class="inv-info-box" style="margin-bottom:16px;border-color:rgba(221,95,102,0.3)"><div style="font-size:12px;color:#dd5f66">Aucun mouvement antérieur à ce mois : parts non reconstituables, la sauvegarde sera refusée.</div></div>';
     h += '<div class="inv-info-box" style="margin-bottom:16px"><div style="font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:12px">Aperçu de la répartition</div>';
     h += '<div class="inv-grid inv-grid-3" style="text-align:center">';
     INV_REP_MEMBERS.forEach(m => {
-      const pct2 = refTot > 0 ? (refSt[m] || 0) / refTot : 1 / 3;
-      const newCap = distPrev[m];
-      const memberInt2 = Math.round(previewInt * pct2);
+      const newCap = distPrev[m] || 0;
+      // même dénominateur que la sauvegarde (part APRÈS répartition), sinon
+      // l'aperçu et la valeur enregistrée diffèrent d'un euro
+      const memberInt2 = previewTotal > 0 ? Math.round(previewInt * (newCap / previewTotal)) : 0;
       const delta = newCap - (refSt[m] || 0);
       h += `<div><div style="font-size:12px;color:var(--text-secondary)">${m}</div><div style="font-size:14px;font-weight:600">${invFmt(newCap)}</div>`;
       h += `<div style="font-size:12px;color:${delta >= 0 ? '#1d9e74' : '#dd5f66'}">${delta >= 0 ? '+' : ''}${invFmt(delta)}</div>`;
@@ -6979,9 +7048,9 @@ function invRenderRepartition(t, li) {
     const adjMi = invRepForm.adjMonth !== undefined ? invRepForm.adjMonth : invLastCompletedMonth();
     h += '<div style="margin-bottom:16px"><label style="font-size:12px;font-weight:500;color:var(--text-secondary);margin-right:8px">Mois de l\'ajustement :</label>';
     h += '<select class="inv-select" style="display:inline-block;width:auto;min-width:160px" onchange="invRepForm.adjMonth=Number(this.value);renderPortfolioTab(\'repartition\')">';
-    invRepEditableMonths().forEach(i => { h += `<option value="${i}"${adjMi === i ? ' selected' : ''}>${invFmMonth(d.months[i])}</option>`; });
+    invRepAdjustableMonths().forEach(i => { h += `<option value="${i}"${adjMi === i ? ' selected' : ''}>${invFmMonth(d.months[i])}</option>`; });
     h += '</select>';
-    h += '<span style="font-size:11px;color:var(--text-secondary);margin-left:10px">Dernier mois clôturé et le précédent uniquement</span></div>';
+    h += '<span style="font-size:11px;color:var(--text-secondary);margin-left:10px">Mois courant, dernier mois clôturé et le précédent</span></div>';
     h += '<div class="inv-grid inv-grid-3" style="margin-bottom:16px">';
     h += '<div class="inv-form-card"><div style="font-size:12px;font-weight:500;margin-bottom:12px">Personne</div>';
     h += '<select class="inv-select" onchange="invRepForm.adjMember=this.value;renderPortfolioTab(\'repartition\')">';
@@ -7057,8 +7126,7 @@ function invBuildRepartitionCharts(t, labels, li) {
   const rep = invGetRep();
   const totalCap = invGetRepTotal();
   const moiIntStored = (portfolioData.interests["Lendermarket"] || [])[li] || 0;
-  const moiPct = invGetRepPct("Moi");
-  const totalInt = moiPct > 0 ? Math.round(moiIntStored / moiPct) : moiIntStored;
+  const totalInt = invRepMonthInterest(li, moiIntStored);
 
   const repLabels = ["Moi","Noah","Elie"];
   const colors = ["#6366f1","#06b6d4","#f59e0b"];
@@ -7126,8 +7194,8 @@ function invSaveRepMonthly() {
   const li = invRepEditMonth;
   if (!invRepMonthAllowed(li)) { invNotify('Édition rétroactive interdite : seuls le dernier mois clôturé et le précédent sont modifiables', 'err'); return; }
   const ym = portfolioData.months[li];
-  const newTotal = Number(invRepForm.total) || 0;
-  const totalInterest = Number(invRepForm.interest) || 0;
+  const newTotal = Math.round(Number(invRepForm.total) || 0);
+  const totalInterest = Math.round(Number(invRepForm.interest) || 0);
   if (!(newTotal > 0)) { invNotify('Capital total invalide', 'err'); return; }
   if (!rep.history) rep.history = [];
   const hist = rep.history;
@@ -7135,6 +7203,13 @@ function invSaveRepMonthly() {
 
   // Parts en vigueur à ce moment-là (jamais celles d'aujourd'hui)
   const before = invRepStateBefore(orig, ym);
+  if (!before) { invNotify('Aucun mouvement antérieur : parts non reconstituables pour ' + invFmMonth(ym), 'err'); return; }
+  const uCheck = invRepUpdateIdx(hist, ym);
+  let insCheck = hist.length;
+  if (uCheck < 0) { for (let i = 0; i < hist.length; i++) { if (hist[i] && hist[i].date > ym) { insCheck = i; break; } } }
+  if (!invRepChainReplayable(hist, uCheck >= 0 ? uCheck : insCheck - 1)) {
+    invNotify('Historique non rejouable (une mise à jour postérieure n\'a pas de total) : correction annulée', 'err'); return;
+  }
   const dist = invRepDistribute(newTotal, before);
 
   let u = invRepUpdateIdx(hist, ym);
@@ -7159,7 +7234,7 @@ function invSaveRepMonthly() {
 
   const run = invRepReplayFrom(hist, orig, u, dist);
   INV_REP_MEMBERS.forEach(m => { rep.capital[m] = run[m]; });
-  invRebuildLendermarketFromHistory();
+  invRebuildLendermarketFromHistory(li);
 
   const moiInterest = newTotal > 0 ? Math.round(totalInterest * (dist["Moi"] / newTotal)) : 0;
   invRepMonthlyMode = false;
@@ -7179,23 +7254,52 @@ function invSaveRepAdj() {
   if (!portfolioData.repartition) portfolioData.repartition = invGetRep();
   const rep = portfolioData.repartition;
   const li = invRepForm.adjMonth !== undefined ? invRepForm.adjMonth : invLastCompletedMonth();
-  if (!invRepMonthAllowed(li)) { invNotify('Édition rétroactive interdite : seuls le dernier mois clôturé et le précédent sont modifiables', 'err'); return; }
+  if (!invRepAdjMonthAllowed(li)) { invNotify('Mois non autorisé : mois courant, dernier mois clôturé et le précédent uniquement', 'err'); return; }
   const member = invRepForm.adjMember || "Moi";
-  const amount = Number(invRepForm.adjAmount) || 0;
+  const amount = Math.round(Number(invRepForm.adjAmount) || 0);
   if (amount <= 0) { invNotify('Montant invalide', 'err'); return; }
   const sign = invRepForm.adjType === 'retrait' ? -1 : 1;
-  const newCap = (rep.capital[member] || 0) + amount * sign;
-  if (newCap < 0) { invNotify('Le capital de ' + member + ' ne peut pas être négatif', 'err'); return; }
-  rep.capital[member] = newCap;
-  invSyncLendermarketFromRep(li);
+  const ym = portfolioData.months[li];
   if (!rep.history) rep.history = [];
-  const ev = { date: portfolioData.months[li], type: invRepForm.adjType, desc: member + ' ' + (sign > 0 ? '+' : '-') + invFmt(amount) };
-  INV_REP_MEMBERS.forEach(m => { ev[m] = rep.capital[m] || 0; });
-  ev.total = invGetRepTotal();
-  rep.history.push(ev);
+  const hist = rep.history;
+  const orig = hist.map(e => Object.assign({}, e)); // snapshot AVANT mutation
+
+  // Position chronologique de l'ajustement (et non un push en fin de liste, qui
+  // daterait un mouvement dans le passé tout en le plaçant après le présent)
+  let ins = hist.length;
+  for (let i = 0; i < hist.length; i++) { if (hist[i] && hist[i].date > ym) { ins = i; break; } }
+  if (!invRepChainReplayable(hist, ins - 1)) {
+    invNotify('Historique non rejouable (une mise à jour postérieure n\'a pas de total) : ajustement annulé', 'err'); return;
+  }
+
+  // État à CETTE date (fin des mouvements qui précèdent), pas le capital d'aujourd'hui
+  const base = {};
+  const prev = ins > 0 ? hist[ins - 1] : null;
+  INV_REP_MEMBERS.forEach(m => { base[m] = prev ? (Number(prev[m]) || 0) : (rep.capital[m] || 0); });
+  const newCap = (base[member] || 0) + amount * sign;
+  if (newCap < 0) { invNotify('Le capital de ' + member + ' ne peut pas être négatif à cette date (' + invFmt(base[member] || 0) + ')', 'err'); return; }
+
+  const after = Object.assign({}, base);
+  after[member] = newCap;
+  const ev = { date: ym, type: invRepForm.adjType, desc: member + ' ' + (sign > 0 ? '+' : '-') + invFmt(amount) };
+  INV_REP_MEMBERS.forEach(m => { ev[m] = after[m]; });
+  ev.total = INV_REP_MEMBERS.reduce((s, m) => s + after[m], 0);
+  hist.splice(ins, 0, ev);
+  // le snapshot reçoit l'état d'AVANT à cette place : les deltas des mouvements
+  // suivants restent calculés par rapport à leur vrai prédécesseur d'origine
+  const ph = { date: ym, type: 'pre' };
+  INV_REP_MEMBERS.forEach(m => { ph[m] = base[m]; });
+  orig.splice(ins, 0, ph);
+
+  const run = invRepReplayFrom(hist, orig, ins, after);
+  INV_REP_MEMBERS.forEach(m => { rep.capital[m] = run[m]; });
+  invRebuildLendermarketFromHistory(li);
+
   invRepAdjMode = false;
   savePortfolioToFirebase();
-  invNotify((sign > 0 ? 'Dépôt' : 'Retrait') + ' de ' + invFmt(amount) + ' pour ' + member + '. Nouveau total: ' + invFmt(ev.total));
+  const replayed = hist.length - 1 - ins;
+  invNotify((sign > 0 ? 'Dépôt' : 'Retrait') + ' de ' + invFmt(amount) + ' pour ' + member + ' (' + invFmMonth(ym) + '). Total: ' + invFmt(invGetRepTotal())
+    + (replayed > 0 ? ' · ' + replayed + ' mouvement(s) postérieur(s) rejoué(s)' : ''));
   renderPortfolioTab('repartition');
 }
 
