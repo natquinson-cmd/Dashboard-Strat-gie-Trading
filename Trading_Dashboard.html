@@ -5511,9 +5511,6 @@ function invRenderOverview(t, labels, li) {
   const d = portfolioData;
   let h = '<div class="inv-grid">';
 
-  // Investissement RealT/RMM : mémorial (si clôturé) ou invite à acter la perte
-  h += invRealtMemorialHTML();
-
   // Carte ETF Revolut (DCA semi-auto)
   const rp = REVOLUT_DCA.platform;
   if (d.platforms.includes(rp) && d.principal[rp]) {
@@ -5554,7 +5551,10 @@ function invRenderOverview(t, labels, li) {
       h += `<div class="inv-flex inv-jcsb" style="font-size:12px;color:var(--text-secondary);margin-top:2px"><span>${pc}%</span><span style="color:${ivColor};font-weight:500">${ivSign}${invFmt(ivR)} ce mois</span></div></div>`;
     }
   });
-  h += '</div></div></div></div>';
+  h += '</div></div></div>';
+  // Investissement RealT/RMM : mémorial (ou invite à acter la perte) — tout en bas
+  h += invRealtMemorialHTML();
+  h += '</div>';
   return h;
 }
 
