@@ -20,3 +20,7 @@ site-static/
 
 # Scripts temporaires Claude
 __cleanup_index.sh
+Tableau DWH/
+*.hyper
+hyperd.log
+*.twbx
