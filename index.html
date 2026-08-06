@@ -5104,6 +5104,93 @@ function invCompute() {
     tp_prev, tl_prev, nc_prev, tic_prev, nmi_prev, pmi };
 }
 
+// ══════ Clôture d'un investissement perdu (RealT / RMM en liquidation) ══════
+// On DÉPRÉCIE l'actif à sa valeur recouvrable (0) du dernier mois clôturé jusqu'à
+// la fin, et on éteint l'emprunt RMM (bloqué). L'historique AVANT reste intact :
+// la courbe garde la trace (montée puis chute). Réversible via le snapshot stocké.
+const REALT_CLOSURE = { platforms: ['RealT', 'RMM'], loan: 'Emprunt RMM' };
+function invRealtClosure() { return (portfolioData && portfolioData.realtClosure) ? portfolioData.realtClosure : null; }
+
+// Chiffres du mémorial (en USD, devise des positions). Investi = valeurs nominales
+// de départ (approx, faute du cash réel). Récupéré = loyers perçus + cash emprunté
+// conservé (le prêt bloqué ne sera pas remboursé) + valeur recouvrable (0).
+function invComputeRealtClosure() {
+  const d = portfolioData, li = invLastCompletedMonth();
+  const firstNZ = arr => { for (let i = 0; i < (arr || []).length; i++) if (arr[i]) return arr[i]; return 0; };
+  let invested = 0, rent = 0;
+  REALT_CLOSURE.platforms.forEach(p => {
+    invested += firstNZ(d.principal[p]);
+    rent += (d.interests[p] || []).reduce((a, b) => a + (b || 0), 0);
+  });
+  const borrowedKept = (d.loans[REALT_CLOSURE.loan] || [])[li] || 0;
+  const recoverable = 0;
+  return { invested, rent, borrowedKept, recoverable, netLoss: invested - rent - borrowedKept - recoverable, currency: 'USD', investedApprox: true };
+}
+
+function invCloseRealtInvestment() {
+  if (invRealtClosure()) { invNotify('Investissement RealT déjà clôturé', 'err'); return; }
+  const d = portfolioData, li = invLastCompletedMonth(), last = d.months.length - 1;
+  const c = invComputeRealtClosure();
+  if (!confirm('Acter la perte RealT / RMM ?\n\nÀ partir de ' + invFmMonth(d.months[li]) + ' :\n· RealT et RMM passent à 0 (recouvrable nul)\n· l\'emprunt RMM (' + invFmt(Math.round(invToEur('RealT', c.borrowedKept))) + ') est éteint\n\nL\'historique antérieur est conservé. Perte nette mémorisée : ' + invFmt(Math.round(invToEur('RealT', c.netLoss))) + '.')) return;
+  // snapshot des valeurs écrasées (li..fin) pour pouvoir rouvrir
+  const snap = { principal: {}, loans: {} };
+  REALT_CLOSURE.platforms.forEach(p => { snap.principal[p] = {}; for (let i = li; i <= last; i++) snap.principal[p][i] = (d.principal[p] || [])[i] || 0; });
+  snap.loans[REALT_CLOSURE.loan] = {}; for (let i = li; i <= last; i++) snap.loans[REALT_CLOSURE.loan][i] = (d.loans[REALT_CLOSURE.loan] || [])[i] || 0;
+  // write-down de li à la fin
+  REALT_CLOSURE.platforms.forEach(p => { if (!d.principal[p]) d.principal[p] = []; for (let i = li; i <= last; i++) d.principal[p][i] = 0; });
+  if (d.loans[REALT_CLOSURE.loan]) for (let i = li; i <= last; i++) d.loans[REALT_CLOSURE.loan][i] = 0;
+  portfolioData.realtClosure = Object.assign({ date: d.months[li], platforms: REALT_CLOSURE.platforms.slice(), loan: REALT_CLOSURE.loan, snap }, c);
+  savePortfolioToFirebase();
+  invNotify('Perte RealT / RMM actée. Capital Net ajusté, historique conservé.');
+  renderPortfolioTab('overview');
+}
+
+function invReopenRealt() {
+  const cl = invRealtClosure();
+  if (!cl) return;
+  if (!confirm('Rouvrir l\'investissement RealT / RMM et restaurer les valeurs d\'avant la clôture ?')) return;
+  const d = portfolioData, s = cl.snap || {};
+  Object.keys(s.principal || {}).forEach(p => Object.keys(s.principal[p]).forEach(i => { if (d.principal[p]) d.principal[p][+i] = s.principal[p][i]; }));
+  Object.keys(s.loans || {}).forEach(l => Object.keys(s.loans[l]).forEach(i => { if (d.loans[l]) d.loans[l][+i] = s.loans[l][i]; }));
+  delete portfolioData.realtClosure;
+  savePortfolioToFirebase();
+  invNotify('Investissement RealT / RMM rouvert (valeurs restaurées).');
+  renderPortfolioTab('overview');
+}
+
+// Carte mémorial (si clôturé) ou invite à acter la perte (sinon). Overview only.
+function invRealtMemorialHTML() {
+  const d = portfolioData; if (!d || !d.platforms) return '';
+  const li = invLastCompletedMonth();
+  const cl = invRealtClosure();
+  const fmtUsd = v => Math.round(v).toLocaleString('fr-FR') + ' $';
+  const toEur = v => invFmt(Math.round(invToEur('RealT', v)));
+  if (cl) {
+    let h = '<div class="inv-card" style="margin-bottom:16px;border:1px solid rgba(221,95,102,0.25);background:rgba(221,95,102,0.03)">';
+    h += '<div class="inv-flex inv-jcsb inv-aic" style="flex-wrap:wrap;gap:8px;margin-bottom:12px">';
+    h += '<h3 style="font-size:1rem;font-weight:600;margin:0">Investissement RealT / RMM <span style="font-size:0.58rem;background:rgba(221,95,102,0.15);color:#dd5f66;padding:2px 8px;border-radius:10px;font-weight:700;vertical-align:middle">CLÔTURÉ · PERTE ACTÉE</span></h3>';
+    h += '<button class="inv-btn inv-btn-s" style="font-size:0.68rem;padding:5px 10px" onclick="invReopenRealt()">Rouvrir</button>';
+    h += '</div>';
+    const rows = [['Investi' + (cl.investedApprox ? ' (approx.)' : ''), cl.invested, false], ['Loyers perçus', cl.rent, true], ['Cash emprunté conservé', cl.borrowedKept, true], ['Valeur recouvrable', cl.recoverable, true]];
+    h += '<table style="width:100%;font-size:0.8rem;border-collapse:collapse">';
+    rows.forEach(r => { h += `<tr><td style="padding:5px 0;color:var(--text-secondary)">${r[0]}</td><td style="padding:5px 0;text-align:right;font-weight:500">${r[2] ? '−' : ''}${fmtUsd(r[1])} <span style="color:var(--text-secondary);font-size:0.72rem">(${r[2] ? '−' : ''}${toEur(r[1])})</span></td></tr>`; });
+    h += `<tr style="border-top:1px solid rgba(221,95,102,0.2)"><td style="padding:8px 0 0;font-weight:700">Perte nette</td><td style="padding:8px 0 0;text-align:right;font-weight:800;color:#dd5f66">−${fmtUsd(cl.netLoss)} <span style="font-size:0.72rem;font-weight:700">(−${toEur(cl.netLoss)})</span></td></tr>`;
+    h += '</table>';
+    h += `<div style="font-size:0.68rem;color:var(--text-secondary);opacity:0.85;margin-top:12px;line-height:1.5">Perte actée le ${invFmMonth(cl.date)}, historique conservé (la courbe montre la chute). Montant investi approximatif (valeurs nominales de départ) : donne-moi le cash réellement versé pour l'ajuster. Recours collectif Delomel valorisé à 0, toute récupération future sera ajoutée ici.</div>`;
+    h += '</div>';
+    return h;
+  }
+  const realtVal = REALT_CLOSURE.platforms.reduce((s, p) => s + ((d.principal[p] || [])[li] || 0), 0);
+  if (realtVal <= 0) return '';
+  const c = invComputeRealtClosure();
+  let h = '<div class="inv-card" style="margin-bottom:16px;border:1px solid rgba(234,179,8,0.35);background:rgba(234,179,8,0.05)">';
+  h += '<div class="inv-flex inv-jcsb inv-aic" style="flex-wrap:wrap;gap:10px">';
+  h += `<div><div style="font-size:0.92rem;font-weight:600">RealT / RMM en liquidation</div><div style="font-size:0.76rem;color:var(--text-secondary);margin-top:4px">Valeur nominale encore comptée : <strong>${fmtUsd(realtVal)}</strong>, recouvrable estimé 0. Acter la perte passe RealT/RMM à 0 et éteint l'emprunt RMM (${fmtUsd(c.borrowedKept)}), historique conservé.</div></div>`;
+  h += '<button class="inv-btn inv-btn-d" style="white-space:nowrap" onclick="invCloseRealtInvestment()">Acter la perte</button>';
+  h += '</div></div>';
+  return h;
+}
+
 function invGetLabels() { const li = invLastCompletedMonth(); return portfolioData.months.slice(0, li + 1).map(invFmShort); }
 
 // ── Portfolio notify ──
@@ -5404,6 +5491,9 @@ function renderPortfolioTab(tab) {
 function invRenderOverview(t, labels, li) {
   const d = portfolioData;
   let h = '<div class="inv-grid">';
+
+  // Investissement RealT/RMM : mémorial (si clôturé) ou invite à acter la perte
+  h += invRealtMemorialHTML();
 
   // Carte ETF Revolut (DCA semi-auto)
   const rp = REVOLUT_DCA.platform;
