@@ -4982,6 +4982,21 @@ function carryForwardPortfolioData(d) {
   });
 }
 
+// Ré-applique la clôture RealT/RMM APRÈS repair/carryForward, qui sinon
+// restaurent les valeurs par défaut / reportent le mois précédent sur les mois
+// mis à 0 (la clôture n'était donc "plus effective" après un refresh).
+function applyRealtClosureIfAny(d) {
+  const cl = d && d.realtClosure;
+  if (!cl || !d.months) return;
+  const from = d.months.indexOf(cl.date);
+  if (from < 0) return;
+  (cl.platforms || ['RealT', 'RMM']).forEach(p => {
+    if (d.principal && d.principal[p]) for (let i = from; i < d.months.length; i++) d.principal[p][i] = 0;
+  });
+  const loan = cl.loan || 'Emprunt RMM';
+  if (d.loans && d.loans[loan]) for (let i = from; i < d.months.length; i++) d.loans[loan][i] = 0;
+}
+
 function loadPortfolioFromFirebase() {
   return db.ref('dashboard/data').once('value').then(snap => {
     const val = snap.val();
@@ -4991,6 +5006,7 @@ function loadPortfolioFromFirebase() {
       repairPortfolioFromDefaults(portfolioData);
       fixLoanDefaults(portfolioData);
       carryForwardPortfolioData(portfolioData);
+      applyRealtClosureIfAny(portfolioData);
     } else {
       portfolioData = JSON.parse(JSON.stringify(INV_DEFAULT_DATA));
     }
