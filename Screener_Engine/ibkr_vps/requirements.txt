@@ -1,3 +1,3 @@
-ib_async>=1.0.0
-# google-auth  # optionnel : uniquement si tu pousses vers Firebase via un compte de service
-#              (sinon FIREBASE_DB_SECRET suffit). urllib/json sont dans la lib standard.
+requests>=2.31.0
+ib_async>=1.0.0        # uniquement si tu actives l'enrichissement IBKR (ENABLE_IBKR=true)
+# google-auth          # optionnel : push Firebase via compte de service (sinon FIREBASE_DB_SECRET)
