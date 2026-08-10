@@ -4762,26 +4762,31 @@ function scrMsg(c, text, color) {
 async function renderScreenerTab() {
   const c = document.getElementById('tab-screener');
   if (!c) return;
-  scrMsg(c, 'Chargement…');
-  // 1) Source prioritaire : Firebase (classement enrichi par la couche IBKR du VPS)
-  if (typeof db !== 'undefined') {
+  scrMsg(c, 'Chargement du classement…');
+  if (typeof db === 'undefined') { scrMsg(c, 'Firebase indisponible.', '#dd5f66'); return; }
+  // Lecture Firebase (le screener est pousse par le service VPS). Petit retry : la 1re lecture
+  // juste apres le chargement de la page peut arriver avant que Firebase soit connecte.
+  let fb = null;
+  for (let i = 0; i < 3; i++) {
     try {
       const snap = await db.ref('stocks/screener/latest').once('value');
-      const fb = snap.val();
-      if (fb && fb.top && fb.top.length) {
-        let positions = null;
-        try { positions = (await db.ref('stocks/screener/positions').once('value')).val(); } catch (e) { /* ignore */ }
-        return screenerRender(c, fb, positions);
-      }
-    } catch (e) { /* repli Worker */ }
+      fb = snap.val();
+      if (fb && fb.top && fb.top.length) break;
+    } catch (e) { /* retry */ }
+    await new Promise(r => setTimeout(r, 800));
   }
-  // 2) Repli : Worker FMP (URL mémorisée)
-  if (!screenerWorkerUrl && !screenerUrlLoaded && typeof db !== 'undefined') {
-    screenerUrlLoaded = true;
-    try { const s = await db.ref('dashboard/screener/workerUrl').once('value'); const u = s.val(); if (u) { screenerWorkerUrl = u; localStorage.setItem('screenerWorkerUrl', u); } } catch (e) { /* ignore */ }
+  if (fb && fb.top && fb.top.length) {
+    let positions = null;
+    try { positions = (await db.ref('stocks/screener/positions').once('value')).val(); } catch (e) { /* ignore */ }
+    return screenerRender(c, fb, positions);
   }
-  if (!screenerWorkerUrl) return screenerRenderConfig(c);
-  screenerLoad(c);
+  // Pas encore de classement
+  const btn = scrEl('button', { text: 'Réessayer', style: 'padding:8px 14px;border:1px solid #e3e8ee;border-radius:10px;background:#fff;font-weight:600;cursor:pointer' });
+  btn.onclick = () => renderScreenerTab();
+  c.replaceChildren(
+    scrEl('div', { text: "Pas encore de classement. Lance le screener sur le VPS (run.py) pour peupler Firebase.", style: 'padding:20px;color:#5b6b7d' }),
+    scrEl('div', { style: 'padding:0 20px', kids: [btn] })
+  );
 }
 
 function screenerRenderConfig(c) {
@@ -4864,12 +4869,10 @@ function screenerRender(c, data, positions) {
 
   // Barre d'outils
   const refresh = scrEl('button', { text: 'Rafraîchir', style: 'padding:7px 13px;border:1px solid #e3e8ee;border-radius:9px;background:#fff;font-weight:600;cursor:pointer' });
-  refresh.onclick = () => screenerLoad(c);
-  const cfg = scrEl('button', { text: 'URL du moteur', style: 'padding:7px 13px;border:1px solid #e3e8ee;border-radius:9px;background:#fff;font-weight:600;cursor:pointer' });
-  cfg.onclick = () => screenerRenderConfig(c);
+  refresh.onclick = () => renderScreenerTab();
   frag.appendChild(scrEl('div', { style: 'display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px', kids: [
-    scrEl('div', { style: 'color:#5b6b7d;font-size:0.76rem', text: (data.generatedAt ? 'Généré le ' + new Date(data.generatedAt).toLocaleString('fr-FR') : '') + (enriched ? ' · enrichi IBKR' : ' · FMP') }),
-    scrEl('div', { style: 'display:flex;gap:8px', kids: [refresh, cfg] })
+    scrEl('div', { style: 'color:#5b6b7d;font-size:0.76rem', text: (data.generatedAt ? 'Généré le ' + new Date(data.generatedAt).toLocaleString('fr-FR') : '') + (enriched ? ' · enrichi IBKR' : ' · Yahoo') }),
+    scrEl('div', { style: 'display:flex;gap:8px', kids: [refresh] })
   ]}));
 
   // Table
