@@ -1367,6 +1367,7 @@
   <div id="tab-darwinex" class="tab-content"></div>
   <div id="tab-simulateur" class="tab-content"></div>
   <div id="tab-repartition" class="tab-content"></div>
+  <div id="tab-screener" class="tab-content"></div>
   <div id="tab-update" class="tab-content"></div>
 
   <div class="footer" id="dashFooter">
@@ -4640,11 +4641,12 @@ const GROUP_TABS = {
     { id: 'darwinex', label: '<svg width="15" height="15" viewBox="0 0 32 32" style="vertical-align:-3px;margin-right:4px" xmlns="http://www.w3.org/2000/svg"><path d="M2 3 L12 12 L16 9 L20 12 L30 3 L26.5 19 C26 25 21 29 16 30 C11 29 6 25 5.5 19 Z" fill="#17c4c4"/><path d="M2 3 L12 12 L16 9 L16 30 C11 29 6 25 5.5 19 Z" fill="#0fa5a5"/><circle cx="12" cy="17" r="1.6" fill="#082a33"/><circle cx="20" cy="17" r="1.6" fill="#082a33"/></svg>Darwinex' },
     { id: 'simulateur', label: 'Rembourser vs Placer' },
     { id: 'repartition', label: 'Répartition' },
+    { id: 'screener', label: 'Screener' },
     { id: 'update', label: 'Mise à jour' }
   ]
 };
 
-const ALL_TAB_IDS = ['real', 'fixed', 'reinvest', 'overview', 'interests', 'evolution', 'loans', 'realestate', 'darwinex', 'simulateur', 'repartition', 'update'];
+const ALL_TAB_IDS = ['real', 'fixed', 'reinvest', 'overview', 'interests', 'evolution', 'loans', 'realestate', 'darwinex', 'simulateur', 'repartition', 'screener', 'update'];
 
 function renderSubTabs() {
   const bar = document.getElementById('subTabBar');
@@ -4710,6 +4712,9 @@ function activateTab(tab) {
   const el = document.getElementById('tab-' + tab);
   if (el) el.classList.add('active');
 
+  // Screener (moteur externe) : rendu autonome, pas via renderPortfolioTab
+  if (tab === 'screener') { renderScreenerTab(); return; }
+
   // Trading tabs
   if (['real', 'fixed', 'reinvest'].includes(tab)) {
     if (!tabRendered[tab]) {
@@ -4729,6 +4734,149 @@ function activateTab(tab) {
     invDestroyCharts();
     renderPortfolioTab(tab);
   }
+}
+
+// ══════════════════════════════════════════════════════════════
+// SCREENER GROWTH (moteur externe : Worker Cloudflare, dossier Screener_Engine/)
+// Rendu construit via l'API DOM (textContent) — pas d'innerHTML, zéro risque XSS.
+// ══════════════════════════════════════════════════════════════
+let screenerWorkerUrl = localStorage.getItem('screenerWorkerUrl') || '';
+let screenerUrlLoaded = false;
+const scrCap = (x) => x == null ? '–' : x >= 1e9 ? '$' + (x / 1e9).toFixed(1) + 'B' : x >= 1e6 ? '$' + (x / 1e6).toFixed(0) + 'M' : '$' + x;
+const scrCol = (x, y) => x == null ? '#5b6b7d' : (x >= y ? '#1d9e74' : '#dd5f66');
+const scrPctTxt = (x) => x == null ? '–' : (x >= 0 ? '+' : '') + (x * 100).toFixed(0) + '%';
+function scrEl(tag, o = {}) {
+  const e = document.createElement(tag);
+  if (o.style) e.style.cssText = o.style;
+  if (o.text != null) e.textContent = o.text;
+  if (o.cls) e.className = o.cls;
+  if (o.href) e.href = o.href;
+  if (o.attrs) for (const k in o.attrs) e.setAttribute(k, o.attrs[k]);
+  (o.kids || []).forEach((k) => k && e.appendChild(k));
+  return e;
+}
+function scrMsg(c, text, color) {
+  c.replaceChildren(scrEl('div', { style: `padding:24px;color:${color || '#5b6b7d'}`, text }));
+}
+
+async function renderScreenerTab() {
+  const c = document.getElementById('tab-screener');
+  if (!c) return;
+  if (!screenerWorkerUrl && !screenerUrlLoaded && typeof db !== 'undefined') {
+    screenerUrlLoaded = true;
+    scrMsg(c, 'Chargement…');
+    try { const s = await db.ref('dashboard/screener/workerUrl').once('value'); const u = s.val(); if (u) { screenerWorkerUrl = u; localStorage.setItem('screenerWorkerUrl', u); } } catch (e) { /* ignore */ }
+  }
+  if (!screenerWorkerUrl) return screenerRenderConfig(c);
+  screenerLoad(c);
+}
+
+function screenerRenderConfig(c) {
+  const input = scrEl('input', { attrs: { type: 'text', placeholder: 'https://stock-screener.xxxx.workers.dev', value: screenerWorkerUrl }, style: 'flex:1;min-width:260px;padding:9px 11px;border:1px solid #e3e8ee;border-radius:10px;font-family:inherit' });
+  const save = scrEl('button', { text: 'Enregistrer', style: 'padding:9px 16px;border:none;border-radius:10px;background:#3563e9;color:#fff;font-weight:700;cursor:pointer' });
+  save.onclick = () => {
+    const u = input.value.trim().replace(/\/+$/, '');
+    if (!u) return;
+    screenerWorkerUrl = u;
+    localStorage.setItem('screenerWorkerUrl', u);
+    if (typeof db !== 'undefined') db.ref('dashboard/screener/workerUrl').set(u);
+    screenerLoad(c);
+  };
+  const note = scrEl('div', { style: 'color:#5b6b7d;font-size:0.78rem;margin-top:12px' });
+  note.append('Pas encore déployé ? Voir ', scrEl('code', { text: 'Screener_Engine/README.md' }), ' dans le repo.');
+  c.replaceChildren(scrEl('div', {
+    style: 'max-width:640px;margin:8px auto;background:#fff;border:1px dashed #e3e8ee;border-radius:14px;padding:20px',
+    kids: [
+      scrEl('div', { text: 'Connecter le moteur de screening', style: 'font-weight:800;font-size:1.05rem;margin-bottom:4px' }),
+      scrEl('div', { text: "Colle l'URL de ton Worker Cloudflare. Elle est mémorisée et synchronisée sur tes appareils.", style: 'color:#5b6b7d;font-size:0.85rem;margin-bottom:12px' }),
+      scrEl('div', { style: 'display:flex;gap:8px;flex-wrap:wrap', kids: [input, save] }),
+      note
+    ]
+  }));
+}
+
+async function screenerLoad(c) {
+  scrMsg(c, 'Chargement du classement…');
+  try {
+    const r = await fetch(screenerWorkerUrl + '/latest');
+    if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(j.error || ('HTTP ' + r.status)); }
+    screenerRender(c, await r.json());
+  } catch (e) {
+    const btn = scrEl('button', { text: "Changer l'URL du moteur", style: 'padding:8px 14px;border:1px solid #e3e8ee;border-radius:10px;background:#fff;font-weight:600;cursor:pointer' });
+    btn.onclick = () => screenerRenderConfig(c);
+    c.replaceChildren(
+      scrEl('div', { text: 'Erreur : ' + e.message, style: 'padding:20px;color:#dd5f66' }),
+      scrEl('div', { style: 'padding:0 20px', kids: [btn] })
+    );
+  }
+}
+
+function screenerRender(c, data) {
+  const s = data.summary || {}, top = data.top || [];
+  const frag = document.createDocumentFragment();
+
+  // KPIs
+  const grid = scrEl('div', { cls: 'inv-grid-kpi', style: 'margin-bottom:14px' });
+  [['Candidates', 'top ' + top.length, 'après filtres'],
+   ['Univers screené', String(s.universe ?? '–'), s.whitelist ? (s.whitelist + ' titres Revolut') : 'US liquide'],
+   ['Survivants garde-fous', String(s.survivors ?? '–'), 'après exclusions'],
+   ['Couverture données', (s.coverage ?? 0) + '%', (s.enriched ?? 0) + ' / ' + (s.universe ?? 0)]
+  ].forEach((k) => grid.appendChild(scrEl('div', { cls: 'kpi-card', kids: [
+    scrEl('div', { cls: 'stripe', style: 'background:linear-gradient(90deg,#3563e9,#7aa0ff)' }),
+    scrEl('div', { cls: 'label', text: k[0] }),
+    scrEl('div', { cls: 'value', style: 'font-size:1.5rem', text: k[1] }),
+    scrEl('div', { cls: 'sub', text: k[2] })
+  ]})));
+  frag.appendChild(grid);
+
+  // Barre d'outils
+  const refresh = scrEl('button', { text: 'Rafraîchir', style: 'padding:7px 13px;border:1px solid #e3e8ee;border-radius:9px;background:#fff;font-weight:600;cursor:pointer' });
+  refresh.onclick = () => screenerLoad(c);
+  const cfg = scrEl('button', { text: 'URL du moteur', style: 'padding:7px 13px;border:1px solid #e3e8ee;border-radius:9px;background:#fff;font-weight:600;cursor:pointer' });
+  cfg.onclick = () => screenerRenderConfig(c);
+  frag.appendChild(scrEl('div', { style: 'display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px', kids: [
+    scrEl('div', { style: 'color:#5b6b7d;font-size:0.76rem', text: data.generatedAt ? 'Généré le ' + new Date(data.generatedAt).toLocaleString('fr-FR') : '' }),
+    scrEl('div', { style: 'display:flex;gap:8px', kids: [refresh, cfg] })
+  ]}));
+
+  // Table
+  const cols = [['#', 'left'], ['Ticker', 'left'], ['Secteur', 'left'], ['Score', 'right'], ['Crois. CA', 'right'], ['Crois. BPA', 'right'], ['Marge', 'right'], ['ROE', 'right'], ['vs MM200', 'right'], ['/52s-haut', 'right'], ['Cap.', 'right'], ['Signaux', 'left']];
+  const thead = scrEl('tr', { style: 'background:#f6f8fb;color:#5b6b7d' });
+  cols.forEach(([t, al]) => thead.appendChild(scrEl('th', { text: t, style: `padding:9px 10px;text-align:${al};font-size:0.68rem;text-transform:uppercase;letter-spacing:.03em;border-bottom:1px solid #e3e8ee;white-space:nowrap` })));
+  const tbody = scrEl('tbody');
+  const bd = 'border-bottom:1px solid #eef1f5';
+  const pctCell = (x, thr) => scrEl('td', { text: scrPctTxt(x), style: `padding:8px 10px;text-align:right;white-space:nowrap;${bd};color:${scrCol(x, thr)}` });
+
+  if (!top.length) {
+    tbody.appendChild(scrEl('tr', { kids: [scrEl('td', { attrs: { colspan: '12' }, text: 'Aucune candidate (univers pas encore couvert : relance /run ou attends le cron).', style: 'padding:22px;color:#5b6b7d' })] }));
+  } else {
+    top.forEach((cd, i) => {
+      const m = cd.metrics || {};
+      const v200 = (m.price != null && m.priceAvg200 != null) ? (m.price / m.priceAvg200 - 1) : null;
+      const link = scrEl('a', { text: cd.symbol || '', href: 'https://finance.yahoo.com/quote/' + encodeURIComponent(cd.symbol || ''), attrs: { target: '_blank', rel: 'noopener' }, style: 'font-weight:800;color:#3563e9;text-decoration:none' });
+      const tkCell = scrEl('td', { style: `padding:8px 10px;${bd}`, kids: [link, scrEl('div', { text: cd.name || '', style: 'color:#5b6b7d;font-size:0.72rem;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap' })] });
+      const flagsWrap = scrEl('div', { style: 'display:flex;gap:4px;flex-wrap:wrap' });
+      (cd.flags || []).forEach((f) => { const up = /tendance/.test(f); flagsWrap.appendChild(scrEl('span', { text: f, style: `background:${up ? '#e4f5ee' : '#eef2f8'};color:${up ? '#1d7a5c' : '#42546a'};border-radius:20px;padding:2px 8px;font-size:0.64rem;font-weight:600;white-space:nowrap` })); });
+      tbody.appendChild(scrEl('tr', { kids: [
+        scrEl('td', { text: String(i + 1), style: `padding:8px 10px;color:#9aa7b4;${bd}` }),
+        tkCell,
+        scrEl('td', { text: cd.sector || '–', style: `padding:8px 10px;color:#5b6b7d;${bd}` }),
+        scrEl('td', { text: String(Number(cd.score) || 0), style: `padding:8px 10px;text-align:right;font-weight:800;${bd}` }),
+        pctCell(m.revenueGrowthYoY, .25), pctCell(m.epsGrowthYoY, .25), pctCell(m.grossMargin, .40), pctCell(m.roe, .15),
+        pctCell(v200, 0), pctCell(m.distToHigh, -.15),
+        scrEl('td', { text: scrCap(m.marketCap), style: `padding:8px 10px;text-align:right;color:#5b6b7d;${bd}` }),
+        scrEl('td', { style: `padding:8px 10px;${bd}`, kids: [flagsWrap] })
+      ]}));
+    });
+  }
+  const table = scrEl('table', { style: 'width:100%;border-collapse:collapse;font-size:0.82rem', kids: [scrEl('thead', { kids: [thead] }), tbody] });
+  frag.appendChild(scrEl('div', { style: 'background:#fff;border:1px solid #e3e8ee;border-radius:14px;overflow:hidden', kids: [scrEl('div', { style: 'overflow-x:auto', kids: [table] })] }));
+
+  const disc = scrEl('div', { style: 'margin-top:14px;font-size:0.74rem;color:#5b6b7d;background:#fff;border:1px solid #e3e8ee;border-radius:12px;padding:12px 14px' });
+  disc.append('Outil de ', scrEl('b', { text: 'repérage' }), ", pas un conseil d'investissement : le score classe des candidates, il ne dit pas d'acheter. Vérifie la disponibilité du titre dans l'app Revolut avant tout ordre.");
+  frag.appendChild(disc);
+
+  c.replaceChildren(frag);
 }
 
 // ══════════════════════════════════════════════════════════════
