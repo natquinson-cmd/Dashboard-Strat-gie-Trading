@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Screener Growth - Actions Revolut</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#eef1f5; --card:#fff; --ink:#1f2d3d; --ink2:#5b6b7d; --line:#e3e8ee;
+    --pos:#1d9e74; --neg:#dd5f66; --accent:#3563e9; --chip:#eef2f8; --bar:#e6ebf2;
+    --shadow:0 1px 2px rgba(31,45,61,.04),0 4px 16px rgba(31,45,61,.05);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:'Plus Jakarta Sans',system-ui,-apple-system,Segoe UI,Roboto,sans-serif;font-size:14px;line-height:1.45}
+  .wrap{max-width:1240px;margin:0 auto;padding:22px 18px 60px}
+  header h1{font-size:1.35rem;font-weight:800;margin:0 0 2px;letter-spacing:-.01em}
+  header p{margin:0;color:var(--ink2);font-size:.85rem}
+  .row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin:18px 0}
+  .kpi{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px;box-shadow:var(--shadow)}
+  .kpi .l{font-size:.72rem;color:var(--ink2);font-weight:600;text-transform:uppercase;letter-spacing:.03em}
+  .kpi .v{font-size:1.3rem;font-weight:800;margin-top:2px;letter-spacing:-.01em}
+  .kpi .s{font-size:.72rem;color:var(--ink2);margin-top:1px}
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);overflow:hidden}
+  .panel-h{padding:12px 16px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+  .panel-h h2{margin:0;font-size:.95rem;font-weight:700}
+  table{width:100%;border-collapse:collapse;font-size:.82rem}
+  th,td{padding:9px 10px;text-align:right;white-space:nowrap;border-bottom:1px solid var(--line)}
+  th{position:sticky;top:0;background:#f6f8fb;font-size:.68rem;text-transform:uppercase;letter-spacing:.03em;color:var(--ink2);font-weight:700;cursor:pointer;user-select:none}
+  th:first-child,td:first-child,th:nth-child(2),td:nth-child(2),th:nth-child(3),td:nth-child(3){text-align:left}
+  tbody tr:hover{background:#f7f9fc}
+  .tk{font-weight:800}
+  .tk a{color:var(--accent);text-decoration:none}
+  .nm{color:var(--ink2);font-size:.76rem;max-width:190px;overflow:hidden;text-overflow:ellipsis}
+  .scorewrap{display:flex;align-items:center;gap:8px;justify-content:flex-end}
+  .scorebar{width:52px;height:7px;border-radius:4px;background:var(--bar);overflow:hidden;flex:0 0 auto}
+  .scorebar>i{display:block;height:100%;background:linear-gradient(90deg,#7aa0ff,#3563e9)}
+  .scoreval{font-weight:800;min-width:34px;text-align:right}
+  .pos{color:var(--pos);font-weight:700}.neg{color:var(--neg);font-weight:700}
+  .chips{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-start}
+  .chip{background:var(--chip);color:#42546a;border-radius:20px;padding:2px 8px;font-size:.66rem;font-weight:600}
+  .chip.up{background:#e4f5ee;color:#1d7a5c}
+  .muted{color:var(--ink2)}
+  input,button{font-family:inherit;font-size:.85rem}
+  input[type=text]{padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:#fff;min-width:280px}
+  button{padding:8px 14px;border:1px solid var(--line);border-radius:10px;background:#fff;font-weight:600;cursor:pointer}
+  button.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .setup{background:#fff;border:1px dashed var(--line);border-radius:14px;padding:16px;margin:16px 0}
+  .note{font-size:.76rem;color:var(--ink2);margin-top:6px}
+  .disclaimer{font-size:.74rem;color:var(--ink2);margin-top:22px;padding:12px 14px;background:#fff;border:1px solid var(--line);border-radius:12px}
+  .tabsrc{font-size:.7rem;color:var(--ink2)}
+  @media (max-width:640px){.nm{display:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="row" style="justify-content:space-between">
+    <div>
+      <h1>Screener Growth agressif</h1>
+      <p>Candidates classees par potentiel de croissance, filtrees sur les titres achetables sur Revolut.</p>
+    </div>
+    <div class="row">
+      <button id="cfgBtn" title="Configurer l'URL du Worker">URL du moteur</button>
+      <button id="refresh" class="primary">Rafraichir</button>
+    </div>
+  </header>
+
+  <div id="setup" class="setup" style="display:none">
+    <strong>Connecter le moteur</strong>
+    <p class="note">Colle l'URL de ton Worker Cloudflare (ex : <code>https://stock-screener.TON-SOUS-DOMAINE.workers.dev</code>). Elle est memorisee dans ce navigateur.</p>
+    <div class="row" style="margin-top:8px">
+      <input type="text" id="workerUrl" placeholder="https://stock-screener.xxxx.workers.dev">
+      <button class="primary" id="saveUrl">Enregistrer</button>
+    </div>
+  </div>
+
+  <div class="kpis" id="kpis"></div>
+
+  <div class="panel">
+    <div class="panel-h">
+      <h2>Classement</h2>
+      <span class="tabsrc" id="genat"></span>
+    </div>
+    <div style="overflow-x:auto">
+      <table id="tbl">
+        <thead><tr>
+          <th data-k="rank">#</th>
+          <th data-k="symbol">Ticker</th>
+          <th data-k="sector">Secteur</th>
+          <th data-k="score">Score</th>
+          <th data-k="revenueGrowthYoY">Crois. CA</th>
+          <th data-k="epsGrowthYoY">Crois. BPA</th>
+          <th data-k="grossMargin">Marge brute</th>
+          <th data-k="roe">ROE</th>
+          <th data-k="vsma200">vs MM200</th>
+          <th data-k="distToHigh">/ 52s-haut</th>
+          <th data-k="marketCap">Cap.</th>
+          <th data-k="flags">Signaux</th>
+        </tr></thead>
+        <tbody id="rows"><tr><td colspan="12" class="muted" style="padding:22px">Configure l'URL du moteur puis clique Rafraichir.</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="disclaimer">
+    Outil de <strong>reperage</strong>, pas un conseil d'investissement. Le score classe des candidates selon des criteres quantitatifs de croissance et de momentum ; il ne dit pas d'acheter. Verifie toujours la disponibilite du titre dans l'app Revolut avant tout ordre, et fais ta propre analyse. Les valorisations elevees typiques du growth agressif impliquent un risque de perte accru.
+  </div>
+</div>
+
+<script>
+const LS='screenerWorkerUrl';
+const $=(s)=>document.querySelector(s);
+let DATA=null, sortKey='score', sortDir=-1;
+
+// Echappement HTML de toute chaine issue des donnees (noms de societes, secteurs, tickers).
+const esc=(s)=>String(s==null?'':s).replace(/[&<>"']/g,(c)=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+function getUrl(){ return (localStorage.getItem(LS)||'').replace(/\/+$/,''); }
+function showSetup(v){ $('#setup').style.display=v?'block':'none'; if(v) $('#workerUrl').value=getUrl(); }
+
+$('#cfgBtn').onclick=()=>showSetup($('#setup').style.display==='none');
+$('#saveUrl').onclick=()=>{ localStorage.setItem(LS,$('#workerUrl').value.trim()); showSetup(false); load(); };
+$('#refresh').onclick=load;
+
+function fmtPct(x){ return x==null?'<span class="muted">-</span>':(x>=0?'+':'')+(x*100).toFixed(0)+'%'; }
+function pctCls(x,y){ return x==null?'muted':(x>=y?'pos':'neg'); }
+function fmtCap(x){ if(x==null) return '-'; if(x>=1e9) return '$'+(x/1e9).toFixed(1)+'B'; if(x>=1e6) return '$'+(x/1e6).toFixed(0)+'M'; return '$'+x; }
+function vsMa200(m){ if(m.price==null||m.priceAvg200==null) return null; return m.price/m.priceAvg200-1; }
+
+async function load(){
+  const url=getUrl();
+  if(!url){ showSetup(true); return; }
+  $('#rows').innerHTML='<tr><td colspan="12" class="muted" style="padding:22px">Chargement...</td></tr>';
+  try{
+    const r=await fetch(url+'/latest');
+    if(!r.ok){ const j=await r.json().catch(()=>({})); throw new Error(j.error||('HTTP '+r.status)); }
+    DATA=await r.json(); render();
+  }catch(e){
+    $('#rows').innerHTML='<tr><td colspan="12" class="neg" style="padding:22px">Erreur : '+esc(e.message)+'. Verifie l\'URL du Worker et qu\'un classement existe (lance /run une fois).</td></tr>';
+    $('#kpis').innerHTML='';
+  }
+}
+
+function render(){
+  if(!DATA) return;
+  const s=DATA.summary||{};
+  $('#genat').textContent = DATA.generatedAt ? ('genere le '+new Date(DATA.generatedAt).toLocaleString('fr-FR')) : '';
+  // Valeurs internes (nombres) : pas de donnee externe injectee ici.
+  $('#kpis').innerHTML=[
+    ['Candidates','top '+(DATA.top?.length||0),'apres filtres'],
+    ['Univers screene', s.universe??'-', s.whitelist? (s.whitelist+' titres Revolut'):'US liquide'],
+    ['Survivants garde-fous', s.survivors??'-', 'apres exclusions'],
+    ['Couverture donnees', (s.coverage??0)+'%', (s.enriched??0)+' enrichis / '+(s.universe??0)]
+  ].map(k=>`<div class="kpi"><div class="l">${esc(k[0])}</div><div class="v">${esc(k[1])}</div><div class="s">${esc(k[2])}</div></div>`).join('');
+
+  const rows=(DATA.top||[]).map((c,i)=>({...c, rank:i+1, m:c.metrics||{}}));
+  rows.sort((a,b)=>{
+    let av,bv;
+    if(sortKey==='vsma200'){ av=vsMa200(a.m); bv=vsMa200(b.m); }
+    else if(sortKey==='symbol'||sortKey==='sector'){ av=(a[sortKey]||'').toString(); bv=(b[sortKey]||'').toString(); return sortDir*av.localeCompare(bv); }
+    else if(sortKey==='rank'||sortKey==='score'){ av=a[sortKey]; bv=b[sortKey]; }
+    else { av=a.m?.[sortKey]; bv=b.m?.[sortKey]; }
+    av=av==null?-Infinity:av; bv=bv==null?-Infinity:bv; return sortDir*(av-bv);
+  });
+
+  $('#rows').innerHTML=rows.map(c=>{
+    const m=c.m, v200=vsMa200(m);
+    const flags=(c.flags||[]).map(f=>`<span class="chip ${/tendance/.test(f)?'up':''}">${esc(f)}</span>`).join('');
+    const yq=`https://finance.yahoo.com/quote/${encodeURIComponent(c.symbol||'')}`;
+    return `<tr>
+      <td class="muted">${c.rank}</td>
+      <td class="tk"><a href="${esc(yq)}" target="_blank" rel="noopener">${esc(c.symbol)}</a><div class="nm">${esc(c.name||'')}</div></td>
+      <td class="muted">${esc(c.sector||'-')}</td>
+      <td><div class="scorewrap"><span class="scoreval">${Number(c.score)||0}</span><span class="scorebar"><i style="width:${Math.max(2,Math.min(100,Number(c.score)||0))}%"></i></span></div></td>
+      <td class="${pctCls(m.revenueGrowthYoY,.25)}">${fmtPct(m.revenueGrowthYoY)}</td>
+      <td class="${pctCls(m.epsGrowthYoY,.25)}">${fmtPct(m.epsGrowthYoY)}</td>
+      <td class="${pctCls(m.grossMargin,.40)}">${fmtPct(m.grossMargin)}</td>
+      <td class="${pctCls(m.roe,.15)}">${fmtPct(m.roe)}</td>
+      <td class="${pctCls(v200,0)}">${fmtPct(v200)}</td>
+      <td class="${pctCls(m.distToHigh,-.15)}">${fmtPct(m.distToHigh)}</td>
+      <td class="muted">${fmtCap(m.marketCap)}</td>
+      <td><div class="chips">${flags}</div></td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="12" class="muted" style="padding:22px">Aucune candidate (univers pas encore couvert, relance /run ou attends le cron).</td></tr>';
+}
+
+document.querySelectorAll('th').forEach(th=>th.onclick=()=>{
+  const k=th.dataset.k; if(k==='flags') return;
+  if(sortKey===k) sortDir*=-1; else { sortKey=k; sortDir=(k==='symbol'||k==='sector'||k==='rank')?1:-1; }
+  render();
+});
+
+if(!getUrl()) showSetup(true); else load();
+</script>
+</body>
+</html>

@@ -1,0 +1,27 @@
+name = "stock-screener"
+main = "src/index.js"
+compatibility_date = "2026-01-01"
+
+# Cron : tous les jours vers 06:00 UTC (apres cloture US + maj donnees fournisseur), du lundi au vendredi.
+[triggers]
+crons = ["0 6 * * 1-5"]
+
+# KV : stocke la whitelist Revolut, le cache fondamental (fund:<ticker>), le curseur rolling et le classement (latest).
+# Cree le namespace puis colle son id ici :  wrangler kv namespace create SCREENER
+[[kv_namespaces]]
+binding = "SCREENER"
+id = "REMPLACER_PAR_ID_KV"
+
+# Variables non secretes (ajustables). Les seuils fins du screener sont dans src/screen.js (DEFAULT_CONFIG).
+[vars]
+MIN_MARKET_CAP = "300000000"   # 300 M$
+MIN_VOLUME = "100000"
+MAX_UNIVERSE = "3000"
+FUND_CHUNK = "60"              # fondamentaux rafraichis par run (rolling). Monter si tier FMP superieur.
+QUOTE_CHUNK = "50"            # symboles par appel quote en lot
+ENABLE_YAHOO_FALLBACK = "false" # true = fallback Yahoo (non officiel) si FMP ne renvoie pas les fondamentaux
+ENABLE_PRICE_CHANGE = "false"   # true = recupere perf 6M/1Y (1 appel/ticker en plus)
+
+# Secrets (NE PAS mettre ici) : a definir via `wrangler secret put` :
+#   wrangler secret put FMP_KEY       (cle gratuite financialmodelingprep.com)
+#   wrangler secret put ADMIN_KEY     (mot de passe que TU choisis pour /run et /whitelist)
