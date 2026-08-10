@@ -4762,9 +4762,22 @@ function scrMsg(c, text, color) {
 async function renderScreenerTab() {
   const c = document.getElementById('tab-screener');
   if (!c) return;
+  scrMsg(c, 'Chargement…');
+  // 1) Source prioritaire : Firebase (classement enrichi par la couche IBKR du VPS)
+  if (typeof db !== 'undefined') {
+    try {
+      const snap = await db.ref('stocks/screener/latest').once('value');
+      const fb = snap.val();
+      if (fb && fb.top && fb.top.length) {
+        let positions = null;
+        try { positions = (await db.ref('stocks/screener/positions').once('value')).val(); } catch (e) { /* ignore */ }
+        return screenerRender(c, fb, positions);
+      }
+    } catch (e) { /* repli Worker */ }
+  }
+  // 2) Repli : Worker FMP (URL mémorisée)
   if (!screenerWorkerUrl && !screenerUrlLoaded && typeof db !== 'undefined') {
     screenerUrlLoaded = true;
-    scrMsg(c, 'Chargement…');
     try { const s = await db.ref('dashboard/screener/workerUrl').once('value'); const u = s.val(); if (u) { screenerWorkerUrl = u; localStorage.setItem('screenerWorkerUrl', u); } } catch (e) { /* ignore */ }
   }
   if (!screenerWorkerUrl) return screenerRenderConfig(c);
@@ -4811,8 +4824,9 @@ async function screenerLoad(c) {
   }
 }
 
-function screenerRender(c, data) {
+function screenerRender(c, data, positions) {
   const s = data.summary || {}, top = data.top || [];
+  const enriched = !!(data.source && String(data.source).indexOf('ibkr') === 0);
   const frag = document.createDocumentFragment();
 
   // KPIs
@@ -4829,13 +4843,32 @@ function screenerRender(c, data) {
   ]})));
   frag.appendChild(grid);
 
+  // Bandeau positions live IBKR (si la couche VPS les a poussees)
+  const pos = positions && positions.positions ? positions.positions.filter((p) => p && p.position) : [];
+  if (pos.length) {
+    const strip = scrEl('div', { style: 'display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px;padding:10px 12px;background:#fff;border:1px solid #e3e8ee;border-radius:12px' });
+    strip.appendChild(scrEl('span', { text: 'Positions live IBKR', style: 'font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.03em;color:#5b6b7d;margin-right:4px' }));
+    pos.slice(0, 12).forEach((p) => {
+      const pnl = Number(p.unrealizedPnl);
+      const col = !isFinite(pnl) ? '#5b6b7d' : (pnl >= 0 ? '#1d9e74' : '#dd5f66');
+      const chip = scrEl('span', { style: 'display:inline-flex;gap:6px;align-items:center;background:#f6f8fb;border-radius:20px;padding:3px 10px;font-size:0.72rem' });
+      chip.appendChild(scrEl('b', { text: p.symbol || '?' }));
+      chip.appendChild(scrEl('span', { text: (isFinite(pnl) ? (pnl >= 0 ? '+' : '') + Math.round(pnl) + ' $' : '–'), style: `color:${col};font-weight:700` }));
+      strip.appendChild(chip);
+    });
+    if (positions.account && positions.account.NetLiquidation != null) {
+      strip.appendChild(scrEl('span', { text: 'Net liq. ' + Math.round(positions.account.NetLiquidation).toLocaleString('fr-FR') + ' $', style: 'margin-left:auto;font-size:0.72rem;color:#5b6b7d;font-weight:600' }));
+    }
+    frag.appendChild(strip);
+  }
+
   // Barre d'outils
   const refresh = scrEl('button', { text: 'Rafraîchir', style: 'padding:7px 13px;border:1px solid #e3e8ee;border-radius:9px;background:#fff;font-weight:600;cursor:pointer' });
   refresh.onclick = () => screenerLoad(c);
   const cfg = scrEl('button', { text: 'URL du moteur', style: 'padding:7px 13px;border:1px solid #e3e8ee;border-radius:9px;background:#fff;font-weight:600;cursor:pointer' });
   cfg.onclick = () => screenerRenderConfig(c);
   frag.appendChild(scrEl('div', { style: 'display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px', kids: [
-    scrEl('div', { style: 'color:#5b6b7d;font-size:0.76rem', text: data.generatedAt ? 'Généré le ' + new Date(data.generatedAt).toLocaleString('fr-FR') : '' }),
+    scrEl('div', { style: 'color:#5b6b7d;font-size:0.76rem', text: (data.generatedAt ? 'Généré le ' + new Date(data.generatedAt).toLocaleString('fr-FR') : '') + (enriched ? ' · enrichi IBKR' : ' · FMP') }),
     scrEl('div', { style: 'display:flex;gap:8px', kids: [refresh, cfg] })
   ]}));
 
@@ -4857,6 +4890,8 @@ function screenerRender(c, data) {
       const tkCell = scrEl('td', { style: `padding:8px 10px;${bd}`, kids: [link, scrEl('div', { text: cd.name || '', style: 'color:#5b6b7d;font-size:0.72rem;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap' })] });
       const flagsWrap = scrEl('div', { style: 'display:flex;gap:4px;flex-wrap:wrap' });
       (cd.flags || []).forEach((f) => { const up = /tendance/.test(f); flagsWrap.appendChild(scrEl('span', { text: f, style: `background:${up ? '#e4f5ee' : '#eef2f8'};color:${up ? '#1d7a5c' : '#42546a'};border-radius:20px;padding:2px 8px;font-size:0.64rem;font-weight:600;white-space:nowrap` })); });
+      if (cd.ibkrMomentumScore != null) flagsWrap.appendChild(scrEl('span', { text: 'IBKR mom ' + cd.ibkrMomentumScore, style: 'background:#eef2ff;color:#3563e9;border-radius:20px;padding:2px 8px;font-size:0.64rem;font-weight:700;white-space:nowrap' }));
+      if (cd.tradableIBKR === false) flagsWrap.appendChild(scrEl('span', { text: 'hors IBKR', style: 'background:#fdeaea;color:#c0392b;border-radius:20px;padding:2px 8px;font-size:0.64rem;font-weight:600;white-space:nowrap' }));
       tbody.appendChild(scrEl('tr', { kids: [
         scrEl('td', { text: String(i + 1), style: `padding:8px 10px;color:#9aa7b4;${bd}` }),
         tkCell,
