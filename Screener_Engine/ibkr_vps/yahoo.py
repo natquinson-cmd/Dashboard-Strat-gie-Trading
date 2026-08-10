@@ -117,6 +117,7 @@ class Yahoo:
             'symbol': symbol,
             'name': (pr.get('longName') or pr.get('shortName')),
             'sector': ap.get('sector') or 'N/A',
+            'exchange': pr.get('exchange'),   # code Yahoo (NMS, NYQ, ASE...) pour construire l'URL TradingView
             'price': g(fd, 'currentPrice') or g(pr, 'regularMarketPrice'),
             'marketCap': g(pr, 'marketCap') or g(sd, 'marketCap'),
             'avgVolume': g(sd, 'averageVolume') or g(sd, 'averageVolume10days'),

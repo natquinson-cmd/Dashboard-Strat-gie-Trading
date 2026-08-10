@@ -18,6 +18,7 @@ from yahoo import Yahoo
 from screen import rank_universe, DEFAULT_CONFIG
 
 NO_PUSH = '--no-push' in sys.argv
+WATCH = '--watch' in sys.argv   # relance a chaque changement de config depuis le dashboard
 LIMIT_OVERRIDE = next((int(a.split('=')[1]) for a in sys.argv if a.startswith('--limit=')), None)
 
 MIN_REVGROWTH = float(os.environ.get('SCREEN_MIN_REVGROWTH', '0.30'))
@@ -82,7 +83,36 @@ def _now_iso():
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
 
 
+def apply_firebase_config():
+    """Override les defauts avec la config posee par le dashboard (sliders) -> stocks/screener/config."""
+    global MIN_MCAP, MAX_MCAP, MIN_REVGROWTH, MAX_REVGROWTH, UNIVERSE_LIMIT, TOP_N
+    db = os.environ.get('FIREBASE_DB_URL')
+    if not db:
+        return
+    from firebase_push import get
+    cfg = get(db, 'stocks/screener/config')
+    if not isinstance(cfg, dict):
+        return
+
+    def f(k, cur, cast=float):
+        try:
+            return cast(cfg[k]) if cfg.get(k) is not None else cur
+        except Exception:
+            return cur
+
+    MIN_MCAP = f('minMcap', MIN_MCAP)
+    MAX_MCAP = f('maxMcap', MAX_MCAP)
+    MIN_REVGROWTH = f('minRevGrowth', MIN_REVGROWTH)
+    MAX_REVGROWTH = f('maxRevGrowth', MAX_REVGROWTH)
+    if not LIMIT_OVERRIDE:
+        UNIVERSE_LIMIT = f('universeLimit', UNIVERSE_LIMIT, int)
+    TOP_N = f('topN', TOP_N, int)
+    print(f'Config dashboard : cap {MIN_MCAP/1e6:.0f}M-{MAX_MCAP/1e9:.1f}Md, CA>{MIN_REVGROWTH:.0%}, analyses={UNIVERSE_LIMIT}, top={TOP_N}')
+
+
 def main():
+    apply_firebase_config()
+    DEFAULT_CONFIG['topN'] = TOP_N
     y, symbols = screen_universe()
     if not symbols:
         raise SystemExit('Screener vide (Yahoo bloque ou filtres trop stricts).')
@@ -136,4 +166,27 @@ def _p(x):
 
 
 if __name__ == '__main__':
-    main()
+    if WATCH:
+        import time
+        _db = os.environ.get('FIREBASE_DB_URL')
+        from firebase_push import get as _get
+
+        def _token():
+            c = _get(_db, 'stocks/screener/config') if _db else None
+            return c.get('runRequested') if isinstance(c, dict) else None
+
+        print('Mode --watch actif : relance a chaque "Appliquer" depuis le dashboard (Ctrl+C pour arreter).')
+        _last = _token()
+        main()
+        while True:
+            time.sleep(20)
+            _t = _token()
+            if _t is not None and _t != _last:
+                _last = _t
+                print(f'--- config modifiee (runRequested={_t}) -> relance ---')
+                try:
+                    main()
+                except Exception as _e:
+                    print('run echoue:', _e)
+    else:
+        main()

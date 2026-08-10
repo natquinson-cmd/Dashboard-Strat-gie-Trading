@@ -4630,7 +4630,8 @@ const GROUP_TABS = {
   trading: [
     { id: 'real', label: 'Trading Réel' },
     { id: 'fixed', label: 'Taille Fixe' },
-    { id: 'reinvest', label: 'Réinvestissement' }
+    { id: 'reinvest', label: 'Réinvestissement' },
+    { id: 'screener', label: 'Screener' }
   ],
   invest: [
     { id: 'overview', label: "Vue d'ensemble" },
@@ -4641,7 +4642,6 @@ const GROUP_TABS = {
     { id: 'darwinex', label: '<svg width="15" height="15" viewBox="0 0 32 32" style="vertical-align:-3px;margin-right:4px" xmlns="http://www.w3.org/2000/svg"><path d="M2 3 L12 12 L16 9 L20 12 L30 3 L26.5 19 C26 25 21 29 16 30 C11 29 6 25 5.5 19 Z" fill="#17c4c4"/><path d="M2 3 L12 12 L16 9 L16 30 C11 29 6 25 5.5 19 Z" fill="#0fa5a5"/><circle cx="12" cy="17" r="1.6" fill="#082a33"/><circle cx="20" cy="17" r="1.6" fill="#082a33"/></svg>Darwinex' },
     { id: 'simulateur', label: 'Rembourser vs Placer' },
     { id: 'repartition', label: 'Répartition' },
-    { id: 'screener', label: 'Screener' },
     { id: 'update', label: 'Mise à jour' }
   ]
 };
@@ -4744,6 +4744,14 @@ let screenerWorkerUrl = localStorage.getItem('screenerWorkerUrl') || '';
 let screenerUrlLoaded = false;
 const scrCap = (x) => x == null ? '–' : x >= 1e9 ? '$' + (x / 1e9).toFixed(1) + 'B' : x >= 1e6 ? '$' + (x / 1e6).toFixed(0) + 'M' : '$' + x;
 const scrCol = (x, y) => x == null ? '#5b6b7d' : (x >= y ? '#1d9e74' : '#dd5f66');
+// Lien vers une fiche LIVE. IBKR n'a pas de deep-link public (Client Portal login-gated par conid),
+// donc TradingView (meilleurs graphes live) via ticker+place ; repli Yahoo si place inconnue.
+const SCR_TV_EXCH = { NMS: 'NASDAQ', NGM: 'NASDAQ', NCM: 'NASDAQ', NYQ: 'NYSE', ASE: 'AMEX', PCX: 'AMEX', BATS: 'AMEX' };
+const scrQuoteUrl = (sym, exch) => {
+  const ex = SCR_TV_EXCH[exch];
+  return ex ? 'https://www.tradingview.com/symbols/' + ex + '-' + encodeURIComponent(String(sym || '').replace(/-/g, '.')) + '/'
+            : 'https://finance.yahoo.com/quote/' + encodeURIComponent(sym || '');
+};
 const scrPctTxt = (x) => x == null ? '–' : (x >= 0 ? '+' : '') + (x * 100).toFixed(0) + '%';
 function scrEl(tag, o = {}) {
   const e = document.createElement(tag);
@@ -4776,9 +4784,10 @@ async function renderScreenerTab() {
     await new Promise(r => setTimeout(r, 800));
   }
   if (fb && fb.top && fb.top.length) {
-    let positions = null;
+    let positions = null, config = null;
     try { positions = (await db.ref('stocks/screener/positions').once('value')).val(); } catch (e) { /* ignore */ }
-    return screenerRender(c, fb, positions);
+    try { config = (await db.ref('stocks/screener/config').once('value')).val(); } catch (e) { /* ignore */ }
+    return screenerRender(c, fb, positions, config);
   }
   // Pas encore de classement
   const btn = scrEl('button', { text: 'Réessayer', style: 'padding:8px 14px;border:1px solid #e3e8ee;border-radius:10px;background:#fff;font-weight:600;cursor:pointer' });
@@ -4829,7 +4838,61 @@ async function screenerLoad(c) {
   }
 }
 
-function screenerRender(c, data, positions) {
+function buildScreenerParams(panel, config) {
+  config = config || {};
+  const cur = {
+    minMcap: Number(config.minMcap) || 500e6, maxMcap: Number(config.maxMcap) || 10e9,
+    minRevGrowth: Number(config.minRevGrowth) || 0.30, universeLimit: Number(config.universeLimit) || 300,
+  };
+  // Echelle logarithmique : curseur 0..1000 <-> $ entre 10^a et 10^b
+  const capMap = (a, b) => ({ toVal: (v) => Math.pow(10, a + (b - a) * (v / 1000)), toSlider: (x) => Math.round((Math.log10(x) - a) / (b - a) * 1000) });
+  const minCap = capMap(8, 10);       // 100 M .. 10 Md
+  const maxCap = capMap(8.7, 11.7);   // 500 M .. 500 Md
+
+  function sliderRow(label, input, valueFn) {
+    input.style.cssText = 'flex:1;accent-color:#3563e9';
+    const val = scrEl('span', { text: valueFn(), style: 'font-weight:800;color:#1f2d3d;min-width:64px;text-align:right' });
+    input.oninput = () => { val.textContent = valueFn(); };
+    return scrEl('div', { style: 'display:flex;align-items:center;gap:12px;margin:9px 0', kids: [
+      scrEl('span', { text: label, style: 'font-size:0.8rem;color:#5b6b7d;min-width:170px' }), input, val] });
+  }
+  const rng = (min, max, step, value) => scrEl('input', { attrs: { type: 'range', min: String(min), max: String(max), step: String(step), value: String(value) } });
+  const sMin = rng(0, 1000, 5, minCap.toSlider(cur.minMcap));
+  const sMax = rng(0, 1000, 5, maxCap.toSlider(cur.maxMcap));
+  const sGro = rng(10, 100, 5, Math.round(cur.minRevGrowth * 100));
+  const sLim = rng(100, 500, 25, cur.universeLimit);
+
+  const status = scrEl('div', { style: 'font-size:0.74rem;color:#5b6b7d' });
+  const apply = scrEl('button', { text: 'Appliquer', style: 'padding:8px 18px;border:none;border-radius:10px;background:#3563e9;color:#fff;font-weight:700;cursor:pointer' });
+  apply.onclick = async () => {
+    const cfg = {
+      minMcap: Math.round(minCap.toVal(+sMin.value)), maxMcap: Math.round(maxCap.toVal(+sMax.value)),
+      minRevGrowth: (+sGro.value) / 100, universeLimit: +sLim.value,
+      topN: Number(config.topN) || 50, runRequested: Date.now(),
+    };
+    apply.disabled = true; status.textContent = 'Enregistrement…';
+    try {
+      await db.ref('stocks/screener/config').set(cfg);
+      status.textContent = 'Enregistré. Le moteur recalcule à son prochain run (immédiat si le mode veille tourne sur le VPS).';
+    } catch (e) { status.textContent = 'Erreur : ' + e.message; }
+    apply.disabled = false;
+  };
+
+  panel.replaceChildren(scrEl('div', {
+    style: 'background:#fff;border:1px solid #e3e8ee;border-radius:14px;padding:16px 18px;margin-bottom:14px',
+    kids: [
+      scrEl('div', { text: 'Paramètres du moteur', style: 'font-weight:800;margin-bottom:2px' }),
+      scrEl('div', { text: 'Ajuste puis Appliquer. Les réglages sont lus par le screener sur le VPS.', style: 'font-size:0.76rem;color:#5b6b7d;margin-bottom:6px' }),
+      sliderRow('Capitalisation mini', sMin, () => scrCap(minCap.toVal(+sMin.value))),
+      sliderRow('Capitalisation maxi (exclut les géantes)', sMax, () => scrCap(maxCap.toVal(+sMax.value))),
+      sliderRow('Croissance CA mini', sGro, () => sGro.value + '%'),
+      sliderRow('Titres analysés', sLim, () => sLim.value),
+      scrEl('div', { style: 'display:flex;align-items:center;gap:14px;margin-top:12px', kids: [apply, status] }),
+    ]
+  }));
+}
+
+function screenerRender(c, data, positions, config) {
   const s = data.summary || {}, top = data.top || [];
   const enriched = !!(data.source && String(data.source).indexOf('ibkr') === 0);
   const frag = document.createDocumentFragment();
@@ -4868,12 +4931,21 @@ function screenerRender(c, data, positions) {
   }
 
   // Barre d'outils
-  const refresh = scrEl('button', { text: 'Rafraîchir', style: 'padding:7px 13px;border:1px solid #e3e8ee;border-radius:9px;background:#fff;font-weight:600;cursor:pointer' });
+  const btnStyle = 'padding:7px 13px;border:1px solid #e3e8ee;border-radius:9px;background:#fff;font-weight:600;cursor:pointer';
+  const refresh = scrEl('button', { text: 'Rafraîchir', style: btnStyle });
   refresh.onclick = () => renderScreenerTab();
+  const paramsBtn = scrEl('button', { text: '⚙ Paramètres', style: btnStyle });
+  const panel = scrEl('div', { style: 'display:none' });
+  let panelBuilt = false;
+  paramsBtn.onclick = () => {
+    if (!panelBuilt) { buildScreenerParams(panel, config); panelBuilt = true; }
+    panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+  };
   frag.appendChild(scrEl('div', { style: 'display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px', kids: [
     scrEl('div', { style: 'color:#5b6b7d;font-size:0.76rem', text: (data.generatedAt ? 'Généré le ' + new Date(data.generatedAt).toLocaleString('fr-FR') : '') + (enriched ? ' · enrichi IBKR' : ' · Yahoo') }),
-    scrEl('div', { style: 'display:flex;gap:8px', kids: [refresh] })
+    scrEl('div', { style: 'display:flex;gap:8px', kids: [paramsBtn, refresh] })
   ]}));
+  frag.appendChild(panel);
 
   // Table
   const cols = [['#', 'left'], ['Ticker', 'left'], ['Secteur', 'left'], ['Score', 'right'], ['Crois. CA', 'right'], ['Crois. BPA', 'right'], ['Marge', 'right'], ['ROE', 'right'], ['vs MM200', 'right'], ['/52s-haut', 'right'], ['Cap.', 'right'], ['Signaux', 'left']];
@@ -4889,7 +4961,7 @@ function screenerRender(c, data, positions) {
     top.forEach((cd, i) => {
       const m = cd.metrics || {};
       const v200 = (m.price != null && m.priceAvg200 != null) ? (m.price / m.priceAvg200 - 1) : null;
-      const link = scrEl('a', { text: cd.symbol || '', href: 'https://finance.yahoo.com/quote/' + encodeURIComponent(cd.symbol || ''), attrs: { target: '_blank', rel: 'noopener' }, style: 'font-weight:800;color:#3563e9;text-decoration:none' });
+      const link = scrEl('a', { text: cd.symbol || '', href: scrQuoteUrl(cd.symbol, m.exchange), attrs: { target: '_blank', rel: 'noopener' }, style: 'font-weight:800;color:#3563e9;text-decoration:none' });
       const tkCell = scrEl('td', { style: `padding:8px 10px;${bd}`, kids: [link, scrEl('div', { text: cd.name || '', style: 'color:#5b6b7d;font-size:0.72rem;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap' })] });
       const flagsWrap = scrEl('div', { style: 'display:flex;gap:4px;flex-wrap:wrap' });
       (cd.flags || []).forEach((f) => { const up = /tendance/.test(f); flagsWrap.appendChild(scrEl('span', { text: f, style: `background:${up ? '#e4f5ee' : '#eef2f8'};color:${up ? '#1d7a5c' : '#42546a'};border-radius:20px;padding:2px 8px;font-size:0.64rem;font-weight:600;white-space:nowrap` })); });

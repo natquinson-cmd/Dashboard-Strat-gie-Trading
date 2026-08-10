@@ -69,6 +69,18 @@ Cible **small/mid caps « prêtes à exploser »** : mega caps EXCLUES, OTC/étr
 
 `SCREEN_MIN_REVGROWTH` (0.30) · `SCREEN_MAX_REVGROWTH` (3.0, anti-distorsion base basse) · `SCREEN_MIN_MCAP` (500000000) · **`SCREEN_MAX_MCAP` (10000000000 = exclut les mega caps ; baisse-la, ex 3000000000, pour cibler encore plus petit)** · `UNIVERSE_LIMIT` (300, nb de titres enrichis) · `MAX_TOTAL` (1000) · `TOP_N` (50) · `BLEND_IBKR` (0.15 ; 0 = classement 100 % fondamental). Les seuils fins (poids pré-cassure, garde-fous) sont dans `screen.py` → `DEFAULT_CONFIG`.
 
+## Pilotage depuis le dashboard (sliders)
+
+L'onglet Screener a un bouton **⚙ Paramètres** : sliders pour cap mini/maxi, croissance CA mini, nb de titres analysés. **Appliquer** écrit la config dans Firebase `stocks/screener/config`, que `run.py` lit à chaque exécution (elle surcharge les variables d'env). Les changements s'appliquent au **prochain run**.
+
+Pour un rafraîchissement **immédiat** à chaque Appliquer, lance le service en **mode veille** sur le VPS (il relance dès que `runRequested` change) :
+
+```
+.venv\Scripts\python run.py --watch
+```
+
+Le lien sur chaque ticker ouvre **TradingView** (graphes live). IBKR n'a pas de deep-link public exploitable (Client Portal login-gated, par conid), donc pas de lien direct IBKR possible.
+
 ## Tests locaux (sans réseau)
 
 ```

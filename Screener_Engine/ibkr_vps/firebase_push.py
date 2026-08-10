@@ -25,18 +25,26 @@ def _oauth_token():
         return None
 
 
-def push(db_url, path, data):
-    db_url = db_url.rstrip('/')
-    url = f'{db_url}/{path}.json'
+def _auth_url(db_url, path):
+    url = f'{db_url.rstrip("/")}/{path}.json'
     secret = os.environ.get('FIREBASE_DB_SECRET')
     if secret:
-        url += f'?auth={secret}'
-    else:
-        tok = _oauth_token()
-        if tok:
-            url += f'?access_token={tok}'
+        return url + f'?auth={secret}'
+    tok = _oauth_token()
+    return url + f'?access_token={tok}' if tok else url
+
+
+def push(db_url, path, data):
     body = json.dumps(data).encode('utf-8')
-    req = urllib.request.Request(url, data=body, method='PUT',
+    req = urllib.request.Request(_auth_url(db_url, path), data=body, method='PUT',
                                  headers={'content-type': 'application/json'})
     with urllib.request.urlopen(req, timeout=20) as r:
         return r.status in (200, 204)
+
+
+def get(db_url, path):
+    try:
+        with urllib.request.urlopen(urllib.request.Request(_auth_url(db_url, path)), timeout=15) as r:
+            return json.loads(r.read())
+    except Exception:
+        return None

@@ -202,7 +202,7 @@ def rank_universe(universe, cfg=DEFAULT_CONFIG):
                 'epsGrowthYoY': t.get('epsGrowthYoY'), 'grossMargin': t.get('grossMargin'), 'roe': t.get('roe'),
                 'ruleOf40': t.get('_ro40'), 'priceAvg50': t.get('priceAvg50'), 'priceAvg200': t.get('priceAvg200'),
                 'yearHigh': t.get('yearHigh'), 'distToHigh': dh, 'perf6m': t.get('perf6m'),
-                'perf12m': t.get('perf12m'), 'uptrend': t['_uptrend'],
+                'perf12m': t.get('perf12m'), 'uptrend': t['_uptrend'], 'exchange': t.get('exchange'),
             },
             'flags': _compute_flags(t, cfg),
         })
