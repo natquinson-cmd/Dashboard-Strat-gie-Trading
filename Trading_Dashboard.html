@@ -4744,12 +4744,14 @@ let screenerWorkerUrl = localStorage.getItem('screenerWorkerUrl') || '';
 let screenerUrlLoaded = false;
 const scrCap = (x) => x == null ? '–' : x >= 1e9 ? '$' + (x / 1e9).toFixed(1) + 'B' : x >= 1e6 ? '$' + (x / 1e6).toFixed(0) + 'M' : '$' + x;
 const scrCol = (x, y) => x == null ? '#5b6b7d' : (x >= y ? '#1d9e74' : '#dd5f66');
-// Lien vers une fiche LIVE. IBKR n'a pas de deep-link public (Client Portal login-gated par conid),
-// donc TradingView (meilleurs graphes live) via ticker+place ; repli Yahoo si place inconnue.
+// Lien vers le GRAPHIQUE TRADABLE TradingView (format EXCHANGE:TICKER). Une fois ton compte IBKR
+// connecte dans TradingView (panneau Trading), tu passes tes ordres IBKR directement depuis cette
+// page. Repli Yahoo si la place boursiere est inconnue.
 const SCR_TV_EXCH = { NMS: 'NASDAQ', NGM: 'NASDAQ', NCM: 'NASDAQ', NYQ: 'NYSE', ASE: 'AMEX', PCX: 'AMEX', BATS: 'AMEX' };
 const scrQuoteUrl = (sym, exch) => {
   const ex = SCR_TV_EXCH[exch];
-  return ex ? 'https://www.tradingview.com/symbols/' + ex + '-' + encodeURIComponent(String(sym || '').replace(/-/g, '.')) + '/'
+  const s = String(sym || '').replace(/-/g, '.');
+  return ex ? 'https://www.tradingview.com/chart/?symbol=' + encodeURIComponent(ex + ':' + s)
             : 'https://finance.yahoo.com/quote/' + encodeURIComponent(sym || '');
 };
 const scrPctTxt = (x) => x == null ? '–' : (x >= 0 ? '+' : '') + (x * 100).toFixed(0) + '%';
