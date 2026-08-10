@@ -21,7 +21,10 @@ import sys
 import urllib.request
 
 TOP_N = int(os.environ.get('TOP_N', '40'))
-BLEND = float(os.environ.get('BLEND_IBKR', '0.4'))
+# Poids du momentum IBKR dans le score final. Faible par defaut : la strategie vise le
+# PRE-CASSURE (mene par les fondamentaux FMP), on ne veut pas re-tilter vers le momentum.
+# Mets 0 pour un classement 100 % fondamental (IBKR ne sert alors qu'aux data live/positions).
+BLEND = float(os.environ.get('BLEND_IBKR', '0.15'))
 MOCK = '--mock' in sys.argv
 
 

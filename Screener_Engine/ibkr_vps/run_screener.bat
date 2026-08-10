@@ -13,7 +13,7 @@ set "IBKR_HOST=127.0.0.1"
 set "IBKR_PORT=4001"
 set "IBKR_CLIENT_ID=17"
 set "TOP_N=40"
-set "BLEND_IBKR=0.4"
+set "BLEND_IBKR=0.15"
 
 REM --- Venv (cree une fois : python -m venv .venv && .venv\Scripts\pip install -r requirements.txt) ---
 if exist ".venv\Scripts\python.exe" (

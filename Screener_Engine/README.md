@@ -72,7 +72,9 @@ La **couverture** monte donc progressivement : avec 60 tickers/jour sur ~2000 ti
 
 ## Reglage des criteres
 
-Tout est dans `worker/src/screen.js` -> `DEFAULT_CONFIG` : garde-fous (cap, prix, volume, dilution, dette, exception BPA<0), plancher growth, seuils de flags, **poids du score** (momentum 32 %, croissance CA 25 %, BPA 20 %, qualite 15 %, volume 8 %). Modifie, `wrangler deploy`, relance `/run`.
+Tout est dans `worker/src/screen.js` -> `DEFAULT_CONFIG` : garde-fous (cap, prix, volume, dilution, dette, exception BPA<0), plancher growth, seuils de flags, **poids du score**.
+
+Orientation **PRE-CASSURE** (trouver de fortes croissances AVANT qu'elles ne cassent, pas courir apres le momentum) : le score est mene par les fondamentaux (croissance CA 34 %, BPA 26 %, qualite 20 %, momentum 12 %, volume 8 %). Pas de penalite si le titre n'est pas encore en tendance ; a la place un **bonus pre-cassure** quand le prix consolide sous sa resistance (distToHigh dans [-20 %, -3 %]) et un leger malus seulement si le titre est casse a la baisse (< -35 % du plus-haut ET sous MM200). Flag `pré-cassure` affiche dans le dashboard. Modifie, `wrangler deploy`, relance `/run`.
 
 Variables non secretes (dans `wrangler.toml`) : `MIN_MARKET_CAP`, `MIN_VOLUME`, `MAX_UNIVERSE`, `FUND_CHUNK`, `QUOTE_CHUNK`, `ENABLE_YAHOO_FALLBACK`, `ENABLE_PRICE_CHANGE`.
 

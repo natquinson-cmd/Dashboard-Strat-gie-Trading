@@ -28,14 +28,20 @@ export const DEFAULT_CONFIG = {
     grossMargin: 0.40,
     roe: 0.15,
     ruleOf40: 0.40,
-    nearHigh: 0.85 // cours >= 85 % du plus-haut 52 sem
+    nearHigh: 0.97,        // cours >= 97 % du plus-haut 52 sem = deja en cassure / au sommet
+    // Zone "pre-cassure" : prix qui consolide SOUS la resistance (plus-haut 52 sem),
+    // ni casse a la baisse, ni deja parti. distToHigh (=cours/plus-haut-1) dans [low, high].
+    preBreakoutLow: -0.20,
+    preBreakoutHigh: -0.03,
+    brokenBelow: -0.35     // en dessous = titre casse a la baisse (leger malus)
   },
-  // Poids du score composite (somme = 1)
+  // Poids du score composite (somme = 1). Oriente PRE-CASSURE : mene par les fondamentaux
+  // de croissance, le momentum n'est qu'un facteur mineur (on ne court pas apres le prix).
   weights: {
-    momentum: 0.32,
-    salesGrowth: 0.25,
-    epsGrowth: 0.20,
-    quality: 0.15,
+    momentum: 0.12,
+    salesGrowth: 0.34,
+    epsGrowth: 0.26,
+    quality: 0.20,
     volume: 0.08
   },
   // Percentiles par secteur si le bucket a au moins N noms, sinon percentile global
@@ -200,12 +206,19 @@ export function rankUniverse(universe, cfg = DEFAULT_CONFIG) {
     const wsum = comps.reduce((a, [, ww]) => a + ww, 0) || 1;
     const score = comps.reduce((a, [v, ww]) => a + v * ww, 0) / wsum;
 
-    // Malus si pas en tendance haussiere (le growth agressif exige la confirmation prix)
-    const penalized = t._uptrend ? score : score * 0.7;
+    // Ajustement PRE-CASSURE (remplace l'ancien malus momentum) : bonus si le prix consolide
+    // sous la resistance (zone de cassure a venir), leger malus seulement si casse a la baisse.
+    const dh = (num(t.price) != null && num(t.yearHigh)) ? t.price / t.yearHigh - 1 : null;
+    let adj = 1;
+    if (dh != null) {
+      if (dh >= cfg.flags.preBreakoutLow && dh <= cfg.flags.preBreakoutHigh) adj = 1.06;   // pre-cassure
+      else if (dh < cfg.flags.brokenBelow && !t._uptrend) adj = 0.85;                        // casse a la baisse
+    }
+    const penalized = score * adj;
 
     return {
       symbol: t.symbol, name: t.name, sector: t.sector || 'N/A',
-      score: Math.round(penalized * 10) / 10,
+      score: Math.round(Math.min(100, penalized) * 10) / 10,
       subscores: {
         momentum: round1(pMom), salesGrowth: round1(pSales), epsGrowth: round1(pEps),
         quality: round1(pQual), volume: round1(pVol)
@@ -242,7 +255,11 @@ function computeFlags(t, cfg) {
   if (num(t.grossMargin) != null && t.grossMargin >= f.grossMargin) out.push('marge>=40%');
   if (num(t.roe) != null && t.roe >= f.roe) out.push('ROE>=15%');
   const r40 = ruleOf40(t); if (r40 != null && r40 >= f.ruleOf40) out.push('Rule40');
-  if (num(t.price) != null && num(t.yearHigh) && t.price >= f.nearHigh * t.yearHigh) out.push('proche 52s-haut');
+  const dh = (num(t.price) != null && num(t.yearHigh)) ? t.price / t.yearHigh - 1 : null;
+  if (dh != null) {
+    if (dh >= f.preBreakoutLow && dh <= f.preBreakoutHigh) out.push('pré-cassure');
+    else if (t.price >= f.nearHigh * t.yearHigh) out.push('au sommet');
+  }
   if (isUptrend(t)) out.push('tendance haussiere');
   return out;
 }
