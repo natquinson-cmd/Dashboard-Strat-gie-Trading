@@ -10,7 +10,7 @@ crons = ["0 6 * * 1-5"]
 # Cree le namespace puis colle son id ici :  wrangler kv namespace create SCREENER
 [[kv_namespaces]]
 binding = "SCREENER"
-id = "REMPLACER_PAR_ID_KV"
+id = "b8464b92c2034ebbb072bb2aeadaad02"
 
 # Variables non secretes (ajustables). Les seuils fins du screener sont dans src/screen.js (DEFAULT_CONFIG).
 [vars]
