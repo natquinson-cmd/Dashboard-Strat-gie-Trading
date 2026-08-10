@@ -65,7 +65,9 @@ IB Gateway headless piloté par **IBC** (auto-restart, API Read-Only port 4001, 
 
 ## Réglages (variables d'env)
 
-`SCREEN_MIN_REVGROWTH` (0.25) · `SCREEN_MIN_MCAP` (300000000, baisse-la pour plus de small caps) · `UNIVERSE_LIMIT` (250, nb de titres enrichis) · `MAX_TOTAL` (500) · `TOP_N` (50) · `BLEND_IBKR` (0.15, poids du momentum IBKR ; 0 = classement 100 % fondamental). Les seuils fins (poids pré-cassure, garde-fous) sont dans `screen.py` → `DEFAULT_CONFIG`.
+Cible **small/mid caps « prêtes à exploser »** : mega caps EXCLUES, OTC/étranger filtré (places US majeures uniquement), tri par cap **croissante** (les plus petites d'abord).
+
+`SCREEN_MIN_REVGROWTH` (0.30) · `SCREEN_MAX_REVGROWTH` (3.0, anti-distorsion base basse) · `SCREEN_MIN_MCAP` (500000000) · **`SCREEN_MAX_MCAP` (10000000000 = exclut les mega caps ; baisse-la, ex 3000000000, pour cibler encore plus petit)** · `UNIVERSE_LIMIT` (300, nb de titres enrichis) · `MAX_TOTAL` (1000) · `TOP_N` (50) · `BLEND_IBKR` (0.15 ; 0 = classement 100 % fondamental). Les seuils fins (poids pré-cassure, garde-fous) sont dans `screen.py` → `DEFAULT_CONFIG`.
 
 ## Tests locaux (sans réseau)
 

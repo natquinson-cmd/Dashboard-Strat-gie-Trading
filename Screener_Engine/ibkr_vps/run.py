@@ -20,30 +20,40 @@ from screen import rank_universe, DEFAULT_CONFIG
 NO_PUSH = '--no-push' in sys.argv
 LIMIT_OVERRIDE = next((int(a.split('=')[1]) for a in sys.argv if a.startswith('--limit=')), None)
 
-MIN_REVGROWTH = float(os.environ.get('SCREEN_MIN_REVGROWTH', '0.25'))
-MIN_MCAP = float(os.environ.get('SCREEN_MIN_MCAP', '300000000'))
-# Borne HAUTE appliquee EN PYTHON (le champ croissance du screener Yahoo devient incoherent
-# si on combine deux bornes) : au-dela, la croissance vient d'une base quasi nulle = distorsion.
+MIN_REVGROWTH = float(os.environ.get('SCREEN_MIN_REVGROWTH', '0.30'))
+# Fourchette de capitalisation : on vise les SMALL/MID caps "pretes a exploser" et on EXCLUT
+# les mega caps (qui ne montent que de quelques %). Baisse MAX_MCAP pour cibler plus petit.
+MIN_MCAP = float(os.environ.get('SCREEN_MIN_MCAP', '500000000'))
+MAX_MCAP = float(os.environ.get('SCREEN_MAX_MCAP', '10000000000'))
+# Borne HAUTE de croissance appliquee EN PYTHON (le champ croissance du screener Yahoo devient
+# incoherent avec deux bornes) : au-dela = croissance depuis une base quasi nulle = distorsion.
 MAX_REVGROWTH = float(os.environ.get('SCREEN_MAX_REVGROWTH', '3.0'))
-UNIVERSE_LIMIT = LIMIT_OVERRIDE or int(os.environ.get('UNIVERSE_LIMIT', '250'))
-MAX_TOTAL = int(os.environ.get('MAX_TOTAL', '500'))
+UNIVERSE_LIMIT = LIMIT_OVERRIDE or int(os.environ.get('UNIVERSE_LIMIT', '300'))
+MAX_TOTAL = int(os.environ.get('MAX_TOTAL', '1000'))
 TOP_N = int(os.environ.get('TOP_N', '50'))
 ENABLE_IBKR = os.environ.get('ENABLE_IBKR', 'false') == 'true'
 BLEND = float(os.environ.get('BLEND_IBKR', '0.15'))
 
 
+# Places boursieres US majeures (on exclut l'OTC/Pink et les tickers etrangers = ~560 titres de junk)
+MAJOR_EXCH = {'NMS', 'NYQ', 'NGM', 'NCM', 'ASE', 'PCX', 'BATS'}
+
+
 def screen_universe():
     y = Yahoo()
-    # UN SEUL borne de croissance cote screener (le champ devient incoherent avec deux bornes),
-    # tri par capitalisation = univers propre et liquide. Le filtrage fin se fait en Python.
+    # UNE seule borne de croissance cote screener (le champ devient incoherent avec deux bornes).
+    # Fourchette de cap pour cibler small/mid. Tri par cap CROISSANTE = les plus petites d'abord
+    # (plus de potentiel). Le filtrage fin (marges, BPA, pre-cassure) se fait en Python.
     operands = [
         ('gt', 'quarterlyrevenuegrowth.quarterly', MIN_REVGROWTH),
         ('gt', 'intradaymarketcap', MIN_MCAP),
+        ('lt', 'intradaymarketcap', MAX_MCAP),
         ('eq', 'region', 'us'),
     ]
-    tickers = y.screen(operands, size=250, sort_field='intradaymarketcap', sort_type='desc', max_total=MAX_TOTAL)
-    print(f'Yahoo screener : {len(tickers)} titres US (CA YoY>{MIN_REVGROWTH:.0%}, cap>{MIN_MCAP/1e6:.0f}M)')
-    return y, [t['symbol'] for t in tickers]
+    rows = y.screen(operands, size=250, sort_field='intradaymarketcap', sort_type='asc', max_total=MAX_TOTAL)
+    rows = [t for t in rows if t.get('exchange') in MAJOR_EXCH]   # exclut l'OTC/etranger
+    print(f'Yahoo screener : {len(rows)} titres US small/mid ({MIN_MCAP/1e6:.0f}M-{MAX_MCAP/1e9:.0f}Md$, CA YoY>{MIN_REVGROWTH:.0%})')
+    return y, [t['symbol'] for t in rows]
 
 
 def ibkr_enrich(top):

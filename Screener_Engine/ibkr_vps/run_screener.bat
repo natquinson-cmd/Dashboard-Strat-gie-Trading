@@ -10,11 +10,13 @@ set "FIREBASE_DB_URL=https://portfolio-dashboard-f0c69-default-rtdb.firebaseio.c
 REM set "FIREBASE_DB_SECRET=colle_ton_secret_ici"   REM ou GOOGLE_APPLICATION_CREDENTIALS
 
 REM --- Reglages du screener (tous optionnels, valeurs par defaut entre parentheses) ---
-set "SCREEN_MIN_REVGROWTH=0.25"     REM croissance CA mini (0.25)
-set "SCREEN_MAX_REVGROWTH=3.0"      REM borne haute anti-distorsion (3.0 = 300%)
-set "SCREEN_MIN_MCAP=300000000"     REM cap mini (baisse pour plus de small caps)
-set "UNIVERSE_LIMIT=250"            REM nb de titres enrichis
-set "MAX_TOTAL=500"
+REM Cible SMALL/MID caps "pretes a exploser", mega caps EXCLUES.
+set "SCREEN_MIN_REVGROWTH=0.30"      REM croissance CA mini (0.30)
+set "SCREEN_MAX_REVGROWTH=3.0"       REM borne haute anti-distorsion (3.0 = 300%)
+set "SCREEN_MIN_MCAP=500000000"      REM cap mini (500M)
+set "SCREEN_MAX_MCAP=10000000000"    REM cap MAXI = exclut les mega caps. Baisse (ex 3000000000) pour cibler plus petit
+set "UNIVERSE_LIMIT=300"             REM nb de titres enrichis (les plus PETITS d'abord)
+set "MAX_TOTAL=1000"
 set "TOP_N=50"
 
 REM --- IBKR (optionnel : momentum precis + positions live) ---
