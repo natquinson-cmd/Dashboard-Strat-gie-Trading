@@ -187,6 +187,7 @@ class Yahoo:
             'peg': g(ks, 'pegRatio') or g(ks, 'trailingPegRatio'),
             'trailingPE': g(sd, 'trailingPE'), 'forwardPE': g(sd, 'forwardPE'),
             'dividendYield': g(sd, 'dividendYield'), 'payoutRatio': g(sd, 'payoutRatio'),
+            'website': ap.get('website'),   # pour le logo de repli (favicon du domaine)
         }
 
     def price_cagr(self, symbol, years=5):

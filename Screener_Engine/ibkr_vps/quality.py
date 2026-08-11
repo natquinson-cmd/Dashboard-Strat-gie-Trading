@@ -12,8 +12,10 @@ QUALITY_CONFIG = {
         'requirePositiveEarnings': True,  # benefices en croissance (pas en declin structurel)
         'minMarketCap': 5e9,
     },
-    # Poids du score de VALORISATION + dividende (plus le score est haut, plus c'est "pas cher / attractif")
-    'weights': {'peg': 0.28, 'gap': 0.28, 'fcfYield': 0.16, 'fwdPe': 0.16, 'dividend': 0.12},
+    # Poids du score : VALORISATION (pas cher) + dividende + GARP (croissance de qualite a prix raisonnable).
+    # La brique GARP evite le biais pur "value" qui remonte les cycliques optiquement bon marche : elle
+    # credite la croissance durable + les marges + le ROE, facon compounder de qualite (esprit Dividend King).
+    'weights': {'peg': 0.20, 'gap': 0.22, 'fcfYield': 0.12, 'fwdPe': 0.14, 'dividend': 0.08, 'garp': 0.24},
     # Dividende : rendement sain valorise ; piege (rendement trop eleve) et payout non soutenable ecartes du bonus
     'divTrapYield': 0.09,     # rendement > 9% = piege probable
     'divMaxPayout': 0.70,     # payout sain sous ce seuil (au-dela : soutenabilite douteuse)
@@ -112,8 +114,19 @@ def rate_universe(universe, cfg=QUALITY_CONFIG):
         'fcf': _dist(survivors, lambda t: _num(t.get('fcfYield'))),
         'fpe': _dist(survivors, fwdpe_signal),
         'div': _dist(survivors, lambda t: _div_signal(t, cfg)),
+        # GARP : croissance du CA, marge nette, ROE (qualite du compounder)
+        'grw': _dist(survivors, lambda t: _num(t.get('revenueGrowthYoY'))),
+        'nm': _dist(survivors, lambda t: _num(t.get('netMargin'))),
+        'roe': _dist(survivors, lambda t: _num(t.get('roe'))),
     }
     w = cfg['weights']
+
+    def garp_pct(t):
+        # moyenne des percentiles disponibles : croissance CA + marge nette + ROE
+        ps = [p for p in (_pct(dists['grw'], _num(t.get('revenueGrowthYoY'))),
+                          _pct(dists['nm'], _num(t.get('netMargin'))),
+                          _pct(dists['roe'], _num(t.get('roe')))) if p is not None]
+        return (sum(ps) / len(ps)) if ps else None
 
     scored = []
     for t in survivors:
@@ -123,6 +136,7 @@ def rate_universe(universe, cfg=QUALITY_CONFIG):
             (_pct(dists['fcf'], _num(t.get('fcfYield'))), w['fcfYield']),
             (_pct(dists['fpe'], fwdpe_signal(t)), w['fwdPe']),
             (_pct(dists['div'], _div_signal(t, cfg)), w['dividend']),
+            (garp_pct(t), w['garp']),
         ]
         comps = [(v, ww) for (v, ww) in comps if v is not None]
         wsum = sum(ww for _, ww in comps) or 1
@@ -139,6 +153,7 @@ def rate_universe(universe, cfg=QUALITY_CONFIG):
                 'fcfYield': t.get('fcfYield'), 'revenueGrowthYoY': t.get('revenueGrowthYoY'),
                 'earningsGrowthYoY': t.get('earningsGrowthYoY'),
                 'dividendYield': t.get('dividendYield'), 'payoutRatio': t.get('payoutRatio'),
+                'website': t.get('website'),
             },
         })
 

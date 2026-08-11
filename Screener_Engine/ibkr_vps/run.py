@@ -43,7 +43,7 @@ BLEND = float(os.environ.get('BLEND_IBKR', '0.15'))
 # Config mode QUALITE (grandes caps US + Europe, notees par valorisation)
 Q_MIN_MCAP = float(os.environ.get('Q_MIN_MCAP', '5000000000'))
 Q_REGIONS = os.environ.get('Q_REGIONS', 'us,fr,de,nl,gb,ch,it,es,se,dk,fi').split(',')
-Q_UNIVERSE_LIMIT = int(os.environ.get('Q_UNIVERSE_LIMIT', '250'))
+Q_UNIVERSE_LIMIT = int(os.environ.get('Q_UNIVERSE_LIMIT', '300'))  # proposition 2 : univers elargi (inclut MSCI, FICO, MELI, S&P Global...)
 Q_MAX_TOTAL = int(os.environ.get('Q_MAX_TOTAL', '1500'))
 
 # Places boursieres US majeures (on exclut l'OTC/Pink et les tickers etrangers = ~560 titres de junk)
@@ -213,7 +213,11 @@ def run_quality(y):
             pc = y.price_cagr(sym)
             r['priceCAGR'] = pc
             ec = r.get('earningsCAGR')
-            r['gap'] = (ec - pc) if (ec is not None and pc is not None) else None
+            eg = r.get('earningsGrowthYoY')
+            # Proposition 4 : si le CAGR benefices sur 4 ans est incalculable (ex Amazon, benefices
+            # erratiques), on se rabat sur la croissance annuelle des benefices plutot que d'abandonner.
+            growth = ec if ec is not None else eg
+            r['gap'] = (growth - pc) if (growth is not None and pc is not None) else None
             records.append(r)
         if (i + 1) % 25 == 0:
             print(f'  ...enrichi {i + 1}/{len(symbols)}')
@@ -227,12 +231,15 @@ def run_quality(y):
         seen.add(k); uniq.append(r)
     records = uniq
     res = rate_universe(records, QUALITY_CONFIG)
-    print(f"qualite : survivants={res['survivors']} notes={len(res['top'])}")
-    attach_sparklines(y, res['top'])  # prix + variation du jour + mini-graphique (top uniquement)
+    # Proposition 1 : on pousse TOUT le classement (Achat fort -> Surevaluee), pas seulement le top,
+    # pour afficher aussi les verdicts "Surevaluee" (Apple, Tesla, Costco...) comme la tier list.
+    pushed = res['all']
+    print(f"qualite : survivants={res['survivors']} classes={len(pushed)}")
+    attach_sparklines(y, pushed)  # prix + variation du jour + mini-graphique
     return {'generatedAt': _now_iso(), 'source': 'yahoo_vps', 'mode': 'quality',
             'summary': {'universe': len(symbols), 'enriched': len(records), 'survivors': res['survivors'],
-                        'topEnriched': len(res['top']), 'coverage': round(len(records) / max(1, len(symbols)) * 100)},
-            'top': res['top']}
+                        'topEnriched': len(pushed), 'coverage': round(len(records) / max(1, len(symbols)) * 100)},
+            'top': pushed}
 
 
 def main():
