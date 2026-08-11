@@ -4957,10 +4957,10 @@ function screenerRenderQuality(c, data, config) {
     if (y != null && y > 0) { txt = (y * 100).toFixed(1) + '%'; col = y > 0.07 ? '#dd5f66' : (y >= 0.015 ? '#1d9e74' : '#42546a'); }
     return scrEl('td', { text: txt, style: `padding:8px 10px;text-align:right;white-space:nowrap;${bd};color:${col}` });
   };
-  // Payout : <65% soutenable (vert), >85% fragile (rouge)
-  const payoutC = (p) => {
+  // Payout : <65% soutenable (vert), >85% fragile (rouge). Sans dividende -> '–' (payout non pertinent)
+  const payoutC = (p, y) => {
     let txt = '–', col = '#5b6b7d';
-    if (p != null && p >= 0) { txt = (p * 100).toFixed(0) + '%'; col = p > 0.85 ? '#dd5f66' : (p < 0.65 ? '#1d9e74' : '#42546a'); }
+    if (y != null && y > 0 && p != null && p >= 0) { txt = (p * 100).toFixed(0) + '%'; col = p > 0.85 ? '#dd5f66' : (p < 0.65 ? '#1d9e74' : '#42546a'); }
     return scrEl('td', { text: txt, style: `padding:8px 10px;text-align:right;white-space:nowrap;${bd};color:${col}` });
   };
 
@@ -4975,7 +4975,7 @@ function screenerRenderQuality(c, data, config) {
       scrEl('td', { style: `padding:8px 10px;${bd}`, kids: [link, scrEl('div', { text: cd.name || '', style: 'color:#5b6b7d;font-size:0.72rem;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap' })] }),
       scrEl('td', { text: cd.sector || '–', style: `padding:8px 10px;color:#5b6b7d;${bd}` }),
       scrEl('td', { style: `padding:8px 10px;${bd}`, kids: [chip] }),
-      numC(m.peg, 2), pctC(m.gap, 0), numC(m.forwardPE, 1), pctC(m.roe, 0.15), pctC(m.netMargin, 0.20), divYieldC(m.dividendYield), payoutC(m.payoutRatio), pctC(m.fcfYield, 0.03),
+      numC(m.peg, 2), pctC(m.gap, 0), numC(m.forwardPE, 1), pctC(m.roe, 0.15), pctC(m.netMargin, 0.20), divYieldC(m.dividendYield), payoutC(m.payoutRatio, m.dividendYield), pctC(m.fcfYield, 0.03),
       scrEl('td', { text: scrCap(m.marketCap), style: `padding:8px 10px;text-align:right;color:#5b6b7d;${bd}` }),
     ]}));
   });
