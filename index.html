@@ -4973,6 +4973,35 @@ function buildScreenerParams(panel, config) {
 
 const SCR_RATING_COL = { 'Achat fort': ['#d1f0e3', '#127a54'], 'Achat': ['#e4f5ee', '#1d7a5c'], 'Neutre': ['#eef2f8', '#5b6b7d'], 'Surévaluée': ['#fdeaea', '#c0392b'] };
 
+// Poids suggeres par tier de rating (CADRE INDICATIF, pas un conseil). Esprit Dividend King :
+// pondérer par conviction, cœur sur les mieux notees, Surevaluee en watchlist.
+const SCR_TIER_ALLOC = [
+  ['Achat fort', '7 à 10 % / ligne', 'conviction maximale'],
+  ['Achat', '4 à 6 % / ligne', 'cœur du portefeuille'],
+  ['Neutre', '0 à 3 % / ligne', 'petite touche, optionnel'],
+  ['Surévaluée', '0 % — watchlist', 'attendre un repli'],
+];
+function screenerQualityAllocPanel(top) {
+  const counts = {};
+  (top || []).forEach((t) => { counts[t.rating] = (counts[t.rating] || 0) + 1; });
+  const wrap = scrEl('div', { style: 'background:#fff;border:1px solid #e3e8ee;border-radius:14px;padding:12px 14px;margin-bottom:14px' });
+  wrap.appendChild(scrEl('div', { style: 'display:flex;align-items:baseline;gap:8px;margin-bottom:10px;flex-wrap:wrap', kids: [
+    scrEl('span', { text: 'Poids suggérés par tier', style: 'font-weight:800;color:#22303f;font-size:0.9rem' }),
+    scrEl('span', { text: 'cadre indicatif, pas un conseil', style: 'font-size:0.72rem;color:#5b6b7d' })] }));
+  const grid = scrEl('div', { style: 'display:flex;gap:10px;flex-wrap:wrap' });
+  SCR_TIER_ALLOC.forEach(([tier, weight, sub]) => {
+    const rc = SCR_RATING_COL[tier] || SCR_RATING_COL['Neutre'];
+    const n = counts[tier] || 0;
+    const card = scrEl('div', { style: 'flex:1;min-width:150px;border:1px solid #eef1f5;border-radius:12px;padding:10px 12px;background:#fafbfc' });
+    card.appendChild(scrEl('span', { text: tier, style: `display:inline-block;background:${rc[0]};color:${rc[1]};border-radius:20px;padding:2px 10px;font-size:0.72rem;font-weight:700` }));
+    card.appendChild(scrEl('div', { text: weight, style: 'font-weight:800;color:#22303f;font-size:0.95rem;margin-top:7px' }));
+    card.appendChild(scrEl('div', { text: sub + ' · ' + n + ' titre' + (n > 1 ? 's' : ''), style: 'color:#5b6b7d;font-size:0.72rem;margin-top:2px' }));
+    grid.appendChild(card);
+  });
+  wrap.appendChild(grid);
+  wrap.appendChild(scrEl('div', { style: 'margin-top:10px;font-size:0.72rem;color:#5b6b7d', text: 'Concentre-toi sur 12 à 20 lignes au total, pondérées vers le haut du tableau, plafond ~10 % par ligne. Étale tes achats (DCA). La décision reste la tienne.' }));
+  return wrap;
+}
 function screenerRenderQuality(c, data, config) {
   const s = data.summary || {}, top = data.top || [];
   const frag = document.createDocumentFragment();
@@ -4993,6 +5022,8 @@ function screenerRenderQuality(c, data, config) {
   frag.appendChild(scrEl('div', { style: 'display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px', kids: [
     scrEl('div', { style: 'color:#5b6b7d;font-size:0.76rem', text: (data.generatedAt ? 'Généré le ' + new Date(data.generatedAt).toLocaleString('fr-FR') : '') + ' · Yahoo' }),
     scrEl('div', { style: 'display:flex;gap:8px', kids: [refresh] })]}));
+
+  frag.appendChild(screenerQualityAllocPanel(top));
 
   const cols = [
     ['#', 'left', ''],
