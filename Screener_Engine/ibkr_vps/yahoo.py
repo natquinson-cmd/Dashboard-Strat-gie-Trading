@@ -199,3 +199,29 @@ class Yahoo:
             return (closes[-1] / closes[0]) ** (1 / years) - 1
         except Exception:
             return None
+
+    # --- Mini-serie de cours pour la sparkline du dashboard + variation du jour ---
+    def spark(self, symbol, rng='3mo', interval='1d', max_points=30):
+        """Renvoie {closes:[...], price, changePct} : serie journaliere ~3 mois (echantillonnee)
+        et variation du dernier jour (dernier close vs precedent). None si indisponible."""
+        try:
+            j = self._get(f'{BASE}/v8/finance/chart/{symbol}?range={rng}&interval={interval}')
+            res = (j.get('chart') or {}).get('result')
+            if not res:
+                return None
+            r0 = res[0]
+            q = (r0.get('indicators', {}).get('quote') or [{}])[0]
+            closes = [c for c in (q.get('close') or []) if isinstance(c, (int, float))]
+            if len(closes) < 2:
+                return None
+            price = closes[-1]
+            prev = closes[-2]
+            change_pct = ((price - prev) / prev) if prev else None
+            # echantillonne a max_points en gardant toujours le tout dernier point
+            if len(closes) > max_points:
+                step = (len(closes) - 1) / (max_points - 1)
+                closes = [closes[min(len(closes) - 1, round(i * step))] for i in range(max_points)]
+                closes[-1] = price
+            return {'closes': [round(c, 4) for c in closes], 'price': price, 'changePct': change_pct}
+        except Exception:
+            return None

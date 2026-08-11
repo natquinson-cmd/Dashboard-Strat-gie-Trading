@@ -4766,6 +4766,54 @@ const scrQuoteUrl = (sym, exch) => {
             : 'https://finance.yahoo.com/quote/' + encodeURIComponent(sym || '');
 };
 const scrPctTxt = (x) => x == null ? '–' : (x >= 0 ? '+' : '') + (x * 100).toFixed(0) + '%';
+// Devise d'affichage du cours selon la place boursiere Yahoo (repli : rien)
+const SCR_CCY = { NMS: '$', NGM: '$', NCM: '$', NYQ: '$', ASE: '$', PCX: '$', BATS: '$',
+  PAR: '€', AMS: '€', GER: '€', MIL: '€', MCE: '€', BRU: '€', LIS: '€', HEL: '€', VIE: '€',
+  LSE: '£', EBS: 'CHF', VTX: 'CHF', STO: 'kr', CPH: 'kr' };
+function scrPrice(p, exch) {
+  if (p == null || !isFinite(p)) return '–';
+  let v = Number(p);
+  if (exch === 'LSE') v = v / 100;               // le LSE cote en pence (GBX) -> livres
+  const c = SCR_CCY[exch] || '';
+  const n = v >= 1000 ? v.toLocaleString('fr-FR', { maximumFractionDigits: 0 }) : v.toFixed(2);
+  if (c === '$' || c === '£') return c + n;      // prefixe
+  return c ? n + ' ' + c : n;                     // suffixe (€, CHF, kr) ou brut
+}
+// Mini-graphique de cours (sparkline) construit en SVG DOM (pas d'innerHTML : hook securite).
+// Vert si le dernier cours >= premier, rouge sinon. Aire degradee + ligne, facon Kairos.
+function scrSpark(values, opts) {
+  opts = opts || {};
+  const W = opts.w || 92, H = opts.h || 26, pad = 2, NS = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(NS, 'svg');
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`); svg.setAttribute('width', W); svg.setAttribute('height', H);
+  svg.setAttribute('preserveAspectRatio', 'none'); svg.style.display = 'block';
+  if (!Array.isArray(values) || values.length < 2) return svg;
+  const min = Math.min(...values), max = Math.max(...values), range = (max - min) || 1;
+  const up = values[values.length - 1] >= values[0];
+  const stroke = up ? '#1d9e74' : '#dd5f66', fill = up ? 'rgba(29,158,116,0.14)' : 'rgba(221,95,102,0.14)';
+  const stepX = (W - 2 * pad) / (values.length - 1);
+  const pts = values.map((v, i) => [pad + i * stepX, pad + (H - 2 * pad) * (1 - (v - min) / range)]);
+  const line = 'M ' + pts.map((p) => p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' L ');
+  const bottom = (H - pad).toFixed(1);
+  const area = line + ` L ${pts[pts.length - 1][0].toFixed(1)} ${bottom} L ${pts[0][0].toFixed(1)} ${bottom} Z`;
+  const mk = (d, f, s, w) => { const el = document.createElementNS(NS, 'path'); el.setAttribute('d', d); el.setAttribute('fill', f); el.setAttribute('stroke', s); if (w) { el.setAttribute('stroke-width', w); el.setAttribute('stroke-linecap', 'round'); el.setAttribute('stroke-linejoin', 'round'); } return el; };
+  svg.appendChild(mk(area, fill, 'none', null));
+  svg.appendChild(mk(line, 'none', stroke, '1.4'));
+  return svg;
+}
+// Cellule "Cours" : prix + variation du jour (chip couleur) + sparkline
+function scrCoursCell(m, bd) {
+  const box = scrEl('div', { style: 'display:flex;flex-direction:column;gap:3px;min-width:96px' });
+  const top = scrEl('div', { style: 'display:flex;align-items:baseline;gap:6px;white-space:nowrap' });
+  top.appendChild(scrEl('span', { text: scrPrice(m.price, m.exchange), style: 'font-weight:700;color:#22303f;font-size:0.82rem' }));
+  if (m.changePct != null && isFinite(m.changePct)) {
+    const c = m.changePct >= 0 ? '#1d9e74' : '#dd5f66';
+    top.appendChild(scrEl('span', { text: (m.changePct >= 0 ? '+' : '') + (m.changePct * 100).toFixed(2) + '%', style: `font-size:0.72rem;font-weight:700;color:${c}` }));
+  }
+  box.appendChild(top);
+  box.appendChild((Array.isArray(m.spark) && m.spark.length > 1) ? scrSpark(m.spark) : scrEl('div', { style: 'height:26px' }));
+  return scrEl('td', { style: `padding:6px 10px;${bd}`, kids: [box] });
+}
 function scrEl(tag, o = {}) {
   const e = document.createElement(tag);
   if (o.style) e.style.cssText = o.style;
@@ -4930,6 +4978,7 @@ function screenerRenderQuality(c, data, config) {
   const cols = [
     ['#', 'left', ''],
     ['Ticker', 'left', 'Symbole boursier. Clique pour ouvrir le graphique TradingView (passable en ordre via IBKR).'],
+    ['Cours', 'left', "Dernier cours et variation par rapport à la clôture de la veille (vert = hausse du jour, rouge = baisse). Le mini-graphique montre l'évolution du cours sur ~3 mois."],
     ['Secteur', 'left', "Secteur d'activité de la société."],
     ['Note', 'left', "Note de valorisation au sein des sociétés de qualité. Achat fort = solide ET décotée ; Surévaluée = chère. Combine PEG, écart bénéfices/cours, PE prévisionnel, FCF et dividende. C'est du repérage, pas un conseil."],
     ['PEG', 'right', "PEG = PER divisé par la croissance des bénéfices. Sous 1 = pas cher au regard de la croissance ; au-dessus de 2 = cher."],
@@ -4965,7 +5014,7 @@ function screenerRenderQuality(c, data, config) {
   };
 
   if (!top.length) {
-    tbody.appendChild(scrEl('tr', { kids: [scrEl('td', { attrs: { colspan: '13' }, text: 'Aucune candidate.', style: 'padding:22px;color:#5b6b7d' })] }));
+    tbody.appendChild(scrEl('tr', { kids: [scrEl('td', { attrs: { colspan: '14' }, text: 'Aucune candidate.', style: 'padding:22px;color:#5b6b7d' })] }));
   } else top.forEach((cd, i) => {
     const m = cd.metrics || {}, rc = SCR_RATING_COL[cd.rating] || SCR_RATING_COL['Neutre'];
     const link = scrEl('a', { text: cd.symbol || '', href: scrQuoteUrl(cd.symbol, m.exchange), attrs: { target: '_blank', rel: 'noopener' }, style: 'font-weight:800;color:#3563e9;text-decoration:none' });
@@ -4973,6 +5022,7 @@ function screenerRenderQuality(c, data, config) {
     tbody.appendChild(scrEl('tr', { kids: [
       scrEl('td', { text: String(i + 1), style: `padding:8px 10px;color:#9aa7b4;${bd}` }),
       scrEl('td', { style: `padding:8px 10px;${bd}`, kids: [link, scrEl('div', { text: cd.name || '', style: 'color:#5b6b7d;font-size:0.72rem;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap' })] }),
+      scrCoursCell(m, bd),
       scrEl('td', { text: cd.sector || '–', style: `padding:8px 10px;color:#5b6b7d;${bd}` }),
       scrEl('td', { style: `padding:8px 10px;${bd}`, kids: [chip] }),
       numC(m.peg, 2), pctC(m.gap, 0), numC(m.forwardPE, 1), pctC(m.roe, 0.15), pctC(m.netMargin, 0.20), divYieldC(m.dividendYield), payoutC(m.payoutRatio, m.dividendYield), pctC(m.fcfYield, 0.03),
@@ -5045,7 +5095,7 @@ function screenerRender(c, data, positions, config) {
   frag.appendChild(panel);
 
   // Table
-  const cols = [['#', 'left'], ['Ticker', 'left'], ['Secteur', 'left'], ['Score', 'right'], ['Crois. CA', 'right'], ['Crois. BPA', 'right'], ['Marge', 'right'], ['ROE', 'right'], ['vs MM200', 'right'], ['/52s-haut', 'right'], ['Cap.', 'right'], ['Signaux', 'left']];
+  const cols = [['#', 'left'], ['Ticker', 'left'], ['Cours', 'left'], ['Secteur', 'left'], ['Score', 'right'], ['Crois. CA', 'right'], ['Crois. BPA', 'right'], ['Marge', 'right'], ['ROE', 'right'], ['vs MM200', 'right'], ['/52s-haut', 'right'], ['Cap.', 'right'], ['Signaux', 'left']];
   const thead = scrEl('tr', { style: 'background:#f6f8fb;color:#5b6b7d' });
   cols.forEach(([t, al]) => thead.appendChild(scrEl('th', { text: t, style: `padding:9px 10px;text-align:${al};font-size:0.68rem;text-transform:uppercase;letter-spacing:.03em;border-bottom:1px solid #e3e8ee;white-space:nowrap` })));
   const tbody = scrEl('tbody');
@@ -5053,7 +5103,7 @@ function screenerRender(c, data, positions, config) {
   const pctCell = (x, thr) => scrEl('td', { text: scrPctTxt(x), style: `padding:8px 10px;text-align:right;white-space:nowrap;${bd};color:${scrCol(x, thr)}` });
 
   if (!top.length) {
-    tbody.appendChild(scrEl('tr', { kids: [scrEl('td', { attrs: { colspan: '12' }, text: 'Aucune candidate (univers pas encore couvert : relance /run ou attends le cron).', style: 'padding:22px;color:#5b6b7d' })] }));
+    tbody.appendChild(scrEl('tr', { kids: [scrEl('td', { attrs: { colspan: '13' }, text: 'Aucune candidate (univers pas encore couvert : relance /run ou attends le cron).', style: 'padding:22px;color:#5b6b7d' })] }));
   } else {
     top.forEach((cd, i) => {
       const m = cd.metrics || {};
@@ -5067,6 +5117,7 @@ function screenerRender(c, data, positions, config) {
       tbody.appendChild(scrEl('tr', { kids: [
         scrEl('td', { text: String(i + 1), style: `padding:8px 10px;color:#9aa7b4;${bd}` }),
         tkCell,
+        scrCoursCell(m, bd),
         scrEl('td', { text: cd.sector || '–', style: `padding:8px 10px;color:#5b6b7d;${bd}` }),
         scrEl('td', { text: String(Number(cd.score) || 0), style: `padding:8px 10px;text-align:right;font-weight:800;${bd}` }),
         pctCell(m.revenueGrowthYoY, .25), pctCell(m.epsGrowthYoY, .25), pctCell(m.grossMargin, .40), pctCell(m.roe, .15),

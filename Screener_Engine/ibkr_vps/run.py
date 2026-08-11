@@ -129,6 +129,21 @@ def _now_iso():
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
 
 
+def attach_sparklines(y, items):
+    """Ajoute a chaque item du top : metrics.spark (mini-serie de cours), metrics.changePct
+    (variation du jour) et metrics.price si absent. 1 appel Yahoo/titre, seulement sur le top pousse."""
+    for c in items or []:
+        s = y.spark(c.get('symbol'))
+        m = c.setdefault('metrics', {})
+        if s:
+            m['spark'] = s['closes']
+            m['changePct'] = s['changePct']
+            if m.get('price') is None:
+                m['price'] = s['price']
+        time.sleep(y.pause)
+    return items
+
+
 def apply_firebase_config():
     """Override les defauts avec la config posee par le dashboard (sliders) -> stocks/screener/config."""
     global MIN_MCAP, MAX_MCAP, MIN_REVGROWTH, MAX_REVGROWTH, UNIVERSE_LIMIT, TOP_N
@@ -168,6 +183,7 @@ def run_smallcap(y):
     result = rank_universe(records, DEFAULT_CONFIG)
     top = result['top']
     print(f"small-cap : survivants={result['survivors']} top={len(top)}")
+    attach_sparklines(y, top)  # prix + variation du jour + mini-graphique (top uniquement)
     positions, account, source = [], {}, 'yahoo_vps'
     if ENABLE_IBKR:
         try:
@@ -212,6 +228,7 @@ def run_quality(y):
     records = uniq
     res = rate_universe(records, QUALITY_CONFIG)
     print(f"qualite : survivants={res['survivors']} notes={len(res['top'])}")
+    attach_sparklines(y, res['top'])  # prix + variation du jour + mini-graphique (top uniquement)
     return {'generatedAt': _now_iso(), 'source': 'yahoo_vps', 'mode': 'quality',
             'summary': {'universe': len(symbols), 'enriched': len(records), 'survivors': res['survivors'],
                         'topEnriched': len(res['top']), 'coverage': round(len(records) / max(1, len(symbols)) * 100)},
