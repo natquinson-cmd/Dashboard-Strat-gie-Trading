@@ -179,13 +179,14 @@ class Yahoo:
             'sector': ap.get('sector') or 'N/A', 'exchange': pr.get('exchange'),
             'price': g(fd, 'currentPrice') or g(pr, 'regularMarketPrice'), 'marketCap': mc,
             'roe': g(fd, 'returnOnEquity'), 'grossMargin': g(fd, 'grossMargins'),
-            'operatingMargin': g(fd, 'operatingMargins'), 'revenueGrowthYoY': g(fd, 'revenueGrowth'),
+            'operatingMargin': g(fd, 'operatingMargins'), 'netMargin': g(fd, 'profitMargins'),
+            'revenueGrowthYoY': g(fd, 'revenueGrowth'),
             'earningsGrowthYoY': g(fd, 'earningsGrowth'), 'earningsCAGR': earnings_cagr,
             'freeCashflow': fcf, 'fcfYield': (fcf / mc) if (fcf is not None and mc) else None,
             'netDebtToEbitda': nd_ebitda,
             'peg': g(ks, 'pegRatio') or g(ks, 'trailingPegRatio'),
             'trailingPE': g(sd, 'trailingPE'), 'forwardPE': g(sd, 'forwardPE'),
-            'dividendYield': g(sd, 'dividendYield'),
+            'dividendYield': g(sd, 'dividendYield'), 'payoutRatio': g(sd, 'payoutRatio'),
         }
 
     def price_cagr(self, symbol, years=5):

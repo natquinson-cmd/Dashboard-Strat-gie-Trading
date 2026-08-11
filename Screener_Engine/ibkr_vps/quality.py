@@ -12,8 +12,11 @@ QUALITY_CONFIG = {
         'requirePositiveEarnings': True,  # benefices en croissance (pas en declin structurel)
         'minMarketCap': 5e9,
     },
-    # Poids du score de VALORISATION (plus le score est haut, plus c'est "pas cher")
-    'weights': {'peg': 0.30, 'gap': 0.30, 'fcfYield': 0.20, 'fwdPe': 0.20},
+    # Poids du score de VALORISATION + dividende (plus le score est haut, plus c'est "pas cher / attractif")
+    'weights': {'peg': 0.28, 'gap': 0.28, 'fcfYield': 0.16, 'fwdPe': 0.16, 'dividend': 0.12},
+    # Dividende : rendement sain valorise ; piege (rendement trop eleve) et payout non soutenable ecartes du bonus
+    'divTrapYield': 0.09,     # rendement > 9% = piege probable
+    'divMaxPayout': 0.70,     # payout sain sous ce seuil (au-dela : soutenabilite douteuse)
     # Bandes de notation sur le score de valorisation 0-100 (au sein des survivants qualite)
     'ratingBands': [(80, 'Achat fort'), (60, 'Achat'), (40, 'Neutre'), (0, 'Surévaluée')],
     'minSectorBucket': 8,
@@ -73,6 +76,18 @@ def _rating(score, cfg):
     return cfg['ratingBands'][-1][1]
 
 
+def _div_signal(t, cfg):
+    # Dividende sain valorise ; sans dividende = non note (neutre) ; piege/payout intenable = ecarte du bonus.
+    y = _num(t.get('dividendYield'))
+    if y is None or y <= 0:
+        return None
+    if y > cfg['divTrapYield']:   # rendement trop eleve = piege probable
+        return None
+    p = _num(t.get('payoutRatio'))
+    sust = 1.0 if (p is None or p < cfg['divMaxPayout']) else (0.5 if p < 1.0 else 0.15)
+    return y * sust
+
+
 def rate_universe(universe, cfg=QUALITY_CONFIG):
     survivors, rejected = [], []
     for t in universe:
@@ -96,6 +111,7 @@ def rate_universe(universe, cfg=QUALITY_CONFIG):
         'gap': _dist(survivors, lambda t: _num(t.get('gap'))),
         'fcf': _dist(survivors, lambda t: _num(t.get('fcfYield'))),
         'fpe': _dist(survivors, fwdpe_signal),
+        'div': _dist(survivors, lambda t: _div_signal(t, cfg)),
     }
     w = cfg['weights']
 
@@ -106,6 +122,7 @@ def rate_universe(universe, cfg=QUALITY_CONFIG):
             (_pct(dists['gap'], _num(t.get('gap'))), w['gap']),
             (_pct(dists['fcf'], _num(t.get('fcfYield'))), w['fcfYield']),
             (_pct(dists['fpe'], fwdpe_signal(t)), w['fwdPe']),
+            (_pct(dists['div'], _div_signal(t, cfg)), w['dividend']),
         ]
         comps = [(v, ww) for (v, ww) in comps if v is not None]
         wsum = sum(ww for _, ww in comps) or 1
@@ -118,9 +135,10 @@ def rate_universe(universe, cfg=QUALITY_CONFIG):
                 'price': t.get('price'), 'marketCap': t.get('marketCap'), 'exchange': t.get('exchange'),
                 'peg': t.get('peg'), 'trailingPE': t.get('trailingPE'), 'forwardPE': t.get('forwardPE'),
                 'earningsCAGR': t.get('earningsCAGR'), 'priceCAGR': t.get('priceCAGR'), 'gap': t.get('gap'),
-                'roe': t.get('roe'), 'grossMargin': t.get('grossMargin'), 'fcfYield': t.get('fcfYield'),
-                'revenueGrowthYoY': t.get('revenueGrowthYoY'), 'earningsGrowthYoY': t.get('earningsGrowthYoY'),
-                'dividendYield': t.get('dividendYield'),
+                'roe': t.get('roe'), 'grossMargin': t.get('grossMargin'), 'netMargin': t.get('netMargin'),
+                'fcfYield': t.get('fcfYield'), 'revenueGrowthYoY': t.get('revenueGrowthYoY'),
+                'earningsGrowthYoY': t.get('earningsGrowthYoY'),
+                'dividendYield': t.get('dividendYield'), 'payoutRatio': t.get('payoutRatio'),
             },
         })
 

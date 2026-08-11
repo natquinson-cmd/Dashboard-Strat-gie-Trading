@@ -4927,15 +4927,45 @@ function screenerRenderQuality(c, data, config) {
     scrEl('div', { style: 'color:#5b6b7d;font-size:0.76rem', text: (data.generatedAt ? 'Généré le ' + new Date(data.generatedAt).toLocaleString('fr-FR') : '') + ' · Yahoo' }),
     scrEl('div', { style: 'display:flex;gap:8px', kids: [refresh] })]}));
 
-  const cols = [['#', 'left'], ['Ticker', 'left'], ['Secteur', 'left'], ['Note', 'left'], ['PEG', 'right'], ['Écart bénéf./cours', 'right'], ['PE fwd', 'right'], ['ROE', 'right'], ['Marge', 'right'], ['FCF yield', 'right'], ['Cap.', 'right']];
+  const cols = [
+    ['#', 'left', ''],
+    ['Ticker', 'left', 'Symbole boursier. Clique pour ouvrir le graphique TradingView (passable en ordre via IBKR).'],
+    ['Secteur', 'left', "Secteur d'activité de la société."],
+    ['Note', 'left', "Note de valorisation au sein des sociétés de qualité. Achat fort = solide ET décotée ; Surévaluée = chère. Combine PEG, écart bénéfices/cours, PE prévisionnel, FCF et dividende. C'est du repérage, pas un conseil."],
+    ['PEG', 'right', "PEG = PER divisé par la croissance des bénéfices. Sous 1 = pas cher au regard de la croissance ; au-dessus de 2 = cher."],
+    ['Écart bénéf./cours', 'right', "Croissance des bénéfices (sur ~4 ans) moins la hausse du cours (sur 5 ans). Positif = les bénéfices ont grimpé plus vite que le cours, le multiple s'est comprimé (potentiellement décoté)."],
+    ['PE fwd', 'right', "PER prévisionnel = cours divisé par le bénéfice par action attendu l'an prochain. Plus il est bas, moins l'action est chère. ~15 = moyenne historique du marché."],
+    ['ROE', 'right', "Rentabilité des capitaux propres = bénéfice net / fonds propres. Ce que la société gagne avec l'argent des actionnaires. Au-dessus de 15 % = rentable."],
+    ['Marge nette', 'right', "Bénéfice net divisé par le chiffre d'affaires. Au-dessus de 20 % = très rentable, souvent le signe d'un avantage concurrentiel durable."],
+    ['Rendement', 'right', "Rendement du dividende = dividende annuel / cours. 2 à 4 % = sain. Au-dessus de 7 % (rouge) = souvent un piège, le marché anticipe une coupe. Vide = ne verse pas de dividende."],
+    ['Payout', 'right', "Taux de distribution = part des bénéfices reversée en dividende. Sous 65 % (vert) = confortable et soutenable. Au-dessus de 85 % (rouge) = dividende fragile."],
+    ['FCF yield', 'right', "Rendement du free cash-flow = trésorerie libre générée / capitalisation. Plus il est haut, plus la société produit de cash par rapport à son prix."],
+    ['Cap.', 'right', "Capitalisation boursière = valeur totale de la société en Bourse (cours × nombre d'actions)."],
+  ];
   const thead = scrEl('tr', { style: 'background:#f6f8fb;color:#5b6b7d' });
-  cols.forEach(([t, al]) => thead.appendChild(scrEl('th', { text: t, style: `padding:9px 10px;text-align:${al};font-size:0.68rem;text-transform:uppercase;letter-spacing:.03em;border-bottom:1px solid #e3e8ee;white-space:nowrap` })));
+  cols.forEach(([t, al, tip]) => {
+    const st = `padding:9px 10px;text-align:${al};font-size:0.68rem;text-transform:uppercase;letter-spacing:.03em;border-bottom:1px solid #e3e8ee;white-space:nowrap`
+      + (tip ? ';cursor:help;text-decoration:underline dotted #b8c2cf;text-underline-offset:3px' : '');
+    thead.appendChild(scrEl('th', { text: t, style: st, attrs: tip ? { title: tip } : {} }));
+  });
   const tbody = scrEl('tbody'); const bd = 'border-bottom:1px solid #eef1f5';
   const pctC = (x, thr) => scrEl('td', { text: (x == null ? '–' : (x >= 0 ? '+' : '') + (x * 100).toFixed(0) + '%'), style: `padding:8px 10px;text-align:right;white-space:nowrap;${bd};color:${x == null ? '#5b6b7d' : (x >= thr ? '#1d9e74' : '#dd5f66')}` });
   const numC = (x, dec) => scrEl('td', { text: (x == null ? '–' : Number(x).toFixed(dec == null ? 1 : dec)), style: `padding:8px 10px;text-align:right;${bd};color:#42546a` });
+  // Rendement : 2-6% sain (vert), >7% piege (rouge), vide si pas de dividende
+  const divYieldC = (y) => {
+    let txt = '–', col = '#5b6b7d';
+    if (y != null && y > 0) { txt = (y * 100).toFixed(1) + '%'; col = y > 0.07 ? '#dd5f66' : (y >= 0.015 ? '#1d9e74' : '#42546a'); }
+    return scrEl('td', { text: txt, style: `padding:8px 10px;text-align:right;white-space:nowrap;${bd};color:${col}` });
+  };
+  // Payout : <65% soutenable (vert), >85% fragile (rouge)
+  const payoutC = (p) => {
+    let txt = '–', col = '#5b6b7d';
+    if (p != null && p >= 0) { txt = (p * 100).toFixed(0) + '%'; col = p > 0.85 ? '#dd5f66' : (p < 0.65 ? '#1d9e74' : '#42546a'); }
+    return scrEl('td', { text: txt, style: `padding:8px 10px;text-align:right;white-space:nowrap;${bd};color:${col}` });
+  };
 
   if (!top.length) {
-    tbody.appendChild(scrEl('tr', { kids: [scrEl('td', { attrs: { colspan: '11' }, text: 'Aucune candidate.', style: 'padding:22px;color:#5b6b7d' })] }));
+    tbody.appendChild(scrEl('tr', { kids: [scrEl('td', { attrs: { colspan: '13' }, text: 'Aucune candidate.', style: 'padding:22px;color:#5b6b7d' })] }));
   } else top.forEach((cd, i) => {
     const m = cd.metrics || {}, rc = SCR_RATING_COL[cd.rating] || SCR_RATING_COL['Neutre'];
     const link = scrEl('a', { text: cd.symbol || '', href: scrQuoteUrl(cd.symbol, m.exchange), attrs: { target: '_blank', rel: 'noopener' }, style: 'font-weight:800;color:#3563e9;text-decoration:none' });
@@ -4945,7 +4975,7 @@ function screenerRenderQuality(c, data, config) {
       scrEl('td', { style: `padding:8px 10px;${bd}`, kids: [link, scrEl('div', { text: cd.name || '', style: 'color:#5b6b7d;font-size:0.72rem;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap' })] }),
       scrEl('td', { text: cd.sector || '–', style: `padding:8px 10px;color:#5b6b7d;${bd}` }),
       scrEl('td', { style: `padding:8px 10px;${bd}`, kids: [chip] }),
-      numC(m.peg, 2), pctC(m.gap, 0), numC(m.forwardPE, 1), pctC(m.roe, 0.15), pctC(m.grossMargin, 0.40), pctC(m.fcfYield, 0.03),
+      numC(m.peg, 2), pctC(m.gap, 0), numC(m.forwardPE, 1), pctC(m.roe, 0.15), pctC(m.netMargin, 0.20), divYieldC(m.dividendYield), payoutC(m.payoutRatio), pctC(m.fcfYield, 0.03),
       scrEl('td', { text: scrCap(m.marketCap), style: `padding:8px 10px;text-align:right;color:#5b6b7d;${bd}` }),
     ]}));
   });
@@ -4953,7 +4983,7 @@ function screenerRenderQuality(c, data, config) {
   frag.appendChild(scrEl('div', { style: 'background:#fff;border:1px solid #e3e8ee;border-radius:14px;overflow:hidden', kids: [scrEl('div', { style: 'overflow-x:auto', kids: [table] })] }));
 
   const disc = scrEl('div', { style: 'margin-top:14px;font-size:0.74rem;color:#5b6b7d;background:#fff;border:1px solid #e3e8ee;border-radius:12px;padding:12px 14px' });
-  disc.append('Qualité + valorisation (« prix décroché sous les bénéfices »). « Écart bénéf./cours » positif = les bénéfices ont grimpé plus vite que le cours (multiple comprimé). Note ', scrEl('b', { text: '≠' }), " conseil : « pas cher » peut aussi être un value trap (bénéfices sur le point de baisser). Fais ta propre analyse.");
+  disc.append('Qualité + valorisation + dividende (« prix décroché sous les bénéfices »). Le dividende sain (rendement soutenable, payout raisonnable) valorise la note ; un rendement > 7 % ou un payout trop élevé sont écartés du bonus. ', scrEl('b', { text: '💡 Survole les en-têtes de colonnes' }), ' pour la définition de chaque indicateur. Note ', scrEl('b', { text: '≠' }), " conseil : « pas cher » peut aussi être un value trap (bénéfices sur le point de baisser). Fais ta propre analyse.");
   frag.appendChild(disc);
   c.replaceChildren(frag);
 }
