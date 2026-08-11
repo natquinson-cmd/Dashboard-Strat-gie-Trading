@@ -4822,8 +4822,8 @@ function scrDomain(website) {
 }
 function scrLogo(symbol, website) {
   const img = document.createElement('img');
-  img.width = 22; img.height = 22; img.alt = '';
-  img.style.cssText = 'width:22px;height:22px;border-radius:5px;object-fit:contain;background:#fff;border:1px solid #eef1f5;flex-shrink:0';
+  img.width = 30; img.height = 30; img.alt = '';
+  img.style.cssText = 'width:30px;height:30px;border-radius:6px;object-fit:contain;background:#fff;border:1px solid #eef1f5;flex-shrink:0';
   const dom = scrDomain(website);
   let stage = 0;
   img.onerror = () => {
