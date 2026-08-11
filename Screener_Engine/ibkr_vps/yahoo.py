@@ -60,16 +60,19 @@ class Yahoo:
         return r.json()
 
     # --- Screener : filtres cote serveur, renvoie une liste de tickers ---
-    def screen(self, operands, size=250, sort_field='intradaymarketcap', sort_type='desc', max_total=1000):
+    def screen(self, operands, regions=None, size=250, sort_field='intradaymarketcap', sort_type='desc', max_total=1000):
         self._ensure_crumb()
         out, offset = [], 0
+        and_ops = [{'operator': op, 'operands': [field, val]} for (op, field, val) in operands]
+        if regions:  # OR sur plusieurs regions (ex US + Europe)
+            and_ops.append({'operator': 'or', 'operands': [
+                {'operator': 'eq', 'operands': ['region', r]} for r in regions]})
         while offset < max_total:
             body = {
                 'size': min(size, 250), 'offset': offset,
                 'sortField': sort_field, 'sortType': sort_type,
                 'quoteType': 'equity',
-                'query': {'operator': 'and', 'operands': [
-                    {'operator': op, 'operands': [field, val]} for (op, field, val) in operands]},
+                'query': {'operator': 'and', 'operands': and_ops},
                 'userId': '', 'userIdType': 'guid',
             }
             r = self.s.post(f'{BASE}/v1/finance/screener?crumb={self.crumb}',
@@ -143,3 +146,55 @@ class Yahoo:
                 print(f'  ...enrichi {i + 1}/{len(syms)}')
             time.sleep(self.pause)
         return recs
+
+    # --- Mode QUALITE-VALORISATION : fondamentaux qualite + valorisation par ticker ---
+    def quote_quality(self, symbol):
+        mods = 'financialData,defaultKeyStatistics,summaryDetail,price,assetProfile,earnings'
+        try:
+            j = self._get(f'{BASE}/v10/finance/quoteSummary/{symbol}?modules={mods}')
+        except Exception:
+            return None
+        res = (j.get('quoteSummary') or {}).get('result')
+        if not res:
+            return None
+        r = res[0]
+        fd, sd, pr = r.get('financialData', {}), r.get('summaryDetail', {}), r.get('price', {})
+        ks, ap, ea = r.get('defaultKeyStatistics', {}), r.get('assetProfile', {}), r.get('earnings', {})
+        g = lambda o, k: ((o.get(k) or {}) or {}).get('raw') if isinstance(o.get(k), dict) else o.get(k)
+        # CAGR des BENEFICES (resultat net annuel) via earnings.financialsChart.yearly (~4 ans)
+        earnings_cagr = None
+        try:
+            yearly = (ea.get('financialsChart') or {}).get('yearly') or []
+            vals = [y['earnings']['raw'] for y in yearly if y.get('earnings') and y['earnings'].get('raw') is not None]
+            if len(vals) >= 2 and vals[0] > 0 and vals[-1] > 0:
+                earnings_cagr = (vals[-1] / vals[0]) ** (1 / (len(vals) - 1)) - 1
+        except Exception:
+            pass
+        mc = g(pr, 'marketCap') or g(sd, 'marketCap')
+        fcf = g(fd, 'freeCashflow')
+        ebitda, debt, cash = g(fd, 'ebitda'), g(fd, 'totalDebt'), g(fd, 'totalCash')
+        nd_ebitda = ((debt - (cash or 0)) / ebitda) if (ebitda and ebitda > 0 and debt is not None) else None
+        return {
+            'symbol': symbol, 'name': pr.get('longName') or pr.get('shortName'),
+            'sector': ap.get('sector') or 'N/A', 'exchange': pr.get('exchange'),
+            'price': g(fd, 'currentPrice') or g(pr, 'regularMarketPrice'), 'marketCap': mc,
+            'roe': g(fd, 'returnOnEquity'), 'grossMargin': g(fd, 'grossMargins'),
+            'operatingMargin': g(fd, 'operatingMargins'), 'revenueGrowthYoY': g(fd, 'revenueGrowth'),
+            'earningsGrowthYoY': g(fd, 'earningsGrowth'), 'earningsCAGR': earnings_cagr,
+            'freeCashflow': fcf, 'fcfYield': (fcf / mc) if (fcf is not None and mc) else None,
+            'netDebtToEbitda': nd_ebitda,
+            'peg': g(ks, 'pegRatio') or g(ks, 'trailingPegRatio'),
+            'trailingPE': g(sd, 'trailingPE'), 'forwardPE': g(sd, 'forwardPE'),
+            'dividendYield': g(sd, 'dividendYield'),
+        }
+
+    def price_cagr(self, symbol, years=5):
+        try:
+            j = self._get(f'{BASE}/v8/finance/chart/{symbol}?range={years}y&interval=1mo')
+            res = (j.get('chart') or {}).get('result')
+            closes = [c for c in res[0]['indicators']['quote'][0]['close'] if c] if res else []
+            if len(closes) < 2 or closes[0] <= 0:
+                return None
+            return (closes[-1] / closes[0]) ** (1 / years) - 1
+        except Exception:
+            return None

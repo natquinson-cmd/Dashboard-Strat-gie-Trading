@@ -12,7 +12,9 @@
 #       SCREEN_MIN_REVGROWTH (0.25) SCREEN_MIN_MCAP (300000000) UNIVERSE_LIMIT (250) MAX_TOTAL (500) TOP_N (50)
 #       ENABLE_IBKR (false) IBKR_HOST IBKR_PORT IBKR_CLIENT_ID BLEND_IBKR (0.15)
 import os
+import re
 import sys
+import time
 
 from yahoo import Yahoo
 from screen import rank_universe, DEFAULT_CONFIG
@@ -20,6 +22,8 @@ from screen import rank_universe, DEFAULT_CONFIG
 NO_PUSH = '--no-push' in sys.argv
 WATCH = '--watch' in sys.argv   # relance a chaque changement de config depuis le dashboard
 LIMIT_OVERRIDE = next((int(a.split('=')[1]) for a in sys.argv if a.startswith('--limit=')), None)
+# Mode : smallcap (petites caps momentum/pre-cassure) | quality (grandes caps qualite-valorisation) | None = les deux
+MODE = next((a.split('=')[1] for a in sys.argv if a.startswith('--mode=')), None)
 
 MIN_REVGROWTH = float(os.environ.get('SCREEN_MIN_REVGROWTH', '0.30'))
 # Fourchette de capitalisation : on vise les SMALL/MID caps "pretes a exploser" et on EXCLUT
@@ -36,15 +40,20 @@ ENABLE_IBKR = os.environ.get('ENABLE_IBKR', 'false') == 'true'
 BLEND = float(os.environ.get('BLEND_IBKR', '0.15'))
 
 
+# Config mode QUALITE (grandes caps US + Europe, notees par valorisation)
+Q_MIN_MCAP = float(os.environ.get('Q_MIN_MCAP', '5000000000'))
+Q_REGIONS = os.environ.get('Q_REGIONS', 'us,fr,de,nl,gb,ch,it,es,se,dk,fi').split(',')
+Q_UNIVERSE_LIMIT = int(os.environ.get('Q_UNIVERSE_LIMIT', '250'))
+Q_MAX_TOTAL = int(os.environ.get('Q_MAX_TOTAL', '1500'))
+
 # Places boursieres US majeures (on exclut l'OTC/Pink et les tickers etrangers = ~560 titres de junk)
 MAJOR_EXCH = {'NMS', 'NYQ', 'NGM', 'NCM', 'ASE', 'PCX', 'BATS'}
+# + places europeennes primaires pour le mode qualite (PAS l'IOB = GDR/ADR etrangers thin)
+Q_MAJOR_EXCH = MAJOR_EXCH | {'PAR', 'GER', 'AMS', 'LSE', 'EBS', 'MIL', 'MCE', 'STO', 'CPH', 'HEL', 'VIE', 'BRU', 'LIS'}
 
 
-def screen_universe():
-    y = Yahoo()
-    # UNE seule borne de croissance cote screener (le champ devient incoherent avec deux bornes).
-    # Fourchette de cap pour cibler small/mid. Tri par cap CROISSANTE = les plus petites d'abord
-    # (plus de potentiel). Le filtrage fin (marges, BPA, pre-cassure) se fait en Python.
+def screen_smallcap(y):
+    # SMALL/MID caps US, tri par cap croissante (les plus petites d'abord), filtrage fin en Python.
     operands = [
         ('gt', 'quarterlyrevenuegrowth.quarterly', MIN_REVGROWTH),
         ('gt', 'intradaymarketcap', MIN_MCAP),
@@ -52,9 +61,46 @@ def screen_universe():
         ('eq', 'region', 'us'),
     ]
     rows = y.screen(operands, size=250, sort_field='intradaymarketcap', sort_type='asc', max_total=MAX_TOTAL)
-    rows = [t for t in rows if t.get('exchange') in MAJOR_EXCH]   # exclut l'OTC/etranger
-    print(f'Yahoo screener : {len(rows)} titres US small/mid ({MIN_MCAP/1e6:.0f}M-{MAX_MCAP/1e9:.0f}Md$, CA YoY>{MIN_REVGROWTH:.0%})')
-    return y, [t['symbol'] for t in rows]
+    rows = [t for t in rows if t.get('exchange') in MAJOR_EXCH]
+    print(f'Screener small-cap : {len(rows)} titres US ({MIN_MCAP/1e6:.0f}M-{MAX_MCAP/1e9:.0f}Md$, CA YoY>{MIN_REVGROWTH:.0%})')
+    return [t['symbol'] for t in rows]
+
+
+# priorite de cotation pour le dedoublonnage (US d'abord, puis places EU primaires)
+_EXCH_PRIO = {e: i for i, e in enumerate(
+    ['NMS', 'NYQ', 'NGM', 'NCM', 'ASE', 'PCX', 'BATS', 'PAR', 'AMS', 'GER', 'EBS', 'MIL', 'MCE', 'LSE', 'STO', 'CPH', 'HEL', 'VIE', 'BRU', 'LIS', 'IOB'])}
+
+
+def _company_key(name):
+    n = (name or '').upper()
+    n = re.sub(r'\b(INC|CORP|CORPORATION|PLC|SA|NV|AG|SE|LTD|LIMITED|CO|COMPANY|HOLDINGS?|GROUP|ORD|ADR|ADS|'
+              r'CLASS|SHS?|SHARES?|REGISTERED|REG|DEPOSITARY|RECEIPTS?|NEW|THE|DL|EO|NPV|ON|RG|CDI)\b', ' ', n)
+    return re.sub(r'[^A-Z]', '', n)[:10]  # lettres seules, 10 premiers -> fusionne les cotations multiples
+
+
+# Watchlist EUROPE curee (tickers PRIMAIRES) : evite le chaos des cotations croisees des valeurs US
+# sur les bourses europeennes. Editable via l'env Q_EU_LIST (tickers separes par des virgules).
+Q_EU_DEFAULT = ('MC.PA,OR.PA,RMS.PA,SU.PA,AI.PA,SAF.PA,EL.PA,DG.PA,SAN.PA,BNP.PA,CS.PA,CAP.PA,TTE.PA,STLAP.PA,'
+                'ASML.AS,PRX.AS,ADYEN.AS,HEIA.AS,WKL.AS,SAP.DE,SIE.DE,ALV.DE,MBG.DE,DTE.DE,MRK.DE,'
+                'NESN.SW,NOVN.SW,ROG.SW,UHR.SW,ZURN.SW,ABBN.SW,NOVO-B.CO,AZN.L,SHEL.L,ULVR.L,RELX.L,HSBA.L,LSEG.L,ITX.MC')
+Q_EU_WATCHLIST = [s.strip() for s in os.environ.get('Q_EU_LIST', Q_EU_DEFAULT).split(',') if s.strip()]
+
+
+def screen_quality(y):
+    # US : screener grandes caps (region us = propre), dedoublonne par societe (classes d'actions).
+    operands = [('gt', 'intradaymarketcap', Q_MIN_MCAP), ('eq', 'region', 'us')]
+    rows = y.screen(operands, size=250, sort_field='intradaymarketcap', sort_type='desc', max_total=Q_MAX_TOTAL)
+    rows = [t for t in rows if t.get('exchange') in MAJOR_EXCH and t.get('symbol') and not t['symbol'][0].isdigit()]
+    best = {}
+    for t in rows:
+        k = _company_key(t.get('name')) or t['symbol']
+        if k not in best or (t.get('marketCap') or 0) > (best[k].get('marketCap') or 0):
+            best[k] = t
+    us_syms = [t['symbol'] for t in sorted(best.values(), key=lambda t: -(t.get('marketCap') or 0))]
+    us_syms = us_syms[:max(0, Q_UNIVERSE_LIMIT - len(Q_EU_WATCHLIST))]
+    # Europe : watchlist curee (tickers primaires, zero doublon)
+    print(f'Screener qualite : {len(us_syms)} US (screener) + {len(Q_EU_WATCHLIST)} EU (watchlist)')
+    return us_syms + Q_EU_WATCHLIST
 
 
 def ibkr_enrich(top):
@@ -110,59 +156,109 @@ def apply_firebase_config():
     print(f'Config dashboard : cap {MIN_MCAP/1e6:.0f}M-{MAX_MCAP/1e9:.1f}Md, CA>{MIN_REVGROWTH:.0%}, analyses={UNIVERSE_LIMIT}, top={TOP_N}')
 
 
-def main():
-    apply_firebase_config()
+def run_smallcap(y):
     DEFAULT_CONFIG['topN'] = TOP_N
-    y, symbols = screen_universe()
+    symbols = screen_smallcap(y)[:UNIVERSE_LIMIT]
     if not symbols:
-        raise SystemExit('Screener vide (Yahoo bloque ou filtres trop stricts).')
-
-    symbols = symbols[:UNIVERSE_LIMIT]
-    print(f'Enrichissement de {len(symbols)} titres via Yahoo quoteSummary...')
+        print('Small-cap : univers vide'); return None, [], {}
+    print(f'Enrichissement de {len(symbols)} titres...')
     records = y.enrich(symbols)
-    # ecarte les distorsions de base basse (croissance absurde type biotech +5000 %)
     records = [r for r in records if r.get('revenueGrowthYoY') is None or r['revenueGrowthYoY'] <= MAX_REVGROWTH]
     print(f'{len(records)} enrichis')
-
     result = rank_universe(records, DEFAULT_CONFIG)
     top = result['top']
-    print(f"survivants={result['survivors']}  top={len(top)}")
-
+    print(f"small-cap : survivants={result['survivors']} top={len(top)}")
     positions, account, source = [], {}, 'yahoo_vps'
     if ENABLE_IBKR:
         try:
             positions, account = ibkr_enrich(top)
             top.sort(key=lambda c: c.get('score') or 0, reverse=True)
             source = 'ibkr_vps'
-            print(f'IBKR : {len(positions)} positions, top re-classe avec momentum')
         except Exception as e:
-            print(f'IBKR indisponible ({e}) -> classement Yahoo seul')
+            print(f'IBKR indisponible ({e})')
+    payload = {'generatedAt': _now_iso(), 'source': source, 'mode': 'smallcap',
+               'summary': {'universe': len(symbols), 'enriched': len(records), 'survivors': result['survivors'],
+                           'topEnriched': len(top), 'coverage': round(len(records) / max(1, len(symbols)) * 100),
+                           'enrichedByIBKR': ENABLE_IBKR and source == 'ibkr_vps'},
+               'top': top}
+    return payload, positions, account
 
-    payload = {
-        'generatedAt': _now_iso(), 'source': source,
-        'summary': {'universe': len(symbols), 'enriched': len(records),
-                    'survivors': result['survivors'], 'topEnriched': len(top),
-                    'coverage': round(len(records) / max(1, len(symbols)) * 100),
-                    'enrichedByIBKR': ENABLE_IBKR and source == 'ibkr_vps'},
-        'top': top,
-    }
 
-    if NO_PUSH or not os.environ.get('FIREBASE_DB_URL'):
-        print('\n(pas de push) Top 15 :')
-        for c in top[:15]:
-            m = c['metrics']
-            print(f"  {c['symbol']:<6} {c['score']:<5} CA={_p(m.get('revenueGrowthYoY'))} marge={_p(m.get('grossMargin'))} 52s={_p(m.get('distToHigh'))} {' '.join(c['flags'][:3])}")
-        return
+def run_quality(y):
+    from quality import rate_universe, QUALITY_CONFIG
+    symbols = screen_quality(y)
+    if not symbols:
+        print('Qualite : univers vide'); return None
+    print(f'Enrichissement qualite de {len(symbols)} titres (2 appels/titre)...')
+    records = []
+    for i, sym in enumerate(symbols):
+        r = y.quote_quality(sym)
+        if r and r.get('price') is not None and r.get('marketCap'):
+            pc = y.price_cagr(sym)
+            r['priceCAGR'] = pc
+            ec = r.get('earningsCAGR')
+            r['gap'] = (ec - pc) if (ec is not None and pc is not None) else None
+            records.append(r)
+        if (i + 1) % 25 == 0:
+            print(f'  ...enrichi {i + 1}/{len(symbols)}')
+        time.sleep(y.pause)
+    # dedoublonnage final par societe (ex AZN ADR US vs AZN.L Londres) : garde la plus grosse cap
+    seen, uniq = set(), []
+    for r in sorted(records, key=lambda x: -(x.get('marketCap') or 0)):
+        k = _company_key(r.get('name')) or r.get('symbol')
+        if k in seen:
+            continue
+        seen.add(k); uniq.append(r)
+    records = uniq
+    res = rate_universe(records, QUALITY_CONFIG)
+    print(f"qualite : survivants={res['survivors']} notes={len(res['top'])}")
+    return {'generatedAt': _now_iso(), 'source': 'yahoo_vps', 'mode': 'quality',
+            'summary': {'universe': len(symbols), 'enriched': len(records), 'survivors': res['survivors'],
+                        'topEnriched': len(res['top']), 'coverage': round(len(records) / max(1, len(symbols)) * 100)},
+            'top': res['top']}
 
+
+def main():
+    apply_firebase_config()
+    y = Yahoo()
+    db = os.environ.get('FIREBASE_DB_URL')
+    do_push = (not NO_PUSH) and bool(db)
     from firebase_push import push
-    db = os.environ['FIREBASE_DB_URL']
-    push(db, 'stocks/screener/latest', payload)
-    push(db, 'stocks/screener/positions', {'generatedAt': payload['generatedAt'], 'account': account, 'positions': positions})
-    print(f"\nPousse dans Firebase : stocks/screener/latest ({len(top)}) + positions ({len(positions)}).")
+
+    if MODE in (None, 'smallcap'):
+        out = run_smallcap(y)
+        if out and out[0]:
+            payload, positions, account = out
+            if do_push:
+                push(db, 'stocks/screener/smallcap', payload)
+                push(db, 'stocks/screener/latest', payload)  # compat
+                push(db, 'stocks/screener/positions', {'generatedAt': payload['generatedAt'], 'account': account, 'positions': positions})
+                print(f"Pousse smallcap ({len(payload['top'])}) + positions ({len(positions)}).")
+            else:
+                print('\n(pas de push) Small-cap top 10 :')
+                for c in payload['top'][:10]:
+                    m = c['metrics']
+                    print(f"  {c['symbol']:<6} {c['score']:<5} CA={_p(m.get('revenueGrowthYoY'))} 52s={_p(m.get('distToHigh'))} {' '.join(c['flags'][:2])}")
+
+    if MODE in (None, 'quality'):
+        payload = run_quality(y)
+        if payload:
+            if do_push:
+                push(db, 'stocks/screener/quality', payload)
+                print(f"Pousse qualite ({len(payload['top'])}).")
+            else:
+                print('\n(pas de push) Qualite top 12 :')
+                for c in payload['top'][:12]:
+                    m = c['metrics']
+                    print(f"  {c['symbol']:<6} {c['rating']:<12} PEG={_num2(m.get('peg'))} ecart-benef/cours={_p(m.get('gap'))} PEfwd={_num2(m.get('forwardPE'))}")
 
 
 def _p(x):
     return '-' if x is None else ('%+.0f%%' % (x * 100))
+
+
+def _num2(x):
+    return '-' if isinstance(x, str) or x is None else ('%.1f' % x)
 
 
 if __name__ == '__main__':

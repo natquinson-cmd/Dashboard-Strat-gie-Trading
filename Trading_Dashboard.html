@@ -4742,6 +4742,17 @@ function activateTab(tab) {
 // ══════════════════════════════════════════════════════════════
 let screenerWorkerUrl = localStorage.getItem('screenerWorkerUrl') || '';
 let screenerUrlLoaded = false;
+let screenerMode = localStorage.getItem('screenerMode') || 'smallcap';   // smallcap | quality
+function screenerModeBar() {
+  const bar = scrEl('div', { style: 'display:inline-flex;border:1px solid #e3e8ee;border-radius:10px;overflow:hidden;margin-bottom:14px' });
+  [['smallcap', 'Small-cap explosif'], ['quality', 'Qualité-valorisation']].forEach(([m, label]) => {
+    const on = screenerMode === m;
+    const b = scrEl('button', { text: label, style: `padding:8px 16px;border:none;cursor:pointer;font-weight:700;font-size:0.8rem;background:${on ? '#3563e9' : '#fff'};color:${on ? '#fff' : '#5b6b7d'}` });
+    b.onclick = () => { if (screenerMode !== m) { screenerMode = m; localStorage.setItem('screenerMode', m); renderScreenerTab(); } };
+    bar.appendChild(b);
+  });
+  return bar;
+}
 const scrCap = (x) => x == null ? '–' : x >= 1e9 ? '$' + (x / 1e9).toFixed(1) + 'B' : x >= 1e6 ? '$' + (x / 1e6).toFixed(0) + 'M' : '$' + x;
 const scrCol = (x, y) => x == null ? '#5b6b7d' : (x >= y ? '#1d9e74' : '#dd5f66');
 // Lien vers le GRAPHIQUE TRADABLE TradingView (format EXCHANGE:TICKER). Une fois ton compte IBKR
@@ -4774,28 +4785,27 @@ async function renderScreenerTab() {
   if (!c) return;
   scrMsg(c, 'Chargement du classement…');
   if (typeof db === 'undefined') { scrMsg(c, 'Firebase indisponible.', '#dd5f66'); return; }
-  // Lecture Firebase (le screener est pousse par le service VPS). Petit retry : la 1re lecture
-  // juste apres le chargement de la page peut arriver avant que Firebase soit connecte.
+  // Clé Firebase selon le mode (quality, ou smallcap avec repli 'latest' pour compat).
+  const keys = screenerMode === 'quality' ? ['quality'] : ['smallcap', 'latest'];
   let fb = null;
-  for (let i = 0; i < 3; i++) {
-    try {
-      const snap = await db.ref('stocks/screener/latest').once('value');
-      fb = snap.val();
-      if (fb && fb.top && fb.top.length) break;
-    } catch (e) { /* retry */ }
-    await new Promise(r => setTimeout(r, 800));
+  for (let i = 0; i < 3 && !fb; i++) {
+    for (const k of keys) {
+      try { const snap = await db.ref('stocks/screener/' + k).once('value'); const v = snap.val(); if (v && v.top && v.top.length) { fb = v; break; } } catch (e) { /* retry */ }
+    }
+    if (!fb) await new Promise(r => setTimeout(r, 800));
   }
   if (fb && fb.top && fb.top.length) {
     let positions = null, config = null;
     try { positions = (await db.ref('stocks/screener/positions').once('value')).val(); } catch (e) { /* ignore */ }
     try { config = (await db.ref('stocks/screener/config').once('value')).val(); } catch (e) { /* ignore */ }
-    return screenerRender(c, fb, positions, config);
+    return screenerMode === 'quality' ? screenerRenderQuality(c, fb, config) : screenerRender(c, fb, positions, config);
   }
-  // Pas encore de classement
+  // Pas encore de classement pour ce mode
   const btn = scrEl('button', { text: 'Réessayer', style: 'padding:8px 14px;border:1px solid #e3e8ee;border-radius:10px;background:#fff;font-weight:600;cursor:pointer' });
   btn.onclick = () => renderScreenerTab();
   c.replaceChildren(
-    scrEl('div', { text: "Pas encore de classement. Lance le screener sur le VPS (run.py) pour peupler Firebase.", style: 'padding:20px;color:#5b6b7d' }),
+    screenerModeBar(),
+    scrEl('div', { text: "Pas encore de classement pour ce mode. Lance le moteur (run.py) sur le VPS.", style: 'padding:20px;color:#5b6b7d' }),
     scrEl('div', { style: 'padding:0 20px', kids: [btn] })
   );
 }
@@ -4894,10 +4904,65 @@ function buildScreenerParams(panel, config) {
   }));
 }
 
+const SCR_RATING_COL = { 'Achat fort': ['#d1f0e3', '#127a54'], 'Achat': ['#e4f5ee', '#1d7a5c'], 'Neutre': ['#eef2f8', '#5b6b7d'], 'Surévaluée': ['#fdeaea', '#c0392b'] };
+
+function screenerRenderQuality(c, data, config) {
+  const s = data.summary || {}, top = data.top || [];
+  const frag = document.createDocumentFragment();
+  frag.appendChild(screenerModeBar());
+
+  const grid = scrEl('div', { cls: 'inv-grid-kpi', style: 'margin-bottom:14px' });
+  [['Notées', String(top.length), 'Achat fort → Surévaluée'],
+   ['Univers qualité', String(s.universe ?? '–'), 'grandes caps US + Europe'],
+   ['Passent le filtre', String(s.survivors ?? '–'), 'ROE, FCF, dette'],
+   ['Achat fort', String(top.filter((t) => t.rating === 'Achat fort').length), 'les moins chères']
+  ].forEach((k) => grid.appendChild(scrEl('div', { cls: 'kpi-card', kids: [
+    scrEl('div', { cls: 'stripe', style: 'background:linear-gradient(90deg,#1d9e74,#34d399)' }),
+    scrEl('div', { cls: 'label', text: k[0] }), scrEl('div', { cls: 'value', style: 'font-size:1.5rem', text: k[1] }), scrEl('div', { cls: 'sub', text: k[2] })]})));
+  frag.appendChild(grid);
+
+  const refresh = scrEl('button', { text: 'Rafraîchir', style: 'padding:7px 13px;border:1px solid #e3e8ee;border-radius:9px;background:#fff;font-weight:600;cursor:pointer' });
+  refresh.onclick = () => renderScreenerTab();
+  frag.appendChild(scrEl('div', { style: 'display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px', kids: [
+    scrEl('div', { style: 'color:#5b6b7d;font-size:0.76rem', text: (data.generatedAt ? 'Généré le ' + new Date(data.generatedAt).toLocaleString('fr-FR') : '') + ' · Yahoo' }),
+    scrEl('div', { style: 'display:flex;gap:8px', kids: [refresh] })]}));
+
+  const cols = [['#', 'left'], ['Ticker', 'left'], ['Secteur', 'left'], ['Note', 'left'], ['PEG', 'right'], ['Écart bénéf./cours', 'right'], ['PE fwd', 'right'], ['ROE', 'right'], ['Marge', 'right'], ['FCF yield', 'right'], ['Cap.', 'right']];
+  const thead = scrEl('tr', { style: 'background:#f6f8fb;color:#5b6b7d' });
+  cols.forEach(([t, al]) => thead.appendChild(scrEl('th', { text: t, style: `padding:9px 10px;text-align:${al};font-size:0.68rem;text-transform:uppercase;letter-spacing:.03em;border-bottom:1px solid #e3e8ee;white-space:nowrap` })));
+  const tbody = scrEl('tbody'); const bd = 'border-bottom:1px solid #eef1f5';
+  const pctC = (x, thr) => scrEl('td', { text: (x == null ? '–' : (x >= 0 ? '+' : '') + (x * 100).toFixed(0) + '%'), style: `padding:8px 10px;text-align:right;white-space:nowrap;${bd};color:${x == null ? '#5b6b7d' : (x >= thr ? '#1d9e74' : '#dd5f66')}` });
+  const numC = (x, dec) => scrEl('td', { text: (x == null ? '–' : Number(x).toFixed(dec == null ? 1 : dec)), style: `padding:8px 10px;text-align:right;${bd};color:#42546a` });
+
+  if (!top.length) {
+    tbody.appendChild(scrEl('tr', { kids: [scrEl('td', { attrs: { colspan: '11' }, text: 'Aucune candidate.', style: 'padding:22px;color:#5b6b7d' })] }));
+  } else top.forEach((cd, i) => {
+    const m = cd.metrics || {}, rc = SCR_RATING_COL[cd.rating] || SCR_RATING_COL['Neutre'];
+    const link = scrEl('a', { text: cd.symbol || '', href: scrQuoteUrl(cd.symbol, m.exchange), attrs: { target: '_blank', rel: 'noopener' }, style: 'font-weight:800;color:#3563e9;text-decoration:none' });
+    const chip = scrEl('span', { text: cd.rating, style: `background:${rc[0]};color:${rc[1]};border-radius:20px;padding:2px 10px;font-size:0.7rem;font-weight:700;white-space:nowrap` });
+    tbody.appendChild(scrEl('tr', { kids: [
+      scrEl('td', { text: String(i + 1), style: `padding:8px 10px;color:#9aa7b4;${bd}` }),
+      scrEl('td', { style: `padding:8px 10px;${bd}`, kids: [link, scrEl('div', { text: cd.name || '', style: 'color:#5b6b7d;font-size:0.72rem;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap' })] }),
+      scrEl('td', { text: cd.sector || '–', style: `padding:8px 10px;color:#5b6b7d;${bd}` }),
+      scrEl('td', { style: `padding:8px 10px;${bd}`, kids: [chip] }),
+      numC(m.peg, 2), pctC(m.gap, 0), numC(m.forwardPE, 1), pctC(m.roe, 0.15), pctC(m.grossMargin, 0.40), pctC(m.fcfYield, 0.03),
+      scrEl('td', { text: scrCap(m.marketCap), style: `padding:8px 10px;text-align:right;color:#5b6b7d;${bd}` }),
+    ]}));
+  });
+  const table = scrEl('table', { style: 'width:100%;border-collapse:collapse;font-size:0.82rem', kids: [scrEl('thead', { kids: [thead] }), tbody] });
+  frag.appendChild(scrEl('div', { style: 'background:#fff;border:1px solid #e3e8ee;border-radius:14px;overflow:hidden', kids: [scrEl('div', { style: 'overflow-x:auto', kids: [table] })] }));
+
+  const disc = scrEl('div', { style: 'margin-top:14px;font-size:0.74rem;color:#5b6b7d;background:#fff;border:1px solid #e3e8ee;border-radius:12px;padding:12px 14px' });
+  disc.append('Qualité + valorisation (« prix décroché sous les bénéfices »). « Écart bénéf./cours » positif = les bénéfices ont grimpé plus vite que le cours (multiple comprimé). Note ', scrEl('b', { text: '≠' }), " conseil : « pas cher » peut aussi être un value trap (bénéfices sur le point de baisser). Fais ta propre analyse.");
+  frag.appendChild(disc);
+  c.replaceChildren(frag);
+}
+
 function screenerRender(c, data, positions, config) {
   const s = data.summary || {}, top = data.top || [];
   const enriched = !!(data.source && String(data.source).indexOf('ibkr') === 0);
   const frag = document.createDocumentFragment();
+  frag.appendChild(screenerModeBar());
 
   // KPIs
   const grid = scrEl('div', { cls: 'inv-grid-kpi', style: 'margin-bottom:14px' });
