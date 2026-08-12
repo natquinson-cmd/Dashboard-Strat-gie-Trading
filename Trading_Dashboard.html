@@ -5189,13 +5189,28 @@ function scrSavePositions(a) {
   SCR_POSITIONS = Array.isArray(a) ? a : [];
   try { if (typeof db !== 'undefined' && db) db.ref('stocks/screener/myPositions').set(SCR_POSITIONS.length ? SCR_POSITIONS : null); } catch (e) {}
 }
+// Recharge les positions (cross-device) + la carte des cours depuis Firebase (bouton Rafraîchir).
+async function scrLoadPositionsAndPrices() {
+  if (typeof db === 'undefined' || !db) return;
+  try {
+    const mp = (await db.ref('stocks/screener/myPositions').once('value')).val();
+    SCR_POSITIONS = Array.isArray(mp) ? mp : (mp && typeof mp === 'object' ? Object.values(mp) : []);
+  } catch (e) {}
+  try {
+    const nodes = await Promise.all([db.ref('stocks/screener/quality').once('value'), db.ref('stocks/screener/smallcap').once('value')]);
+    SCR_PRICE_MAP = {};
+    nodes.forEach((snap) => { const v = snap.val(); (v && v.top || []).forEach((t) => { const m = t.metrics || {}; if (t.symbol && m.price != null) SCR_PRICE_MAP[String(t.symbol).toUpperCase()] = { price: m.price, exchange: m.exchange, changePct: m.changePct, name: t.name, website: m.website, rating: t.rating, payoutRatio: m.payoutRatio, forwardPE: m.forwardPE, revenueGrowthYoY: m.revenueGrowthYoY, divGrowing: m.divGrowing }; }); });
+  } catch (e) {}
+}
 
 // Module "Mes positions" en haut du screener : saisie manuelle (Revolut), P&L via les cours du screener.
 function screenerPositionsModule() {
   const wrap = scrEl('div', { style: 'background:#fff;border:1px solid #e3e8ee;border-radius:14px;padding:14px;margin-bottom:14px' });
-  wrap.appendChild(scrEl('div', { style: 'display:flex;align-items:baseline;gap:8px;margin-bottom:10px;flex-wrap:wrap', kids: [
+  const refreshBtn = scrEl('button', { text: '⟳ Rafraîchir', attrs: { title: 'Re-synchroniser tes positions et récupérer les derniers cours' }, style: 'margin-left:auto;border:1px solid #e3e8ee;background:#fff;border-radius:9px;padding:6px 12px;cursor:pointer;font-size:0.78rem;color:#42546a;font-weight:600' });
+  wrap.appendChild(scrEl('div', { style: 'display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap', kids: [
     scrEl('span', { text: 'Mes positions', style: 'font-weight:800;color:#22303f;font-size:0.95rem' }),
-    scrEl('span', { text: 'saisie manuelle (Revolut), synchronisées sur tous tes appareils', style: 'font-size:0.72rem;color:#5b6b7d' })] }));
+    scrEl('span', { text: 'saisie manuelle (Revolut), synchronisées sur tous tes appareils', style: 'font-size:0.72rem;color:#5b6b7d' }),
+    refreshBtn] }));
   const iStyle = 'padding:8px 10px;border:1px solid #e3e8ee;border-radius:9px;font-size:0.86rem;color:#22303f';
   const dl = scrEl('datalist', { attrs: { id: 'scrTickerList' } });
   Object.keys(SCR_PRICE_MAP).sort().forEach((sym) => dl.appendChild(scrEl('option', { attrs: { value: sym } })));
@@ -5207,6 +5222,11 @@ function screenerPositionsModule() {
   const body = scrEl('div');
   wrap.appendChild(body);
   const render = () => body.replaceChildren(renderPositionsTable(scrGetPositions(), render));
+  refreshBtn.onclick = async () => {
+    refreshBtn.disabled = true; const old = refreshBtn.textContent; refreshBtn.textContent = '…';
+    await scrLoadPositionsAndPrices();
+    refreshBtn.disabled = false; refreshBtn.textContent = old; render();
+  };
   addBtn.onclick = () => {
     const ticker = (tkIn.value || '').toUpperCase().trim(), qty = Number(qtyIn.value), pru = Number(pruIn.value);
     if (!ticker || !(qty > 0) || !(pru > 0)) return;
