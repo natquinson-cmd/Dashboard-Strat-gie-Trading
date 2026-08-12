@@ -5024,33 +5024,116 @@ function buildScreenerParams(panel, config) {
 
 const SCR_RATING_COL = { 'Achat fort': ['#d1f0e3', '#127a54'], 'Achat': ['#e4f5ee', '#1d7a5c'], 'Neutre': ['#eef2f8', '#5b6b7d'], 'Surévaluée': ['#fdeaea', '#c0392b'] };
 
-// Poids suggeres par tier de rating (CADRE INDICATIF, pas un conseil). Esprit Dividend King :
-// pondérer par conviction, cœur sur les mieux notees, Surevaluee en watchlist.
-const SCR_TIER_ALLOC = [
-  ['Achat fort', '7 à 10 % / ligne', 'conviction maximale'],
-  ['Achat', '4 à 6 % / ligne', 'cœur du portefeuille'],
-  ['Neutre', '0 à 3 % / ligne', 'petite touche, optionnel'],
-  ['Surévaluée', '0 % — watchlist', 'attendre un repli'],
-];
-function screenerQualityAllocPanel(top) {
-  const counts = {};
-  (top || []).forEach((t) => { counts[t.rating] = (counts[t.rating] || 0) + 1; });
-  const wrap = scrEl('div', { style: 'background:#fff;border:1px solid #e3e8ee;border-radius:14px;padding:12px 14px;margin-bottom:14px' });
-  wrap.appendChild(scrEl('div', { style: 'display:flex;align-items:baseline;gap:8px;margin-bottom:10px;flex-wrap:wrap', kids: [
-    scrEl('span', { text: 'Poids suggérés par tier', style: 'font-weight:800;color:#22303f;font-size:0.9rem' }),
-    scrEl('span', { text: 'cadre indicatif, pas un conseil', style: 'font-size:0.72rem;color:#5b6b7d' })] }));
-  const grid = scrEl('div', { style: 'display:flex;gap:10px;flex-wrap:wrap' });
-  SCR_TIER_ALLOC.forEach(([tier, weight, sub]) => {
-    const rc = SCR_RATING_COL[tier] || SCR_RATING_COL['Neutre'];
-    const n = counts[tier] || 0;
-    const card = scrEl('div', { style: 'flex:1;min-width:150px;border:1px solid #eef1f5;border-radius:12px;padding:10px 12px;background:#fafbfc' });
-    card.appendChild(scrEl('span', { text: tier, style: `display:inline-block;background:${rc[0]};color:${rc[1]};border-radius:20px;padding:2px 10px;font-size:0.72rem;font-weight:700` }));
-    card.appendChild(scrEl('div', { text: weight, style: 'font-weight:800;color:#22303f;font-size:0.95rem;margin-top:7px' }));
-    card.appendChild(scrEl('div', { text: sub + ' · ' + n + ' titre' + (n > 1 ? 's' : ''), style: 'color:#5b6b7d;font-size:0.72rem;margin-top:2px' }));
-    grid.appendChild(card);
+// Allocateur : propose une repartition d'un MONTANT saisi par l'utilisateur, ponderee par
+// conviction (Achat fort > Achat > Neutre), Surevaluee exclues, plafond 10 %/ligne. Cadre indicatif.
+const SCR_ALLOC_UNITS = { 'Achat fort': 3, 'Achat': 2, 'Neutre': 1 };
+const scrEuro = (x) => (x == null || !isFinite(x)) ? '–' : Math.round(x).toLocaleString('fr-FR') + ' €';
+const SCR_ALLOC_LINE_CAP = 0.10;    // max par ligne
+const SCR_ALLOC_SECTOR_CAP = 0.35;  // max par secteur (diversification)
+function computeAllocation(top, amount, nLines) {
+  const cands = (top || []).filter((t) => t.rating && t.rating !== 'Surévaluée')
+    .sort((a, b) => (b.valuationScore || 0) - (a.valuationScore || 0)).slice(0, nLines);
+  if (!cands.length) return { rows: [], cash: 0 };
+  const LC = SCR_ALLOC_LINE_CAP, SC = SCR_ALLOC_SECTOR_CAP;
+  const sec = cands.map((t) => t.sector || 'N/A');
+  const sum0 = cands.reduce((s, t) => s + (SCR_ALLOC_UNITS[t.rating] || 1), 0);
+  let w = cands.map((t) => (SCR_ALLOC_UNITS[t.rating] || 1) / sum0);
+  for (let iter = 0; iter < 60; iter++) {
+    let excess = 0;
+    // plafond par LIGNE
+    w = w.map((x) => { if (x > LC + 1e-9) { excess += x - LC; return LC; } return x; });
+    // plafond par SECTEUR : on ramene chaque secteur en excès à SC au prorata
+    const secSum = {}; sec.forEach((s, i) => { secSum[s] = (secSum[s] || 0) + w[i]; });
+    const scale = {}; for (const s in secSum) if (secSum[s] > SC + 1e-9) scale[s] = SC / secSum[s];
+    if (Object.keys(scale).length) w = w.map((x, i) => { if (scale[sec[i]]) { const cut = x * (1 - scale[sec[i]]); excess += cut; return x - cut; } return x; });
+    if (excess < 1e-9) break;
+    // redistribue vers les lignes sous le cap ligne ET dont le secteur est sous le cap secteur
+    const secSum2 = {}; sec.forEach((s, i) => { secSum2[s] = (secSum2[s] || 0) + w[i]; });
+    const room = w.map((x, i) => (secSum2[sec[i]] < SC - 1e-9) ? Math.max(0, LC - x) : 0);
+    const totalRoom = room.reduce((a, b) => a + b, 0);
+    if (totalRoom < 1e-9) break;   // saturé -> le surplus reste en liquidités
+    w = w.map((x, i) => x + excess * (room[i] / totalRoom));
+  }
+  const totalW = w.reduce((a, b) => a + b, 0);
+  return { rows: cands.map((t, i) => ({ t, weight: w[i], amount: w[i] * amount })), cash: Math.max(0, 1 - totalW) * amount };
+}
+function renderAllocTable(res) {
+  const alloc = res.rows || [];
+  if (!alloc.length) return scrEl('div', { text: 'Aucune candidate à répartir (que des Surévaluée ?).', style: 'color:#5b6b7d;font-size:0.8rem;padding:8px 0' });
+  const bd = 'border-bottom:1px solid #eef1f5';
+  const thead = scrEl('tr', { style: 'background:#f6f8fb;color:#5b6b7d' });
+  [['#', 'left'], ['Titre', 'left'], ['Note', 'left'], ['Poids', 'right'], ['Montant', 'right']].forEach(([t, al]) =>
+    thead.appendChild(scrEl('th', { text: t, style: `padding:8px 10px;text-align:${al};font-size:0.68rem;text-transform:uppercase;letter-spacing:.03em;border-bottom:1px solid #e3e8ee;white-space:nowrap` })));
+  const tbody = scrEl('tbody');
+  alloc.forEach((a, i) => {
+    const t = a.t, m = t.metrics || {}, rc = SCR_RATING_COL[t.rating] || SCR_RATING_COL['Neutre'];
+    const link = scrEl('a', { text: t.symbol || '', href: scrQuoteUrl(t.symbol, m.exchange), attrs: { target: '_blank', rel: 'noopener' }, style: 'font-weight:800;color:#3563e9;text-decoration:none' });
+    const idcell = scrEl('td', { style: `padding:6px 10px;${bd}`, kids: [scrEl('div', { style: 'display:flex;align-items:center;gap:8px', kids: [
+      scrLogo(t.symbol, m.website),
+      scrEl('div', { kids: [link, scrEl('div', { text: t.name || '', style: 'color:#5b6b7d;font-size:0.7rem;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap' })] })] })] });
+    tbody.appendChild(scrEl('tr', { kids: [
+      scrEl('td', { text: String(i + 1), style: `padding:6px 10px;color:#9aa7b4;${bd}` }),
+      idcell,
+      scrEl('td', { style: `padding:6px 10px;${bd}`, kids: [scrEl('span', { text: t.rating, style: `background:${rc[0]};color:${rc[1]};border-radius:20px;padding:2px 9px;font-size:0.68rem;font-weight:700;white-space:nowrap` })] }),
+      scrEl('td', { text: (a.weight * 100).toFixed(1) + '%', style: `padding:6px 10px;text-align:right;font-weight:700;color:#42546a;${bd}` }),
+      scrEl('td', { text: scrEuro(a.amount), style: `padding:6px 10px;text-align:right;font-weight:800;color:#22303f;${bd}` }),
+    ] }));
   });
-  wrap.appendChild(grid);
-  wrap.appendChild(scrEl('div', { style: 'margin-top:10px;font-size:0.72rem;color:#5b6b7d', text: 'Concentre-toi sur 12 à 20 lignes au total, pondérées vers le haut du tableau, plafond ~10 % par ligne. Étale tes achats (DCA). La décision reste la tienne.' }));
+  const totA = alloc.reduce((s, a) => s + a.amount, 0);
+  const cash = res.cash || 0, grand = totA + cash;
+  // ligne Liquidités si la diversification laisse un surplus non réparti
+  if (cash > grand * 0.005) {
+    tbody.appendChild(scrEl('tr', { kids: [
+      scrEl('td', { text: '', style: `padding:6px 10px;${bd}` }),
+      scrEl('td', { style: `padding:6px 10px;${bd}`, kids: [scrEl('span', { text: 'Liquidités', style: 'font-weight:700;color:#42546a' }), scrEl('div', { text: 'surplus non réparti (limite de diversification)', style: 'color:#9aa7b4;font-size:0.7rem' })] }),
+      scrEl('td', { text: '', style: `${bd}` }),
+      scrEl('td', { text: (cash / grand * 100).toFixed(1) + '%', style: `padding:6px 10px;text-align:right;font-weight:700;color:#9aa7b4;${bd}` }),
+      scrEl('td', { text: scrEuro(cash), style: `padding:6px 10px;text-align:right;font-weight:700;color:#9aa7b4;${bd}` }),
+    ] }));
+  }
+  tbody.appendChild(scrEl('tr', { style: 'background:#fafbfc', kids: [
+    scrEl('td', { text: '', style: 'padding:7px 10px' }),
+    scrEl('td', { text: alloc.length + ' lignes', style: 'padding:7px 10px;font-weight:700;color:#5b6b7d' }),
+    scrEl('td', { text: '' }),
+    scrEl('td', { text: '100%', style: 'padding:7px 10px;text-align:right;font-weight:800;color:#42546a' }),
+    scrEl('td', { text: scrEuro(grand), style: 'padding:7px 10px;text-align:right;font-weight:800;color:#22303f' }),
+  ] }));
+  const table = scrEl('table', { style: 'width:100%;border-collapse:collapse;font-size:0.82rem', kids: [scrEl('thead', { kids: [thead] }), tbody] });
+  // récap par secteur
+  const bySec = {}; alloc.forEach((a) => { const s = a.t.sector || 'N/A'; bySec[s] = (bySec[s] || 0) + a.weight; });
+  const secChips = scrEl('div', { style: 'display:flex;gap:6px;flex-wrap:wrap;margin-top:10px' });
+  Object.entries(bySec).sort((a, b) => b[1] - a[1]).forEach(([s, wv]) => {
+    secChips.appendChild(scrEl('span', { text: s + ' ' + Math.round(wv * 100) + '%', style: 'background:#f6f8fb;color:#5b6b7d;border-radius:20px;padding:2px 9px;font-size:0.68rem;font-weight:600' }));
+  });
+  return scrEl('div', { kids: [scrEl('div', { style: 'overflow-x:auto', kids: [table] }), secChips] });
+}
+function screenerQualityAllocPanel(top) {
+  const wrap = scrEl('div', { style: 'background:#fff;border:1px solid #e3e8ee;border-radius:14px;padding:14px;margin-bottom:14px' });
+  wrap.appendChild(scrEl('div', { style: 'display:flex;align-items:baseline;gap:8px;margin-bottom:12px;flex-wrap:wrap', kids: [
+    scrEl('span', { text: 'Répartition proposée', style: 'font-weight:800;color:#22303f;font-size:0.95rem' }),
+    scrEl('span', { text: 'pondérée par conviction (tier de rating), cadre indicatif, pas un conseil', style: 'font-size:0.72rem;color:#5b6b7d' })] }));
+  const savedAmt = Number(localStorage.getItem('scrAllocAmount')) || 10000;
+  const savedN = Number(localStorage.getItem('scrAllocLines')) || 15;
+  const amtInput = scrEl('input', { attrs: { type: 'number', min: '0', step: '500', value: String(savedAmt) }, style: 'width:130px;padding:8px 10px;border:1px solid #e3e8ee;border-radius:9px;font-size:0.9rem;font-weight:700;color:#22303f' });
+  const nSelect = scrEl('select', { style: 'padding:8px 10px;border:1px solid #e3e8ee;border-radius:9px;font-size:0.88rem;font-weight:600;color:#42546a;background:#fff' });
+  [10, 12, 15, 18, 20].forEach((n) => { const o = scrEl('option', { text: n + ' lignes', attrs: { value: String(n) } }); if (n === savedN) o.selected = true; nSelect.appendChild(o); });
+  wrap.appendChild(scrEl('div', { style: 'display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px', kids: [
+    scrEl('label', { text: 'Montant à allouer', style: 'font-size:0.8rem;color:#42546a;font-weight:600' }),
+    amtInput, scrEl('span', { text: '€', style: 'color:#5b6b7d' }),
+    scrEl('span', { text: 'réparti sur', style: 'font-size:0.8rem;color:#5b6b7d;margin-left:6px' }), nSelect] }));
+  const results = scrEl('div');
+  wrap.appendChild(results);
+  wrap.appendChild(scrEl('div', { style: 'margin-top:10px;font-size:0.72rem;color:#5b6b7d', text: 'Surévaluée exclues, pondération Achat fort > Achat > Neutre, plafond 10 % par ligne et 35 % par secteur (diversification). Si le surplus part en liquidités, tes meilleurs choix sont trop concentrés : ajoute des lignes. Étale tes achats (DCA). La décision reste la tienne.' }));
+  function render() {
+    const amount = Math.max(0, Number(amtInput.value) || 0);
+    const nLines = Number(nSelect.value) || 15;
+    localStorage.setItem('scrAllocAmount', String(amount));
+    localStorage.setItem('scrAllocLines', String(nLines));
+    results.replaceChildren(renderAllocTable(computeAllocation(top, amount, nLines)));
+  }
+  amtInput.addEventListener('input', render);
+  nSelect.addEventListener('change', render);
+  render();
   return wrap;
 }
 function screenerRenderQuality(c, data, config) {
