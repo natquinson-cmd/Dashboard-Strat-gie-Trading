@@ -5212,9 +5212,14 @@ async function scrApplyLivePrices() {
     const lp = (await db.ref('stocks/screener/livePrices').once('value')).val();
     if (lp && lp.prices) {
       SCR_LIVE_AT = lp.generatedAt || null;
-      Object.keys(lp.prices).forEach((sym) => {
-        const q = lp.prices[sym], k = sym.toUpperCase();
-        if (!q || q.price == null) return;
+      const raw = lp.prices;
+      // Nouveau format = liste [{ticker,price,...}] (le ticker peut contenir un '.', interdit en clé Firebase).
+      // Ancien format = objet {TICKER:{price,...}} -> repli.
+      const list = Array.isArray(raw) ? raw
+        : Object.keys(raw).map((sym) => { const v = raw[sym] || {}; return v.ticker ? v : Object.assign({ ticker: sym }, v); });
+      list.forEach((q) => {
+        if (!q || q.price == null || !q.ticker) return;
+        const k = String(q.ticker).toUpperCase();
         if (!SCR_PRICE_MAP[k]) SCR_PRICE_MAP[k] = {};
         SCR_PRICE_MAP[k].price = q.price;
         if (q.changePct != null) SCR_PRICE_MAP[k].changePct = q.changePct;
