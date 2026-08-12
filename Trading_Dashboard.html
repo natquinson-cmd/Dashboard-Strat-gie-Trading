@@ -4744,16 +4744,24 @@ let screenerWorkerUrl = localStorage.getItem('screenerWorkerUrl') || '';
 let screenerUrlLoaded = false;
 let screenerMode = localStorage.getItem('screenerMode') || 'smallcap';   // smallcap | quality
 function screenerModeBar() {
-  const bar = scrEl('div', { style: 'display:inline-flex;border:1px solid #e3e8ee;border-radius:10px;overflow:hidden;margin-bottom:14px' });
+  const bar = scrEl('div', { style: 'display:inline-flex;border:1px solid #e3e8ee;border-radius:10px;overflow:hidden' });
   [['smallcap', 'Small-cap explosif'], ['quality', 'Qualité-valorisation']].forEach(([m, label]) => {
     const on = screenerMode === m;
     const b = scrEl('button', { text: label, style: `padding:8px 16px;border:none;cursor:pointer;font-weight:700;font-size:0.8rem;background:${on ? '#3563e9' : '#fff'};color:${on ? '#fff' : '#5b6b7d'}` });
     b.onclick = () => { if (screenerMode !== m) { screenerMode = m; localStorage.setItem('screenerMode', m); renderScreenerTab(); } };
     bar.appendChild(b);
   });
-  return bar;
+  // Bascule devise d'affichage $/€ (convertit tout l'onglet)
+  const ccyBar = scrEl('div', { style: 'display:inline-flex;border:1px solid #e3e8ee;border-radius:10px;overflow:hidden' });
+  [['USD', '$'], ['EUR', '€']].forEach(([ccy, sym]) => {
+    const on = SCR_DISP_CCY === ccy;
+    const b = scrEl('button', { text: sym, attrs: { title: ccy === 'EUR' ? 'Afficher en euros' : 'Afficher en dollars' }, style: `padding:8px 14px;border:none;cursor:pointer;font-weight:800;font-size:0.9rem;background:${on ? '#1d9e74' : '#fff'};color:${on ? '#fff' : '#5b6b7d'}` });
+    b.onclick = () => { if (SCR_DISP_CCY !== ccy) { SCR_DISP_CCY = ccy; try { localStorage.setItem('scrDispCcy', ccy); } catch (e) {} renderScreenerTab(); } };
+    ccyBar.appendChild(b);
+  });
+  return scrEl('div', { style: 'display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px', kids: [bar, ccyBar] });
 }
-const scrCap = (x, exch) => { if (x == null) return '–'; const u = scrToUsd(x, exch); const v = (u != null) ? u : x; return v >= 1e9 ? '$' + (v / 1e9).toFixed(1) + 'B' : v >= 1e6 ? '$' + (v / 1e6).toFixed(0) + 'M' : '$' + Math.round(v); };
+const scrCap = (x, exch) => { if (x == null) return '–'; const d = scrToDisp(x, exch); const v = (d != null) ? d : x; const body = v >= 1e9 ? (v / 1e9).toFixed(1) + 'B' : v >= 1e6 ? (v / 1e6).toFixed(0) + 'M' : String(Math.round(v)); return SCR_DISP_CCY === 'EUR' ? (body + ' €') : ('$' + body); };
 const scrCol = (x, y) => x == null ? '#5b6b7d' : (x >= y ? '#1d9e74' : '#dd5f66');
 // Lien vers le GRAPHIQUE TRADABLE TradingView (format EXCHANGE:TICKER). Une fois ton compte IBKR
 // connecte dans TradingView (panneau Trading), tu passes tes ordres IBKR directement depuis cette
@@ -4779,14 +4787,22 @@ function scrToUsd(v, exch) {
   if (ccy === 'GBX') return SCR_FX.GBP ? (Number(v) / 100) / SCR_FX.GBP : null;  // LSE cote en pence
   return SCR_FX[ccy] ? Number(v) / SCR_FX[ccy] : null;
 }
+// Devise d'AFFICHAGE (bascule $/€ via le bouton). Les positions/allocation sont stockées en USD canonique.
+let SCR_DISP_CCY = (function () { try { return localStorage.getItem('scrDispCcy') === 'EUR' ? 'EUR' : 'USD'; } catch (e) { return 'USD'; } })();
+function scrDispSym() { return SCR_DISP_CCY === 'EUR' ? '€' : '$'; }
+function usdToDisp(u) { if (u == null || !isFinite(u)) return null; return (SCR_DISP_CCY === 'EUR' && SCR_FX && SCR_FX.EUR) ? u * SCR_FX.EUR : u; }
+function dispToUsd(v) { if (v == null || !isFinite(v)) return null; return (SCR_DISP_CCY === 'EUR' && SCR_FX && SCR_FX.EUR) ? v / SCR_FX.EUR : v; }
+function scrToDisp(v, exch) { return usdToDisp(scrToUsd(v, exch)); }   // devise native -> devise d'affichage
+function scrFmt(x) { if (x == null || !isFinite(x)) return '–'; const n = Math.round(x), a = Math.abs(n).toLocaleString('fr-FR'); return SCR_DISP_CCY === 'EUR' ? ((n < 0 ? '-' : '') + a + ' €') : ((n < 0 ? '-$' : '$') + a); }
+function scrUsd(usd) { return scrFmt(usdToDisp(usd)); }   // formate une valeur USD canonique dans la devise d'affichage
 // Devise native (repli d'affichage si le taux est indisponible)
 const SCR_CCY = { NMS: '$', NGM: '$', NCM: '$', NYQ: '$', ASE: '$', PCX: '$', BATS: '$',
   PAR: '€', AMS: '€', GER: '€', MIL: '€', MCE: '€', BRU: '€', LIS: '€', HEL: '€', VIE: '€',
   LSE: '£', EBS: 'CHF', VTX: 'CHF', STO: 'kr', CPH: 'kr' };
 function scrPrice(p, exch) {
   if (p == null || !isFinite(p)) return '–';
-  const usd = scrToUsd(Number(p), exch);
-  if (usd != null) { const n = usd >= 1000 ? usd.toLocaleString('fr-FR', { maximumFractionDigits: 0 }) : usd.toFixed(2); return '$' + n; }
+  const val = scrToDisp(Number(p), exch);
+  if (val != null) { const n = val >= 1000 ? val.toLocaleString('fr-FR', { maximumFractionDigits: 0 }) : val.toFixed(2); return SCR_DISP_CCY === 'EUR' ? (n + ' €') : ('$' + n); }
   // repli devise native si le taux de change n'a pas pu être chargé
   let v = Number(p); if (exch === 'LSE') v = v / 100;
   const c = SCR_CCY[exch] || '';
@@ -5066,7 +5082,6 @@ const SCR_RATING_COL = { 'Achat fort': ['#d1f0e3', '#127a54'], 'Achat': ['#e4f5e
 
 // Allocateur : repartit un MONTANT saisi par l'utilisateur, PONDERE PAR LE POTENTIEL de l'Objectif
 // (marge de securite), Surevaluee et potentiel negatif exclus, plafond 10 %/ligne et 35 %/secteur.
-const scrUsd = (x) => { if (x == null || !isFinite(x)) return '–'; const n = Math.round(x); return (n < 0 ? '-$' : '$') + Math.abs(n).toLocaleString('fr-FR'); };
 const SCR_ALLOC_LINE_CAP = 0.10;    // max par ligne
 const SCR_ALLOC_SECTOR_CAP = 0.35;  // max par secteur (diversification)
 function computeAllocation(top, amount, nLines) {
@@ -5182,7 +5197,7 @@ function screenerPositionsModule() {
   const dl = scrEl('datalist', { attrs: { id: 'scrTickerList' } });
   Object.keys(SCR_PRICE_MAP).sort().forEach((sym) => dl.appendChild(scrEl('option', { attrs: { value: sym } })));
   const tkIn = scrEl('input', { attrs: { type: 'text', placeholder: 'Ticker (ex NVDA)', list: 'scrTickerList' }, style: iStyle + ';width:130px;text-transform:uppercase' });
-  const amtIn = scrEl('input', { attrs: { type: 'number', min: '0', step: '10', placeholder: 'Montant $ investi' }, style: iStyle + ';width:140px' });
+  const amtIn = scrEl('input', { attrs: { type: 'number', min: '0', step: '10', placeholder: 'Montant ' + scrDispSym() + ' investi' }, style: iStyle + ';width:140px' });
   const pruIn = scrEl('input', { attrs: { type: 'number', min: '0', step: '0.01', placeholder: "Prix d'achat" }, style: iStyle + ';width:110px' });
   const addBtn = scrEl('button', { text: '+ Ajouter', style: 'padding:8px 14px;border:none;border-radius:9px;background:#3563e9;color:#fff;font-weight:700;cursor:pointer' });
   wrap.appendChild(scrEl('div', { style: 'display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px', kids: [tkIn, amtIn, pruIn, addBtn, dl] }));
@@ -5192,7 +5207,7 @@ function screenerPositionsModule() {
   addBtn.onclick = () => {
     const ticker = (tkIn.value || '').toUpperCase().trim(), amount = Number(amtIn.value), pru = Number(pruIn.value);
     if (!ticker || !(amount > 0) || !(pru > 0)) return;
-    const pos = scrGetPositions().slice(); pos.push({ ticker, amount, pru }); scrSavePositions(pos);
+    const pos = scrGetPositions().slice(); pos.push({ ticker, amount: dispToUsd(amount), pru: dispToUsd(pru) }); scrSavePositions(pos);
     tkIn.value = ''; amtIn.value = ''; pruIn.value = ''; render();
   };
   render();
@@ -5224,7 +5239,7 @@ function renderPositionsTable(pos, onChange) {
     tbody.appendChild(scrEl('tr', { kids: [
       scrEl('td', { style: `padding:6px 10px;${bd}`, kids: [scrEl('div', { style: 'display:flex;align-items:center;gap:8px', kids: [logo, scrEl('b', { text: p.ticker, style: 'color:#22303f' })] })] }),
       scrEl('td', { text: scrUsd(p.amount), style: `padding:6px 10px;text-align:right;${bd};color:#42546a` }),
-      scrEl('td', { text: (p.pru != null ? Number(p.pru).toFixed(2) : '–'), style: `padding:6px 10px;text-align:right;${bd};color:#42546a` }),
+      scrEl('td', { text: (p.pru != null ? usdToDisp(p.pru).toFixed(2) : '–'), style: `padding:6px 10px;text-align:right;${bd};color:#42546a` }),
       scrEl('td', { text: (d && d.price != null ? scrPrice(d.price, d.exchange) : '–'), style: `padding:6px 10px;text-align:right;${bd};color:#42546a` }),
       scrEl('td', { text: dayTxt, style: `padding:6px 10px;text-align:right;${bd};font-weight:700;color:${dayCol};white-space:nowrap` }),
       scrEl('td', { text: scrUsd(valeur), style: `padding:6px 10px;text-align:right;${bd};font-weight:700;color:#22303f` }),
@@ -5244,7 +5259,7 @@ function renderPositionsTable(pos, onChange) {
     scrEl('td', { text: '' }),
   ] }));
   const table = scrEl('table', { style: 'width:100%;border-collapse:collapse;font-size:0.82rem', kids: [scrEl('thead', { kids: [thead] }), tbody] });
-  const note = scrEl('div', { style: 'margin-top:8px;font-size:0.7rem;color:#9aa7b4', text: "Tout en USD (cours étrangers convertis au taux du jour). Montant investi et prix d'achat à saisir en $. Titre hors univers screené : cours indisponible, valeur = investi. P&L hors frais de change." });
+  const note = scrEl('div', { style: 'margin-top:8px;font-size:0.7rem;color:#9aa7b4', text: "Cours étrangers convertis au taux du jour. Montant investi et prix d'achat à saisir en " + scrDispSym() + " (devise affichée). Titre hors univers screené : cours indisponible, valeur = investi. P&L hors frais de change." });
   return scrEl('div', { kids: [scrEl('div', { style: 'overflow-x:auto', kids: [table] }), note] });
 }
 function screenerQualityAllocPanel(top) {
@@ -5259,7 +5274,7 @@ function screenerQualityAllocPanel(top) {
   [10, 12, 15, 18, 20].forEach((n) => { const o = scrEl('option', { text: n + ' lignes', attrs: { value: String(n) } }); if (n === savedN) o.selected = true; nSelect.appendChild(o); });
   wrap.appendChild(scrEl('div', { style: 'display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px', kids: [
     scrEl('label', { text: 'Montant à allouer', style: 'font-size:0.8rem;color:#42546a;font-weight:600' }),
-    amtInput, scrEl('span', { text: '$', style: 'color:#5b6b7d' }),
+    amtInput, scrEl('span', { text: scrDispSym(), style: 'color:#5b6b7d' }),
     scrEl('span', { text: 'réparti sur', style: 'font-size:0.8rem;color:#5b6b7d;margin-left:6px' }), nSelect] }));
   const results = scrEl('div');
   wrap.appendChild(results);
@@ -5269,7 +5284,7 @@ function screenerQualityAllocPanel(top) {
     const nLines = Number(nSelect.value) || 15;
     localStorage.setItem('scrAllocAmount', String(amount));
     localStorage.setItem('scrAllocLines', String(nLines));
-    results.replaceChildren(renderAllocTable(computeAllocation(top, amount, nLines)));
+    results.replaceChildren(renderAllocTable(computeAllocation(top, dispToUsd(amount), nLines)));
   }
   amtInput.addEventListener('input', render);
   nSelect.addEventListener('change', render);
