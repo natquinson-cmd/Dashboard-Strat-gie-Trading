@@ -4951,7 +4951,7 @@ async function renderScreenerTab() {
     try {
       SCR_PRICE_MAP = {};
       const nodes = await Promise.all([db.ref('stocks/screener/quality').once('value'), db.ref('stocks/screener/smallcap').once('value')]);
-      nodes.forEach((snap) => { const v = snap.val(); (v && v.top || []).forEach((t) => { const m = t.metrics || {}; if (t.symbol && m.price != null) SCR_PRICE_MAP[String(t.symbol).toUpperCase()] = { price: m.price, exchange: m.exchange, changePct: m.changePct, name: t.name, website: m.website, rating: t.rating, payoutRatio: m.payoutRatio, forwardPE: m.forwardPE, revenueGrowthYoY: m.revenueGrowthYoY, divGrowing: m.divGrowing }; }); });
+      nodes.forEach((snap) => { const v = snap.val(); (v && v.top || []).forEach((t) => { const m = t.metrics || {}; if (t.symbol && m.price != null) SCR_PRICE_MAP[String(t.symbol).toUpperCase()] = { price: m.price, exchange: m.exchange, changePct: m.changePct, name: t.name, website: m.website, sector: t.sector, rating: t.rating, payoutRatio: m.payoutRatio, forwardPE: m.forwardPE, revenueGrowthYoY: m.revenueGrowthYoY, divGrowing: m.divGrowing }; }); });
     } catch (e) { /* ignore */ }
     await scrApplyLivePrices();   // cours temps réel (cron VPS) par-dessus le snapshot
     // Positions "Mes positions" depuis Firebase (cross-device) + migration one-shot depuis localStorage.
@@ -5234,11 +5234,55 @@ async function scrLoadPositionsAndPrices() {
   try {
     const nodes = await Promise.all([db.ref('stocks/screener/quality').once('value'), db.ref('stocks/screener/smallcap').once('value')]);
     SCR_PRICE_MAP = {};
-    nodes.forEach((snap) => { const v = snap.val(); (v && v.top || []).forEach((t) => { const m = t.metrics || {}; if (t.symbol && m.price != null) SCR_PRICE_MAP[String(t.symbol).toUpperCase()] = { price: m.price, exchange: m.exchange, changePct: m.changePct, name: t.name, website: m.website, rating: t.rating, payoutRatio: m.payoutRatio, forwardPE: m.forwardPE, revenueGrowthYoY: m.revenueGrowthYoY, divGrowing: m.divGrowing }; }); });
+    nodes.forEach((snap) => { const v = snap.val(); (v && v.top || []).forEach((t) => { const m = t.metrics || {}; if (t.symbol && m.price != null) SCR_PRICE_MAP[String(t.symbol).toUpperCase()] = { price: m.price, exchange: m.exchange, changePct: m.changePct, name: t.name, website: m.website, sector: t.sector, rating: t.rating, payoutRatio: m.payoutRatio, forwardPE: m.forwardPE, revenueGrowthYoY: m.revenueGrowthYoY, divGrowing: m.divGrowing }; }); });
   } catch (e) {}
   await scrApplyLivePrices();
 }
 
+// Graphiques du portefeuille (barres par action, donut par secteur), construits en DOM/SVG.
+const SCR_CHART_COLORS = ['#3563e9', '#1d9e74', '#f59e0b', '#ec4899', '#06b6d4', '#a855f7', '#dd5f66', '#14b8a6', '#f97316', '#6366f1', '#84cc16', '#eab308'];
+function scrBarChart(items) {
+  const max = Math.max.apply(null, items.map((i) => i.value).concat([1e-9]));
+  const wrap = scrEl('div', { style: 'display:flex;flex-direction:column;gap:5px' });
+  items.forEach((it) => {
+    const row = scrEl('div', { style: 'display:flex;align-items:center;gap:8px' });
+    row.appendChild(scrEl('div', { text: it.label, style: 'width:96px;font-size:0.72rem;color:#42546a;font-weight:600;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis' }));
+    const track = scrEl('div', { style: 'flex:1;background:#f1f4f8;border-radius:6px;height:15px' });
+    track.appendChild(scrEl('div', { style: `width:${(it.value / max * 100).toFixed(1)}%;background:${it.color};height:100%;border-radius:6px;min-width:3px` }));
+    row.appendChild(track);
+    row.appendChild(scrEl('div', { text: it.pctTxt, style: 'width:38px;font-size:0.72rem;color:#5b6b7d;text-align:right;font-weight:600' }));
+    wrap.appendChild(row);
+  });
+  return wrap;
+}
+function scrDonut(items, size) {
+  size = size || 140; const sw = 24, r = (size - sw) / 2, cx = size / 2, cy = size / 2, C = 2 * Math.PI * r, NS = 'http://www.w3.org/2000/svg';
+  const total = items.reduce((s, i) => s + i.value, 0) || 1;
+  const svg = document.createElementNS(NS, 'svg'); svg.setAttribute('viewBox', `0 0 ${size} ${size}`); svg.setAttribute('width', size); svg.setAttribute('height', size); svg.style.flexShrink = '0';
+  const bg = document.createElementNS(NS, 'circle'); bg.setAttribute('cx', cx); bg.setAttribute('cy', cy); bg.setAttribute('r', r); bg.setAttribute('fill', 'none'); bg.setAttribute('stroke', '#f1f4f8'); bg.setAttribute('stroke-width', sw); svg.appendChild(bg);
+  let offset = 0;
+  items.forEach((it) => {
+    const len = (it.value / total) * C;
+    const c = document.createElementNS(NS, 'circle');
+    c.setAttribute('cx', cx); c.setAttribute('cy', cy); c.setAttribute('r', r); c.setAttribute('fill', 'none');
+    c.setAttribute('stroke', it.color); c.setAttribute('stroke-width', sw);
+    c.setAttribute('stroke-dasharray', `${len.toFixed(2)} ${(C - len).toFixed(2)}`);
+    c.setAttribute('stroke-dashoffset', `${(-offset).toFixed(2)}`);
+    c.setAttribute('transform', `rotate(-90 ${cx} ${cy})`);
+    svg.appendChild(c);
+    offset += len;
+  });
+  return svg;
+}
+function scrLegend(items) {
+  const wrap = scrEl('div', { style: 'display:flex;flex-direction:column;gap:4px' });
+  items.forEach((it) => {
+    wrap.appendChild(scrEl('div', { style: 'display:flex;align-items:center;gap:6px;font-size:0.72rem;color:#42546a', kids: [
+      scrEl('span', { style: `width:10px;height:10px;border-radius:3px;background:${it.color};flex-shrink:0;display:inline-block` }),
+      scrEl('span', { text: it.label + ' ' + it.pctTxt, style: 'white-space:nowrap' })] }));
+  });
+  return wrap;
+}
 // Module "Mes positions" en haut du screener : saisie manuelle (Revolut), P&L via les cours du screener.
 function screenerPositionsModule() {
   const wrap = scrEl('div', { style: 'background:#fff;border:1px solid #e3e8ee;border-radius:14px;padding:14px;margin-bottom:14px' });
@@ -5282,6 +5326,7 @@ function renderPositionsTable(pos, onChange) {
     thead.appendChild(scrEl('th', { text: t, style: `padding:8px 10px;text-align:${al};font-size:0.68rem;text-transform:uppercase;letter-spacing:.03em;border-bottom:1px solid #e3e8ee;white-space:nowrap` })));
   const tbody = scrEl('tbody');
   let totInv = 0, totVal = 0, totDay = 0;
+  const parts = [];   // pour les graphiques (valeur + secteur par ligne)
   pos.forEach((p, i) => {
     const d = SCR_PRICE_MAP[(p.ticker || '').toUpperCase()];
     const qty = (p.qty != null) ? p.qty : ((p.amount != null && p.pru) ? p.amount / p.pru : 0);   // migration ancien format {amount}
@@ -5293,6 +5338,7 @@ function renderPositionsTable(pos, onChange) {
     const chg = d && d.changePct != null ? d.changePct : null;
     const dayImp = (chg != null && priceUsd != null) ? valeur * chg / (1 + chg) : null;
     totInv += investi; totVal += valeur; if (dayImp != null) totDay += dayImp;
+    parts.push({ ticker: p.ticker, valeur: valeur, sector: (d && d.sector) ? d.sector : 'Autre' });
     const qtyTxt = (qty % 1 === 0) ? String(qty) : qty.toLocaleString('fr-FR', { maximumFractionDigits: 3 });
     const logo = d ? scrLogo(p.ticker, d.website) : scrEl('span', { style: 'display:inline-block;width:22px' });
     const del = scrEl('button', { text: '×', style: 'border:none;background:none;color:#c0392b;font-size:1.15rem;cursor:pointer;font-weight:800;line-height:1' });
@@ -5337,7 +5383,21 @@ function renderPositionsTable(pos, onChange) {
   const table = scrEl('table', { style: 'width:100%;border-collapse:collapse;font-size:0.82rem', kids: [scrEl('thead', { kids: [thead] }), tbody] });
   const liveTxt = SCR_LIVE_AT ? ('Cours temps réel, mis à jour ' + new Date(SCR_LIVE_AT).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) + '. ') : 'Cours = snapshot du run VPS (pas encore de cron temps réel). ';
   const note = scrEl('div', { style: 'margin-top:8px;font-size:0.7rem;color:#9aa7b4', text: liveTxt + "Saisis la quantité d'actions et ton prix d'achat (en " + scrDispSym() + ", la devise affichée). Cours étrangers convertis au taux du jour. Titre hors univers screené : cours indisponible. P&L hors frais de change. ⚠ = signaux de vente à vérifier." });
-  return scrEl('div', { kids: [scrEl('div', { style: 'overflow-x:auto', kids: [table] }), note] });
+  // Graphiques : répartition par action (barres) + par secteur (donut), sur la valeur actuelle
+  const parts2 = parts.filter((p) => p.valeur > 0).sort((a, b) => b.valeur - a.valeur);
+  const totV = parts2.reduce((s, p) => s + p.valeur, 0);
+  const kids = [scrEl('div', { style: 'overflow-x:auto', kids: [table] }), note];
+  if (parts2.length && totV > 0) {
+    const stockItems = parts2.map((p, i) => ({ label: p.ticker, value: p.valeur, color: SCR_CHART_COLORS[i % SCR_CHART_COLORS.length], pctTxt: (p.valeur / totV * 100).toFixed(0) + '%' }));
+    const bySec = {}; parts2.forEach((p) => { bySec[p.sector] = (bySec[p.sector] || 0) + p.valeur; });
+    const secItems = Object.keys(bySec).map((s) => ({ label: s, value: bySec[s] })).sort((a, b) => b.value - a.value)
+      .map((it, i) => ({ label: it.label, value: it.value, color: SCR_CHART_COLORS[i % SCR_CHART_COLORS.length], pctTxt: (it.value / totV * 100).toFixed(0) + '%' }));
+    const card = (title, content) => scrEl('div', { style: 'flex:1;min-width:250px;background:#fafbfc;border:1px solid #eef1f5;border-radius:12px;padding:12px', kids: [
+      scrEl('div', { text: title, style: 'font-size:0.72rem;text-transform:uppercase;letter-spacing:.03em;color:#5b6b7d;font-weight:700;margin-bottom:10px' }), content] });
+    const donutRow = scrEl('div', { style: 'display:flex;align-items:center;gap:14px;flex-wrap:wrap', kids: [scrDonut(secItems, 140), scrLegend(secItems)] });
+    kids.push(scrEl('div', { style: 'display:flex;gap:12px;flex-wrap:wrap;margin-top:14px', kids: [card('Répartition par action', scrBarChart(stockItems)), card('Répartition par secteur', donutRow)] }));
+  }
+  return scrEl('div', { kids: kids });
 }
 function screenerQualityAllocPanel(top) {
   const wrap = scrEl('div', { style: 'background:#fff;border:1px solid #e3e8ee;border-radius:14px;padding:14px;margin-bottom:14px' });
