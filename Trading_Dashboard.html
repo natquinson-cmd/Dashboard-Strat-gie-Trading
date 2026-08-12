@@ -4816,21 +4816,30 @@ function scrCoursCell(m, bd) {
 }
 // « Juste prix » du modele (mode qualite) : PE cible ancre sur la croissance des benefices
 // (PEG ~1,1, borne 13-28) applique au benefice previsionnel. Estimation MECANIQUE, pas un conseil.
-const SCR_FAIR = { peg: 1.1, maxGrowth: 0.30, minPe: 13, maxPe: 28, defaultPe: 16, minRatio: 0.6, maxRatio: 1.5 };
-function scrFairPrice(m) {
+const SCR_FAIR = { peg: 1.1, maxGrowth: 0.30, minPe: 13, maxPe: 26, defaultPe: 16, cap: 0.75 };
+const SCR_CYCLICAL_HIGH = ['Energy', 'Basic Materials'];                         // tres cyclique
+const SCR_CYCLICAL_MID = ['Consumer Cyclical', 'Industrials', 'Financial Services'];
+// Juste prix = potentiel brut (PE cible / PE actuel) PONDERE par une FIABILITE de la lentille
+// benefices. Fiabilite faible = cyclique (PE anormalement bas = benefices de pic, pic de croissance,
+// secteur cyclique) -> le juste prix reste proche du cours au lieu d'exploser (fini le cap plat a 50%).
+function scrFairPrice(m, sector) {
   const price = m.price, pe = m.forwardPE || m.trailingPE;
   if (price == null || !pe || pe <= 0) return null;
   const g = (m.earningsGrowthYoY != null) ? m.earningsGrowthYoY : m.earningsCAGR;
   let fairPe = (g != null && g > 0) ? SCR_FAIR.peg * Math.min(g, SCR_FAIR.maxGrowth) * 100 : SCR_FAIR.defaultPe;
   fairPe = Math.max(SCR_FAIR.minPe, Math.min(SCR_FAIR.maxPe, fairPe));
-  // Re-rating BORNE (×0,6 à ×1,5 du multiple actuel) : evite les aberrations sur les cycliques
-  // a tres bas PE (benefices au pic), ou multiplier par un gros PE cible gonfle un faux "juste prix".
-  const ratio = Math.max(SCR_FAIR.minRatio, Math.min(SCR_FAIR.maxRatio, fairPe / pe));
-  return price * ratio;
+  const ramp = (x, lo, hi) => Math.max(0, Math.min(1, (x - lo) / (hi - lo)));
+  const wPe = pe < 10 ? ramp(pe, 4, 10) : (pe > 30 ? ramp(45 - pe, 0, 15) : 1);   // fiable si PE sain 10-30
+  const wG = (g == null) ? 1 : (g < 0 ? 0.6 : 1 - ramp(g, 0.5, 2.0) * 0.7);        // penalise les pics de croissance
+  let w = wPe * wG;
+  if (SCR_CYCLICAL_HIGH.includes(sector)) w *= 0.3;
+  else if (SCR_CYCLICAL_MID.includes(sector)) w *= 0.7;
+  const pot = Math.max(-SCR_FAIR.cap, Math.min(SCR_FAIR.cap, w * (fairPe / pe - 1)));
+  return price * (1 + pot);
 }
 // Cellule « Objectif » : juste prix modele + potentiel de hausse/baisse vs cours actuel
-function scrTargetCell(m, bd) {
-  const tp = scrFairPrice(m), price = m.price;
+function scrTargetCell(m, sector, bd) {
+  const tp = scrFairPrice(m, sector), price = m.price;
   const box = scrEl('div', { style: 'display:flex;flex-direction:column;gap:2px;min-width:78px' });
   box.appendChild(scrEl('span', { text: (tp == null ? '–' : scrPrice(tp, m.exchange)), style: 'font-weight:700;color:#22303f;font-size:0.82rem' }));
   if (tp != null && price != null && price > 0) {
@@ -5071,7 +5080,7 @@ function screenerRenderQuality(c, data, config) {
     ['#', 'left', ''],
     ['Ticker', 'left', 'Symbole boursier. Clique pour ouvrir le graphique TradingView (passable en ordre via IBKR).'],
     ['Cours', 'left', "Dernier cours et variation par rapport à la clôture de la veille (vert = hausse du jour, rouge = baisse). Le mini-graphique montre l'évolution du cours sur ~3 mois."],
-    ['Objectif', 'left', "Juste prix estimé par NOTRE modèle (pas les analystes) : un PE cible ancré sur la croissance des bénéfices (PEG ~1,1, borné 13-28), avec un re-rating limité à ×0,6-×1,5 du multiple actuel pour éviter les aberrations sur les cycliques à bas PE. Le % = potentiel vs le cours (vert = cours sous le juste prix, marge d'achat ; rouge = au-dessus, cher), plafonné à ±50 %. Estimation mécanique, pas un conseil ; un bas PE peut refléter des bénéfices au pic."],
+    ['Objectif', 'left', "Juste prix estimé par NOTRE modèle (pas les analystes) : un PE cible ancré sur la croissance des bénéfices (PEG ~1,1, borné 13-26), pondéré par une FIABILITÉ. La fiabilité baisse pour les cycliques (PE anormalement bas = bénéfices de pic, pic de croissance, secteur énergie/matériaux/finance) : le juste prix reste alors proche du cours au lieu d'exploser. Le % = potentiel vs le cours (vert = marge d'achat, rouge = cher). Estimation mécanique, pas un conseil."],
     ['Secteur', 'left', "Secteur d'activité de la société."],
     ['Note', 'left', "Note de valorisation au sein des sociétés de qualité. Achat fort = solide ET décotée ; Surévaluée = chère. Combine PEG, écart bénéfices/cours, PE prévisionnel, FCF et dividende. C'est du repérage, pas un conseil."],
     ['PEG', 'right', "PEG = PER divisé par la croissance des bénéfices. Sous 1 = pas cher au regard de la croissance ; au-dessus de 2 = cher."],
@@ -5118,7 +5127,7 @@ function screenerRenderQuality(c, data, config) {
         scrLogo(cd.symbol, m.website),
         scrEl('div', { kids: [link, scrEl('div', { text: cd.name || '', style: 'color:#5b6b7d;font-size:0.72rem;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap' })] })] })] }),
       scrCoursCell(m, bd),
-      scrTargetCell(m, bd),
+      scrTargetCell(m, cd.sector, bd),
       scrEl('td', { text: cd.sector || '–', style: `padding:8px 10px;color:#5b6b7d;${bd}` }),
       scrEl('td', { style: `padding:8px 10px;${bd}`, kids: [chip] }),
       numC(m.peg, 2), pctC(m.gap, 0), numC(m.forwardPE, 1), pctC(m.roe, 0.15), pctC(m.netMargin, 0.20), divYieldC(m.dividendYield), payoutC(m.payoutRatio, m.dividendYield), pctC(m.fcfYield, 0.03),
