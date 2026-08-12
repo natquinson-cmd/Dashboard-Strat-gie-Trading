@@ -5220,8 +5220,8 @@ function screenerRenderQuality(c, data, config) {
   const table = scrEl('table', { style: 'width:100%;border-collapse:collapse;font-size:0.82rem', kids: [scrEl('thead', { kids: [thead] }), tbody] });
   // Conteneur défilable + dégradé de bord droit (indique qu'il reste des colonnes à droite -> Cap.)
   const scrollDiv = scrEl('div', { style: 'overflow-x:auto', kids: [table] });
-  const fade = scrEl('div', { style: 'position:absolute;top:1px;right:1px;bottom:1px;width:36px;pointer-events:none;background:linear-gradient(90deg,rgba(255,255,255,0),rgba(255,255,255,0.95));transition:opacity .15s' });
-  const updateFade = () => { const more = scrollDiv.scrollWidth > scrollDiv.clientWidth + 2; const atEnd = scrollDiv.scrollLeft + scrollDiv.clientWidth >= scrollDiv.scrollWidth - 2; fade.style.opacity = (more && !atEnd) ? '1' : '0'; };
+  const fade = scrEl('div', { style: 'position:absolute;top:1px;right:1px;bottom:1px;width:36px;pointer-events:none;background:linear-gradient(90deg,rgba(255,255,255,0),rgba(255,255,255,0.95))' });
+  const updateFade = () => { const more = scrollDiv.scrollWidth > scrollDiv.clientWidth + 2; const atEnd = scrollDiv.scrollLeft + scrollDiv.clientWidth >= scrollDiv.scrollWidth - 2; fade.style.display = (more && !atEnd) ? 'block' : 'none'; };
   scrollDiv.addEventListener('scroll', updateFade);
   requestAnimationFrame(updateFade);
   frag.appendChild(scrEl('div', { style: 'position:relative;background:#fff;border:1px solid #e3e8ee;border-radius:14px;overflow:hidden', kids: [scrollDiv, fade] }));
