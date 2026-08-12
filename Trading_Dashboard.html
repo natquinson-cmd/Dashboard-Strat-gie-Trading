@@ -5178,7 +5178,7 @@ function screenerRenderQuality(c, data, config) {
   ];
   const thead = scrEl('tr', { style: 'background:#f6f8fb;color:#5b6b7d' });
   cols.forEach(([t, al, tip]) => {
-    const st = `padding:9px 10px;text-align:${al};font-size:0.68rem;text-transform:uppercase;letter-spacing:.03em;border-bottom:1px solid #e3e8ee;white-space:nowrap`
+    const st = `padding:8px 8px;text-align:${al};vertical-align:bottom;line-height:1.15;font-size:0.68rem;text-transform:uppercase;letter-spacing:.02em;border-bottom:1px solid #e3e8ee`
       + (tip ? ';cursor:help;text-decoration:underline dotted #b8c2cf;text-underline-offset:3px' : '');
     thead.appendChild(scrEl('th', { text: t, style: st, attrs: tip ? { title: tip } : {} }));
   });
@@ -5291,7 +5291,7 @@ function screenerRender(c, data, positions, config) {
   // Table
   const cols = [['#', 'left'], ['Ticker', 'left'], ['Cours', 'left'], ['Secteur', 'left'], ['Score', 'right'], ['Crois. CA', 'right'], ['Crois. BPA', 'right'], ['Marge', 'right'], ['ROE', 'right'], ['vs MM200', 'right'], ['/52s-haut', 'right'], ['Cap.', 'right'], ['Signaux', 'left']];
   const thead = scrEl('tr', { style: 'background:#f6f8fb;color:#5b6b7d' });
-  cols.forEach(([t, al]) => thead.appendChild(scrEl('th', { text: t, style: `padding:9px 10px;text-align:${al};font-size:0.68rem;text-transform:uppercase;letter-spacing:.03em;border-bottom:1px solid #e3e8ee;white-space:nowrap` })));
+  cols.forEach(([t, al]) => thead.appendChild(scrEl('th', { text: t, style: `padding:8px 8px;text-align:${al};vertical-align:bottom;line-height:1.15;font-size:0.68rem;text-transform:uppercase;letter-spacing:.02em;border-bottom:1px solid #e3e8ee` })));
   const tbody = scrEl('tbody');
   const bd = 'border-bottom:1px solid #eef1f5';
   const pctCell = (x, thr) => scrEl('td', { text: scrPctTxt(x), style: `padding:8px 10px;text-align:right;white-space:nowrap;${bd};color:${scrCol(x, thr)}` });
