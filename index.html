@@ -4847,13 +4847,30 @@ function scrDomain(website) {
 }
 function scrLogo(symbol, website) {
   const img = document.createElement('img');
-  img.width = 30; img.height = 30; img.alt = '';
-  img.style.cssText = 'width:30px;height:30px;border-radius:6px;object-fit:contain;background:#fff;border:1px solid #eef1f5;flex-shrink:0';
+  img.width = 38; img.height = 38; img.alt = '';
+  img.style.cssText = 'width:38px;height:38px;border-radius:8px;object-fit:contain;background:#fff;border:1px solid #eef1f5;flex-shrink:0';
   const dom = scrDomain(website);
-  let stage = 0;
-  img.onerror = () => {
-    if (stage === 0 && dom) { stage = 1; img.src = 'https://www.google.com/s2/favicons?domain=' + encodeURIComponent(dom) + '&sz=64'; }
-    else { img.onerror = null; img.style.display = 'none'; }
+  const favicon = dom ? 'https://www.google.com/s2/favicons?domain=' + encodeURIComponent(dom) + '&sz=64' : '';
+  const useFavicon = () => {
+    img.onload = null;
+    if (favicon) {
+      img.onerror = () => { img.onerror = null; img.style.display = 'none'; };
+      img.removeAttribute('crossorigin');
+      img.src = favicon;
+    } else { img.onerror = null; img.style.display = 'none'; }
+  };
+  img.crossOrigin = 'anonymous';        // FMP autorise le CORS -> on peut lire les pixels
+  img.onerror = useFavicon;             // FMP indisponible -> favicon
+  img.onload = () => {
+    // Detecte un logo BLANC/transparent (invisible sur fond blanc, ex AppLovin) -> favicon colore.
+    try {
+      const s = 48, cv = document.createElement('canvas'); cv.width = cv.height = s;
+      const ctx = cv.getContext('2d'); ctx.drawImage(img, 0, 0, s, s);
+      const d = ctx.getImageData(0, 0, s, s).data;
+      let visible = 0;
+      for (let i = 0; i < d.length; i += 4) { if (d[i + 3] > 20 && !(d[i] > 235 && d[i + 1] > 235 && d[i + 2] > 235)) visible++; }
+      if (visible / (s * s) < 0.02) useFavicon();   // < 2% de pixels colores = logo blanc
+    } catch (e) { /* canvas tainted : on garde le logo FMP */ }
   };
   img.src = 'https://financialmodelingprep.com/image-stock/' + encodeURIComponent(symbol) + '.png';
   return img;
