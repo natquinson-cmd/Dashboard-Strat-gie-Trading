@@ -4783,7 +4783,7 @@ function scrPrice(p, exch) {
 // Vert si le dernier cours >= premier, rouge sinon. Aire degradee + ligne, facon Kairos.
 function scrSpark(values, opts) {
   opts = opts || {};
-  const W = opts.w || 92, H = opts.h || 26, pad = 2, NS = 'http://www.w3.org/2000/svg';
+  const W = opts.w || 80, H = opts.h || 26, pad = 2, NS = 'http://www.w3.org/2000/svg';
   const svg = document.createElementNS(NS, 'svg');
   svg.setAttribute('viewBox', `0 0 ${W} ${H}`); svg.setAttribute('width', W); svg.setAttribute('height', H);
   svg.setAttribute('preserveAspectRatio', 'none'); svg.style.display = 'block';
@@ -4803,7 +4803,7 @@ function scrSpark(values, opts) {
 }
 // Cellule "Cours" : prix + variation du jour (chip couleur) + sparkline
 function scrCoursCell(m, bd) {
-  const box = scrEl('div', { style: 'display:flex;flex-direction:column;gap:3px;min-width:96px' });
+  const box = scrEl('div', { style: 'display:flex;flex-direction:column;gap:3px;min-width:84px' });
   const top = scrEl('div', { style: 'display:flex;align-items:baseline;gap:6px;white-space:nowrap' });
   top.appendChild(scrEl('span', { text: scrPrice(m.price, m.exchange), style: 'font-weight:700;color:#22303f;font-size:0.82rem' }));
   if (m.changePct != null && isFinite(m.changePct)) {
@@ -5218,7 +5218,13 @@ function screenerRenderQuality(c, data, config) {
     ]}));
   });
   const table = scrEl('table', { style: 'width:100%;border-collapse:collapse;font-size:0.82rem', kids: [scrEl('thead', { kids: [thead] }), tbody] });
-  frag.appendChild(scrEl('div', { style: 'background:#fff;border:1px solid #e3e8ee;border-radius:14px;overflow:hidden', kids: [scrEl('div', { style: 'overflow-x:auto', kids: [table] })] }));
+  // Conteneur défilable + dégradé de bord droit (indique qu'il reste des colonnes à droite -> Cap.)
+  const scrollDiv = scrEl('div', { style: 'overflow-x:auto', kids: [table] });
+  const fade = scrEl('div', { style: 'position:absolute;top:1px;right:1px;bottom:1px;width:36px;pointer-events:none;background:linear-gradient(90deg,rgba(255,255,255,0),rgba(255,255,255,0.95));transition:opacity .15s' });
+  const updateFade = () => { const more = scrollDiv.scrollWidth > scrollDiv.clientWidth + 2; const atEnd = scrollDiv.scrollLeft + scrollDiv.clientWidth >= scrollDiv.scrollWidth - 2; fade.style.opacity = (more && !atEnd) ? '1' : '0'; };
+  scrollDiv.addEventListener('scroll', updateFade);
+  requestAnimationFrame(updateFade);
+  frag.appendChild(scrEl('div', { style: 'position:relative;background:#fff;border:1px solid #e3e8ee;border-radius:14px;overflow:hidden', kids: [scrollDiv, fade] }));
 
   const disc = scrEl('div', { style: 'margin-top:14px;font-size:0.74rem;color:#5b6b7d;background:#fff;border:1px solid #e3e8ee;border-radius:12px;padding:12px 14px' });
   disc.append('Qualité + valorisation + dividende (« prix décroché sous les bénéfices »). Le dividende sain (rendement soutenable, payout raisonnable) valorise la note ; un rendement > 7 % ou un payout trop élevé sont écartés du bonus. ', scrEl('b', { text: '💡 Survole les en-têtes de colonnes' }), ' pour la définition de chaque indicateur. Note ', scrEl('b', { text: '≠' }), " conseil : « pas cher » peut aussi être un value trap (bénéfices sur le point de baisser). Fais ta propre analyse.");
