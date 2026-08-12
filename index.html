@@ -5030,27 +5030,26 @@ const scrEuro = (x) => (x == null || !isFinite(x)) ? '–' : Math.round(x).toLoc
 const SCR_ALLOC_LINE_CAP = 0.10;    // max par ligne
 const SCR_ALLOC_SECTOR_CAP = 0.35;  // max par secteur (diversification)
 function computeAllocation(top, amount, nLines) {
-  // potentiel = juste prix Objectif / cours - 1 (meme modele que la colonne Objectif)
-  const withPot = (top || []).filter((t) => t.rating && t.rating !== 'Surévaluée').map((t) => {
-    const m = t.metrics || {}, fp = scrFairPrice(m, t.sector);
-    const pot = (fp != null && m.price > 0) ? (fp - m.price) / m.price : null;
-    return { t, pot };
-  }).filter((x) => x.pot != null && x.pot > 0);   // uniquement potentiel POSITIF (marge de securite)
   const LC = SCR_ALLOC_LINE_CAP, SC = SCR_ALLOC_SECTOR_CAP;
-  // Selection DIVERSIFIEE : par potentiel decroissant, mais au plus ceil(35%/10%)=4 titres par secteur.
-  // Sinon le top est monopolise par un secteur (ex financieres a bas PE) et le reste part en liquidites.
-  const perSectorMax = Math.max(1, Math.ceil(SC / LC));
+  const perSectorMax = Math.max(1, Math.ceil(SC / LC));   // max titres/secteur (diversifie la selection)
+  // 1) SELECTION par CONVICTION : score decroissant (Achat fort, puis Achat, puis Neutre), diversifiee.
+  const pool = (top || []).filter((t) => t.rating && t.rating !== 'Surévaluée')
+    .sort((a, b) => (b.valuationScore || 0) - (a.valuationScore || 0));
   const cands = []; const selCount = {};
-  for (const c of withPot.sort((a, b) => b.pot - a.pot)) {
-    const s = c.t.sector || 'N/A';
+  for (const t of pool) {
+    const s = t.sector || 'N/A';
     if ((selCount[s] || 0) >= perSectorMax) continue;
-    selCount[s] = (selCount[s] || 0) + 1; cands.push(c);
+    selCount[s] = (selCount[s] || 0) + 1; cands.push(t);
     if (cands.length >= nLines) break;
   }
   if (!cands.length) return { rows: [], cash: 0 };
-  const sec = cands.map((c) => c.t.sector || 'N/A');
-  const sum0 = cands.reduce((s, c) => s + c.pot, 0);
-  let w = cands.map((c) => c.pot / sum0);           // poids proportionnel au potentiel
+  const sec = cands.map((t) => t.sector || 'N/A');
+  // 2) POIDS par POTENTIEL de l'Objectif (plancher 3 % : un titre choisi pour sa conviction mais a
+  //    faible/negatif potentiel garde une petite place au lieu de tomber a zero).
+  const potOf = (t) => { const m = t.metrics || {}, fp = scrFairPrice(m, t.sector); return (fp != null && m.price > 0) ? (fp - m.price) / m.price : 0; };
+  const pot = cands.map(potOf);
+  const sum0 = pot.reduce((a, p) => a + Math.max(p, 0.03), 0) || 1;
+  let w = pot.map((p) => Math.max(p, 0.03) / sum0);
   for (let iter = 0; iter < 60; iter++) {
     let excess = 0;
     // plafond par LIGNE
@@ -5068,7 +5067,7 @@ function computeAllocation(top, amount, nLines) {
     w = w.map((x, i) => x + excess * (room[i] / totalRoom));
   }
   const totalW = w.reduce((a, b) => a + b, 0);
-  return { rows: cands.map((c, i) => ({ t: c.t, pot: c.pot, weight: w[i], amount: w[i] * amount })), cash: Math.max(0, 1 - totalW) * amount };
+  return { rows: cands.map((t, i) => ({ t, pot: pot[i], weight: w[i], amount: w[i] * amount })), cash: Math.max(0, 1 - totalW) * amount };
 }
 function renderAllocTable(res) {
   const alloc = res.rows || [];
@@ -5089,7 +5088,7 @@ function renderAllocTable(res) {
       idcell,
       scrEl('td', { style: `padding:6px 10px;${bd}`, kids: [scrEl('span', { text: t.rating, style: `background:${rc[0]};color:${rc[1]};border-radius:20px;padding:2px 9px;font-size:0.68rem;font-weight:700;white-space:nowrap` })] }),
       scrEl('td', { text: t.sector || '–', style: `padding:6px 10px;color:#5b6b7d;font-size:0.78rem;${bd}` }),
-      scrEl('td', { text: '+' + (a.pot * 100).toFixed(0) + '%', style: `padding:6px 10px;text-align:right;font-weight:700;color:#1d9e74;${bd}` }),
+      scrEl('td', { text: (a.pot >= 0 ? '+' : '') + (a.pot * 100).toFixed(0) + '%', style: `padding:6px 10px;text-align:right;font-weight:700;color:${a.pot >= 0 ? '#1d9e74' : '#dd5f66'};${bd}` }),
       scrEl('td', { text: (a.weight * 100).toFixed(1) + '%', style: `padding:6px 10px;text-align:right;font-weight:700;color:#42546a;${bd}` }),
       scrEl('td', { text: scrEuro(a.amount), style: `padding:6px 10px;text-align:right;font-weight:800;color:#22303f;${bd}` }),
     ] }));
@@ -5128,7 +5127,7 @@ function screenerQualityAllocPanel(top) {
   const wrap = scrEl('div', { style: 'background:#fff;border:1px solid #e3e8ee;border-radius:14px;padding:14px;margin-bottom:14px' });
   wrap.appendChild(scrEl('div', { style: 'display:flex;align-items:baseline;gap:8px;margin-bottom:12px;flex-wrap:wrap', kids: [
     scrEl('span', { text: 'Répartition proposée', style: 'font-weight:800;color:#22303f;font-size:0.95rem' }),
-    scrEl('span', { text: "pondérée par le potentiel de l'Objectif (marge de sécurité), cadre indicatif, pas un conseil", style: 'font-size:0.72rem;color:#5b6b7d' })] }));
+    scrEl('span', { text: "titres choisis par conviction (note), pondérés par le potentiel de l'Objectif, cadre indicatif, pas un conseil", style: 'font-size:0.72rem;color:#5b6b7d' })] }));
   const savedAmt = Number(localStorage.getItem('scrAllocAmount')) || 10000;
   const savedN = Number(localStorage.getItem('scrAllocLines')) || 15;
   const amtInput = scrEl('input', { attrs: { type: 'number', min: '0', step: '500', value: String(savedAmt) }, style: 'width:130px;padding:8px 10px;border:1px solid #e3e8ee;border-radius:9px;font-size:0.9rem;font-weight:700;color:#22303f' });
@@ -5140,7 +5139,7 @@ function screenerQualityAllocPanel(top) {
     scrEl('span', { text: 'réparti sur', style: 'font-size:0.8rem;color:#5b6b7d;margin-left:6px' }), nSelect] }));
   const results = scrEl('div');
   wrap.appendChild(results);
-  wrap.appendChild(scrEl('div', { style: 'margin-top:10px;font-size:0.72rem;color:#5b6b7d', text: "Titres au potentiel Objectif POSITIF, poids proportionnel au potentiel (marge de sécurité), plafond 10 % par ligne et 35 % par secteur (diversification). Si le surplus part en liquidités, ajoute des lignes. Étale tes achats (DCA). La décision reste la tienne." }));
+  wrap.appendChild(scrEl('div', { style: 'margin-top:10px;font-size:0.72rem;color:#5b6b7d', text: "Sélection par conviction (meilleures notes, Surévaluée exclues, max 4 titres/secteur), poids proportionnel au potentiel de l'Objectif (plancher 3 %), plafond 10 % par ligne et 35 % par secteur. Étale tes achats (DCA). La décision reste la tienne." }));
   function render() {
     const amount = Math.max(0, Number(amtInput.value) || 0);
     const nLines = Number(nSelect.value) || 15;
