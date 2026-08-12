@@ -5206,29 +5206,30 @@ function scrSavePositions(a) {
 }
 let SCR_LIVE_AT = null;   // horodatage des cours "temps réel" (cron VPS live_prices.py)
 // Applique les cours "temps réel" (stocks/screener/livePrices) par-dessus le snapshot du screener.
+// Applique un instantané livePrices (cron VPS) par-dessus SCR_PRICE_MAP. true si des cours ont été appliqués.
+function scrApplyLpValue(lp) {
+  if (!lp || !lp.prices) return false;
+  SCR_LIVE_AT = lp.generatedAt || SCR_LIVE_AT;
+  const raw = lp.prices;
+  // Nouveau format = liste [{ticker,price,...}] (le ticker peut contenir un '.', interdit en clé Firebase).
+  // Ancien format = objet {TICKER:{price,...}} -> repli.
+  const list = Array.isArray(raw) ? raw
+    : Object.keys(raw).map((sym) => { const v = raw[sym] || {}; return v.ticker ? v : Object.assign({ ticker: sym }, v); });
+  list.forEach((q) => {
+    if (!q || q.price == null || !q.ticker) return;
+    const k = String(q.ticker).toUpperCase();
+    if (!SCR_PRICE_MAP[k]) SCR_PRICE_MAP[k] = {};
+    SCR_PRICE_MAP[k].price = q.price;
+    if (q.changePct != null) SCR_PRICE_MAP[k].changePct = q.changePct;
+    if (q.exchange && !SCR_PRICE_MAP[k].exchange) SCR_PRICE_MAP[k].exchange = q.exchange;
+    if (q.quoteType === 'ETF' && !SCR_PRICE_MAP[k].sector) SCR_PRICE_MAP[k].sector = 'ETF';   // ETF socle (méthode DK)
+    SCR_PRICE_MAP[k].live = true;
+  });
+  return true;
+}
 async function scrApplyLivePrices() {
   if (typeof db === 'undefined' || !db) return;
-  try {
-    const lp = (await db.ref('stocks/screener/livePrices').once('value')).val();
-    if (lp && lp.prices) {
-      SCR_LIVE_AT = lp.generatedAt || null;
-      const raw = lp.prices;
-      // Nouveau format = liste [{ticker,price,...}] (le ticker peut contenir un '.', interdit en clé Firebase).
-      // Ancien format = objet {TICKER:{price,...}} -> repli.
-      const list = Array.isArray(raw) ? raw
-        : Object.keys(raw).map((sym) => { const v = raw[sym] || {}; return v.ticker ? v : Object.assign({ ticker: sym }, v); });
-      list.forEach((q) => {
-        if (!q || q.price == null || !q.ticker) return;
-        const k = String(q.ticker).toUpperCase();
-        if (!SCR_PRICE_MAP[k]) SCR_PRICE_MAP[k] = {};
-        SCR_PRICE_MAP[k].price = q.price;
-        if (q.changePct != null) SCR_PRICE_MAP[k].changePct = q.changePct;
-        if (q.exchange && !SCR_PRICE_MAP[k].exchange) SCR_PRICE_MAP[k].exchange = q.exchange;
-        if (q.quoteType === 'ETF' && !SCR_PRICE_MAP[k].sector) SCR_PRICE_MAP[k].sector = 'ETF';   // ETF socle (méthode DK)
-        SCR_PRICE_MAP[k].live = true;
-      });
-    }
-  } catch (e) {}
+  try { scrApplyLpValue((await db.ref('stocks/screener/livePrices').once('value')).val()); } catch (e) {}
 }
 // Recharge les positions (cross-device) + la carte des cours (snapshot + cours live) depuis Firebase.
 async function scrLoadPositionsAndPrices() {
@@ -5292,11 +5293,13 @@ function scrLegend(items) {
 // Module "Mes positions" en haut du screener : saisie manuelle (Revolut), P&L via les cours du screener.
 function screenerPositionsModule() {
   const wrap = scrEl('div', { style: 'background:#fff;border:1px solid #e3e8ee;border-radius:14px;padding:14px;margin-bottom:14px' });
-  const refreshBtn = scrEl('button', { text: '⟳ Rafraîchir', attrs: { title: 'Re-synchroniser tes positions et récupérer les derniers cours' }, style: 'margin-left:auto;border:1px solid #e3e8ee;background:#fff;border-radius:9px;padding:6px 12px;cursor:pointer;font-size:0.78rem;color:#42546a;font-weight:600' });
+  const liveBadge = scrEl('span', { attrs: { title: 'Cours mis à jour automatiquement dès que le cron VPS pousse de nouveaux prix. Plus besoin de rafraîchir.' }, style: 'margin-left:auto;display:flex;align-items:center;gap:6px;font-size:0.74rem;color:#1d9e74;font-weight:700', kids: [
+    scrEl('span', { style: 'width:8px;height:8px;border-radius:50%;background:#1d9e74;display:inline-block' }),
+    scrEl('span', { text: 'en direct' })] });
   wrap.appendChild(scrEl('div', { style: 'display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap', kids: [
     scrEl('span', { text: 'Mes positions', style: 'font-weight:800;color:#22303f;font-size:0.95rem' }),
     scrEl('span', { text: 'saisie manuelle (Revolut), synchronisées sur tous tes appareils', style: 'font-size:0.72rem;color:#5b6b7d' }),
-    refreshBtn] }));
+    liveBadge] }));
   const iStyle = 'padding:8px 10px;border:1px solid #e3e8ee;border-radius:9px;font-size:0.86rem;color:#22303f';
   const dl = scrEl('datalist', { attrs: { id: 'scrTickerList' } });
   Object.keys(SCR_PRICE_MAP).sort().forEach((sym) => dl.appendChild(scrEl('option', { attrs: { value: sym } })));
@@ -5308,13 +5311,12 @@ function screenerPositionsModule() {
   const body = scrEl('div');
   wrap.appendChild(body);
   const render = () => body.replaceChildren(renderPositionsTable(scrGetPositions(), render));
-  refreshBtn.onclick = async () => {
-    refreshBtn.disabled = true; refreshBtn.textContent = '…';
-    await scrLoadPositionsAndPrices();
-    render();
-    refreshBtn.disabled = false; refreshBtn.textContent = '✓ à jour';
-    setTimeout(() => { refreshBtn.textContent = '⟳ Rafraîchir'; }, 1600);
-  };
+  // Écoute temps réel : la table + les graphiques se mettent à jour seuls dès que le cron VPS pousse de nouveaux cours (plus de bouton).
+  if (typeof db !== 'undefined' && db) {
+    const lpRef = db.ref('stocks/screener/livePrices');
+    lpRef.off('value');   // évite d'empiler les écouteurs quand le module est re-monté
+    lpRef.on('value', (snap) => { if (scrApplyLpValue(snap.val())) render(); });
+  }
   addBtn.onclick = () => {
     const ticker = (tkIn.value || '').toUpperCase().trim(), qty = Number(qtyIn.value), pru = Number(pruIn.value);
     if (!ticker || !(qty > 0) || !(pru > 0)) return;
