@@ -5036,9 +5036,18 @@ function computeAllocation(top, amount, nLines) {
     const pot = (fp != null && m.price > 0) ? (fp - m.price) / m.price : null;
     return { t, pot };
   }).filter((x) => x.pot != null && x.pot > 0);   // uniquement potentiel POSITIF (marge de securite)
-  const cands = withPot.sort((a, b) => b.pot - a.pot).slice(0, nLines);
-  if (!cands.length) return { rows: [], cash: 0 };
   const LC = SCR_ALLOC_LINE_CAP, SC = SCR_ALLOC_SECTOR_CAP;
+  // Selection DIVERSIFIEE : par potentiel decroissant, mais au plus ceil(35%/10%)=4 titres par secteur.
+  // Sinon le top est monopolise par un secteur (ex financieres a bas PE) et le reste part en liquidites.
+  const perSectorMax = Math.max(1, Math.ceil(SC / LC));
+  const cands = []; const selCount = {};
+  for (const c of withPot.sort((a, b) => b.pot - a.pot)) {
+    const s = c.t.sector || 'N/A';
+    if ((selCount[s] || 0) >= perSectorMax) continue;
+    selCount[s] = (selCount[s] || 0) + 1; cands.push(c);
+    if (cands.length >= nLines) break;
+  }
+  if (!cands.length) return { rows: [], cash: 0 };
   const sec = cands.map((c) => c.t.sector || 'N/A');
   const sum0 = cands.reduce((s, c) => s + c.pot, 0);
   let w = cands.map((c) => c.pot / sum0);           // poids proportionnel au potentiel
