@@ -35,7 +35,10 @@ def main():
     for t in tickers:
         q = y.live_quote(t)
         if q and q.get('price') is not None:
-            prices.append({'ticker': t, 'price': q['price'], 'changePct': q.get('changePct'), 'exchange': q.get('exchange')})
+            item = {'ticker': t, 'price': q['price'], 'changePct': q.get('changePct'), 'exchange': q.get('exchange')}
+            if q.get('quoteType'):
+                item['quoteType'] = q['quoteType']   # EQUITY/ETF... -> le dashboard étiquette les ETF
+            prices.append(item)
         time.sleep(0.3)
     push(db, 'stocks/screener/livePrices', {'generatedAt': _now_iso(), 'prices': prices})
     print(f'Cours live pousses : {len(prices)}/{len(tickers)} ({", ".join(p["ticker"] for p in prices)})')

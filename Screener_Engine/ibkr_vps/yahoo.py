@@ -251,7 +251,8 @@ class Yahoo:
             price = meta.get('regularMarketPrice')
             prev = meta.get('chartPreviousClose') or meta.get('previousClose')
             chg = ((price - prev) / prev) if (isinstance(price, (int, float)) and isinstance(prev, (int, float)) and prev) else None
-            return {'price': price, 'changePct': chg, 'exchange': meta.get('exchangeName'), 'ts': meta.get('regularMarketTime')}
+            return {'price': price, 'changePct': chg, 'exchange': meta.get('exchangeName'),
+                    'quoteType': meta.get('instrumentType'), 'ts': meta.get('regularMarketTime')}
         except Exception:
             return None
 
