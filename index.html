@@ -4916,6 +4916,12 @@ async function renderScreenerTab() {
     let positions = null, config = null;
     try { positions = (await db.ref('stocks/screener/positions').once('value')).val(); } catch (e) { /* ignore */ }
     try { config = (await db.ref('stocks/screener/config').once('value')).val(); } catch (e) { /* ignore */ }
+    // Carte des cours (quality + smallcap) pour le module "Mes positions".
+    try {
+      SCR_PRICE_MAP = {};
+      const nodes = await Promise.all([db.ref('stocks/screener/quality').once('value'), db.ref('stocks/screener/smallcap').once('value')]);
+      nodes.forEach((snap) => { const v = snap.val(); (v && v.top || []).forEach((t) => { const m = t.metrics || {}; if (t.symbol && m.price != null) SCR_PRICE_MAP[String(t.symbol).toUpperCase()] = { price: m.price, exchange: m.exchange, changePct: m.changePct, name: t.name, website: m.website }; }); });
+    } catch (e) { /* ignore */ }
     return screenerMode === 'quality' ? screenerRenderQuality(c, fb, config) : screenerRender(c, fb, positions, config);
   }
   // Pas encore de classement pour ce mode
@@ -5123,6 +5129,79 @@ function renderAllocTable(res) {
   });
   return scrEl('div', { kids: [scrEl('div', { style: 'overflow-x:auto', kids: [table] }), secChips] });
 }
+// Carte des cours par ticker (peuplée depuis les données screener quality+smallcap), pour le suivi des positions.
+let SCR_PRICE_MAP = {};
+function scrGetPositions() { try { return JSON.parse(localStorage.getItem('scrManualPositions') || '[]'); } catch (e) { return []; } }
+function scrSetPositions(a) { try { localStorage.setItem('scrManualPositions', JSON.stringify(a)); } catch (e) {} }
+
+// Module "Mes positions" en haut du screener : saisie manuelle (Revolut), P&L via les cours du screener.
+function screenerPositionsModule() {
+  const wrap = scrEl('div', { style: 'background:#fff;border:1px solid #e3e8ee;border-radius:14px;padding:14px;margin-bottom:14px' });
+  wrap.appendChild(scrEl('div', { style: 'display:flex;align-items:baseline;gap:8px;margin-bottom:10px;flex-wrap:wrap', kids: [
+    scrEl('span', { text: 'Mes positions', style: 'font-weight:800;color:#22303f;font-size:0.95rem' }),
+    scrEl('span', { text: 'saisie manuelle (Revolut), enregistrées sur cet appareil', style: 'font-size:0.72rem;color:#5b6b7d' })] }));
+  const iStyle = 'padding:8px 10px;border:1px solid #e3e8ee;border-radius:9px;font-size:0.86rem;color:#22303f';
+  const dl = scrEl('datalist', { attrs: { id: 'scrTickerList' } });
+  Object.keys(SCR_PRICE_MAP).sort().forEach((sym) => dl.appendChild(scrEl('option', { attrs: { value: sym } })));
+  const tkIn = scrEl('input', { attrs: { type: 'text', placeholder: 'Ticker (ex NVDA)', list: 'scrTickerList' }, style: iStyle + ';width:130px;text-transform:uppercase' });
+  const amtIn = scrEl('input', { attrs: { type: 'number', min: '0', step: '10', placeholder: 'Montant € investi' }, style: iStyle + ';width:140px' });
+  const pruIn = scrEl('input', { attrs: { type: 'number', min: '0', step: '0.01', placeholder: "Prix d'achat" }, style: iStyle + ';width:110px' });
+  const addBtn = scrEl('button', { text: '+ Ajouter', style: 'padding:8px 14px;border:none;border-radius:9px;background:#3563e9;color:#fff;font-weight:700;cursor:pointer' });
+  wrap.appendChild(scrEl('div', { style: 'display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px', kids: [tkIn, amtIn, pruIn, addBtn, dl] }));
+  const body = scrEl('div');
+  wrap.appendChild(body);
+  const render = () => body.replaceChildren(renderPositionsTable(scrGetPositions(), render));
+  addBtn.onclick = () => {
+    const ticker = (tkIn.value || '').toUpperCase().trim(), amount = Number(amtIn.value), pru = Number(pruIn.value);
+    if (!ticker || !(amount > 0) || !(pru > 0)) return;
+    const pos = scrGetPositions(); pos.push({ ticker, amount, pru }); scrSetPositions(pos);
+    tkIn.value = ''; amtIn.value = ''; pruIn.value = ''; render();
+  };
+  render();
+  return wrap;
+}
+function renderPositionsTable(pos, onChange) {
+  if (!pos.length) return scrEl('div', { text: 'Aucune position. Ajoute tes achats Revolut ci-dessus (ticker, montant investi en €, prix d\'achat) pour suivre ta performance.', style: 'color:#5b6b7d;font-size:0.8rem;padding:4px 0' });
+  const bd = 'border-bottom:1px solid #eef1f5';
+  const thead = scrEl('tr', { style: 'background:#f6f8fb;color:#5b6b7d' });
+  [['Ticker', 'left'], ['Investi', 'right'], ["Prix achat", 'right'], ['Cours', 'right'], ['Valeur', 'right'], ['+/−', 'right'], ['', 'right']].forEach(([t, al]) =>
+    thead.appendChild(scrEl('th', { text: t, style: `padding:8px 10px;text-align:${al};font-size:0.68rem;text-transform:uppercase;letter-spacing:.03em;border-bottom:1px solid #e3e8ee;white-space:nowrap` })));
+  const tbody = scrEl('tbody');
+  let totInv = 0, totVal = 0;
+  pos.forEach((p, i) => {
+    const d = SCR_PRICE_MAP[(p.ticker || '').toUpperCase()];
+    const price = d ? d.price : null;
+    const ratio = (price != null && p.pru > 0) ? price / p.pru : null;
+    const valeur = ratio != null ? p.amount * ratio : p.amount;
+    const pnl = ratio != null ? valeur - p.amount : null, pnlPct = ratio != null ? ratio - 1 : null;
+    totInv += p.amount; totVal += valeur;
+    const logo = d ? scrLogo(p.ticker, d.website) : scrEl('span', { style: 'display:inline-block;width:22px' });
+    const del = scrEl('button', { text: '×', style: 'border:none;background:none;color:#c0392b;font-size:1.15rem;cursor:pointer;font-weight:800;line-height:1' });
+    del.onclick = () => { const arr = scrGetPositions(); arr.splice(i, 1); scrSetPositions(arr); onChange(); };
+    const pnlCol = pnl == null ? '#5b6b7d' : (pnl >= 0 ? '#1d9e74' : '#dd5f66');
+    tbody.appendChild(scrEl('tr', { kids: [
+      scrEl('td', { style: `padding:6px 10px;${bd}`, kids: [scrEl('div', { style: 'display:flex;align-items:center;gap:8px', kids: [logo, scrEl('b', { text: p.ticker, style: 'color:#22303f' })] })] }),
+      scrEl('td', { text: scrEuro(p.amount), style: `padding:6px 10px;text-align:right;${bd};color:#42546a` }),
+      scrEl('td', { text: (p.pru != null ? Number(p.pru).toFixed(2) : '–'), style: `padding:6px 10px;text-align:right;${bd};color:#42546a` }),
+      scrEl('td', { text: (price != null ? scrPrice(price, d.exchange) : '–'), style: `padding:6px 10px;text-align:right;${bd};color:#42546a` }),
+      scrEl('td', { text: scrEuro(valeur), style: `padding:6px 10px;text-align:right;${bd};font-weight:700;color:#22303f` }),
+      scrEl('td', { text: (pnl == null ? '–' : (pnl >= 0 ? '+' : '') + scrEuro(pnl) + ' (' + (pnlPct >= 0 ? '+' : '') + (pnlPct * 100).toFixed(1) + '%)'), style: `padding:6px 10px;text-align:right;${bd};font-weight:700;color:${pnlCol};white-space:nowrap` }),
+      scrEl('td', { style: `padding:6px 10px;text-align:right;${bd}`, kids: [del] }),
+    ] }));
+  });
+  const totPnl = totVal - totInv, totPct = totInv > 0 ? totVal / totInv - 1 : 0, tCol = totPnl >= 0 ? '#1d9e74' : '#dd5f66';
+  tbody.appendChild(scrEl('tr', { style: 'background:#fafbfc', kids: [
+    scrEl('td', { text: pos.length + ' lignes', style: 'padding:7px 10px;font-weight:700;color:#5b6b7d' }),
+    scrEl('td', { text: scrEuro(totInv), style: 'padding:7px 10px;text-align:right;font-weight:800;color:#42546a' }),
+    scrEl('td', { text: '' }), scrEl('td', { text: '' }),
+    scrEl('td', { text: scrEuro(totVal), style: 'padding:7px 10px;text-align:right;font-weight:800;color:#22303f' }),
+    scrEl('td', { text: (totPnl >= 0 ? '+' : '') + scrEuro(totPnl) + ' (' + (totPct >= 0 ? '+' : '') + (totPct * 100).toFixed(1) + '%)', style: `padding:7px 10px;text-align:right;font-weight:800;color:${tCol};white-space:nowrap` }),
+    scrEl('td', { text: '' }),
+  ] }));
+  const table = scrEl('table', { style: 'width:100%;border-collapse:collapse;font-size:0.82rem', kids: [scrEl('thead', { kids: [thead] }), tbody] });
+  const note = scrEl('div', { style: 'margin-top:8px;font-size:0.7rem;color:#9aa7b4', text: "Cours = dernier prix du screener (titre hors univers screené : cours indisponible, valeur = investi). Prix d'achat à saisir dans la devise de cotation (celle du Cours). P&L hors frais de change." });
+  return scrEl('div', { kids: [scrEl('div', { style: 'overflow-x:auto', kids: [table] }), note] });
+}
 function screenerQualityAllocPanel(top) {
   const wrap = scrEl('div', { style: 'background:#fff;border:1px solid #e3e8ee;border-radius:14px;padding:14px;margin-bottom:14px' });
   wrap.appendChild(scrEl('div', { style: 'display:flex;align-items:baseline;gap:8px;margin-bottom:12px;flex-wrap:wrap', kids: [
@@ -5155,6 +5234,7 @@ function screenerQualityAllocPanel(top) {
 function screenerRenderQuality(c, data, config) {
   const s = data.summary || {}, top = data.top || [];
   const frag = document.createDocumentFragment();
+  frag.appendChild(screenerPositionsModule());
   frag.appendChild(screenerModeBar());
 
   const grid = scrEl('div', { cls: 'inv-grid-kpi', style: 'margin-bottom:14px' });
@@ -5252,6 +5332,7 @@ function screenerRender(c, data, positions, config) {
   const s = data.summary || {}, top = data.top || [];
   const enriched = !!(data.source && String(data.source).indexOf('ibkr') === 0);
   const frag = document.createDocumentFragment();
+  frag.appendChild(screenerPositionsModule());
   frag.appendChild(screenerModeBar());
 
   // KPIs
