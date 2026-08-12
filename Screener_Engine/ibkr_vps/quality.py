@@ -5,9 +5,12 @@
 from bisect import bisect_right
 
 QUALITY_CONFIG = {
+    # Seuils alignes sur la methode AQRP (Dividend King)
     'gate': {
-        'minRoe': 0.12,               # rentabilite des capitaux propres
-        'maxNetDebtToEbitda': 4.0,    # dette maitrisee (ignore si absent)
+        'minRoe': 0.15,               # DK : un bon ROE est > 15 %
+        'maxNetDebtToEbitda': 3.0,    # DK : dette/EBITDA < 3 (< 2 ideal, > 3 danger)
+        'minNetMargin': 0.10,         # DK : marge nette > 20 % (10 % pour produits physiques) -> plancher 10 %
+        'minRevGrowth': 0.05,         # DK : croissance CA >= 10 %/an ideal -> plancher 5 % (evite les stagnantes)
         'requirePositiveFcf': True,   # free cash-flow positif
         'requirePositiveEarnings': True,  # benefices en croissance (pas en declin structurel)
         'minMarketCap': 5e9,
@@ -18,7 +21,8 @@ QUALITY_CONFIG = {
     'weights': {'peg': 0.20, 'gap': 0.22, 'fcfYield': 0.12, 'fwdPe': 0.14, 'dividend': 0.08, 'garp': 0.24},
     # Dividende : rendement sain valorise ; piege (rendement trop eleve) et payout non soutenable ecartes du bonus
     'divTrapYield': 0.09,     # rendement > 9% = piege probable
-    'divMaxPayout': 0.70,     # payout sain sous ce seuil (au-dela : soutenabilite douteuse)
+    'divPayoutIdeal': 0.40,   # DK : payout < 40 % = ideal/durable
+    'divPayoutMax': 0.60,     # DK : 40-60 % acceptable, > 60 % = tension
     # Bandes de notation sur le score de valorisation 0-100 (au sein des survivants qualite)
     'ratingBands': [(80, 'Achat fort'), (60, 'Achat'), (40, 'Neutre'), (0, 'Surévaluée')],
     'minSectorBucket': 8,
@@ -51,6 +55,12 @@ def passes_quality(t, cfg=QUALITY_CONFIG):
     nd = _num(t.get('netDebtToEbitda'))
     if nd is not None and nd > g['maxNetDebtToEbitda']:
         return False, 'endettement excessif'
+    nm = _num(t.get('netMargin'))
+    if nm is not None and nm < g.get('minNetMargin', 0):
+        return False, 'marge nette trop faible'
+    rg = _num(t.get('revenueGrowthYoY'))
+    if rg is not None and rg < g.get('minRevGrowth', -1):
+        return False, 'croissance CA trop faible'
     # il faut un vrai multiple exploitable (evite les cotations etrangeres "vides")
     if all(_num(t.get(k)) is None for k in ('peg', 'forwardPE', 'trailingPE')):
         return False, 'valorisation non calculable'
@@ -85,8 +95,16 @@ def _div_signal(t, cfg):
         return None
     if y > cfg['divTrapYield']:   # rendement trop eleve = piege probable
         return None
+    # Soutenabilite du payout facon DK : < 40% ideal, 40-60% acceptable, > 60% tension.
     p = _num(t.get('payoutRatio'))
-    sust = 1.0 if (p is None or p < cfg['divMaxPayout']) else (0.5 if p < 1.0 else 0.15)
+    if p is None or p < cfg['divPayoutIdeal']:
+        sust = 1.0
+    elif p < cfg['divPayoutMax']:
+        sust = 0.6
+    elif p < 1.0:
+        sust = 0.25
+    else:
+        sust = 0.1
     return y * sust
 
 

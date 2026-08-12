@@ -5084,7 +5084,7 @@ const SCR_RATING_COL = { 'Achat fort': ['#d1f0e3', '#127a54'], 'Achat': ['#e4f5e
 // (marge de securite), Surevaluee et potentiel negatif exclus, plafond 10 %/ligne et 35 %/secteur.
 const SCR_ALLOC_LINE_CAP = 0.10;    // max par ligne
 const SCR_ALLOC_SECTOR_CAP = 0.35;  // max par secteur (diversification)
-function computeAllocation(top, amount, nLines) {
+function computeAllocation(top, amount, nLines, weightMode) {
   const LC = SCR_ALLOC_LINE_CAP, SC = SCR_ALLOC_SECTOR_CAP;
   const perSectorMax = Math.max(1, Math.ceil(SC / LC));   // max titres/secteur (diversifie la selection)
   // 1) SELECTION par CONVICTION : score decroissant (Achat fort, puis Achat, puis Neutre), diversifiee.
@@ -5103,8 +5103,11 @@ function computeAllocation(top, amount, nLines) {
   //    faible/negatif potentiel garde une petite place au lieu de tomber a zero).
   const potOf = (t) => { const m = t.metrics || {}, fp = scrFairPrice(m, t.sector); return (fp != null && m.price > 0) ? (fp - m.price) / m.price : 0; };
   const pot = cands.map(potOf);
-  const sum0 = pot.reduce((a, p) => a + Math.max(p, 0.03), 0) || 1;
-  let w = pot.map((p) => Math.max(p, 0.03) / sum0);
+  // POIDS : par CONVICTION (score qualité/valo, façon Dividend King : les plus solides pèsent le plus)
+  // ou par POTENTIEL de l'Objectif (plancher 3 %). Défaut = potentiel.
+  const base = (weightMode === 'conviction') ? cands.map((t) => Math.max(1, t.valuationScore || 1)) : pot.map((p) => Math.max(p, 0.03));
+  const sum0 = base.reduce((a, b) => a + b, 0) || 1;
+  let w = base.map((b) => b / sum0);
   for (let iter = 0; iter < 60; iter++) {
     let excess = 0;
     // plafond par LIGNE
@@ -5266,28 +5269,36 @@ function screenerQualityAllocPanel(top) {
   const wrap = scrEl('div', { style: 'background:#fff;border:1px solid #e3e8ee;border-radius:14px;padding:14px;margin-bottom:14px' });
   wrap.appendChild(scrEl('div', { style: 'display:flex;align-items:baseline;gap:8px;margin-bottom:12px;flex-wrap:wrap', kids: [
     scrEl('span', { text: 'Répartition proposée', style: 'font-weight:800;color:#22303f;font-size:0.95rem' }),
-    scrEl('span', { text: "titres choisis par conviction (note), pondérés par le potentiel de l'Objectif, cadre indicatif, pas un conseil", style: 'font-size:0.72rem;color:#5b6b7d' })] }));
+    scrEl('span', { text: "titres choisis par conviction, pondérés au choix (potentiel ou conviction), cadre indicatif, pas un conseil", style: 'font-size:0.72rem;color:#5b6b7d' })] }));
   const savedAmt = Number(localStorage.getItem('scrAllocAmount')) || 10000;
-  const savedN = Number(localStorage.getItem('scrAllocLines')) || 15;
+  let savedN = Number(localStorage.getItem('scrAllocLines')) || 12;
+  if (savedN > 15) savedN = 15;   // DK : 10-15 lignes max
+  const savedW = localStorage.getItem('scrAllocWeight') === 'conviction' ? 'conviction' : 'potentiel';
+  const selStyle = 'padding:8px 10px;border:1px solid #e3e8ee;border-radius:9px;font-size:0.88rem;font-weight:600;color:#42546a;background:#fff';
   const amtInput = scrEl('input', { attrs: { type: 'number', min: '0', step: '500', value: String(savedAmt) }, style: 'width:130px;padding:8px 10px;border:1px solid #e3e8ee;border-radius:9px;font-size:0.9rem;font-weight:700;color:#22303f' });
-  const nSelect = scrEl('select', { style: 'padding:8px 10px;border:1px solid #e3e8ee;border-radius:9px;font-size:0.88rem;font-weight:600;color:#42546a;background:#fff' });
-  [10, 12, 15, 18, 20].forEach((n) => { const o = scrEl('option', { text: n + ' lignes', attrs: { value: String(n) } }); if (n === savedN) o.selected = true; nSelect.appendChild(o); });
+  const nSelect = scrEl('select', { style: selStyle });
+  [8, 10, 12, 15].forEach((n) => { const o = scrEl('option', { text: n + ' lignes', attrs: { value: String(n) } }); if (n === savedN) o.selected = true; nSelect.appendChild(o); });
+  const wSelect = scrEl('select', { attrs: { title: 'Conviction (façon Dividend King : les plus solides pèsent le plus) ou Potentiel de l\'Objectif' }, style: selStyle });
+  [['potentiel', 'poids : potentiel'], ['conviction', 'poids : conviction']].forEach(([v, label]) => { const o = scrEl('option', { text: label, attrs: { value: v } }); if (v === savedW) o.selected = true; wSelect.appendChild(o); });
   wrap.appendChild(scrEl('div', { style: 'display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px', kids: [
     scrEl('label', { text: 'Montant à allouer', style: 'font-size:0.8rem;color:#42546a;font-weight:600' }),
     amtInput, scrEl('span', { text: scrDispSym(), style: 'color:#5b6b7d' }),
-    scrEl('span', { text: 'réparti sur', style: 'font-size:0.8rem;color:#5b6b7d;margin-left:6px' }), nSelect] }));
+    scrEl('span', { text: 'réparti sur', style: 'font-size:0.8rem;color:#5b6b7d;margin-left:6px' }), nSelect, wSelect] }));
   const results = scrEl('div');
   wrap.appendChild(results);
-  wrap.appendChild(scrEl('div', { style: 'margin-top:10px;font-size:0.72rem;color:#5b6b7d', text: "Sélection par conviction (meilleures notes, Surévaluée exclues, max 4 titres/secteur), poids proportionnel au potentiel de l'Objectif (plancher 3 %), plafond 10 % par ligne et 35 % par secteur. Étale tes achats (DCA). La décision reste la tienne." }));
+  wrap.appendChild(scrEl('div', { style: 'margin-top:10px;font-size:0.72rem;color:#5b6b7d', text: "Sélection par conviction (meilleures notes, Surévaluée exclues, max 4 titres/secteur), pondération au choix (potentiel de l'Objectif ou conviction/qualité façon Dividend King), plafond 10 % par ligne et 35 % par secteur, 10-15 lignes. Étale tes achats (DCA). La décision reste la tienne." }));
   function render() {
     const amount = Math.max(0, Number(amtInput.value) || 0);
-    const nLines = Number(nSelect.value) || 15;
+    const nLines = Number(nSelect.value) || 12;
+    const wMode = wSelect.value;
     localStorage.setItem('scrAllocAmount', String(amount));
     localStorage.setItem('scrAllocLines', String(nLines));
-    results.replaceChildren(renderAllocTable(computeAllocation(top, dispToUsd(amount), nLines)));
+    localStorage.setItem('scrAllocWeight', wMode);
+    results.replaceChildren(renderAllocTable(computeAllocation(top, dispToUsd(amount), nLines, wMode)));
   }
   amtInput.addEventListener('input', render);
   nSelect.addEventListener('change', render);
+  wSelect.addEventListener('change', render);
   render();
   return wrap;
 }
@@ -5328,7 +5339,7 @@ function screenerRenderQuality(c, data, config) {
     ['ROE', 'right', "Rentabilité des capitaux propres = bénéfice net / fonds propres. Ce que la société gagne avec l'argent des actionnaires. Au-dessus de 15 % = rentable."],
     ['Marge nette', 'right', "Bénéfice net divisé par le chiffre d'affaires. Au-dessus de 20 % = très rentable, souvent le signe d'un avantage concurrentiel durable."],
     ['Rendement', 'right', "Rendement du dividende = dividende annuel / cours. 2 à 4 % = sain. Au-dessus de 7 % (rouge) = souvent un piège, le marché anticipe une coupe. Vide = ne verse pas de dividende."],
-    ['Payout', 'right', "Taux de distribution = part des bénéfices reversée en dividende. Sous 65 % (vert) = confortable et soutenable. Au-dessus de 85 % (rouge) = dividende fragile."],
+    ['Payout', 'right', "Taux de distribution = part des bénéfices reversée en dividende. Seuils Dividend King : sous 40 % (vert) = idéal et durable ; 40-60 % = acceptable ; au-dessus de 60 % (rouge) = tension, dividende moins soutenable."],
     ['FCF yield', 'right', "Rendement du free cash-flow = trésorerie libre générée / capitalisation. Plus il est haut, plus la société produit de cash par rapport à son prix."],
     ['Cap.', 'right', "Capitalisation boursière = valeur totale de la société en Bourse (cours × nombre d'actions)."],
   ];
@@ -5350,7 +5361,7 @@ function screenerRenderQuality(c, data, config) {
   // Payout : <65% soutenable (vert), >85% fragile (rouge). Sans dividende -> '–' (payout non pertinent)
   const payoutC = (p, y) => {
     let txt = '–', col = '#5b6b7d';
-    if (y != null && y > 0 && p != null && p >= 0) { txt = (p * 100).toFixed(0) + '%'; col = p > 0.85 ? '#dd5f66' : (p < 0.65 ? '#1d9e74' : '#42546a'); }
+    if (y != null && y > 0 && p != null && p >= 0) { txt = (p * 100).toFixed(0) + '%'; col = p > 0.60 ? '#dd5f66' : (p < 0.40 ? '#1d9e74' : '#42546a'); }
     return scrEl('td', { text: txt, style: `padding:8px 10px;text-align:right;white-space:nowrap;${bd};color:${col}` });
   };
 
