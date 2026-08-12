@@ -4753,7 +4753,7 @@ function screenerModeBar() {
   });
   return bar;
 }
-const scrCap = (x) => x == null ? '–' : x >= 1e9 ? '$' + (x / 1e9).toFixed(1) + 'B' : x >= 1e6 ? '$' + (x / 1e6).toFixed(0) + 'M' : '$' + x;
+const scrCap = (x, exch) => { if (x == null) return '–'; const u = scrToUsd(x, exch); const v = (u != null) ? u : x; return v >= 1e9 ? '$' + (v / 1e9).toFixed(1) + 'B' : v >= 1e6 ? '$' + (v / 1e6).toFixed(0) + 'M' : '$' + Math.round(v); };
 const scrCol = (x, y) => x == null ? '#5b6b7d' : (x >= y ? '#1d9e74' : '#dd5f66');
 // Lien vers le GRAPHIQUE TRADABLE TradingView (format EXCHANGE:TICKER). Une fois ton compte IBKR
 // connecte dans TradingView (panneau Trading), tu passes tes ordres IBKR directement depuis cette
@@ -4766,18 +4766,33 @@ const scrQuoteUrl = (sym, exch) => {
             : 'https://finance.yahoo.com/quote/' + encodeURIComponent(sym || '');
 };
 const scrPctTxt = (x) => x == null ? '–' : (x >= 0 ? '+' : '') + (x * 100).toFixed(0) + '%';
-// Devise d'affichage du cours selon la place boursiere Yahoo (repli : rien)
+// --- TOUT EN USD dans le screener : taux de change (open.er-api.com) + conversion depuis la devise de cotation ---
+let SCR_FX = null;   // { EUR:0.86, GBP:0.74, CHF:0.81, ... } = unités de la devise par 1 USD
+const SCR_EXCH_CCY = { NMS: 'USD', NGM: 'USD', NCM: 'USD', NYQ: 'USD', ASE: 'USD', PCX: 'USD', BATS: 'USD',
+  PAR: 'EUR', AMS: 'EUR', GER: 'EUR', MIL: 'EUR', MCE: 'EUR', BRU: 'EUR', LIS: 'EUR', HEL: 'EUR', VIE: 'EUR',
+  LSE: 'GBX', EBS: 'CHF', VTX: 'CHF', STO: 'SEK', CPH: 'DKK' };
+function scrToUsd(v, exch) {
+  if (v == null || !isFinite(v)) return null;
+  const ccy = SCR_EXCH_CCY[exch] || 'USD';
+  if (ccy === 'USD') return Number(v);
+  if (!SCR_FX) return null;                                   // taux indispo -> pas de conversion
+  if (ccy === 'GBX') return SCR_FX.GBP ? (Number(v) / 100) / SCR_FX.GBP : null;  // LSE cote en pence
+  return SCR_FX[ccy] ? Number(v) / SCR_FX[ccy] : null;
+}
+// Devise native (repli d'affichage si le taux est indisponible)
 const SCR_CCY = { NMS: '$', NGM: '$', NCM: '$', NYQ: '$', ASE: '$', PCX: '$', BATS: '$',
   PAR: '€', AMS: '€', GER: '€', MIL: '€', MCE: '€', BRU: '€', LIS: '€', HEL: '€', VIE: '€',
   LSE: '£', EBS: 'CHF', VTX: 'CHF', STO: 'kr', CPH: 'kr' };
 function scrPrice(p, exch) {
   if (p == null || !isFinite(p)) return '–';
-  let v = Number(p);
-  if (exch === 'LSE') v = v / 100;               // le LSE cote en pence (GBX) -> livres
+  const usd = scrToUsd(Number(p), exch);
+  if (usd != null) { const n = usd >= 1000 ? usd.toLocaleString('fr-FR', { maximumFractionDigits: 0 }) : usd.toFixed(2); return '$' + n; }
+  // repli devise native si le taux de change n'a pas pu être chargé
+  let v = Number(p); if (exch === 'LSE') v = v / 100;
   const c = SCR_CCY[exch] || '';
   const n = v >= 1000 ? v.toLocaleString('fr-FR', { maximumFractionDigits: 0 }) : v.toFixed(2);
-  if (c === '$' || c === '£') return c + n;      // prefixe
-  return c ? n + ' ' + c : n;                     // suffixe (€, CHF, kr) ou brut
+  if (c === '$' || c === '£') return c + n;
+  return c ? n + ' ' + c : n;
 }
 // Mini-graphique de cours (sparkline) construit en SVG DOM (pas d'innerHTML : hook securite).
 // Vert si le dernier cours >= premier, rouge sinon. Aire degradee + ligne, facon Kairos.
@@ -4931,6 +4946,16 @@ async function renderScreenerTab() {
         if (Array.isArray(loc) && loc.length) { SCR_POSITIONS = loc; try { db.ref('stocks/screener/myPositions').set(loc); } catch (e) {} }
       }
     } catch (e) { SCR_POSITIONS = []; }
+    // Taux de change (tout exprimer en USD), cache 6 h.
+    try {
+      const cached = JSON.parse(localStorage.getItem('scrFxCache') || 'null');
+      if (cached && cached.rates && cached.t && (Date.now() - cached.t) < 21600000) { SCR_FX = cached.rates; }
+      else {
+        const r = await fetch('https://open.er-api.com/v6/latest/USD'); const j = await r.json();
+        if (j && j.result === 'success' && j.rates) { SCR_FX = j.rates; try { localStorage.setItem('scrFxCache', JSON.stringify({ rates: j.rates, t: Date.now() })); } catch (e2) {} }
+        else if (cached && cached.rates) { SCR_FX = cached.rates; }
+      }
+    } catch (e) { try { const cc = JSON.parse(localStorage.getItem('scrFxCache') || 'null'); if (cc && cc.rates) SCR_FX = cc.rates; } catch (e3) {} }
     return screenerMode === 'quality' ? screenerRenderQuality(c, fb, config) : screenerRender(c, fb, positions, config);
   }
   // Pas encore de classement pour ce mode
@@ -5041,7 +5066,7 @@ const SCR_RATING_COL = { 'Achat fort': ['#d1f0e3', '#127a54'], 'Achat': ['#e4f5e
 
 // Allocateur : repartit un MONTANT saisi par l'utilisateur, PONDERE PAR LE POTENTIEL de l'Objectif
 // (marge de securite), Surevaluee et potentiel negatif exclus, plafond 10 %/ligne et 35 %/secteur.
-const scrEuro = (x) => (x == null || !isFinite(x)) ? '–' : Math.round(x).toLocaleString('fr-FR') + ' €';
+const scrUsd = (x) => { if (x == null || !isFinite(x)) return '–'; const n = Math.round(x); return (n < 0 ? '-$' : '$') + Math.abs(n).toLocaleString('fr-FR'); };
 const SCR_ALLOC_LINE_CAP = 0.10;    // max par ligne
 const SCR_ALLOC_SECTOR_CAP = 0.35;  // max par secteur (diversification)
 function computeAllocation(top, amount, nLines) {
@@ -5105,7 +5130,7 @@ function renderAllocTable(res) {
       scrEl('td', { text: t.sector || '–', style: `padding:6px 10px;color:#5b6b7d;font-size:0.78rem;${bd}` }),
       scrEl('td', { text: (a.pot >= 0 ? '+' : '') + (a.pot * 100).toFixed(0) + '%', style: `padding:6px 10px;text-align:right;font-weight:700;color:${a.pot >= 0 ? '#1d9e74' : '#dd5f66'};${bd}` }),
       scrEl('td', { text: (a.weight * 100).toFixed(1) + '%', style: `padding:6px 10px;text-align:right;font-weight:700;color:#42546a;${bd}` }),
-      scrEl('td', { text: scrEuro(a.amount), style: `padding:6px 10px;text-align:right;font-weight:800;color:#22303f;${bd}` }),
+      scrEl('td', { text: scrUsd(a.amount), style: `padding:6px 10px;text-align:right;font-weight:800;color:#22303f;${bd}` }),
     ] }));
   });
   const totA = alloc.reduce((s, a) => s + a.amount, 0);
@@ -5119,7 +5144,7 @@ function renderAllocTable(res) {
       scrEl('td', { text: '', style: `${bd}` }),
       scrEl('td', { text: '', style: `${bd}` }),
       scrEl('td', { text: (cash / grand * 100).toFixed(1) + '%', style: `padding:6px 10px;text-align:right;font-weight:700;color:#9aa7b4;${bd}` }),
-      scrEl('td', { text: scrEuro(cash), style: `padding:6px 10px;text-align:right;font-weight:700;color:#9aa7b4;${bd}` }),
+      scrEl('td', { text: scrUsd(cash), style: `padding:6px 10px;text-align:right;font-weight:700;color:#9aa7b4;${bd}` }),
     ] }));
   }
   tbody.appendChild(scrEl('tr', { style: 'background:#fafbfc', kids: [
@@ -5127,7 +5152,7 @@ function renderAllocTable(res) {
     scrEl('td', { text: alloc.length + ' lignes', style: 'padding:7px 10px;font-weight:700;color:#5b6b7d' }),
     scrEl('td', { text: '' }), scrEl('td', { text: '' }), scrEl('td', { text: '' }),
     scrEl('td', { text: '100%', style: 'padding:7px 10px;text-align:right;font-weight:800;color:#42546a' }),
-    scrEl('td', { text: scrEuro(grand), style: 'padding:7px 10px;text-align:right;font-weight:800;color:#22303f' }),
+    scrEl('td', { text: scrUsd(grand), style: 'padding:7px 10px;text-align:right;font-weight:800;color:#22303f' }),
   ] }));
   const table = scrEl('table', { style: 'width:100%;border-collapse:collapse;font-size:0.82rem', kids: [scrEl('thead', { kids: [thead] }), tbody] });
   // récap par secteur
@@ -5157,7 +5182,7 @@ function screenerPositionsModule() {
   const dl = scrEl('datalist', { attrs: { id: 'scrTickerList' } });
   Object.keys(SCR_PRICE_MAP).sort().forEach((sym) => dl.appendChild(scrEl('option', { attrs: { value: sym } })));
   const tkIn = scrEl('input', { attrs: { type: 'text', placeholder: 'Ticker (ex NVDA)', list: 'scrTickerList' }, style: iStyle + ';width:130px;text-transform:uppercase' });
-  const amtIn = scrEl('input', { attrs: { type: 'number', min: '0', step: '10', placeholder: 'Montant € investi' }, style: iStyle + ';width:140px' });
+  const amtIn = scrEl('input', { attrs: { type: 'number', min: '0', step: '10', placeholder: 'Montant $ investi' }, style: iStyle + ';width:140px' });
   const pruIn = scrEl('input', { attrs: { type: 'number', min: '0', step: '0.01', placeholder: "Prix d'achat" }, style: iStyle + ';width:110px' });
   const addBtn = scrEl('button', { text: '+ Ajouter', style: 'padding:8px 14px;border:none;border-radius:9px;background:#3563e9;color:#fff;font-weight:700;cursor:pointer' });
   wrap.appendChild(scrEl('div', { style: 'display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px', kids: [tkIn, amtIn, pruIn, addBtn, dl] }));
@@ -5183,8 +5208,8 @@ function renderPositionsTable(pos, onChange) {
   let totInv = 0, totVal = 0, totDay = 0;
   pos.forEach((p, i) => {
     const d = SCR_PRICE_MAP[(p.ticker || '').toUpperCase()];
-    const price = d ? d.price : null;
-    const ratio = (price != null && p.pru > 0) ? price / p.pru : null;
+    const priceUsd = d ? scrToUsd(d.price, d.exchange) : null;   // cours en USD
+    const ratio = (priceUsd != null && p.pru > 0) ? priceUsd / p.pru : null;
     const valeur = ratio != null ? p.amount * ratio : p.amount;
     const pnl = ratio != null ? valeur - p.amount : null, pnlPct = ratio != null ? ratio - 1 : null;
     const chg = d && d.changePct != null ? d.changePct : null;
@@ -5195,15 +5220,15 @@ function renderPositionsTable(pos, onChange) {
     del.onclick = () => { const arr = scrGetPositions().slice(); arr.splice(i, 1); scrSavePositions(arr); onChange(); };
     const pnlCol = pnl == null ? '#5b6b7d' : (pnl >= 0 ? '#1d9e74' : '#dd5f66');
     const dayCol = chg == null ? '#5b6b7d' : (chg >= 0 ? '#1d9e74' : '#dd5f66');
-    const dayTxt = chg == null ? '–' : (chg >= 0 ? '+' : '') + (chg * 100).toFixed(1) + '%' + (dayImp != null ? ' (' + (dayImp >= 0 ? '+' : '') + scrEuro(dayImp) + ')' : '');
+    const dayTxt = chg == null ? '–' : (chg >= 0 ? '+' : '') + (chg * 100).toFixed(1) + '%' + (dayImp != null ? ' (' + (dayImp >= 0 ? '+' : '') + scrUsd(dayImp) + ')' : '');
     tbody.appendChild(scrEl('tr', { kids: [
       scrEl('td', { style: `padding:6px 10px;${bd}`, kids: [scrEl('div', { style: 'display:flex;align-items:center;gap:8px', kids: [logo, scrEl('b', { text: p.ticker, style: 'color:#22303f' })] })] }),
-      scrEl('td', { text: scrEuro(p.amount), style: `padding:6px 10px;text-align:right;${bd};color:#42546a` }),
+      scrEl('td', { text: scrUsd(p.amount), style: `padding:6px 10px;text-align:right;${bd};color:#42546a` }),
       scrEl('td', { text: (p.pru != null ? Number(p.pru).toFixed(2) : '–'), style: `padding:6px 10px;text-align:right;${bd};color:#42546a` }),
-      scrEl('td', { text: (price != null ? scrPrice(price, d.exchange) : '–'), style: `padding:6px 10px;text-align:right;${bd};color:#42546a` }),
+      scrEl('td', { text: (d && d.price != null ? scrPrice(d.price, d.exchange) : '–'), style: `padding:6px 10px;text-align:right;${bd};color:#42546a` }),
       scrEl('td', { text: dayTxt, style: `padding:6px 10px;text-align:right;${bd};font-weight:700;color:${dayCol};white-space:nowrap` }),
-      scrEl('td', { text: scrEuro(valeur), style: `padding:6px 10px;text-align:right;${bd};font-weight:700;color:#22303f` }),
-      scrEl('td', { text: (pnl == null ? '–' : (pnl >= 0 ? '+' : '') + scrEuro(pnl) + ' (' + (pnlPct >= 0 ? '+' : '') + (pnlPct * 100).toFixed(1) + '%)'), style: `padding:6px 10px;text-align:right;${bd};font-weight:700;color:${pnlCol};white-space:nowrap` }),
+      scrEl('td', { text: scrUsd(valeur), style: `padding:6px 10px;text-align:right;${bd};font-weight:700;color:#22303f` }),
+      scrEl('td', { text: (pnl == null ? '–' : (pnl >= 0 ? '+' : '') + scrUsd(pnl) + ' (' + (pnlPct >= 0 ? '+' : '') + (pnlPct * 100).toFixed(1) + '%)'), style: `padding:6px 10px;text-align:right;${bd};font-weight:700;color:${pnlCol};white-space:nowrap` }),
       scrEl('td', { style: `padding:6px 10px;text-align:right;${bd}`, kids: [del] }),
     ] }));
   });
@@ -5211,15 +5236,15 @@ function renderPositionsTable(pos, onChange) {
   const dayBase = totVal - totDay, dayPctT = dayBase > 0 ? totDay / dayBase : 0, dCol = totDay >= 0 ? '#1d9e74' : '#dd5f66';
   tbody.appendChild(scrEl('tr', { style: 'background:#fafbfc', kids: [
     scrEl('td', { text: pos.length + ' lignes', style: 'padding:7px 10px;font-weight:700;color:#5b6b7d' }),
-    scrEl('td', { text: scrEuro(totInv), style: 'padding:7px 10px;text-align:right;font-weight:800;color:#42546a' }),
+    scrEl('td', { text: scrUsd(totInv), style: 'padding:7px 10px;text-align:right;font-weight:800;color:#42546a' }),
     scrEl('td', { text: '' }), scrEl('td', { text: '' }),
-    scrEl('td', { text: (totDay >= 0 ? '+' : '') + scrEuro(totDay) + ' (' + (dayPctT >= 0 ? '+' : '') + (dayPctT * 100).toFixed(1) + '%)', style: `padding:7px 10px;text-align:right;font-weight:800;color:${dCol};white-space:nowrap` }),
-    scrEl('td', { text: scrEuro(totVal), style: 'padding:7px 10px;text-align:right;font-weight:800;color:#22303f' }),
-    scrEl('td', { text: (totPnl >= 0 ? '+' : '') + scrEuro(totPnl) + ' (' + (totPct >= 0 ? '+' : '') + (totPct * 100).toFixed(1) + '%)', style: `padding:7px 10px;text-align:right;font-weight:800;color:${tCol};white-space:nowrap` }),
+    scrEl('td', { text: (totDay >= 0 ? '+' : '') + scrUsd(totDay) + ' (' + (dayPctT >= 0 ? '+' : '') + (dayPctT * 100).toFixed(1) + '%)', style: `padding:7px 10px;text-align:right;font-weight:800;color:${dCol};white-space:nowrap` }),
+    scrEl('td', { text: scrUsd(totVal), style: 'padding:7px 10px;text-align:right;font-weight:800;color:#22303f' }),
+    scrEl('td', { text: (totPnl >= 0 ? '+' : '') + scrUsd(totPnl) + ' (' + (totPct >= 0 ? '+' : '') + (totPct * 100).toFixed(1) + '%)', style: `padding:7px 10px;text-align:right;font-weight:800;color:${tCol};white-space:nowrap` }),
     scrEl('td', { text: '' }),
   ] }));
   const table = scrEl('table', { style: 'width:100%;border-collapse:collapse;font-size:0.82rem', kids: [scrEl('thead', { kids: [thead] }), tbody] });
-  const note = scrEl('div', { style: 'margin-top:8px;font-size:0.7rem;color:#9aa7b4', text: "Cours = dernier prix du screener (titre hors univers screené : cours indisponible, valeur = investi). Prix d'achat à saisir dans la devise de cotation (celle du Cours). P&L hors frais de change." });
+  const note = scrEl('div', { style: 'margin-top:8px;font-size:0.7rem;color:#9aa7b4', text: "Tout en USD (cours étrangers convertis au taux du jour). Montant investi et prix d'achat à saisir en $. Titre hors univers screené : cours indisponible, valeur = investi. P&L hors frais de change." });
   return scrEl('div', { kids: [scrEl('div', { style: 'overflow-x:auto', kids: [table] }), note] });
 }
 function screenerQualityAllocPanel(top) {
@@ -5234,7 +5259,7 @@ function screenerQualityAllocPanel(top) {
   [10, 12, 15, 18, 20].forEach((n) => { const o = scrEl('option', { text: n + ' lignes', attrs: { value: String(n) } }); if (n === savedN) o.selected = true; nSelect.appendChild(o); });
   wrap.appendChild(scrEl('div', { style: 'display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px', kids: [
     scrEl('label', { text: 'Montant à allouer', style: 'font-size:0.8rem;color:#42546a;font-weight:600' }),
-    amtInput, scrEl('span', { text: '€', style: 'color:#5b6b7d' }),
+    amtInput, scrEl('span', { text: '$', style: 'color:#5b6b7d' }),
     scrEl('span', { text: 'réparti sur', style: 'font-size:0.8rem;color:#5b6b7d;margin-left:6px' }), nSelect] }));
   const results = scrEl('div');
   wrap.appendChild(results);
@@ -5330,7 +5355,7 @@ function screenerRenderQuality(c, data, config) {
       scrEl('td', { text: cd.sector || '–', style: `padding:8px 10px;color:#5b6b7d;${bd}` }),
       scrEl('td', { style: `padding:8px 10px;${bd}`, kids: [chip] }),
       numC(m.peg, 2), pctC(m.gap, 0), numC(m.forwardPE, 1), pctC(m.roe, 0.15), pctC(m.netMargin, 0.20), divYieldC(m.dividendYield), payoutC(m.payoutRatio, m.dividendYield), pctC(m.fcfYield, 0.03),
-      scrEl('td', { text: scrCap(m.marketCap), style: `padding:8px 10px;text-align:right;color:#5b6b7d;${bd}` }),
+      scrEl('td', { text: scrCap(m.marketCap, m.exchange), style: `padding:8px 10px;text-align:right;color:#5b6b7d;${bd}` }),
     ]}));
   });
   const table = scrEl('table', { style: 'width:100%;border-collapse:collapse;font-size:0.82rem', kids: [scrEl('thead', { kids: [thead] }), tbody] });
@@ -5433,7 +5458,7 @@ function screenerRender(c, data, positions, config) {
         scrEl('td', { text: String(Number(cd.score) || 0), style: `padding:8px 10px;text-align:right;font-weight:800;${bd}` }),
         pctCell(m.revenueGrowthYoY, .25), pctCell(m.epsGrowthYoY, .25), pctCell(m.grossMargin, .40), pctCell(m.roe, .15),
         pctCell(v200, 0), pctCell(m.distToHigh, -.15),
-        scrEl('td', { text: scrCap(m.marketCap), style: `padding:8px 10px;text-align:right;color:#5b6b7d;${bd}` }),
+        scrEl('td', { text: scrCap(m.marketCap, m.exchange), style: `padding:8px 10px;text-align:right;color:#5b6b7d;${bd}` }),
         scrEl('td', { style: `padding:8px 10px;${bd}`, kids: [flagsWrap] })
       ]}));
     });
