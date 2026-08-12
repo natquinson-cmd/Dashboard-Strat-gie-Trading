@@ -4814,6 +4814,31 @@ function scrCoursCell(m, bd) {
   box.appendChild((Array.isArray(m.spark) && m.spark.length > 1) ? scrSpark(m.spark) : scrEl('div', { style: 'height:26px' }));
   return scrEl('td', { style: `padding:6px 10px;${bd}`, kids: [box] });
 }
+// « Juste prix » du modele (mode qualite) : PE cible ancre sur la croissance des benefices
+// (PEG ~1,1, borne 13-28) applique au benefice previsionnel. Estimation MECANIQUE, pas un conseil.
+const SCR_FAIR = { peg: 1.1, maxGrowth: 0.30, minPe: 13, maxPe: 28, defaultPe: 16, minRatio: 0.6, maxRatio: 1.5 };
+function scrFairPrice(m) {
+  const price = m.price, pe = m.forwardPE || m.trailingPE;
+  if (price == null || !pe || pe <= 0) return null;
+  const g = (m.earningsGrowthYoY != null) ? m.earningsGrowthYoY : m.earningsCAGR;
+  let fairPe = (g != null && g > 0) ? SCR_FAIR.peg * Math.min(g, SCR_FAIR.maxGrowth) * 100 : SCR_FAIR.defaultPe;
+  fairPe = Math.max(SCR_FAIR.minPe, Math.min(SCR_FAIR.maxPe, fairPe));
+  // Re-rating BORNE (×0,6 à ×1,5 du multiple actuel) : evite les aberrations sur les cycliques
+  // a tres bas PE (benefices au pic), ou multiplier par un gros PE cible gonfle un faux "juste prix".
+  const ratio = Math.max(SCR_FAIR.minRatio, Math.min(SCR_FAIR.maxRatio, fairPe / pe));
+  return price * ratio;
+}
+// Cellule « Objectif » : juste prix modele + potentiel de hausse/baisse vs cours actuel
+function scrTargetCell(m, bd) {
+  const tp = scrFairPrice(m), price = m.price;
+  const box = scrEl('div', { style: 'display:flex;flex-direction:column;gap:2px;min-width:78px' });
+  box.appendChild(scrEl('span', { text: (tp == null ? '–' : scrPrice(tp, m.exchange)), style: 'font-weight:700;color:#22303f;font-size:0.82rem' }));
+  if (tp != null && price != null && price > 0) {
+    const up = (tp - price) / price;
+    box.appendChild(scrEl('span', { text: (up >= 0 ? '+' : '') + (up * 100).toFixed(0) + '%', style: `font-size:0.72rem;font-weight:700;color:${up >= 0 ? '#1d9e74' : '#dd5f66'}` }));
+  }
+  return scrEl('td', { style: `padding:6px 10px;${bd}`, kids: [box] });
+}
 // Logo societe (mode large cap / qualite uniquement) : FMP en principal (vrais logos US + Europe),
 // repli favicon Google via le domaine du site (metrics.website), sinon masque (le ticker reste affiche).
 function scrDomain(website) {
@@ -5029,6 +5054,7 @@ function screenerRenderQuality(c, data, config) {
     ['#', 'left', ''],
     ['Ticker', 'left', 'Symbole boursier. Clique pour ouvrir le graphique TradingView (passable en ordre via IBKR).'],
     ['Cours', 'left', "Dernier cours et variation par rapport à la clôture de la veille (vert = hausse du jour, rouge = baisse). Le mini-graphique montre l'évolution du cours sur ~3 mois."],
+    ['Objectif', 'left', "Juste prix estimé par NOTRE modèle (pas les analystes) : un PE cible ancré sur la croissance des bénéfices (PEG ~1,1, borné 13-28), avec un re-rating limité à ×0,6-×1,5 du multiple actuel pour éviter les aberrations sur les cycliques à bas PE. Le % = potentiel vs le cours (vert = cours sous le juste prix, marge d'achat ; rouge = au-dessus, cher), plafonné à ±50 %. Estimation mécanique, pas un conseil ; un bas PE peut refléter des bénéfices au pic."],
     ['Secteur', 'left', "Secteur d'activité de la société."],
     ['Note', 'left', "Note de valorisation au sein des sociétés de qualité. Achat fort = solide ET décotée ; Surévaluée = chère. Combine PEG, écart bénéfices/cours, PE prévisionnel, FCF et dividende. C'est du repérage, pas un conseil."],
     ['PEG', 'right', "PEG = PER divisé par la croissance des bénéfices. Sous 1 = pas cher au regard de la croissance ; au-dessus de 2 = cher."],
@@ -5064,7 +5090,7 @@ function screenerRenderQuality(c, data, config) {
   };
 
   if (!top.length) {
-    tbody.appendChild(scrEl('tr', { kids: [scrEl('td', { attrs: { colspan: '14' }, text: 'Aucune candidate.', style: 'padding:22px;color:#5b6b7d' })] }));
+    tbody.appendChild(scrEl('tr', { kids: [scrEl('td', { attrs: { colspan: '15' }, text: 'Aucune candidate.', style: 'padding:22px;color:#5b6b7d' })] }));
   } else top.forEach((cd, i) => {
     const m = cd.metrics || {}, rc = SCR_RATING_COL[cd.rating] || SCR_RATING_COL['Neutre'];
     const link = scrEl('a', { text: cd.symbol || '', href: scrQuoteUrl(cd.symbol, m.exchange), attrs: { target: '_blank', rel: 'noopener' }, style: 'font-weight:800;color:#3563e9;text-decoration:none' });
@@ -5075,6 +5101,7 @@ function screenerRenderQuality(c, data, config) {
         scrLogo(cd.symbol, m.website),
         scrEl('div', { kids: [link, scrEl('div', { text: cd.name || '', style: 'color:#5b6b7d;font-size:0.72rem;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap' })] })] })] }),
       scrCoursCell(m, bd),
+      scrTargetCell(m, bd),
       scrEl('td', { text: cd.sector || '–', style: `padding:8px 10px;color:#5b6b7d;${bd}` }),
       scrEl('td', { style: `padding:8px 10px;${bd}`, kids: [chip] }),
       numC(m.peg, 2), pctC(m.gap, 0), numC(m.forwardPE, 1), pctC(m.roe, 0.15), pctC(m.netMargin, 0.20), divYieldC(m.dividendYield), payoutC(m.payoutRatio, m.dividendYield), pctC(m.fcfYield, 0.03),
