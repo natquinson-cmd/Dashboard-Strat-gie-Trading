@@ -4953,6 +4953,7 @@ async function renderScreenerTab() {
       const nodes = await Promise.all([db.ref('stocks/screener/quality').once('value'), db.ref('stocks/screener/smallcap').once('value')]);
       nodes.forEach((snap) => { const v = snap.val(); (v && v.top || []).forEach((t) => { const m = t.metrics || {}; if (t.symbol && m.price != null) SCR_PRICE_MAP[String(t.symbol).toUpperCase()] = { price: m.price, exchange: m.exchange, changePct: m.changePct, name: t.name, website: m.website, rating: t.rating, payoutRatio: m.payoutRatio, forwardPE: m.forwardPE, revenueGrowthYoY: m.revenueGrowthYoY, divGrowing: m.divGrowing }; }); });
     } catch (e) { /* ignore */ }
+    await scrApplyLivePrices();   // cours temps réel (cron VPS) par-dessus le snapshot
     // Positions "Mes positions" depuis Firebase (cross-device) + migration one-shot depuis localStorage.
     try {
       const mp = (await db.ref('stocks/screener/myPositions').once('value')).val();
@@ -5203,7 +5204,27 @@ function scrSavePositions(a) {
   SCR_POSITIONS = Array.isArray(a) ? a : [];
   try { if (typeof db !== 'undefined' && db) db.ref('stocks/screener/myPositions').set(SCR_POSITIONS.length ? SCR_POSITIONS : null); } catch (e) {}
 }
-// Recharge les positions (cross-device) + la carte des cours depuis Firebase (bouton Rafraîchir).
+let SCR_LIVE_AT = null;   // horodatage des cours "temps réel" (cron VPS live_prices.py)
+// Applique les cours "temps réel" (stocks/screener/livePrices) par-dessus le snapshot du screener.
+async function scrApplyLivePrices() {
+  if (typeof db === 'undefined' || !db) return;
+  try {
+    const lp = (await db.ref('stocks/screener/livePrices').once('value')).val();
+    if (lp && lp.prices) {
+      SCR_LIVE_AT = lp.generatedAt || null;
+      Object.keys(lp.prices).forEach((sym) => {
+        const q = lp.prices[sym], k = sym.toUpperCase();
+        if (!q || q.price == null) return;
+        if (!SCR_PRICE_MAP[k]) SCR_PRICE_MAP[k] = {};
+        SCR_PRICE_MAP[k].price = q.price;
+        if (q.changePct != null) SCR_PRICE_MAP[k].changePct = q.changePct;
+        if (q.exchange && !SCR_PRICE_MAP[k].exchange) SCR_PRICE_MAP[k].exchange = q.exchange;
+        SCR_PRICE_MAP[k].live = true;
+      });
+    }
+  } catch (e) {}
+}
+// Recharge les positions (cross-device) + la carte des cours (snapshot + cours live) depuis Firebase.
 async function scrLoadPositionsAndPrices() {
   if (typeof db === 'undefined' || !db) return;
   try {
@@ -5215,6 +5236,7 @@ async function scrLoadPositionsAndPrices() {
     SCR_PRICE_MAP = {};
     nodes.forEach((snap) => { const v = snap.val(); (v && v.top || []).forEach((t) => { const m = t.metrics || {}; if (t.symbol && m.price != null) SCR_PRICE_MAP[String(t.symbol).toUpperCase()] = { price: m.price, exchange: m.exchange, changePct: m.changePct, name: t.name, website: m.website, rating: t.rating, payoutRatio: m.payoutRatio, forwardPE: m.forwardPE, revenueGrowthYoY: m.revenueGrowthYoY, divGrowing: m.divGrowing }; }); });
   } catch (e) {}
+  await scrApplyLivePrices();
 }
 
 // Module "Mes positions" en haut du screener : saisie manuelle (Revolut), P&L via les cours du screener.
@@ -5313,7 +5335,8 @@ function renderPositionsTable(pos, onChange) {
     scrEl('td', { text: '' }),
   ] }));
   const table = scrEl('table', { style: 'width:100%;border-collapse:collapse;font-size:0.82rem', kids: [scrEl('thead', { kids: [thead] }), tbody] });
-  const note = scrEl('div', { style: 'margin-top:8px;font-size:0.7rem;color:#9aa7b4', text: "Saisis la quantité d'actions et ton prix d'achat (en " + scrDispSym() + ", la devise affichée). Cours étrangers convertis au taux du jour. Titre hors univers screené : cours indisponible, valeur = investi. P&L hors frais de change. ⚠ = signaux de vente à vérifier." });
+  const liveTxt = SCR_LIVE_AT ? ('Cours temps réel, mis à jour ' + new Date(SCR_LIVE_AT).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) + '. ') : 'Cours = snapshot du run VPS (pas encore de cron temps réel). ';
+  const note = scrEl('div', { style: 'margin-top:8px;font-size:0.7rem;color:#9aa7b4', text: liveTxt + "Saisis la quantité d'actions et ton prix d'achat (en " + scrDispSym() + ", la devise affichée). Cours étrangers convertis au taux du jour. Titre hors univers screené : cours indisponible. P&L hors frais de change. ⚠ = signaux de vente à vérifier." });
   return scrEl('div', { kids: [scrEl('div', { style: 'overflow-x:auto', kids: [table] }), note] });
 }
 function screenerQualityAllocPanel(top) {

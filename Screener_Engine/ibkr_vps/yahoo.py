@@ -242,6 +242,19 @@ class Yahoo:
         except Exception:
             return None
 
+    # --- Cours "live" (dernier prix + variation du jour) pour le suivi des positions ---
+    def live_quote(self, symbol):
+        """Renvoie {price, changePct, exchange, ts} via la meta du chart. None si indispo."""
+        try:
+            j = self._get(f'{BASE}/v8/finance/chart/{symbol}?range=1d&interval=1d')
+            meta = ((j.get('chart') or {}).get('result') or [{}])[0].get('meta') or {}
+            price = meta.get('regularMarketPrice')
+            prev = meta.get('chartPreviousClose') or meta.get('previousClose')
+            chg = ((price - prev) / prev) if (isinstance(price, (int, float)) and isinstance(prev, (int, float)) and prev) else None
+            return {'price': price, 'changePct': chg, 'exchange': meta.get('exchangeName'), 'ts': meta.get('regularMarketTime')}
+        except Exception:
+            return None
+
     # --- Croissance du dividende (methode Dividend King) : historique via chart events=div ---
     def dividend_growth(self, symbol, years=15):
         """Renvoie {divStreak, divCagr, divGrowing, divYears} : annees consecutives de hausse du
