@@ -4951,7 +4951,7 @@ async function renderScreenerTab() {
     try {
       SCR_PRICE_MAP = {};
       const nodes = await Promise.all([db.ref('stocks/screener/quality').once('value'), db.ref('stocks/screener/smallcap').once('value')]);
-      nodes.forEach((snap) => { const v = snap.val(); (v && v.top || []).forEach((t) => { const m = t.metrics || {}; if (t.symbol && m.price != null) SCR_PRICE_MAP[String(t.symbol).toUpperCase()] = { price: m.price, exchange: m.exchange, changePct: m.changePct, name: t.name, website: m.website }; }); });
+      nodes.forEach((snap) => { const v = snap.val(); (v && v.top || []).forEach((t) => { const m = t.metrics || {}; if (t.symbol && m.price != null) SCR_PRICE_MAP[String(t.symbol).toUpperCase()] = { price: m.price, exchange: m.exchange, changePct: m.changePct, name: t.name, website: m.website, rating: t.rating, payoutRatio: m.payoutRatio, forwardPE: m.forwardPE, revenueGrowthYoY: m.revenueGrowthYoY, divGrowing: m.divGrowing }; }); });
     } catch (e) { /* ignore */ }
     // Positions "Mes positions" depuis Firebase (cross-device) + migration one-shot depuis localStorage.
     try {
@@ -5200,49 +5200,63 @@ function screenerPositionsModule() {
   const dl = scrEl('datalist', { attrs: { id: 'scrTickerList' } });
   Object.keys(SCR_PRICE_MAP).sort().forEach((sym) => dl.appendChild(scrEl('option', { attrs: { value: sym } })));
   const tkIn = scrEl('input', { attrs: { type: 'text', placeholder: 'Ticker (ex NVDA)', list: 'scrTickerList' }, style: iStyle + ';width:130px;text-transform:uppercase' });
-  const amtIn = scrEl('input', { attrs: { type: 'number', min: '0', step: '10', placeholder: 'Montant ' + scrDispSym() + ' investi' }, style: iStyle + ';width:140px' });
+  const qtyIn = scrEl('input', { attrs: { type: 'number', min: '0', step: '1', placeholder: "Quantité (actions)" }, style: iStyle + ';width:130px' });
   const pruIn = scrEl('input', { attrs: { type: 'number', min: '0', step: '0.01', placeholder: "Prix d'achat" }, style: iStyle + ';width:110px' });
   const addBtn = scrEl('button', { text: '+ Ajouter', style: 'padding:8px 14px;border:none;border-radius:9px;background:#3563e9;color:#fff;font-weight:700;cursor:pointer' });
-  wrap.appendChild(scrEl('div', { style: 'display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px', kids: [tkIn, amtIn, pruIn, addBtn, dl] }));
+  wrap.appendChild(scrEl('div', { style: 'display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px', kids: [tkIn, qtyIn, pruIn, addBtn, dl] }));
   const body = scrEl('div');
   wrap.appendChild(body);
   const render = () => body.replaceChildren(renderPositionsTable(scrGetPositions(), render));
   addBtn.onclick = () => {
-    const ticker = (tkIn.value || '').toUpperCase().trim(), amount = Number(amtIn.value), pru = Number(pruIn.value);
-    if (!ticker || !(amount > 0) || !(pru > 0)) return;
-    const pos = scrGetPositions().slice(); pos.push({ ticker, amount: dispToUsd(amount), pru: dispToUsd(pru) }); scrSavePositions(pos);
-    tkIn.value = ''; amtIn.value = ''; pruIn.value = ''; render();
+    const ticker = (tkIn.value || '').toUpperCase().trim(), qty = Number(qtyIn.value), pru = Number(pruIn.value);
+    if (!ticker || !(qty > 0) || !(pru > 0)) return;
+    const pos = scrGetPositions().slice(); pos.push({ ticker, qty, pru: dispToUsd(pru) }); scrSavePositions(pos);
+    tkIn.value = ''; qtyIn.value = ''; pruIn.value = ''; render();
   };
   render();
   return wrap;
 }
 function renderPositionsTable(pos, onChange) {
-  if (!pos.length) return scrEl('div', { text: 'Aucune position. Ajoute tes achats Revolut ci-dessus (ticker, montant investi en €, prix d\'achat) pour suivre ta performance.', style: 'color:#5b6b7d;font-size:0.8rem;padding:4px 0' });
+  if (!pos.length) return scrEl('div', { text: 'Aucune position. Ajoute tes achats Revolut ci-dessus (ticker, quantité d\'actions, prix d\'achat) pour suivre ta performance.', style: 'color:#5b6b7d;font-size:0.8rem;padding:4px 0' });
   const bd = 'border-bottom:1px solid #eef1f5';
   const thead = scrEl('tr', { style: 'background:#f6f8fb;color:#5b6b7d' });
-  [['Ticker', 'left'], ['Investi', 'right'], ["Prix achat", 'right'], ['Cours', 'right'], ['Var. jour', 'right'], ['Valeur', 'right'], ['+/−', 'right'], ['', 'right']].forEach(([t, al]) =>
+  [['Ticker', 'left'], ['Qté', 'right'], ["Prix achat", 'right'], ['Investi', 'right'], ['Cours', 'right'], ['Var. jour', 'right'], ['Valeur', 'right'], ['+/−', 'right'], ['', 'right']].forEach(([t, al]) =>
     thead.appendChild(scrEl('th', { text: t, style: `padding:8px 10px;text-align:${al};font-size:0.68rem;text-transform:uppercase;letter-spacing:.03em;border-bottom:1px solid #e3e8ee;white-space:nowrap` })));
   const tbody = scrEl('tbody');
   let totInv = 0, totVal = 0, totDay = 0;
   pos.forEach((p, i) => {
     const d = SCR_PRICE_MAP[(p.ticker || '').toUpperCase()];
+    const qty = (p.qty != null) ? p.qty : ((p.amount != null && p.pru) ? p.amount / p.pru : 0);   // migration ancien format {amount}
+    const investi = qty * (p.pru || 0);                          // USD (pru stocke en USD)
     const priceUsd = d ? scrToUsd(d.price, d.exchange) : null;   // cours en USD
-    const ratio = (priceUsd != null && p.pru > 0) ? priceUsd / p.pru : null;
-    const valeur = ratio != null ? p.amount * ratio : p.amount;
-    const pnl = ratio != null ? valeur - p.amount : null, pnlPct = ratio != null ? ratio - 1 : null;
+    const valeur = priceUsd != null ? qty * priceUsd : investi;
+    const pnl = priceUsd != null ? valeur - investi : null;
+    const pnlPct = (priceUsd != null && p.pru > 0) ? priceUsd / p.pru - 1 : null;
     const chg = d && d.changePct != null ? d.changePct : null;
-    const dayImp = (chg != null && ratio != null) ? valeur * chg / (1 + chg) : null;
-    totInv += p.amount; totVal += valeur; if (dayImp != null) totDay += dayImp;
+    const dayImp = (chg != null && priceUsd != null) ? valeur * chg / (1 + chg) : null;
+    totInv += investi; totVal += valeur; if (dayImp != null) totDay += dayImp;
+    const qtyTxt = (qty % 1 === 0) ? String(qty) : qty.toLocaleString('fr-FR', { maximumFractionDigits: 3 });
     const logo = d ? scrLogo(p.ticker, d.website) : scrEl('span', { style: 'display:inline-block;width:22px' });
     const del = scrEl('button', { text: '×', style: 'border:none;background:none;color:#c0392b;font-size:1.15rem;cursor:pointer;font-weight:800;line-height:1' });
     del.onclick = () => { const arr = scrGetPositions().slice(); arr.splice(i, 1); scrSavePositions(arr); onChange(); };
     const pnlCol = pnl == null ? '#5b6b7d' : (pnl >= 0 ? '#1d9e74' : '#dd5f66');
     const dayCol = chg == null ? '#5b6b7d' : (chg >= 0 ? '#1d9e74' : '#dd5f66');
     const dayTxt = chg == null ? '–' : (chg >= 0 ? '+' : '') + (chg * 100).toFixed(1) + '%' + (dayImp != null ? ' (' + (dayImp >= 0 ? '+' : '') + scrUsd(dayImp) + ')' : '');
+    // Signaux de VENTE facon DK (les mecanisables) : à vérifier, pas un ordre de vente.
+    const sell = [];
+    if (d) {
+      if (d.rating === 'Surévaluée') sell.push('Surévaluée (modèle)');
+      if (d.payoutRatio != null && d.payoutRatio > 0.60) sell.push('Payout > 60 % (dividende sous tension)');
+      if (d.forwardPE != null && d.forwardPE > 40 && (d.revenueGrowthYoY == null || d.revenueGrowthYoY < 0.10)) sell.push('Cher (PER > 40) pour la croissance');
+      if (d.divGrowing === false && d.payoutRatio != null && d.payoutRatio > 0) sell.push('Dividende ne croît plus');
+    }
+    const tkKids = [logo, scrEl('b', { text: p.ticker, style: 'color:#22303f' })];
+    if (sell.length) tkKids.push(scrEl('span', { text: '⚠', attrs: { title: 'Signaux de vente (à vérifier, PAS un ordre) : ' + sell.join(' · ') + '. Vérifie aussi la thèse et le management.' }, style: 'cursor:help;font-size:0.9rem' }));
     tbody.appendChild(scrEl('tr', { kids: [
-      scrEl('td', { style: `padding:6px 10px;${bd}`, kids: [scrEl('div', { style: 'display:flex;align-items:center;gap:8px', kids: [logo, scrEl('b', { text: p.ticker, style: 'color:#22303f' })] })] }),
-      scrEl('td', { text: scrUsd(p.amount), style: `padding:6px 10px;text-align:right;${bd};color:#42546a` }),
+      scrEl('td', { style: `padding:6px 10px;${bd}`, kids: [scrEl('div', { style: 'display:flex;align-items:center;gap:8px', kids: tkKids })] }),
+      scrEl('td', { text: qtyTxt, style: `padding:6px 10px;text-align:right;${bd};color:#42546a;font-weight:600` }),
       scrEl('td', { text: (p.pru != null ? usdToDisp(p.pru).toFixed(2) : '–'), style: `padding:6px 10px;text-align:right;${bd};color:#42546a` }),
+      scrEl('td', { text: scrUsd(investi), style: `padding:6px 10px;text-align:right;${bd};color:#42546a` }),
       scrEl('td', { text: (d && d.price != null ? scrPrice(d.price, d.exchange) : '–'), style: `padding:6px 10px;text-align:right;${bd};color:#42546a` }),
       scrEl('td', { text: dayTxt, style: `padding:6px 10px;text-align:right;${bd};font-weight:700;color:${dayCol};white-space:nowrap` }),
       scrEl('td', { text: scrUsd(valeur), style: `padding:6px 10px;text-align:right;${bd};font-weight:700;color:#22303f` }),
@@ -5254,15 +5268,16 @@ function renderPositionsTable(pos, onChange) {
   const dayBase = totVal - totDay, dayPctT = dayBase > 0 ? totDay / dayBase : 0, dCol = totDay >= 0 ? '#1d9e74' : '#dd5f66';
   tbody.appendChild(scrEl('tr', { style: 'background:#fafbfc', kids: [
     scrEl('td', { text: pos.length + ' lignes', style: 'padding:7px 10px;font-weight:700;color:#5b6b7d' }),
-    scrEl('td', { text: scrUsd(totInv), style: 'padding:7px 10px;text-align:right;font-weight:800;color:#42546a' }),
     scrEl('td', { text: '' }), scrEl('td', { text: '' }),
+    scrEl('td', { text: scrUsd(totInv), style: 'padding:7px 10px;text-align:right;font-weight:800;color:#42546a' }),
+    scrEl('td', { text: '' }),
     scrEl('td', { text: (totDay >= 0 ? '+' : '') + scrUsd(totDay) + ' (' + (dayPctT >= 0 ? '+' : '') + (dayPctT * 100).toFixed(1) + '%)', style: `padding:7px 10px;text-align:right;font-weight:800;color:${dCol};white-space:nowrap` }),
     scrEl('td', { text: scrUsd(totVal), style: 'padding:7px 10px;text-align:right;font-weight:800;color:#22303f' }),
     scrEl('td', { text: (totPnl >= 0 ? '+' : '') + scrUsd(totPnl) + ' (' + (totPct >= 0 ? '+' : '') + (totPct * 100).toFixed(1) + '%)', style: `padding:7px 10px;text-align:right;font-weight:800;color:${tCol};white-space:nowrap` }),
     scrEl('td', { text: '' }),
   ] }));
   const table = scrEl('table', { style: 'width:100%;border-collapse:collapse;font-size:0.82rem', kids: [scrEl('thead', { kids: [thead] }), tbody] });
-  const note = scrEl('div', { style: 'margin-top:8px;font-size:0.7rem;color:#9aa7b4', text: "Cours étrangers convertis au taux du jour. Montant investi et prix d'achat à saisir en " + scrDispSym() + " (devise affichée). Titre hors univers screené : cours indisponible, valeur = investi. P&L hors frais de change." });
+  const note = scrEl('div', { style: 'margin-top:8px;font-size:0.7rem;color:#9aa7b4', text: "Saisis la quantité d'actions et ton prix d'achat (en " + scrDispSym() + ", la devise affichée). Cours étrangers convertis au taux du jour. Titre hors univers screené : cours indisponible, valeur = investi. P&L hors frais de change. ⚠ = signaux de vente à vérifier." });
   return scrEl('div', { kids: [scrEl('div', { style: 'overflow-x:auto', kids: [table] }), note] });
 }
 function screenerQualityAllocPanel(top) {
@@ -5336,10 +5351,11 @@ function screenerRenderQuality(c, data, config) {
     ['PEG', 'right', "PEG = PER divisé par la croissance des bénéfices. Sous 1 = pas cher au regard de la croissance ; au-dessus de 2 = cher."],
     ['Écart bénéf./cours', 'right', "Croissance des bénéfices (sur ~4 ans) moins la hausse du cours (sur 5 ans). Positif = les bénéfices ont grimpé plus vite que le cours, le multiple s'est comprimé (potentiellement décoté)."],
     ['PE fwd', 'right', "PER prévisionnel = cours divisé par le bénéfice par action attendu l'an prochain. Plus il est bas, moins l'action est chère. ~15 = moyenne historique du marché."],
-    ['ROE', 'right', "Rentabilité des capitaux propres = bénéfice net / fonds propres. Ce que la société gagne avec l'argent des actionnaires. Au-dessus de 15 % = rentable."],
+    ['ROE', 'right', "Rentabilité des capitaux propres = bénéfice net / fonds propres. Au-dessus de 15 % = rentable (seuil Dividend King). En petit : ROA (rentabilité des actifs), utilisé comme proxy du ROIC, le ratio n°1 de la méthode."],
     ['Marge nette', 'right', "Bénéfice net divisé par le chiffre d'affaires. Au-dessus de 20 % = très rentable, souvent le signe d'un avantage concurrentiel durable."],
     ['Rendement', 'right', "Rendement du dividende = dividende annuel / cours. 2 à 4 % = sain. Au-dessus de 7 % (rouge) = souvent un piège, le marché anticipe une coupe. Vide = ne verse pas de dividende."],
     ['Payout', 'right', "Taux de distribution = part des bénéfices reversée en dividende. Seuils Dividend King : sous 40 % (vert) = idéal et durable ; 40-60 % = acceptable ; au-dessus de 60 % (rouge) = tension, dividende moins soutenable."],
+    ['Div. crois.', 'right', "Dividende croissant (la signature de Dividend King) : nombre d'années consécutives de hausse du dividende annuel. ↑ vert = en hausse. Survole pour le rythme de croissance (%/an). Un dividende qui monte régulièrement = business sain et discipliné."],
     ['FCF yield', 'right', "Rendement du free cash-flow = trésorerie libre générée / capitalisation. Plus il est haut, plus la société produit de cash par rapport à son prix."],
     ['Cap.', 'right', "Capitalisation boursière = valeur totale de la société en Bourse (cours × nombre d'actions)."],
   ];
@@ -5364,9 +5380,27 @@ function screenerRenderQuality(c, data, config) {
     if (y != null && y > 0 && p != null && p >= 0) { txt = (p * 100).toFixed(0) + '%'; col = p > 0.60 ? '#dd5f66' : (p < 0.40 ? '#1d9e74' : '#42546a'); }
     return scrEl('td', { text: txt, style: `padding:8px 10px;text-align:right;white-space:nowrap;${bd};color:${col}` });
   };
+  // ROE (> 15% vert) + ROA en petit dessous (proxy du ROIC, ratio n°1 de Dividend King)
+  const roeRoaC = (m) => {
+    const box = scrEl('div', { style: 'display:flex;flex-direction:column;align-items:flex-end;gap:1px' });
+    box.appendChild(scrEl('span', { text: (m.roe == null ? '–' : (m.roe >= 0 ? '+' : '') + (m.roe * 100).toFixed(0) + '%'), style: `font-weight:600;color:${m.roe == null ? '#5b6b7d' : (m.roe >= 0.15 ? '#1d9e74' : '#dd5f66')}` }));
+    if (m.roa != null) box.appendChild(scrEl('span', { text: 'ROA ' + (m.roa * 100).toFixed(0) + '%', style: 'font-size:0.64rem;color:#9aa7b4' }));
+    return scrEl('td', { style: `padding:6px 8px;text-align:right;white-space:nowrap;${bd}`, kids: [box] });
+  };
+  // Dividende croissant (signature DK) : années consécutives de hausse du dividende
+  const divGrowthC = (m) => {
+    let txt = '–', col = '#5b6b7d', tip = 'Pas de dividende, ou historique de croissance inconnu';
+    const s = m.divStreak;
+    if (s != null) {
+      if (m.divGrowing) { txt = '↑ ' + s + ' an' + (s > 1 ? 's' : ''); col = '#1d9e74'; }
+      else { txt = s + ' an' + (s > 1 ? 's' : ''); col = '#42546a'; }
+      tip = 'Dividende en hausse depuis ' + s + ' an' + (s > 1 ? 's' : '') + (m.divCagr != null ? ', +' + (m.divCagr * 100).toFixed(0) + ' %/an' : '');
+    }
+    return scrEl('td', { text: txt, attrs: { title: tip }, style: `padding:8px 8px;text-align:right;white-space:nowrap;${bd};color:${col};font-weight:700` });
+  };
 
   if (!top.length) {
-    tbody.appendChild(scrEl('tr', { kids: [scrEl('td', { attrs: { colspan: '15' }, text: 'Aucune candidate.', style: 'padding:22px;color:#5b6b7d' })] }));
+    tbody.appendChild(scrEl('tr', { kids: [scrEl('td', { attrs: { colspan: '16' }, text: 'Aucune candidate.', style: 'padding:22px;color:#5b6b7d' })] }));
   } else top.forEach((cd, i) => {
     const m = cd.metrics || {}, rc = SCR_RATING_COL[cd.rating] || SCR_RATING_COL['Neutre'];
     const link = scrEl('a', { text: cd.symbol || '', href: scrQuoteUrl(cd.symbol, m.exchange), attrs: { target: '_blank', rel: 'noopener' }, style: 'font-weight:800;color:#3563e9;text-decoration:none' });
@@ -5380,7 +5414,7 @@ function screenerRenderQuality(c, data, config) {
       scrTargetCell(m, cd.sector, bd),
       scrEl('td', { text: cd.sector || '–', style: `padding:8px 10px;color:#5b6b7d;${bd}` }),
       scrEl('td', { style: `padding:8px 10px;${bd}`, kids: [chip] }),
-      numC(m.peg, 2), pctC(m.gap, 0), numC(m.forwardPE, 1), pctC(m.roe, 0.15), pctC(m.netMargin, 0.20), divYieldC(m.dividendYield), payoutC(m.payoutRatio, m.dividendYield), pctC(m.fcfYield, 0.03),
+      numC(m.peg, 2), pctC(m.gap, 0), numC(m.forwardPE, 1), roeRoaC(m), pctC(m.netMargin, 0.20), divYieldC(m.dividendYield), payoutC(m.payoutRatio, m.dividendYield), divGrowthC(m), pctC(m.fcfYield, 0.03),
       scrEl('td', { text: scrCap(m.marketCap, m.exchange), style: `padding:8px 10px;text-align:right;color:#5b6b7d;${bd}` }),
     ]}));
   });

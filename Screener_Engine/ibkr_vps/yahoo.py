@@ -178,7 +178,8 @@ class Yahoo:
             'symbol': symbol, 'name': pr.get('longName') or pr.get('shortName'),
             'sector': ap.get('sector') or 'N/A', 'exchange': pr.get('exchange'),
             'price': g(fd, 'currentPrice') or g(pr, 'regularMarketPrice'), 'marketCap': mc,
-            'roe': g(fd, 'returnOnEquity'), 'grossMargin': g(fd, 'grossMargins'),
+            'roe': g(fd, 'returnOnEquity'), 'roa': g(fd, 'returnOnAssets'),   # roa = proxy du ROIC (DK)
+            'grossMargin': g(fd, 'grossMargins'),
             'operatingMargin': g(fd, 'operatingMargins'), 'netMargin': g(fd, 'profitMargins'),
             'revenueGrowthYoY': g(fd, 'revenueGrowth'),
             'earningsGrowthYoY': g(fd, 'earningsGrowth'), 'earningsCAGR': earnings_cagr,
@@ -238,5 +239,41 @@ class Yahoo:
                 closes = [closes[min(len(closes) - 1, round(i * step))] for i in range(max_points)]
                 closes[-1] = price
             return {'closes': [round(c, 4) for c in closes], 'price': price, 'changePct': change_pct}
+        except Exception:
+            return None
+
+    # --- Croissance du dividende (methode Dividend King) : historique via chart events=div ---
+    def dividend_growth(self, symbol, years=15):
+        """Renvoie {divStreak, divCagr, divGrowing, divYears} : annees consecutives de hausse du
+        dividende annuel + CAGR du dividende. None si pas de dividende / historique insuffisant."""
+        try:
+            from datetime import datetime, timezone
+            j = self._get(f'{BASE}/v8/finance/chart/{symbol}?range={years}y&interval=1mo&events=div')
+            res = (j.get('chart') or {}).get('result')
+            if not res:
+                return None
+            evs = ((res[0].get('events') or {}).get('dividends') or {})
+            if not evs:
+                return None
+            by_year = {}
+            for v in evs.values():
+                ts, amt = v.get('date'), v.get('amount')
+                if ts is None or amt is None:
+                    continue
+                y = datetime.fromtimestamp(ts, timezone.utc).year
+                by_year[y] = by_year.get(y, 0) + amt
+            cur = datetime.now(timezone.utc).year
+            full = [y for y in sorted(by_year) if y < cur]   # on ignore l'annee courante (incomplete)
+            if len(full) < 3:
+                return None
+            vals = [by_year[y] for y in full]
+            streak = 0
+            for i in range(len(vals) - 1, 0, -1):
+                if vals[i] > vals[i - 1] * 1.001:            # hausse (petite tolerance)
+                    streak += 1
+                else:
+                    break
+            cagr = ((vals[-1] / vals[0]) ** (1 / (len(vals) - 1)) - 1) if (vals[0] > 0 and vals[-1] > 0) else None
+            return {'divStreak': streak, 'divCagr': cagr, 'divGrowing': streak >= 3, 'divYears': len(full)}
         except Exception:
             return None

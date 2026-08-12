@@ -105,7 +105,19 @@ def _div_signal(t, cfg):
         sust = 0.25
     else:
         sust = 0.1
-    return y * sust
+    # Bonus DK : DIVIDENDE CROISSANT (sa signature). Streak long = business fiable.
+    streak = _num(t.get('divStreak'))
+    if streak is None:
+        growth = 1.0                                   # historique inconnu -> neutre
+    elif streak >= 10:
+        growth = 1.3
+    elif streak >= 5:
+        growth = 1.15
+    elif streak >= 3:
+        growth = 1.0
+    else:
+        growth = 0.7                                   # dividende qui ne croit pas -> penalise
+    return y * sust * growth
 
 
 def rate_universe(universe, cfg=QUALITY_CONFIG):
@@ -132,18 +144,20 @@ def rate_universe(universe, cfg=QUALITY_CONFIG):
         'fcf': _dist(survivors, lambda t: _num(t.get('fcfYield'))),
         'fpe': _dist(survivors, fwdpe_signal),
         'div': _dist(survivors, lambda t: _div_signal(t, cfg)),
-        # GARP : croissance du CA, marge nette, ROE (qualite du compounder)
+        # GARP : croissance du CA, marge nette, ROE, ROA (qualite du capital ~ ROIC, DK)
         'grw': _dist(survivors, lambda t: _num(t.get('revenueGrowthYoY'))),
         'nm': _dist(survivors, lambda t: _num(t.get('netMargin'))),
         'roe': _dist(survivors, lambda t: _num(t.get('roe'))),
+        'roa': _dist(survivors, lambda t: _num(t.get('roa'))),
     }
     w = cfg['weights']
 
     def garp_pct(t):
-        # moyenne des percentiles disponibles : croissance CA + marge nette + ROE
+        # moyenne des percentiles disponibles : croissance CA + marge nette + ROE + ROA
         ps = [p for p in (_pct(dists['grw'], _num(t.get('revenueGrowthYoY'))),
                           _pct(dists['nm'], _num(t.get('netMargin'))),
-                          _pct(dists['roe'], _num(t.get('roe')))) if p is not None]
+                          _pct(dists['roe'], _num(t.get('roe'))),
+                          _pct(dists['roa'], _num(t.get('roa')))) if p is not None]
         return (sum(ps) / len(ps)) if ps else None
 
     scored = []
@@ -167,10 +181,11 @@ def rate_universe(universe, cfg=QUALITY_CONFIG):
                 'price': t.get('price'), 'marketCap': t.get('marketCap'), 'exchange': t.get('exchange'),
                 'peg': t.get('peg'), 'trailingPE': t.get('trailingPE'), 'forwardPE': t.get('forwardPE'),
                 'earningsCAGR': t.get('earningsCAGR'), 'priceCAGR': t.get('priceCAGR'), 'gap': t.get('gap'),
-                'roe': t.get('roe'), 'grossMargin': t.get('grossMargin'), 'netMargin': t.get('netMargin'),
+                'roe': t.get('roe'), 'roa': t.get('roa'), 'grossMargin': t.get('grossMargin'), 'netMargin': t.get('netMargin'),
                 'fcfYield': t.get('fcfYield'), 'revenueGrowthYoY': t.get('revenueGrowthYoY'),
                 'earningsGrowthYoY': t.get('earningsGrowthYoY'),
                 'dividendYield': t.get('dividendYield'), 'payoutRatio': t.get('payoutRatio'),
+                'divStreak': t.get('divStreak'), 'divCagr': t.get('divCagr'), 'divGrowing': t.get('divGrowing'),
                 'website': t.get('website'),
             },
         })

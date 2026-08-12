@@ -218,6 +218,9 @@ def run_quality(y):
             # erratiques), on se rabat sur la croissance annuelle des benefices plutot que d'abandonner.
             growth = ec if ec is not None else eg
             r['gap'] = (growth - pc) if (growth is not None and pc is not None) else None
+            dg = y.dividend_growth(sym)   # croissance du dividende (signature DK)
+            if dg:
+                r.update(dg)              # divStreak, divCagr, divGrowing, divYears
             records.append(r)
         if (i + 1) % 25 == 0:
             print(f'  ...enrichi {i + 1}/{len(symbols)}')
