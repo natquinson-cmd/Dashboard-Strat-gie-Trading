@@ -211,12 +211,26 @@ class Yahoo:
             if not res:
                 return None
             r0 = res[0]
+            meta = r0.get('meta') or {}
             q = (r0.get('indicators', {}).get('quote') or [{}])[0]
             closes = [c for c in (q.get('close') or []) if isinstance(c, (int, float))]
             if len(closes) < 2:
                 return None
-            price = closes[-1]
-            prev = closes[-2]
+            # PIEGE : la derniere cloture de la serie chart est souvent None (cloture du jour pas
+            # encore ecrite) et le filtre la retire -> on comparait alors J-1 vs J-2 (faux).
+            # On se fie a meta.regularMarketPrice (prix reel de la derniere seance) pour le prix
+            # courant, et on reconstruit la veille = derniere cloture ecrite dans la serie.
+            rmp = meta.get('regularMarketPrice')
+            if isinstance(rmp, (int, float)) and rmp > 0:
+                price = rmp
+                if abs(closes[-1] - rmp) / rmp < 1e-4:
+                    prev = closes[-2]           # seance deja ecrite -> veille = avant-derniere
+                else:
+                    prev = closes[-1]           # serie s'arrete la veille -> rmp = derniere seance
+                    closes = closes + [rmp]     # prolonge la sparkline jusqu'au prix courant
+            else:
+                price = closes[-1]
+                prev = closes[-2]
             change_pct = ((price - prev) / prev) if prev else None
             # echantillonne a max_points en gardant toujours le tout dernier point
             if len(closes) > max_points:
