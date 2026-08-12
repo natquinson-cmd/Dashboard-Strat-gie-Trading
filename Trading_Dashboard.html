@@ -5084,11 +5084,12 @@ const SCR_RATING_COL = { 'Achat fort': ['#d1f0e3', '#127a54'], 'Achat': ['#e4f5e
 // (marge de securite), Surevaluee et potentiel negatif exclus, plafond 10 %/ligne et 35 %/secteur.
 const SCR_ALLOC_LINE_CAP = 0.10;    // max par ligne
 const SCR_ALLOC_SECTOR_CAP = 0.35;  // max par secteur (diversification)
-function computeAllocation(top, amount, nLines, weightMode) {
+function computeAllocation(top, amount, nLines, weightMode, divOnly) {
   const LC = SCR_ALLOC_LINE_CAP, SC = SCR_ALLOC_SECTOR_CAP;
   const perSectorMax = Math.max(1, Math.ceil(SC / LC));   // max titres/secteur (diversifie la selection)
   // 1) SELECTION par CONVICTION : score decroissant (Achat fort, puis Achat, puis Neutre), diversifiee.
-  const pool = (top || []).filter((t) => t.rating && t.rating !== 'Surévaluée')
+  //    Filtre optionnel "dividende croissant" (partie Revenus Passifs de la methode AQRP).
+  const pool = (top || []).filter((t) => t.rating && t.rating !== 'Surévaluée' && (!divOnly || (t.metrics && t.metrics.divGrowing === true)))
     .sort((a, b) => (b.valuationScore || 0) - (a.valuationScore || 0));
   const cands = []; const selCount = {};
   for (const t of pool) {
@@ -5236,9 +5237,11 @@ function screenerPositionsModule() {
   wrap.appendChild(body);
   const render = () => body.replaceChildren(renderPositionsTable(scrGetPositions(), render));
   refreshBtn.onclick = async () => {
-    refreshBtn.disabled = true; const old = refreshBtn.textContent; refreshBtn.textContent = '…';
+    refreshBtn.disabled = true; refreshBtn.textContent = '…';
     await scrLoadPositionsAndPrices();
-    refreshBtn.disabled = false; refreshBtn.textContent = old; render();
+    render();
+    refreshBtn.disabled = false; refreshBtn.textContent = '✓ à jour';
+    setTimeout(() => { refreshBtn.textContent = '⟳ Rafraîchir'; }, 1600);
   };
   addBtn.onclick = () => {
     const ticker = (tkIn.value || '').toUpperCase().trim(), qty = Number(qtyIn.value), pru = Number(pruIn.value);
@@ -5330,10 +5333,13 @@ function screenerQualityAllocPanel(top) {
   [['potentiel', 'poids : potentiel'], ['conviction', 'poids : conviction']].forEach(([v, label]) => { const o = scrEl('option', { text: label, attrs: { value: v } }); if (v === savedW) o.selected = true; wSelect.appendChild(o); });
   const savedEtf = localStorage.getItem('scrAllocEtf') != null ? Number(localStorage.getItem('scrAllocEtf')) : 50;
   const etfInput = scrEl('input', { attrs: { type: 'number', min: '0', max: '90', step: '5', value: String(savedEtf), title: 'Part en ETF socle (méthode Dividend King : ETF socle 50-60% + 5-10 actions)' }, style: 'width:58px;padding:8px 8px;border:1px solid #e3e8ee;border-radius:9px;font-size:0.88rem;font-weight:600;color:#42546a' });
+  const savedDiv = localStorage.getItem('scrAllocDivOnly') === '1';
+  const divSelect = scrEl('select', { attrs: { title: 'Restreindre aux titres à dividende CROISSANT (partie Revenus Passifs de la méthode)' }, style: selStyle });
+  [['0', 'tous les titres'], ['1', 'dividende croissant']].forEach(([v, label]) => { const o = scrEl('option', { text: label, attrs: { value: v } }); if ((v === '1') === savedDiv) o.selected = true; divSelect.appendChild(o); });
   wrap.appendChild(scrEl('div', { style: 'display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px', kids: [
     scrEl('label', { text: 'Montant à allouer', style: 'font-size:0.8rem;color:#42546a;font-weight:600' }),
     amtInput, scrEl('span', { text: scrDispSym(), style: 'color:#5b6b7d' }),
-    scrEl('span', { text: 'réparti sur', style: 'font-size:0.8rem;color:#5b6b7d;margin-left:6px' }), nSelect, wSelect,
+    scrEl('span', { text: 'réparti sur', style: 'font-size:0.8rem;color:#5b6b7d;margin-left:6px' }), nSelect, wSelect, divSelect,
     scrEl('span', { text: 'ETF socle', style: 'font-size:0.8rem;color:#5b6b7d;margin-left:6px' }), etfInput, scrEl('span', { text: '%', style: 'color:#5b6b7d' })] }));
   const results = scrEl('div');
   wrap.appendChild(results);
@@ -5342,17 +5348,20 @@ function screenerQualityAllocPanel(top) {
     const amount = Math.max(0, Number(amtInput.value) || 0);
     const nLines = Number(nSelect.value) || 12;
     const wMode = wSelect.value;
+    const divOnly = divSelect.value === '1';
     const etfPct = Math.max(0, Math.min(0.9, (Number(etfInput.value) || 0) / 100));
     localStorage.setItem('scrAllocAmount', String(amount));
     localStorage.setItem('scrAllocLines', String(nLines));
     localStorage.setItem('scrAllocWeight', wMode);
+    localStorage.setItem('scrAllocDivOnly', divOnly ? '1' : '0');
     localStorage.setItem('scrAllocEtf', String(Math.round(etfPct * 100)));
     const totalUsd = dispToUsd(amount);
-    results.replaceChildren(renderAllocTable(computeAllocation(top, totalUsd * (1 - etfPct), nLines, wMode), etfPct, totalUsd * etfPct));
+    results.replaceChildren(renderAllocTable(computeAllocation(top, totalUsd * (1 - etfPct), nLines, wMode, divOnly), etfPct, totalUsd * etfPct));
   }
   amtInput.addEventListener('input', render);
   nSelect.addEventListener('change', render);
   wSelect.addEventListener('change', render);
+  divSelect.addEventListener('change', render);
   etfInput.addEventListener('input', render);
   render();
   return wrap;
