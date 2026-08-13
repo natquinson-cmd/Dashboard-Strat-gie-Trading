@@ -6764,25 +6764,8 @@ function invRenderOverview(t, labels, li) {
   const d = portfolioData;
   let h = '<div class="inv-grid">';
 
-  // Carte ETF Revolut (DCA semi-auto)
-  const rp = REVOLUT_DCA.platform;
-  if (d.platforms.includes(rp) && d.principal[rp]) {
-    const liR = d.months.length - 1;
-    const curVal = (d.principal[rp] || [])[liR] || 0;
-    const anchorTxt = revolutAnchor.ym ? invFmMonth(revolutAnchor.ym) : '—';
-    const versSinceAnchor = curVal - (revolutAnchor.value || 0);
-    h += `<div class="inv-card" style="padding:16px 20px;margin-bottom:16px;border:1px solid rgba(95,139,242,0.18)">`;
-    h += `<div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:12px">`;
-    h += `<div><div style="font-size:0.92rem;font-weight:600;display:flex;align-items:center;gap:6px">ETF Revolut <span style="font-size:0.6rem;background:rgba(29,158,116,0.15);color:#1d9e74;padding:2px 8px;border-radius:10px;font-weight:700">DCA AUTO</span></div>`;
-    h += `<div style="font-size:0.76rem;color:var(--text-secondary);margin-top:4px">20 € VUAA/mer + 10 € VFEA/jeu · valeur auto : <strong style="color:var(--text-primary)">${invFmt(Math.round(curVal))}</strong> <span style="opacity:0.8">(dont +${invFmt(Math.round(versSinceAnchor))} versés depuis ${anchorTxt})</span></div></div>`;
-    h += `<div style="display:flex;align-items:flex-end;gap:8px">`;
-    h += `<div><label style="font-size:0.6rem;color:var(--text-secondary);text-transform:uppercase;font-weight:600;display:block;margin-bottom:3px">Valeur réelle actuelle</label>`;
-    h += `<input type="number" id="revolut-anchor-input" class="inv-input" placeholder="${Math.round(curVal)}" style="max-width:140px;font-size:0.85rem"></div>`;
-    h += `<button class="inv-btn inv-btn-ok" onclick="revolutSetAnchorValue(document.getElementById('revolut-anchor-input').value)" style="white-space:nowrap">Réancrer</button>`;
-    h += `</div></div>`;
-    h += `<div style="font-size:0.66rem;color:var(--text-secondary);opacity:0.72;margin-top:8px">Saisis la valeur réelle affichée dans Revolut (tous les 3-6 mois) pour intégrer les plus-values. Entre deux, la valeur grandit automatiquement des versements.</div>`;
-    h += `</div>`;
-  }
+  // Carte ETF Revolut retirée : la ligne « Revolut » représente désormais TOUT le Portefeuille d'actions
+  // (positions + ETF), alimentée automatiquement par syncRevolutFromPositions (snapshot mensuel).
 
   h += '<div class="inv-grid inv-grid-2">';
   h += '<div class="inv-chart-card"><h3>Évolution capital brut vs net</h3><div class="inv-canvas-wrap"><canvas id="inv-ch-capital"></canvas></div></div>';
@@ -9165,6 +9148,30 @@ function revolutContribInMonth(ym, capDay) {
        + REVOLUT_DCA.vfeaThu * countWeekdayInMonth(ym, 4, capDay); // jeudi = 4
 }
 
+let positionsHistoryData = {};   // stocks/screener/positionsHistory : valeur quotidienne du Portefeuille d'actions (USD)
+function loadPositionsHistory() {
+  if (typeof db === 'undefined') return Promise.resolve();
+  return db.ref('stocks/screener/positionsHistory').once('value').then(snap => { positionsHistoryData = snap.val() || {}; }).catch(() => {});
+}
+// Ligne "Revolut" du Portfolio = valeur TOTALE du Portefeuille d'actions (positions), snapshot mensuel comme Trading Auto.
+// Les mois avant le début de l'enregistrement (ETF seul) sont PRÉSERVÉS ; aucune reconstruction du passé.
+function syncRevolutFromPositions() {
+  if (!portfolioData || !positionsHistoryData) return;
+  const d = portfolioData, p = 'Revolut';
+  if (!d.platforms.includes(p) || !Array.isArray(d.principal[p])) return;
+  const dates = Object.keys(positionsHistoryData).filter(k => /^\d{4}-\d{2}-\d{2}$/.test(k)).sort();
+  if (!dates.length) return;
+  const monthEndUsd = {};
+  dates.forEach(dt => { const v = Number((positionsHistoryData[dt] || {}).value); if (isFinite(v)) monthEndUsd[dt.slice(0, 7)] = v; });   // dates triées -> le dernier jour du mois gagne
+  const firstHistMonth = dates[0].slice(0, 7);
+  let lastVal = null;
+  for (let i = 0; i < d.months.length; i++) {
+    const ym = d.months[i];
+    if (ym < firstHistMonth) continue;                            // préserver les mois d'avant (ETF seul)
+    if (monthEndUsd[ym] != null) lastVal = monthEndUsd[ym];
+    if (lastVal != null) d.principal[p][i] = Math.round(lastVal * usdEurRate);   // USD -> EUR
+  }
+}
 function syncRevolutDca() {
   if (!portfolioData) return;
   const d = portfolioData;
@@ -9257,7 +9264,7 @@ Promise.all([
   reLoadFromFirebase(),
   loadDarwinexFromFirebase(),
   loadDarwinexDailyFromFirebase(),
-  loadRevolutAnchor(),
+  loadPositionsHistory(),
   loadDataTimestamp(),
   fetchUsdEurRate(),
   // Charger l'historique CHF AVANT de fetch le live (sinon le save du live
@@ -9273,7 +9280,7 @@ Promise.all([
   syncRobotTrading();
   syncYounitedLoan(); // auto-remplit l'emprunt Younited depuis l'échéancier officiel
   syncRevolutLoan();  // auto-remplit l'emprunt Revolut depuis l'échéancier officiel
-  syncRevolutDca();   // auto-remplit les versements ETF Revolut (DCA) depuis l'ancrage
+  syncRevolutFromPositions();   // ligne Revolut = valeur totale du Portefeuille d'actions (snapshot mensuel, USD->EUR)
   dwxSyncAggregateFromDaily(); // agrégat Darwinex (valeur/investi/P&L) depuis la série quotidienne réelle
   syncDarwinexPlatform(); // intègre Darwinex comme plateforme du portfolio
   renderRealTab();
