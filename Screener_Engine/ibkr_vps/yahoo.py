@@ -298,24 +298,31 @@ class Yahoo:
           - revCagr  : croissance annualisee du chiffre d'affaires (critere DK : reguliere >= 10 %/an)
           - fcfCagr  : croissance annualisee du free cash-flow
           - sharesChange / buyback : variation du nombre d'actions (baisse = rachats reguliers, DK)
+          - roic / roicApprox : rendement du capital investi (ratio n°1 DK) = EBIT*(1-impot)/capital investi
         None si l'historique est indisponible."""
         try:
-            types = 'annualTotalRevenue,annualFreeCashFlow,annualDilutedAverageShares'
+            types = ('annualTotalRevenue,annualFreeCashFlow,annualDilutedAverageShares,'
+                     'annualEBIT,trailingEBIT,annualTaxRateForCalcs,trailingTaxRateForCalcs,'
+                     'annualInvestedCapital,annualTotalDebt,annualStockholdersEquity,'
+                     'annualCashAndCashEquivalents,annualNetIncome')
             url = (f'{BASE}/ws/fundamentals-timeseries/v1/finance/timeseries/{symbol}'
                    f'?symbol={symbol}&type={types}&period1=1104537600&period2=1893456000')
             j = self._get(url)
             res = (j.get('timeseries') or {}).get('result') or []
             series = {}
             for r in res:
-                for t in ('annualTotalRevenue', 'annualFreeCashFlow', 'annualDilutedAverageShares'):
-                    arr = r.get(t)
-                    if not arr:
+                for k, v in r.items():
+                    if k in ('meta', 'timestamp') or not isinstance(v, list):
                         continue
-                    vals = [(a.get('asOfDate'), a['reportedValue'].get('raw')) for a in arr
+                    vals = [(a.get('asOfDate'), a['reportedValue'].get('raw')) for a in v
                             if a and a.get('reportedValue') and a['reportedValue'].get('raw') is not None]
-                    if len(vals) >= 2:
+                    if vals:
                         vals.sort(key=lambda x: x[0] or '')      # chronologique : [0]=plus ancien, [-1]=recent
-                        series[t] = [v for _, v in vals]
+                        series[k] = [val for _, val in vals]
+
+            def last(key):
+                s = series.get(key)
+                return s[-1] if s else None
 
             def cagr(vals):
                 if not vals or len(vals) < 2 or vals[0] is None or vals[-1] is None or vals[0] <= 0 or vals[-1] <= 0:
@@ -339,6 +346,26 @@ class Yahoo:
                 chg = sh[-1] / sh[0] - 1
                 out['sharesChange'] = round(chg, 4)
                 out['buyback'] = chg < -0.005                    # baisse nette du nb d'actions = rachats
+            # ROIC = NOPAT / capital investi = EBIT*(1-impot) / capital investi (ratio n°1 DK).
+            # Repli sur le resultat net si l'EBIT manque (typiquement les financieres) -> marque approx.
+            ebit = last('trailingEBIT') or last('annualEBIT')
+            tax = last('trailingTaxRateForCalcs')
+            if tax is None:
+                tax = last('annualTaxRateForCalcs')
+            if tax is None or not (0 <= tax < 0.6):
+                tax = 0.21
+            ic = last('annualInvestedCapital')
+            if not ic or ic <= 0:
+                ic = (last('annualTotalDebt') or 0) + (last('annualStockholdersEquity') or 0) - (last('annualCashAndCashEquivalents') or 0)
+            if ic and ic > 0:
+                if ebit:
+                    out['roic'] = round(ebit * (1 - tax) / ic, 4)
+                    out['roicApprox'] = False
+                else:
+                    ni = last('annualNetIncome')
+                    if ni:
+                        out['roic'] = round(ni / ic, 4)          # EBIT indispo (ex financieres) -> approx
+                        out['roicApprox'] = True
             return out or None
         except Exception:
             return None

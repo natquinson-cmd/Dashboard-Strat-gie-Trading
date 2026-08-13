@@ -5671,7 +5671,7 @@ function screenerRenderQuality(c, data, config) {
     ['Écart bénéf./cours', 'right', "Croissance des bénéfices (sur ~4 ans) moins la hausse du cours (sur 5 ans). Positif = les bénéfices ont grimpé plus vite que le cours, le multiple s'est comprimé (potentiellement décoté)."],
     ['Croiss. CA', 'right', "Croissance RÉGULIÈRE du chiffre d'affaires, en moyenne annualisée sur ~4-5 ans (critère Dividend King n°2 : au moins 10 %/an). Bien plus fiable qu'un seul trimestre : une valeur peut afficher +16 % sur un trimestre mais +2 %/an en moyenne (ex Apple). Vert = ≥ 10 %. Survole pour la croissance du free cash-flow."],
     ['PE fwd', 'right', "PER prévisionnel = cours divisé par le bénéfice par action attendu l'an prochain. Plus il est bas, moins l'action est chère. ~15 = moyenne historique du marché."],
-    ['ROE', 'right', "Rentabilité des capitaux propres = bénéfice net / fonds propres. Au-dessus de 15 % = rentable (seuil Dividend King). En petit : ROA (rentabilité des actifs), utilisé comme proxy du ROIC, le ratio n°1 de la méthode."],
+    ['ROIC', 'right', "Rendement du capital investi = résultat opérationnel après impôt (EBIT × (1 − taux d'impôt)) divisé par le capital investi (dette + fonds propres). LE ratio n°1 de Dividend King : au-dessus de 15 % = la société crée vraiment de la valeur sur son capital. Calculé sur les états financiers réels (fini le proxy). En petit : ROE. Banques (pas d'EBIT) : ROIC peu pertinent, grisé avec un ~, regarde alors le ROE."],
     ['Marge nette', 'right', "Bénéfice net divisé par le chiffre d'affaires. Au-dessus de 20 % = très rentable, souvent le signe d'un avantage concurrentiel durable."],
     ['Rendement', 'right', "Rendement du dividende = dividende annuel / cours. 2 à 4 % = sain. Au-dessus de 7 % (rouge) = souvent un piège, le marché anticipe une coupe. Vide = ne verse pas de dividende."],
     ['Payout', 'right', "Taux de distribution = part des bénéfices reversée en dividende. Seuils Dividend King : sous 40 % (vert) = idéal et durable ; 40-60 % = acceptable ; au-dessus de 60 % (rouge) = tension, dividende moins soutenable."],
@@ -5700,11 +5700,17 @@ function screenerRenderQuality(c, data, config) {
     if (y != null && y > 0 && p != null && p >= 0) { txt = (p * 100).toFixed(0) + '%'; col = p > 0.60 ? '#dd5f66' : (p < 0.40 ? '#1d9e74' : '#42546a'); }
     return scrEl('td', { text: txt, style: `padding:8px 10px;text-align:right;white-space:nowrap;${bd};color:${col}` });
   };
-  // ROE (> 15% vert) + ROA en petit dessous (proxy du ROIC, ratio n°1 de Dividend King)
+  // ROIC réel (ratio n°1 DK, > 15% vert) en principal + ROE en petit. Approx (financières sans EBIT) = grisé + ~
   const roeRoaC = (m) => {
     const box = scrEl('div', { style: 'display:flex;flex-direction:column;align-items:flex-end;gap:1px' });
-    box.appendChild(scrEl('span', { text: (m.roe == null ? '–' : (m.roe >= 0 ? '+' : '') + (m.roe * 100).toFixed(0) + '%'), style: `font-weight:600;color:${m.roe == null ? '#5b6b7d' : (m.roe >= 0.15 ? '#1d9e74' : '#dd5f66')}` }));
-    if (m.roa != null) box.appendChild(scrEl('span', { text: 'ROA ' + (m.roa * 100).toFixed(0) + '%', style: 'font-size:0.64rem;color:#9aa7b4' }));
+    if (m.roic != null) {
+      const ap = m.roicApprox, col = ap ? '#9aa7b4' : (m.roic >= 0.15 ? '#1d9e74' : '#dd5f66');
+      box.appendChild(scrEl('span', { text: (m.roic * 100).toFixed(0) + '%' + (ap ? '~' : ''), attrs: ap ? { title: 'ROIC approché (société financière sans EBIT) : peu pertinent, regarde plutôt le ROE.' } : {}, style: `font-weight:700;color:${col}${ap ? ';cursor:help' : ''}` }));
+      if (m.roe != null) box.appendChild(scrEl('span', { text: 'ROE ' + (m.roe * 100).toFixed(0) + '%', style: 'font-size:0.64rem;color:#9aa7b4' }));
+    } else {
+      box.appendChild(scrEl('span', { text: (m.roe == null ? '–' : (m.roe * 100).toFixed(0) + '%'), style: `font-weight:700;color:${m.roe == null ? '#5b6b7d' : (m.roe >= 0.15 ? '#1d9e74' : '#dd5f66')}` }));
+      if (m.roa != null) box.appendChild(scrEl('span', { text: 'ROA ' + (m.roa * 100).toFixed(0) + '%', style: 'font-size:0.64rem;color:#9aa7b4' }));
+    }
     return scrEl('td', { style: `padding:6px 8px;text-align:right;white-space:nowrap;${bd}`, kids: [box] });
   };
   // Dividende croissant (signature DK) : années consécutives de hausse du dividende

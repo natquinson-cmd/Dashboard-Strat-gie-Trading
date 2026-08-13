@@ -8,6 +8,7 @@ QUALITY_CONFIG = {
     # Seuils alignes sur la methode AQRP (Dividend King)
     'gate': {
         'minRoe': 0.15,               # DK : un bon ROE est > 15 %
+        'minRoic': 0.15,              # DK : ROIC > 15 % = ratio n°1 (la ou l'EBIT est pertinent ; financieres exemptees)
         'maxNetDebtToEbitda': 3.0,    # DK : dette/EBITDA < 3 (< 2 ideal, > 3 danger)
         'minNetMargin': 0.10,         # DK : marge nette > 20 % (10 % pour produits physiques) -> plancher 10 %
         'minRevCagr': 0.10,           # DK : croissance CA REGULIERE >= 10 %/an (moyenne annualisee ~4-5 ans, repli YoY)
@@ -48,6 +49,11 @@ def passes_quality(t, cfg=QUALITY_CONFIG):
     roe = _num(t.get('roe'))
     if roe is None or roe < g['minRoe']:
         return False, 'rentabilite insuffisante (ROE)'
+    # ROIC (ratio n°1 DK) : > 15 % la ou il est pertinent (EBIT dispo). Les financieres (ROIC
+    # approche via le resultat net) sont jugees sur le ROE, pas le ROIC -> exemptees du gate.
+    roic = _num(t.get('roic'))
+    if roic is not None and not t.get('roicApprox') and roic < g.get('minRoic', 0.15):
+        return False, 'ROIC insuffisant (< 15 %)'
     if g['requirePositiveFcf']:
         fcf = _num(t.get('freeCashflow'))
         if fcf is not None and fcf <= 0:
@@ -152,23 +158,24 @@ def rate_universe(universe, cfg=QUALITY_CONFIG):
         'fcf': _dist(survivors, lambda t: _num(t.get('fcfYield'))),
         'fpe': _dist(survivors, fwdpe_signal),
         'div': _dist(survivors, lambda t: _div_signal(t, cfg)),
-        # GARP : croissance REGULIERE du CA (moyenne annualisee), marge nette, ROE, ROA (~ROIC, DK)
+        # GARP : croissance REGULIERE du CA (moyenne annualisee), marge nette, ROE, ROIC (ratio n°1 DK)
         # + rachats d'actions (baisse du nombre d'actions = critere DK)
         'grw': _dist(survivors, _growth),
         'nm': _dist(survivors, lambda t: _num(t.get('netMargin'))),
         'roe': _dist(survivors, lambda t: _num(t.get('roe'))),
-        'roa': _dist(survivors, lambda t: _num(t.get('roa'))),
+        'roic': _dist(survivors, lambda t: _num(t.get('roic')) if _num(t.get('roic')) is not None else _num(t.get('roa'))),
         'buy': _dist(survivors, lambda t: (-_num(t.get('sharesChange'))) if _num(t.get('sharesChange')) is not None else None),
     }
     w = cfg['weights']
 
     def garp_pct(t):
-        # moyenne des percentiles dispo : croissance CA (moyenne) + marge nette + ROE + ROA + rachats
+        # moyenne des percentiles dispo : croissance CA (moyenne) + marge nette + ROE + ROIC + rachats
         sc = _num(t.get('sharesChange'))
+        ce = _num(t.get('roic')) if _num(t.get('roic')) is not None else _num(t.get('roa'))
         ps = [p for p in (_pct(dists['grw'], _growth(t)),
                           _pct(dists['nm'], _num(t.get('netMargin'))),
                           _pct(dists['roe'], _num(t.get('roe'))),
-                          _pct(dists['roa'], _num(t.get('roa'))),
+                          _pct(dists['roic'], ce),
                           _pct(dists['buy'], (-sc) if sc is not None else None)) if p is not None]
         return (sum(ps) / len(ps)) if ps else None
 
@@ -193,7 +200,8 @@ def rate_universe(universe, cfg=QUALITY_CONFIG):
                 'price': t.get('price'), 'marketCap': t.get('marketCap'), 'exchange': t.get('exchange'),
                 'peg': t.get('peg'), 'trailingPE': t.get('trailingPE'), 'forwardPE': t.get('forwardPE'),
                 'earningsCAGR': t.get('earningsCAGR'), 'priceCAGR': t.get('priceCAGR'), 'gap': t.get('gap'),
-                'roe': t.get('roe'), 'roa': t.get('roa'), 'grossMargin': t.get('grossMargin'), 'netMargin': t.get('netMargin'),
+                'roe': t.get('roe'), 'roa': t.get('roa'), 'roic': t.get('roic'), 'roicApprox': t.get('roicApprox'),
+                'grossMargin': t.get('grossMargin'), 'netMargin': t.get('netMargin'),
                 'fcfYield': t.get('fcfYield'), 'revenueGrowthYoY': t.get('revenueGrowthYoY'),
                 'revCagr': t.get('revCagr'), 'revYears': t.get('revYears'), 'fcfCagr': t.get('fcfCagr'),
                 'sharesChange': t.get('sharesChange'), 'buyback': t.get('buyback'),
