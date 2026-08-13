@@ -5079,7 +5079,7 @@ function buildScreenerParams(panel, config) {
   }));
 }
 
-const SCR_RATING_COL = { 'Achat fort': ['#d1f0e3', '#127a54'], 'Achat': ['#e4f5ee', '#1d7a5c'], 'Neutre': ['#eef2f8', '#5b6b7d'], 'Surévaluée': ['#fdeaea', '#c0392b'] };
+const SCR_RATING_COL = { 'Achat fort': ['#d1f0e3', '#127a54'], 'Achat': ['#e4f5ee', '#1d7a5c'], 'Neutre': ['#eef2f8', '#5b6b7d'], 'Surévaluée': ['#fdeaea', '#c0392b'], 'Détenu': ['#e8effe', '#3563e9'] };
 // Indicateurs fondamentaux du screener, réutilisés dans "Mes positions" et "Répartition" (mêmes seuils/couleurs).
 // m = objet metrics (SCR_PRICE_MAP pour les positions, t.metrics pour la répartition).
 const SCR_FUNDA_HEAD = [
@@ -5139,49 +5139,81 @@ function scrFundaCells(m, sector, bd) {
 // (marge de securite), Surevaluee et potentiel negatif exclus, plafond 10 %/ligne et 35 %/secteur.
 const SCR_ALLOC_LINE_CAP = 0.10;    // max par ligne
 const SCR_ALLOC_SECTOR_CAP = 0.35;  // max par secteur (diversification)
-function computeAllocation(top, amount, nLines, weightMode, divOnly) {
-  const LC = SCR_ALLOC_LINE_CAP, SC = SCR_ALLOC_SECTOR_CAP;
-  const perSectorMax = Math.max(1, Math.ceil(SC / LC));   // max titres/secteur (diversifie la selection)
-  // 1) SELECTION par CONVICTION : score decroissant (Achat fort, puis Achat, puis Neutre), diversifiee.
-  //    Filtre optionnel "dividende croissant" (partie Revenus Passifs de la methode AQRP).
+// Valeur actuellement détenue par ticker (sleeve ACTIONS, en USD ; ETF socle exclu), depuis myPositions.
+function scrHoldingsUsd() {
+  const h = {};
+  scrGetPositions().forEach((p) => {
+    const tk = (p.ticker || '').toUpperCase(), d = SCR_PRICE_MAP[tk];
+    if (d && d.sector === 'ETF') return;                       // ETF = socle, pas dans le sleeve actions
+    const qty = (p.qty != null) ? p.qty : ((p.amount != null && p.pru) ? p.amount / p.pru : 0);
+    const pu = d ? scrToUsd(d.price, d.exchange) : null;
+    const val = (pu != null) ? qty * pu : qty * (p.pru || 0);
+    if (val > 0) h[tk] = (h[tk] || 0) + val;
+  });
+  return h;
+}
+// Allocation DCA POSITION-AWARE : répartit `amount` (argent libéré) en comblant l'écart à la cible,
+// en tenant compte des positions déjà détenues (on ne vend jamais). Plafond secteur = paramètre.
+function computeAllocation(top, amount, nLines, weightMode, divOnly, holdings, sectorCap) {
+  holdings = holdings || {};
+  const LC = SCR_ALLOC_LINE_CAP, SC = (sectorCap && sectorCap > 0) ? sectorCap : SCR_ALLOC_SECTOR_CAP;
+  const perSectorMax = Math.max(1, Math.round(SC / LC));
+  // 1) SÉLECTION : candidats screener (conviction décroissante, diversifiée) + titres DÉTENUS hors screener (renforcement)
   const pool = (top || []).filter((t) => t.rating && t.rating !== 'Surévaluée' && (!divOnly || (t.metrics && t.metrics.divGrowing === true)))
     .sort((a, b) => (b.valuationScore || 0) - (a.valuationScore || 0));
-  const cands = []; const selCount = {};
+  const cands = [], selCount = {}, seen = new Set();
   for (const t of pool) {
     const s = t.sector || 'N/A';
     if ((selCount[s] || 0) >= perSectorMax) continue;
-    selCount[s] = (selCount[s] || 0) + 1; cands.push(t);
+    selCount[s] = (selCount[s] || 0) + 1; cands.push(t); seen.add(String(t.symbol || '').toUpperCase());
     if (cands.length >= nLines) break;
   }
-  if (!cands.length) return { rows: [], cash: 0 };
+  Object.keys(holdings).forEach((tk) => {                       // titres détenus hors sélection -> ajoutés pour renforcement
+    if (seen.has(tk) || !(holdings[tk] > 0)) return;
+    const d = SCR_PRICE_MAP[tk]; if (!d) return;
+    cands.push({ symbol: tk, name: d.name || tk, sector: d.sector || 'N/A', rating: d.rating || 'Détenu', valuationScore: d.valuationScore || 0, metrics: d, held: true });
+    seen.add(tk);
+  });
+  if (!cands.length) return { rows: [], cash: amount, deployed: 0 };
   const sec = cands.map((t) => t.sector || 'N/A');
-  // 2) POIDS par POTENTIEL de l'Objectif (plancher 3 % : un titre choisi pour sa conviction mais a
-  //    faible/negatif potentiel garde une petite place au lieu de tomber a zero).
   const potOf = (t) => { const m = t.metrics || {}, fp = scrFairPrice(m, t.sector); return (fp != null && m.price > 0) ? (fp - m.price) / m.price : 0; };
   const pot = cands.map(potOf);
-  // POIDS : par CONVICTION (score qualité/valo, façon Dividend King : les plus solides pèsent le plus)
-  // ou par POTENTIEL de l'Objectif (plancher 3 %). Défaut = potentiel.
+  // 2) POIDS CIBLE (dans le sleeve actions) : potentiel (plancher 3 %) ou conviction, plafonds ligne (10 %) + secteur (SC)
   const base = (weightMode === 'conviction') ? cands.map((t) => Math.max(1, t.valuationScore || 1)) : pot.map((p) => Math.max(p, 0.03));
   const sum0 = base.reduce((a, b) => a + b, 0) || 1;
   let w = base.map((b) => b / sum0);
-  for (let iter = 0; iter < 60; iter++) {
+  for (let iter = 0; iter < 80; iter++) {
     let excess = 0;
-    // plafond par LIGNE
     w = w.map((x) => { if (x > LC + 1e-9) { excess += x - LC; return LC; } return x; });
-    // plafond par SECTEUR : on ramene chaque secteur en excès à SC au prorata
     const secSum = {}; sec.forEach((s, i) => { secSum[s] = (secSum[s] || 0) + w[i]; });
     const scale = {}; for (const s in secSum) if (secSum[s] > SC + 1e-9) scale[s] = SC / secSum[s];
     if (Object.keys(scale).length) w = w.map((x, i) => { if (scale[sec[i]]) { const cut = x * (1 - scale[sec[i]]); excess += cut; return x - cut; } return x; });
     if (excess < 1e-9) break;
-    // redistribue vers les lignes sous le cap ligne ET dont le secteur est sous le cap secteur
     const secSum2 = {}; sec.forEach((s, i) => { secSum2[s] = (secSum2[s] || 0) + w[i]; });
     const room = w.map((x, i) => (secSum2[sec[i]] < SC - 1e-9) ? Math.max(0, LC - x) : 0);
     const totalRoom = room.reduce((a, b) => a + b, 0);
-    if (totalRoom < 1e-9) break;   // saturé -> le surplus reste en liquidités
+    if (totalRoom < 1e-9) break;
     w = w.map((x, i) => x + excess * (room[i] / totalRoom));
   }
-  const totalW = w.reduce((a, b) => a + b, 0);
-  return { rows: cands.map((t, i) => ({ t, pot: pot[i], weight: w[i], amount: w[i] * amount })), cash: Math.max(0, 1 - totalW) * amount };
+  // 3) DCA POSITION-AWARE : cible en valeur = w_i × (sleeve détenu + argent à déployer) ; on comble l'écart, sans vendre.
+  const cur = cands.map((t) => holdings[String(t.symbol || '').toUpperCase()] || 0);
+  const T = cur.reduce((a, b) => a + b, 0) + amount;
+  const gap = cands.map((_, i) => Math.max(0, w[i] * T - cur[i]));
+  const gapSum = gap.reduce((a, b) => a + b, 0);
+  let add;
+  if (gapSum <= 1e-9) add = cands.map(() => 0);
+  else if (gapSum >= amount) add = gap.map((gp) => gp * amount / gapSum);   // cas courant : `amount` réparti sur les plus gros écarts
+  else {                                                                     // `amount` couvre tous les écarts + surplus
+    add = gap.slice(); const rem = amount - gapSum;
+    const roomCap = cands.map((_, i) => Math.max(0, LC * T - (cur[i] + add[i])));
+    const roomSum = roomCap.reduce((a, b) => a + b, 0);
+    if (roomSum > 1e-9) add = add.map((a2, i) => a2 + rem * (roomCap[i] / roomSum));
+  }
+  const deployed = add.reduce((a, b) => a + b, 0);
+  const rows = cands.map((t, i) => ({ t, pot: pot[i], targetWeight: w[i], current: cur[i], add: add[i], resultingWeight: T > 0 ? (cur[i] + add[i]) / T : 0, held: !!t.held }))
+    .filter((r) => r.add > amount * 0.002 || r.current > 0)                 // on affiche ce qui reçoit de l'argent OU ce qu'on détient
+    .sort((a, b) => (b.add - a.add) || (b.resultingWeight - a.resultingWeight));
+  return { rows, cash: Math.max(0, amount - deployed), deployed };
 }
 function renderAllocTable(res, etfPct, etfAmount) {
   const alloc = res.rows || [];
@@ -5192,7 +5224,7 @@ function renderAllocTable(res, etfPct, etfAmount) {
   [['#', 'left'], ['Titre', 'left'], ['Note', 'left'], ['Secteur', 'left'], ['Potentiel', 'right']].forEach(([t, al]) =>
     thead.appendChild(scrEl('th', { text: t, style: `padding:8px 10px;text-align:${al};font-size:0.68rem;text-transform:uppercase;letter-spacing:.03em;border-bottom:1px solid #e3e8ee;white-space:nowrap` })));
   scrFundaHeadCells(2).forEach((th) => thead.appendChild(th));   // infos screener : ROIC, Croiss CA, PEG, Marge, Rendement, Payout, Div crois, FCF yield
-  [['Poids', 'right'], ['Montant', 'right']].forEach(([t, al]) =>
+  [['Poids visé', 'right'], ['À déployer', 'right']].forEach(([t, al]) =>
     thead.appendChild(scrEl('th', { text: t, style: `padding:8px 10px;text-align:${al};font-size:0.68rem;text-transform:uppercase;letter-spacing:.03em;border-bottom:1px solid #e3e8ee;white-space:nowrap` })));
   const tbody = scrEl('tbody');
   // ETF socle en tête (méthode Dividend King : ETF socle 50-60% + 5-10 actions de qualité)
@@ -5221,11 +5253,13 @@ function renderAllocTable(res, etfPct, etfAmount) {
       scrEl('td', { text: t.sector || '–', style: `padding:6px 10px;color:#5b6b7d;font-size:0.78rem;${bd}` }),
       scrEl('td', { text: (a.pot >= 0 ? '+' : '') + (a.pot * 100).toFixed(0) + '%', style: `padding:6px 10px;text-align:right;font-weight:700;color:${a.pot >= 0 ? '#1d9e74' : '#dd5f66'};${bd}` }),
       ...scrFundaCells(m, t.sector, bd).slice(2),
-      scrEl('td', { text: (a.weight * (1 - etfPct) * 100).toFixed(1) + '%', style: `padding:6px 10px;text-align:right;font-weight:700;color:#42546a;${bd}` }),
-      scrEl('td', { text: scrUsd(a.amount), style: `padding:6px 10px;text-align:right;font-weight:800;color:#22303f;${bd}` }),
+      scrEl('td', { attrs: { title: "Poids visé dans ton portefeuille d'actions après ce versement (cible " + (a.targetWeight * 100).toFixed(0) + ' %)' }, text: (a.resultingWeight * 100).toFixed(1) + '%', style: `padding:6px 10px;text-align:right;font-weight:700;color:#42546a;cursor:help;${bd}` }),
+      scrEl('td', { style: `padding:6px 10px;text-align:right;${bd}`, kids: [scrEl('div', { style: 'display:flex;flex-direction:column;align-items:flex-end;gap:1px', kids: [
+        scrEl('span', { text: a.add > 0 ? '+' + scrUsd(a.add) : '–', style: `font-weight:800;color:${a.add > 0 ? '#1d9e74' : '#9aa7b4'}` }),
+        (a.current > 0 ? scrEl('span', { text: 'détenu ' + scrUsd(a.current), style: 'font-size:0.62rem;color:#9aa7b4' }) : scrEl('span'))] })] }),
     ] }));
   });
-  const totA = alloc.reduce((s, a) => s + a.amount, 0);
+  const totA = alloc.reduce((s, a) => s + a.add, 0);
   const cash = res.cash || 0, grand = totA + cash + etfAmount;
   // ligne Liquidités si la diversification laisse un surplus non réparti
   if (cash > grand * 0.005) {
@@ -5250,7 +5284,7 @@ function renderAllocTable(res, etfPct, etfAmount) {
   ] }));
   const table = scrEl('table', { style: 'width:100%;border-collapse:collapse;font-size:0.82rem', kids: [scrEl('thead', { kids: [thead] }), tbody] });
   // récap par secteur
-  const bySec = {}; alloc.forEach((a) => { const s = a.t.sector || 'N/A'; bySec[s] = (bySec[s] || 0) + a.weight; });
+  const bySec = {}; alloc.forEach((a) => { const s = a.t.sector || 'N/A'; bySec[s] = (bySec[s] || 0) + a.resultingWeight; });
   const secChips = scrEl('div', { style: 'display:flex;gap:6px;flex-wrap:wrap;margin-top:10px' });
   Object.entries(bySec).sort((a, b) => b[1] - a[1]).forEach(([s, wv]) => {
     secChips.appendChild(scrEl('span', { text: s + ' ' + Math.round(wv * 100) + '%', style: 'background:#f6f8fb;color:#5b6b7d;border-radius:20px;padding:2px 9px;font-size:0.68rem;font-weight:600' }));
@@ -5687,7 +5721,7 @@ function screenerQualityAllocPanel(top) {
   const wrap = scrEl('div', { style: 'background:#fff;border:1px solid #e3e8ee;border-radius:14px;padding:14px;margin-bottom:14px' });
   wrap.appendChild(scrEl('div', { style: 'display:flex;align-items:baseline;gap:8px;margin-bottom:12px;flex-wrap:wrap', kids: [
     scrEl('span', { text: 'Répartition proposée', style: 'font-weight:800;color:#22303f;font-size:0.95rem' }),
-    scrEl('span', { text: "titres choisis par conviction, pondérés au choix (potentiel ou conviction), cadre indicatif, pas un conseil", style: 'font-size:0.72rem;color:#5b6b7d' })] }));
+    scrEl('span', { text: "plan de DCA pour ton argent libéré de Debitum : où placer selon tes positions déjà détenues, cadre indicatif, pas un conseil", style: 'font-size:0.72rem;color:#5b6b7d' })] }));
   const savedAmt = Number(localStorage.getItem('scrAllocAmount')) || 10000;
   let savedN = Number(localStorage.getItem('scrAllocLines')) || 12;
   if (savedN > 15) savedN = 15;   // DK : 10-15 lignes max
@@ -5700,36 +5734,42 @@ function screenerQualityAllocPanel(top) {
   [['potentiel', 'poids : potentiel'], ['conviction', 'poids : conviction']].forEach(([v, label]) => { const o = scrEl('option', { text: label, attrs: { value: v } }); if (v === savedW) o.selected = true; wSelect.appendChild(o); });
   const savedEtf = localStorage.getItem('scrAllocEtf') != null ? Number(localStorage.getItem('scrAllocEtf')) : 50;
   const etfInput = scrEl('input', { attrs: { type: 'number', min: '0', max: '90', step: '5', value: String(savedEtf), title: 'Part en ETF socle (méthode Dividend King : ETF socle 50-60% + 5-10 actions)' }, style: 'width:58px;padding:8px 8px;border:1px solid #e3e8ee;border-radius:9px;font-size:0.88rem;font-weight:600;color:#42546a' });
+  const savedSec = localStorage.getItem('scrAllocSecCap') != null ? Number(localStorage.getItem('scrAllocSecCap')) : 35;
+  const secInput = scrEl('input', { attrs: { type: 'number', min: '10', max: '100', step: '5', value: String(savedSec), title: "Plafond par secteur (diversification). Élargis-le si tu veux t'autoriser plus de concentration." }, style: 'width:58px;padding:8px 8px;border:1px solid #e3e8ee;border-radius:9px;font-size:0.88rem;font-weight:600;color:#42546a' });
   const savedDiv = localStorage.getItem('scrAllocDivOnly') === '1';
   const divSelect = scrEl('select', { attrs: { title: 'Restreindre aux titres à dividende CROISSANT (partie Revenus Passifs de la méthode)' }, style: selStyle });
   [['0', 'tous les titres'], ['1', 'dividende croissant']].forEach(([v, label]) => { const o = scrEl('option', { text: label, attrs: { value: v } }); if ((v === '1') === savedDiv) o.selected = true; divSelect.appendChild(o); });
   wrap.appendChild(scrEl('div', { style: 'display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px', kids: [
-    scrEl('label', { text: 'Montant à allouer', style: 'font-size:0.8rem;color:#42546a;font-weight:600' }),
+    scrEl('label', { text: 'Argent à déployer', attrs: { title: 'Ex : argent qui se libère de Debitum. Réparti en priorité là où tu es sous ta cible.' }, style: 'font-size:0.8rem;color:#42546a;font-weight:600;cursor:help' }),
     amtInput, scrEl('span', { text: scrDispSym(), style: 'color:#5b6b7d' }),
     scrEl('span', { text: 'réparti sur', style: 'font-size:0.8rem;color:#5b6b7d;margin-left:6px' }), nSelect, wSelect, divSelect,
-    scrEl('span', { text: 'ETF socle', style: 'font-size:0.8rem;color:#5b6b7d;margin-left:6px' }), etfInput, scrEl('span', { text: '%', style: 'color:#5b6b7d' })] }));
+    scrEl('span', { text: 'ETF socle', style: 'font-size:0.8rem;color:#5b6b7d;margin-left:6px' }), etfInput, scrEl('span', { text: '%', style: 'color:#5b6b7d' }),
+    scrEl('span', { text: 'max secteur', style: 'font-size:0.8rem;color:#5b6b7d;margin-left:6px' }), secInput, scrEl('span', { text: '%', style: 'color:#5b6b7d' })] }));
   const results = scrEl('div');
   wrap.appendChild(results);
-  wrap.appendChild(scrEl('div', { style: 'margin-top:10px;font-size:0.72rem;color:#5b6b7d', text: "Structure Dividend King : ETF socle (S&P 500 / MSCI World, la base stable, 50-60 %) + 5-10 actions de qualité. Actions choisies par conviction (meilleures notes, Surévaluée exclues, max 4/secteur), pondérées au choix (conviction/qualité façon DK, ou potentiel de l'Objectif), plafond 10 %/ligne et 35 %/secteur. Étale tes achats (DCA). La décision reste la tienne." }));
+  wrap.appendChild(scrEl('div', { style: 'margin-top:10px;font-size:0.72rem;color:#5b6b7d', text: "Plan de DCA : l'argent que tu déploies (ex libéré de Debitum) va EN PRIORITÉ là où tu es le plus sous ta cible, en tenant compte de tes positions déjà détenues (on ne vend jamais). Cible = potentiel de l'Objectif (ou conviction), plafond 10 %/ligne et max secteur RÉGLABLE. Tes titres détenus hors screener peuvent aussi être renforcés. Structure DK : ETF socle 50-60 % + actions de qualité. La décision reste la tienne." }));
   function render() {
     const amount = Math.max(0, Number(amtInput.value) || 0);
     const nLines = Number(nSelect.value) || 12;
     const wMode = wSelect.value;
     const divOnly = divSelect.value === '1';
     const etfPct = Math.max(0, Math.min(0.9, (Number(etfInput.value) || 0) / 100));
+    const secCap = Math.max(0.10, Math.min(1, (Number(secInput.value) || 35) / 100));
     localStorage.setItem('scrAllocAmount', String(amount));
     localStorage.setItem('scrAllocLines', String(nLines));
     localStorage.setItem('scrAllocWeight', wMode);
     localStorage.setItem('scrAllocDivOnly', divOnly ? '1' : '0');
     localStorage.setItem('scrAllocEtf', String(Math.round(etfPct * 100)));
+    localStorage.setItem('scrAllocSecCap', String(Math.round(secCap * 100)));
     const totalUsd = dispToUsd(amount);
-    results.replaceChildren(renderAllocTable(computeAllocation(top, totalUsd * (1 - etfPct), nLines, wMode, divOnly), etfPct, totalUsd * etfPct));
+    results.replaceChildren(renderAllocTable(computeAllocation(top, totalUsd * (1 - etfPct), nLines, wMode, divOnly, scrHoldingsUsd(), secCap), etfPct, totalUsd * etfPct));
   }
   amtInput.addEventListener('input', render);
   nSelect.addEventListener('change', render);
   wSelect.addEventListener('change', render);
   divSelect.addEventListener('change', render);
   etfInput.addEventListener('input', render);
+  secInput.addEventListener('input', render);
   render();
   return wrap;
 }
