@@ -46,14 +46,16 @@ def passes_quality(t, cfg=QUALITY_CONFIG):
     mc = _num(t.get('marketCap'))
     if mc is None or mc < g['minMarketCap']:
         return False, 'trop petite'
+    # Rentabilite : le ROIC (ratio n°1 DK) juge quand il est PERTINENT (EBIT dispo -> exact). Sinon
+    # (financieres via resultat net, ou ROIC indispo) on juge au ROE. Evite de rejeter a tort les
+    # machines a rachats dont les capitaux propres sont negatifs -> ROE indefini mais ROIC excellent (ex FICO).
     roe = _num(t.get('roe'))
-    if roe is None or roe < g['minRoe']:
-        return False, 'rentabilite insuffisante (ROE)'
-    # ROIC (ratio n°1 DK) : > 15 % la ou il est pertinent (EBIT dispo). Les financieres (ROIC
-    # approche via le resultat net) sont jugees sur le ROE, pas le ROIC -> exemptees du gate.
     roic = _num(t.get('roic'))
-    if roic is not None and not t.get('roicApprox') and roic < g.get('minRoic', 0.15):
-        return False, 'ROIC insuffisant (< 15 %)'
+    if roic is not None and not t.get('roicApprox'):
+        if roic < g.get('minRoic', 0.15):
+            return False, 'ROIC insuffisant (< 15 %)'
+    elif roe is None or roe < g['minRoe']:
+        return False, 'rentabilite insuffisante (ROE)'
     if g['requirePositiveFcf']:
         fcf = _num(t.get('freeCashflow'))
         if fcf is not None and fcf <= 0:
