@@ -5093,7 +5093,11 @@ function scrGlobalNote(m) {
   return Math.round(0.70 * vs + 0.30 * adj);
 }
 function scrRatingFromScore(s) {
-  return s >= 80 ? 'Achat fort' : (s >= 60 ? 'Achat' : (s >= 40 ? 'Neutre' : 'Surévaluée'));
+  // Barème calé sur la note GLOBALE (comprimée ~38-79 par le mélange 70 % valo + 30 % moat), recalibré
+  // via panel multi-agents : reproduit la distribution DK ~3/12/22/15 sur les survivants (l'ancien 80/60/40
+  // rendait "Achat fort" inatteignable, max=79). Les 80/60/40 restent en place côté moteur pour la note
+  // de valorisation BRUTE (échelle 0-100 non comprimée) : deux échelles, deux barèmes.
+  return s >= 75 ? 'Achat fort' : (s >= 66 ? 'Achat' : (s >= 51 ? 'Neutre' : 'Surévaluée'));
 }
 // Pastille de Note (rating + score /100). Si un moat existe, la Note devient GLOBALE (rating re-dérivé + '*').
 function scrNoteChip(m) {
@@ -5907,7 +5911,11 @@ function screenerQualityAllocPanel(top) {
   return wrap;
 }
 function screenerRenderQuality(c, data, config) {
-  const s = data.summary || {}, top = data.top || [];
+  const s = data.summary || {};
+  // Note affichée = Note GLOBALE (70 % valo + 30 % moat). On trie et on note le tableau là-dessus
+  // (repli valuationScore si le moat n'est pas encore fusionné), pour que l'ordre colle à la colonne Note.
+  const scrRowNote = (cd) => { const d = SCR_PRICE_MAP[String(cd.symbol || '').toUpperCase()]; const g = d ? scrGlobalNote(d) : null; return (g != null) ? g : (cd.valuationScore != null ? cd.valuationScore : -1); };
+  const top = [...(data.top || [])].sort((a, b) => scrRowNote(b) - scrRowNote(a));
   const frag = document.createDocumentFragment();
   frag.appendChild(screenerPositionsModule());
   frag.appendChild(screenerModeBar());
@@ -5916,7 +5924,7 @@ function screenerRenderQuality(c, data, config) {
   [['Notées', String(top.length), 'Achat fort → Surévaluée'],
    ['Univers qualité', String(s.universe ?? '–'), 'grandes caps US + Europe'],
    ['Passent le filtre', String(s.survivors ?? '–'), 'ROE, FCF, dette'],
-   ['Achat fort', String(top.filter((t) => t.rating === 'Achat fort').length), 'les moins chères']
+   ['Achat fort', String(top.filter((t) => scrRatingFromScore(scrRowNote(t)) === 'Achat fort').length), 'les mieux notées']
   ].forEach((k) => grid.appendChild(scrEl('div', { cls: 'kpi-card', kids: [
     scrEl('div', { cls: 'stripe', style: 'background:linear-gradient(90deg,#1d9e74,#34d399)' }),
     scrEl('div', { cls: 'label', text: k[0] }), scrEl('div', { cls: 'value', style: 'font-size:1.5rem', text: k[1] }), scrEl('div', { cls: 'sub', text: k[2] })]})));
@@ -5933,12 +5941,12 @@ function screenerRenderQuality(c, data, config) {
   const cols = [
     ['#', 'left', ''],
     ['Ticker', 'left', 'Symbole boursier. Clique pour ouvrir le graphique TradingView (passable en ordre via IBKR).'],
+    ['Note', 'left', "Note GLOBALE = 70 % valorisation + 30 % moat (avec malus si l'IA menace le modèle ou si le moat s'érode). Achat fort = solide, décotée ET moat large ; Surévaluée = chère même après crédit du moat. Le tableau est trié sur cette note. Repérage, pas un conseil."],
     ['Cours', 'left', "Dernier cours et variation par rapport à la clôture de la veille (vert = hausse du jour, rouge = baisse). Le mini-graphique montre l'évolution du cours sur ~3 mois."],
     ['Objectif', 'left', "Juste prix estimé par NOTRE modèle (pas les analystes) : un PE cible ancré sur la croissance des bénéfices (PEG ~1,1, borné 13-26), pondéré par une FIABILITÉ. La fiabilité baisse pour les cycliques (PE anormalement bas = bénéfices de pic, pic de croissance, secteur énergie/matériaux/finance) : le juste prix reste alors proche du cours au lieu d'exploser. Le % = potentiel vs le cours (vert = marge d'achat, rouge = cher). Estimation mécanique, pas un conseil."],
     ['Secteur', 'left', "Secteur d'activité de la société."],
     ['Pays', 'left', "Pays du siège social de la société."],
     ['Moat', 'left', "Analyse qualitative du moat (Large / Étroit / Aucun) + note /100 et exposition à l'IA (favorable / neutre / menacé). Opinion de Claude, pas une donnée mesurée ; survole pour la justification. Non auto-actualisée."],
-    ['Note', 'left', "Note de valorisation au sein des sociétés de qualité. Achat fort = solide ET décotée ; Surévaluée = chère. Combine PEG, écart bénéfices/cours, PE prévisionnel, FCF et dividende. C'est du repérage, pas un conseil."],
     ['PEG', 'right', "PEG = PER divisé par la croissance des bénéfices. Sous 1 = pas cher au regard de la croissance ; au-dessus de 2 = cher."],
     ['Écart bénéf./cours', 'right', "Croissance des bénéfices (sur ~4 ans) moins la hausse du cours (sur 5 ans). Positif = les bénéfices ont grimpé plus vite que le cours, le multiple s'est comprimé (potentiellement décoté)."],
     ['Croiss. CA', 'right', "Croissance RÉGULIÈRE du chiffre d'affaires, en moyenne annualisée sur ~4-5 ans (critère Dividend King n°2 : au moins 10 %/an). Bien plus fiable qu'un seul trimestre : une valeur peut afficher +16 % sur un trimestre mais +2 %/an en moyenne (ex Apple). Vert = ≥ 10 %. Survole pour la croissance du free cash-flow."],
@@ -6018,12 +6026,12 @@ function screenerRenderQuality(c, data, config) {
         scrEl('div', { kids: [
           scrEl('div', { style: 'display:flex;align-items:center;gap:5px', kids: m.buyback ? [link, scrEl('span', { text: '↺', attrs: { title: "Rachats d'actions réguliers : le nombre d'actions diminue (" + (m.sharesChange != null ? (m.sharesChange * 100).toFixed(0) + ' % sur ~4 ans' : 'baisse') + '). Critère Dividend King.' }, style: 'color:#1d9e74;font-weight:800;cursor:help;font-size:0.85rem' })] : [link] }),
           scrEl('div', { text: cd.name || '', style: 'color:#5b6b7d;font-size:0.72rem;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap' })] })] })] }),
+      scrEl('td', { style: `padding:8px 10px;${bd}`, kids: [scrNoteChip(SCR_PRICE_MAP[String(cd.symbol || '').toUpperCase()] || { valuationScore: cd.valuationScore, rating: cd.rating })] }),
       scrCoursCell(m, bd),
       scrTargetCell(m, cd.sector, bd),
       scrEl('td', { text: cd.sector || '–', style: `padding:8px 10px;color:#5b6b7d;${bd}` }),
       scrEl('td', { text: scrCountryOf(m), style: `padding:8px 10px;color:#5b6b7d;font-size:0.82rem;white-space:nowrap;${bd}` }),
       scrMoatCell(SCR_PRICE_MAP[String(cd.symbol || '').toUpperCase()] || m, 'padding:8px 10px', bd),
-      scrEl('td', { style: `padding:8px 10px;${bd}`, kids: [scrNoteChip(SCR_PRICE_MAP[String(cd.symbol || '').toUpperCase()] || { valuationScore: cd.valuationScore, rating: cd.rating })] }),
       numC(m.peg, 2), pctC(m.gap, 0), crCagrC(m), numC(m.forwardPE, 1), roeRoaC(m), pctC(m.netMargin, 0.20), divYieldC(m.dividendYield), payoutC(m.payoutRatio, m.dividendYield), divGrowthC(m), pctC(m.fcfYield, 0.03),
       scrEl('td', { text: scrCap(m.marketCap, m.exchange), style: `padding:8px 10px;text-align:right;color:#5b6b7d;${bd}` }),
     ]}));
