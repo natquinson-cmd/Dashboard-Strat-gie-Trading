@@ -81,10 +81,9 @@ def main():
     push(db, 'stocks/screener/livePrices', {'generatedAt': _now_iso(), 'prices': prices})
     print(f'Cours live pousses : {len(prices)}/{len(tickers)} ({", ".join(p["ticker"] for p in prices)})')
 
-    # --- Instantane quotidien du portefeuille (valeur + investi, en USD) ---
+    # --- Instantane quotidien du portefeuille (valeur + investi, en USD) + composition par ticker ---
     fx = _fx_rates()
-    value = 0.0
-    invested = 0.0
+    agg = {}   # ticker -> {value, invested} agrege (permet le detail par position au clic d'un jour)
     for p in poslist:
         t = str(p['ticker']).upper().strip()
         try:
@@ -92,16 +91,18 @@ def main():
             pru = float(p.get('pru') or 0)
         except (TypeError, ValueError):
             continue
-        invested += qty * pru
-        if t in pmap:
-            pu = _to_usd(pmap[t][0], pmap[t][1], fx)
-            value += qty * (pu if pu is not None else pru)   # cours indispo -> on retient le cout (P&L neutre)
-        else:
-            value += qty * pru
+        pu = _to_usd(pmap[t][0], pmap[t][1], fx) if t in pmap else None
+        lv = qty * (pu if pu is not None else pru)   # cours indispo -> on retient le cout (P&L neutre)
+        a = agg.setdefault(t, {'value': 0.0, 'invested': 0.0})
+        a['value'] += lv
+        a['invested'] += qty * pru
+    lines = [{'ticker': k, 'value': round(v['value'], 2), 'invested': round(v['invested'], 2)} for k, v in sorted(agg.items())]
+    value = round(sum(v['value'] for v in agg.values()), 2)
+    invested = round(sum(v['invested'] for v in agg.values()), 2)
     day = datetime.now().strftime('%Y-%m-%d')                # date locale du VPS (cloture US ~22h FR)
-    snap = {'value': round(value, 2), 'invested': round(invested, 2), 'ts': _now_iso()}
+    snap = {'value': value, 'invested': invested, 'ts': _now_iso(), 'lines': lines}
     push(db, f'stocks/screener/positionsHistory/{day}', snap)
-    print(f'Instantane {day} : valeur ${snap["value"]:.0f} / investi ${snap["invested"]:.0f}')
+    print(f'Instantane {day} : valeur ${value:.0f} / investi ${invested:.0f} ({len(lines)} lignes)')
 
 
 if __name__ == '__main__':

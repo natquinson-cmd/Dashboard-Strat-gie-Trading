@@ -5293,13 +5293,13 @@ function scrLegend(items) {
 // ---- Historique du portefeuille : courbe d'évolution du capital + calendriers P&L (façon Darwinex) ----
 // Alimenté par stocks/screener/positionsHistory = { 'YYYY-MM-DD': {value, invested} }, un point/jour (cron VPS).
 let SCR_HIST = null;               // [{date, value, invested}] trié
-let SCR_CAL_Y = null, SCR_CAL_M = null;   // mois affiché dans le calendrier journalier
+let SCR_CAL_Y = null, SCR_CAL_M = null, SCR_CAL_SEL = null;   // mois affiché + jour sélectionné (détail)
 let SCR_HIST_RERENDER = null;      // callback de re-rendu de la section (posé par le module)
 const SCR_NAVBTN = 'border:1px solid #e3e8ee;background:#fff;border-radius:7px;width:26px;height:26px;cursor:pointer;color:#42546a;font-weight:700;line-height:1';
 function scrHistArray(raw) {
   if (!raw || typeof raw !== 'object') return [];
   return Object.keys(raw).filter((k) => /^\d{4}-\d{2}-\d{2}$/.test(k) && raw[k]).sort()
-    .map((k) => ({ date: k, value: Number(raw[k].value) || 0, invested: Number(raw[k].invested) || 0 }));
+    .map((k) => ({ date: k, value: Number(raw[k].value) || 0, invested: Number(raw[k].invested) || 0, lines: Array.isArray(raw[k].lines) ? raw[k].lines : null }));
 }
 function scrDailyPnl(hist) {   // P&L NET des apports : (Δvaleur - Δinvesti) jour par jour
   const m = {};
@@ -5342,8 +5342,8 @@ function scrDayCalendar(hist, pnlMap) {
   const box = scrEl('div'), y = SCR_CAL_Y, m = SCR_CAL_M;
   const mois = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
   const prev = scrEl('button', { text: '‹', style: SCR_NAVBTN }), next = scrEl('button', { text: '›', style: SCR_NAVBTN });
-  prev.onclick = () => { SCR_CAL_M--; if (SCR_CAL_M < 0) { SCR_CAL_M = 11; SCR_CAL_Y--; } SCR_HIST_RERENDER && SCR_HIST_RERENDER(); };
-  next.onclick = () => { SCR_CAL_M++; if (SCR_CAL_M > 11) { SCR_CAL_M = 0; SCR_CAL_Y++; } SCR_HIST_RERENDER && SCR_HIST_RERENDER(); };
+  prev.onclick = () => { SCR_CAL_M--; if (SCR_CAL_M < 0) { SCR_CAL_M = 11; SCR_CAL_Y--; } SCR_CAL_SEL = null; SCR_HIST_RERENDER && SCR_HIST_RERENDER(); };
+  next.onclick = () => { SCR_CAL_M++; if (SCR_CAL_M > 11) { SCR_CAL_M = 0; SCR_CAL_Y++; } SCR_CAL_SEL = null; SCR_HIST_RERENDER && SCR_HIST_RERENDER(); };
   box.appendChild(scrEl('div', { style: 'display:flex;align-items:center;gap:10px;margin-bottom:8px', kids: [
     prev, scrEl('span', { text: mois[m] + ' ' + y, style: 'font-weight:700;color:#22303f;font-size:0.85rem' }), next] }));
   const grid = scrEl('div', { style: 'display:grid;grid-template-columns:repeat(7,1fr);gap:4px' });
@@ -5351,11 +5351,12 @@ function scrDayCalendar(hist, pnlMap) {
   const offset = (new Date(y, m, 1).getDay() + 6) % 7, days = new Date(y, m + 1, 0).getDate();
   for (let i = 0; i < offset; i++) grid.appendChild(scrEl('div'));
   for (let d = 1; d <= days; d++) {
-    const key = `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`, pnl = pnlMap[key], has = pnl != null;
+    const key = `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`, pnl = pnlMap[key], has = pnl != null, sel = SCR_CAL_SEL === key;
     const bg = !has ? '#f6f8fb' : (pnl >= 0 ? '#e5f4ee' : '#fbe9ea'), tc = !has ? '#c3ccd6' : (pnl >= 0 ? '#1d9e74' : '#dd5f66');
-    const cell = scrEl('div', { style: `background:${bg};border-radius:7px;padding:5px 2px;min-height:38px;text-align:center` });
+    const cell = scrEl('div', { style: `background:${bg};border-radius:7px;padding:5px 2px;min-height:38px;text-align:center;${has ? 'cursor:pointer;' : ''}${sel ? 'outline:2px solid #3563e9;outline-offset:-2px;' : ''}` });
     cell.appendChild(scrEl('div', { text: String(d), style: 'font-size:0.58rem;color:#9aa7b4' }));
     if (has) cell.appendChild(scrEl('div', { text: (pnl >= 0 ? '+' : '') + scrUsd(pnl), style: `font-size:0.6rem;font-weight:700;color:${tc}` }));
+    if (has) cell.onclick = () => { SCR_CAL_SEL = (SCR_CAL_SEL === key ? null : key); SCR_HIST_RERENDER && SCR_HIST_RERENDER(); };
     grid.appendChild(cell);
   }
   box.appendChild(grid);
@@ -5373,6 +5374,37 @@ function scrMonthCalendar(pnlMap) {
       scrEl('div', { text: (v >= 0 ? '+' : '') + scrUsd(v), style: `font-size:0.8rem;font-weight:800;color:${tc}` })] })); });
   return grid;
 }
+function scrDayDetail(hist, date) {   // détail par position d'un jour cliqué : P&L par ligne + apports repérés
+  const box = scrEl('div', { style: 'margin-top:10px;background:#fff;border:1px solid #eef1f5;border-radius:10px;padding:10px' });
+  const i = hist.findIndex((h) => h.date === date), cur = i >= 0 ? hist[i] : null, prev = i > 0 ? hist[i - 1] : null;
+  const dt = new Date(date + 'T00:00:00');
+  const close = scrEl('button', { text: '✕', style: 'margin-left:auto;border:none;background:none;cursor:pointer;color:#9aa7b4;font-size:0.9rem;font-weight:700' });
+  close.onclick = () => { SCR_CAL_SEL = null; SCR_HIST_RERENDER && SCR_HIST_RERENDER(); };
+  box.appendChild(scrEl('div', { style: 'display:flex;align-items:center;gap:8px;margin-bottom:8px', kids: [
+    scrEl('span', { text: 'Détail du ' + dt.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' }), style: 'font-weight:700;color:#22303f;font-size:0.8rem' }), close] }));
+  if (!cur || !prev || !(cur.lines && cur.lines.length) || !(prev.lines && prev.lines.length)) {
+    box.appendChild(scrEl('div', { style: 'color:#9aa7b4;font-size:0.75rem', text: "Détail par position disponible dès deux journées consécutives enregistrées avec le détail (le VPS enregistre la composition chaque jour)." }));
+    return box;
+  }
+  const cL = {}, pL = {}; cur.lines.forEach((l) => cL[l.ticker] = l); prev.lines.forEach((l) => pL[l.ticker] = l);
+  const rows = Array.from(new Set(Object.keys(cL).concat(Object.keys(pL)))).map((t) => {
+    const cv = cL[t] ? cL[t].value : 0, ci = cL[t] ? cL[t].invested : 0, pv = pL[t] ? pL[t].value : 0, pi = pL[t] ? pL[t].invested : 0;
+    return { t, pnl: (cv - pv) - (ci - pi), dep: ci - pi };
+  }).filter((r) => Math.abs(r.pnl) >= 0.5 || Math.abs(r.dep) >= 0.5).sort((a, b) => b.pnl - a.pnl);
+  if (!rows.length) { box.appendChild(scrEl('div', { style: 'color:#9aa7b4;font-size:0.75rem', text: 'Aucun mouvement ce jour.' })); return box; }
+  rows.forEach((r) => {
+    const col = r.pnl >= 0 ? '#1d9e74' : '#dd5f66';
+    const left = scrEl('span', { style: 'display:flex;align-items:center;gap:6px', kids: [scrEl('b', { text: r.t, style: 'color:#22303f;font-size:0.78rem' })] });
+    if (Math.abs(r.dep) >= 0.5) left.appendChild(scrEl('span', { text: (r.dep > 0 ? '+apport ' : 'retrait ') + scrUsd(Math.abs(r.dep)), style: 'font-size:0.64rem;color:#3563e9;background:#eef2fe;border-radius:5px;padding:1px 5px' }));
+    box.appendChild(scrEl('div', { style: 'display:flex;justify-content:space-between;align-items:center;padding:3px 0;border-bottom:1px solid #f4f6f9', kids: [
+      left, scrEl('span', { text: (r.pnl >= 0 ? '+' : '') + scrUsd(r.pnl), style: `font-weight:700;color:${col};font-size:0.78rem` })] }));
+  });
+  const total = rows.reduce((s, r) => s + r.pnl, 0);
+  box.appendChild(scrEl('div', { style: 'display:flex;justify-content:space-between;margin-top:6px', kids: [
+    scrEl('b', { text: 'Total du jour', style: 'color:#5b6b7d;font-size:0.76rem' }),
+    scrEl('b', { text: (total >= 0 ? '+' : '') + scrUsd(total), style: `color:${total >= 0 ? '#1d9e74' : '#dd5f66'};font-size:0.8rem` })] }));
+  return box;
+}
 function scrBuildHistSection() {
   const hist = SCR_HIST || [];
   const wrap = scrEl('div', { style: 'background:#fafbfc;border:1px solid #eef1f5;border-radius:12px;padding:14px' });
@@ -5388,8 +5420,10 @@ function scrBuildHistSection() {
     scrKpi('Gain total', (gain >= 0 ? '+' : '') + scrUsd(gain), gain >= 0 ? '#1d9e74' : '#dd5f66'),
     scrKpi('Rendement (TWR)', twr == null ? '–' : (twr >= 0 ? '+' : '') + (twr * 100).toFixed(1) + ' %', twr == null ? '#9aa7b4' : (twr >= 0 ? '#1d9e74' : '#dd5f66'), "Rendement pondéré dans le temps : neutralise l'effet de tes apports (DCA depuis Debitum). C'est la vraie mesure de performance ; le gain en $ est gonflé ou dilué par le timing de tes versements. Disponible dès 2 jours d'historique.")] }));
   wrap.appendChild(scrEquityCurve(hist));
+  const dayColKids = [scrEl('div', { text: "Calendrier journalier (P&L net d'apports) · clique un jour", style: 'font-size:0.7rem;color:#5b6b7d;font-weight:700;margin-bottom:6px' }), scrDayCalendar(hist, pnlMap)];
+  if (SCR_CAL_SEL) dayColKids.push(scrDayDetail(hist, SCR_CAL_SEL));
   wrap.appendChild(scrEl('div', { style: 'display:flex;gap:18px;flex-wrap:wrap;margin-top:14px', kids: [
-    scrEl('div', { style: 'flex:1;min-width:260px', kids: [scrEl('div', { text: "Calendrier journalier (P&L net d'apports)", style: 'font-size:0.7rem;color:#5b6b7d;font-weight:700;margin-bottom:6px' }), scrDayCalendar(hist, pnlMap)] }),
+    scrEl('div', { style: 'flex:1;min-width:260px', kids: dayColKids }),
     scrEl('div', { style: 'flex:1;min-width:220px', kids: [scrEl('div', { text: 'Par mois', style: 'font-size:0.7rem;color:#5b6b7d;font-weight:700;margin-bottom:6px' }), scrMonthCalendar(pnlMap)] })] }));
   return wrap;
 }
