@@ -5080,6 +5080,13 @@ function buildScreenerParams(panel, config) {
 }
 
 const SCR_RATING_COL = { 'Achat fort': ['#d1f0e3', '#127a54'], 'Achat': ['#e4f5ee', '#1d7a5c'], 'Neutre': ['#eef2f8', '#5b6b7d'], 'Surévaluée': ['#fdeaea', '#c0392b'], 'Détenu': ['#e8effe', '#3563e9'] };
+// Pastille de Note + score sur 100 (valuationScore) en dessous. Pas de score pour les titres non notés (Détenu).
+function scrNoteChip(rating, score) {
+  const rc = SCR_RATING_COL[rating] || SCR_RATING_COL['Neutre'];
+  const kids = [scrEl('span', { text: rating, style: `background:${rc[0]};color:${rc[1]};border-radius:20px;padding:2px 9px;font-size:0.68rem;font-weight:700;white-space:nowrap` })];
+  if (score != null && isFinite(score) && score > 0) kids.push(scrEl('span', { text: Math.round(score) + '/100', style: 'font-size:0.62rem;color:#9aa7b4;font-weight:700' }));
+  return scrEl('div', { style: 'display:flex;flex-direction:column;align-items:flex-start;gap:2px', kids: kids });
+}
 // Indicateurs fondamentaux du screener, réutilisés dans "Mes positions" et "Répartition" (mêmes seuils/couleurs).
 // m = objet metrics (SCR_PRICE_MAP pour les positions, t.metrics pour la répartition).
 const SCR_FUNDA_HEAD = [
@@ -5107,7 +5114,7 @@ function scrFundaCells(m, sector, bd) {
   const cell = (txt, style) => scrEl('td', { text: txt, style: `padding:6px 8px;text-align:right;white-space:nowrap;${bd};${style || 'color:#42546a'}` });
   const rc = SCR_RATING_COL[m.rating];
   const note = (m.rating && rc)
-    ? scrEl('td', { style: `padding:6px 8px;${bd}`, kids: [scrEl('span', { text: m.rating, style: `background:${rc[0]};color:${rc[1]};border-radius:20px;padding:2px 8px;font-size:0.64rem;font-weight:700;white-space:nowrap` })] })
+    ? scrEl('td', { style: `padding:6px 8px;${bd}`, kids: [scrNoteChip(m.rating, m.valuationScore)] })
     : scrEl('td', { text: '–', style: `padding:6px 8px;color:${g};${bd}` });
   let roic;
   if (m.roic != null) {
@@ -5303,7 +5310,7 @@ function renderAllocTable(res, etfPct, etfAmount, mode) {
     tbody.appendChild(scrEl('tr', { kids: [
       scrEl('td', { text: String(i + 1), style: `padding:6px 10px;color:#9aa7b4;${bd}` }),
       idcell,
-      scrEl('td', { style: `padding:6px 10px;${bd}`, kids: [scrEl('span', { text: t.rating, style: `background:${rc[0]};color:${rc[1]};border-radius:20px;padding:2px 9px;font-size:0.68rem;font-weight:700;white-space:nowrap` })] }),
+      scrEl('td', { style: `padding:6px 10px;${bd}`, kids: [scrNoteChip(t.rating, t.valuationScore)] }),
       scrEl('td', { text: t.sector || '–', style: `padding:6px 10px;color:#5b6b7d;font-size:0.78rem;${bd}` }),
       scrEl('td', { text: (a.pot >= 0 ? '+' : '') + (a.pot * 100).toFixed(0) + '%', style: `padding:6px 10px;text-align:right;font-weight:700;color:${a.pot >= 0 ? '#1d9e74' : '#dd5f66'};${bd}` }),
       ...scrFundaCells(m, t.sector, bd).slice(2),
@@ -5964,7 +5971,7 @@ function screenerRenderQuality(c, data, config) {
       scrTargetCell(m, cd.sector, bd),
       scrEl('td', { text: cd.sector || '–', style: `padding:8px 10px;color:#5b6b7d;${bd}` }),
       scrEl('td', { text: scrCountryOf(m), style: `padding:8px 10px;color:#5b6b7d;font-size:0.82rem;white-space:nowrap;${bd}` }),
-      scrEl('td', { style: `padding:8px 10px;${bd}`, kids: [chip] }),
+      scrEl('td', { style: `padding:8px 10px;${bd}`, kids: [scrNoteChip(cd.rating, cd.valuationScore)] }),
       numC(m.peg, 2), pctC(m.gap, 0), crCagrC(m), numC(m.forwardPE, 1), roeRoaC(m), pctC(m.netMargin, 0.20), divYieldC(m.dividendYield), payoutC(m.payoutRatio, m.dividendYield), divGrowthC(m), pctC(m.fcfYield, 0.03),
       scrEl('td', { text: scrCap(m.marketCap, m.exchange), style: `padding:8px 10px;text-align:right;color:#5b6b7d;${bd}` }),
     ]}));
