@@ -5283,7 +5283,7 @@ function scrApplyLpValue(lp) {
     SCR_PRICE_MAP[k].price = q.price;
     if (q.changePct != null) SCR_PRICE_MAP[k].changePct = q.changePct;
     if (q.exchange && !SCR_PRICE_MAP[k].exchange) SCR_PRICE_MAP[k].exchange = q.exchange;
-    if (q.quoteType === 'ETF' && !SCR_PRICE_MAP[k].sector) SCR_PRICE_MAP[k].sector = 'ETF';   // ETF socle (méthode DK)
+    if (q.quoteType === 'ETF' && (!SCR_PRICE_MAP[k].sector || SCR_PRICE_MAP[k].sector === 'N/A')) SCR_PRICE_MAP[k].sector = 'ETF';   // ETF socle (méthode DK)
     SCR_PRICE_MAP[k].live = true;
   });
   return true;
