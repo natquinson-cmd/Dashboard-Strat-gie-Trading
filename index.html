@@ -5843,7 +5843,7 @@ function screenerQualityAllocPanel(top) {
   const savedAmt = Number(localStorage.getItem('scrAllocAmount')) || 10000;
   let savedN = Number(localStorage.getItem('scrAllocLines')) || 12;
   if (savedN > 15) savedN = 15;   // DK : 10-15 lignes max
-  const savedW = localStorage.getItem('scrAllocWeight') === 'conviction' ? 'conviction' : 'potentiel';
+  const savedW = localStorage.getItem('scrAllocWeight') === 'potentiel' ? 'potentiel' : 'conviction';   // défaut = conviction (poids piloté par la note globale ajustée) ; potentiel = choix explicite
   const selStyle = 'padding:8px 10px;border:1px solid #e3e8ee;border-radius:9px;font-size:0.88rem;font-weight:600;color:#42546a;background:#fff';
   const amtInput = scrEl('input', { attrs: { type: 'number', min: '0', step: '500', value: String(savedAmt) }, style: 'width:130px;padding:8px 10px;border:1px solid #e3e8ee;border-radius:9px;font-size:0.9rem;font-weight:700;color:#22303f' });
   const nSelect = scrEl('select', { style: selStyle });
@@ -5865,7 +5865,7 @@ function screenerQualityAllocPanel(top) {
     scrEl('span', { text: 'max secteur', style: 'font-size:0.8rem;color:#5b6b7d;margin-left:6px' }), secInput, scrEl('span', { text: '%', style: 'color:#5b6b7d' })] }));
   const results = scrEl('div');
   wrap.appendChild(results);
-  wrap.appendChild(scrEl('div', { style: 'margin-top:10px;font-size:0.72rem;color:#5b6b7d', text: "Plan de DCA : l'argent que tu déploies (ex libéré de Debitum) va EN PRIORITÉ là où tu es le plus sous ta cible, en tenant compte de tes positions déjà détenues (on ne vend jamais). Cible = potentiel de l'Objectif (ou conviction), plafond 10 %/ligne et max secteur RÉGLABLE. Tes titres détenus hors screener peuvent aussi être renforcés. Structure DK : ETF socle 50-60 % + actions de qualité. La décision reste la tienne." }));
+  wrap.appendChild(scrEl('div', { style: 'margin-top:10px;font-size:0.72rem;color:#5b6b7d', text: "Plan de DCA : l'argent que tu déploies (ex libéré de Debitum) va EN PRIORITÉ là où tu es le plus sous ta cible, en tenant compte de tes positions déjà détenues (on ne vend jamais). Cible = conviction (note globale ajustée) par défaut, ou potentiel de l'Objectif au choix, plafond 10 %/ligne et max secteur RÉGLABLE. Tes titres détenus hors screener peuvent aussi être renforcés. Structure DK : ETF socle 50-60 % + actions de qualité. La décision reste la tienne." }));
   function render() {
     const amount = Math.max(0, Number(amtInput.value) || 0);
     const nLines = Number(nSelect.value) || 12;
