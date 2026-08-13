@@ -4951,7 +4951,7 @@ async function renderScreenerTab() {
     try {
       SCR_PRICE_MAP = {};
       const nodes = await Promise.all([db.ref('stocks/screener/quality').once('value'), db.ref('stocks/screener/smallcap').once('value')]);
-      nodes.forEach((snap) => { const v = snap.val(); (v && v.top || []).forEach((t) => { const m = t.metrics || {}; if (t.symbol && m.price != null) SCR_PRICE_MAP[String(t.symbol).toUpperCase()] = { price: m.price, exchange: m.exchange, changePct: m.changePct, name: t.name, website: m.website, sector: t.sector, rating: t.rating, payoutRatio: m.payoutRatio, forwardPE: m.forwardPE, revenueGrowthYoY: m.revenueGrowthYoY, divGrowing: m.divGrowing }; }); });
+      nodes.forEach((snap) => { const v = snap.val(); (v && v.top || []).forEach((t) => { const m = t.metrics || {}; if (t.symbol && m.price != null) SCR_PRICE_MAP[String(t.symbol).toUpperCase()] = Object.assign({}, m, { name: t.name, sector: t.sector, rating: t.rating, valuationScore: t.valuationScore }); }); });
     } catch (e) { /* ignore */ }
     await scrApplyLivePrices();   // cours temps réel (cron VPS) par-dessus le snapshot
     // Positions "Mes positions" depuis Firebase (cross-device) + migration one-shot depuis localStorage.
@@ -5080,6 +5080,58 @@ function buildScreenerParams(panel, config) {
 }
 
 const SCR_RATING_COL = { 'Achat fort': ['#d1f0e3', '#127a54'], 'Achat': ['#e4f5ee', '#1d7a5c'], 'Neutre': ['#eef2f8', '#5b6b7d'], 'Surévaluée': ['#fdeaea', '#c0392b'] };
+// Indicateurs fondamentaux du screener, réutilisés dans "Mes positions" et "Répartition" (mêmes seuils/couleurs).
+// m = objet metrics (SCR_PRICE_MAP pour les positions, t.metrics pour la répartition).
+const SCR_FUNDA_HEAD = [
+  ['Note', 'left', "Note de valorisation du screener (Achat fort → Surévaluée) au sein des sociétés de qualité. Repérage, pas conseil."],
+  ['Objectif', 'right', "Juste prix estimé par le modèle et potentiel vs le cours (vert = marge d'achat, rouge = cher)."],
+  ['ROIC', 'right', "Rendement du capital investi (ratio n°1 Dividend King) = EBIT×(1−impôt)/capital investi. > 15 % = crée de la valeur. En petit : ROE. Banques (~) : regarde le ROE."],
+  ['Croiss. CA', 'right', "Croissance régulière du chiffre d'affaires, moyenne annualisée ~4-5 ans (DK : ≥ 10 %/an). Vert = ≥ 10 %."],
+  ['PEG', 'right', "PER divisé par la croissance des bénéfices. < 1 = pas cher au regard de la croissance ; > 2 = cher."],
+  ['Marge', 'right', "Marge nette = bénéfice net / chiffre d'affaires. > 20 % = très rentable (avantage concurrentiel probable)."],
+  ['Rendement', 'right', "Rendement du dividende. 2-4 % = sain ; > 7 % = souvent un piège ; vide = pas de dividende."],
+  ['Payout', 'right', "Part des bénéfices distribuée en dividende. DK : < 40 % idéal, 40-60 % ok, > 60 % tension."],
+  ['Div. crois.', 'right', "Dividende croissant (signature DK) : années consécutives de hausse. ↑ vert = en hausse."],
+  ['FCF yield', 'right', "Free cash-flow / capitalisation. Plus il est haut, plus la société produit du cash par rapport à son prix."],
+];
+function scrFundaHeadCells(slice) {
+  return SCR_FUNDA_HEAD.slice(slice || 0).map(([t, al, tip]) => scrEl('th', {
+    text: t, attrs: tip ? { title: tip } : {},
+    style: `padding:8px 8px;text-align:${al};font-size:0.66rem;text-transform:uppercase;letter-spacing:.02em;border-bottom:1px solid #e3e8ee;white-space:nowrap${tip ? ';cursor:help;text-decoration:underline dotted #b8c2cf;text-underline-offset:3px' : ''}`
+  }));
+}
+function scrFundaCells(m, sector, bd) {
+  m = m || {};
+  const g = '#c3ccd6';
+  const cell = (txt, style) => scrEl('td', { text: txt, style: `padding:6px 8px;text-align:right;white-space:nowrap;${bd};${style || 'color:#42546a'}` });
+  const rc = SCR_RATING_COL[m.rating];
+  const note = (m.rating && rc)
+    ? scrEl('td', { style: `padding:6px 8px;${bd}`, kids: [scrEl('span', { text: m.rating, style: `background:${rc[0]};color:${rc[1]};border-radius:20px;padding:2px 8px;font-size:0.64rem;font-weight:700;white-space:nowrap` })] })
+    : scrEl('td', { text: '–', style: `padding:6px 8px;color:${g};${bd}` });
+  let roic;
+  if (m.roic != null) {
+    const ap = m.roicApprox, col = ap ? '#9aa7b4' : (m.roic >= 0.15 ? '#1d9e74' : '#dd5f66');
+    const kids = [scrEl('span', { text: (m.roic * 100).toFixed(0) + '%' + (ap ? '~' : ''), style: `font-weight:700;color:${col}` })];
+    if (m.roe != null) kids.push(scrEl('span', { text: 'ROE ' + (m.roe * 100).toFixed(0) + '%', style: 'font-size:0.62rem;color:#9aa7b4' }));
+    roic = scrEl('td', { style: `padding:6px 8px;text-align:right;white-space:nowrap;${bd}`, kids: [scrEl('div', { style: 'display:flex;flex-direction:column;align-items:flex-end;gap:1px', kids: kids })] });
+  } else roic = cell('–', `color:${g}`);
+  const cr = m.revCagr;
+  const croiss = cell(cr == null ? '–' : (cr >= 0 ? '+' : '') + (cr * 100).toFixed(0) + '%', cr == null ? `color:${g}` : `font-weight:700;color:${cr >= 0.10 ? '#1d9e74' : '#dd5f66'}`);
+  const peg = cell(m.peg == null ? '–' : Number(m.peg).toFixed(2), m.peg == null ? `color:${g}` : 'color:#42546a');
+  const nm = m.netMargin;
+  const marge = cell(nm == null ? '–' : (nm * 100).toFixed(0) + '%', nm == null ? `color:${g}` : `color:${nm >= 0.20 ? '#1d9e74' : '#42546a'}`);
+  const y = m.dividendYield;
+  const rend = (y != null && y > 0) ? cell((y * 100).toFixed(1) + '%', `color:${y > 0.07 ? '#dd5f66' : (y >= 0.015 ? '#1d9e74' : '#42546a')}`) : cell('–', `color:${g}`);
+  const p = m.payoutRatio;
+  const pay = (y != null && y > 0 && p != null && p >= 0) ? cell((p * 100).toFixed(0) + '%', `color:${p > 0.60 ? '#dd5f66' : (p < 0.40 ? '#1d9e74' : '#42546a')}`) : cell('–', `color:${g}`);
+  const s = m.divStreak;
+  const div = (s != null)
+    ? scrEl('td', { text: (m.divGrowing ? '↑ ' : '') + s + 'a', attrs: { title: 'Dividende en hausse depuis ' + s + ' an(s)' + (m.divCagr != null ? ', +' + (m.divCagr * 100).toFixed(0) + ' %/an' : '') }, style: `padding:6px 8px;text-align:right;white-space:nowrap;${bd};font-weight:700;color:${m.divGrowing ? '#1d9e74' : '#42546a'}` })
+    : cell('–', `color:${g}`);
+  const f = m.fcfYield;
+  const fcf = cell(f == null ? '–' : (f >= 0 ? '+' : '') + (f * 100).toFixed(0) + '%', f == null ? `color:${g}` : `color:${f >= 0.03 ? '#1d9e74' : '#dd5f66'}`);
+  return [note, scrTargetCell(m, sector, bd), roic, croiss, peg, marge, rend, pay, div, fcf];
+}
 
 // Allocateur : repartit un MONTANT saisi par l'utilisateur, PONDERE PAR LE POTENTIEL de l'Objectif
 // (marge de securite), Surevaluee et potentiel negatif exclus, plafond 10 %/ligne et 35 %/secteur.
@@ -5135,7 +5187,10 @@ function renderAllocTable(res, etfPct, etfAmount) {
   if (!alloc.length && etfAmount <= 0) return scrEl('div', { text: 'Aucune candidate à répartir (que des Surévaluée ?).', style: 'color:#5b6b7d;font-size:0.8rem;padding:8px 0' });
   const bd = 'border-bottom:1px solid #eef1f5';
   const thead = scrEl('tr', { style: 'background:#f6f8fb;color:#5b6b7d' });
-  [['#', 'left'], ['Titre', 'left'], ['Note', 'left'], ['Secteur', 'left'], ['Potentiel', 'right'], ['Poids', 'right'], ['Montant', 'right']].forEach(([t, al]) =>
+  [['#', 'left'], ['Titre', 'left'], ['Note', 'left'], ['Secteur', 'left'], ['Potentiel', 'right']].forEach(([t, al]) =>
+    thead.appendChild(scrEl('th', { text: t, style: `padding:8px 10px;text-align:${al};font-size:0.68rem;text-transform:uppercase;letter-spacing:.03em;border-bottom:1px solid #e3e8ee;white-space:nowrap` })));
+  scrFundaHeadCells(2).forEach((th) => thead.appendChild(th));   // infos screener : ROIC, Croiss CA, PEG, Marge, Rendement, Payout, Div crois, FCF yield
+  [['Poids', 'right'], ['Montant', 'right']].forEach(([t, al]) =>
     thead.appendChild(scrEl('th', { text: t, style: `padding:8px 10px;text-align:${al};font-size:0.68rem;text-transform:uppercase;letter-spacing:.03em;border-bottom:1px solid #e3e8ee;white-space:nowrap` })));
   const tbody = scrEl('tbody');
   // ETF socle en tête (méthode Dividend King : ETF socle 50-60% + 5-10 actions de qualité)
@@ -5146,6 +5201,7 @@ function renderAllocTable(res, etfPct, etfAmount) {
       scrEl('td', { style: `padding:6px 10px;${bd}`, kids: [scrEl('span', { text: 'Socle', style: 'background:#eef2f8;color:#5b6b7d;border-radius:20px;padding:2px 9px;font-size:0.68rem;font-weight:700' })] }),
       scrEl('td', { text: 'Diversifié', style: `padding:6px 10px;color:#5b6b7d;font-size:0.78rem;${bd}` }),
       scrEl('td', { text: '~marché', style: `padding:6px 10px;text-align:right;color:#5b6b7d;${bd}` }),
+      ...Array.from({ length: 8 }, () => scrEl('td', { text: '', style: `${bd}` })),
       scrEl('td', { text: (etfPct * 100).toFixed(0) + '%', style: `padding:6px 10px;text-align:right;font-weight:700;color:#42546a;${bd}` }),
       scrEl('td', { text: scrUsd(etfAmount), style: `padding:6px 10px;text-align:right;font-weight:800;color:#22303f;${bd}` }),
     ] }));
@@ -5162,6 +5218,7 @@ function renderAllocTable(res, etfPct, etfAmount) {
       scrEl('td', { style: `padding:6px 10px;${bd}`, kids: [scrEl('span', { text: t.rating, style: `background:${rc[0]};color:${rc[1]};border-radius:20px;padding:2px 9px;font-size:0.68rem;font-weight:700;white-space:nowrap` })] }),
       scrEl('td', { text: t.sector || '–', style: `padding:6px 10px;color:#5b6b7d;font-size:0.78rem;${bd}` }),
       scrEl('td', { text: (a.pot >= 0 ? '+' : '') + (a.pot * 100).toFixed(0) + '%', style: `padding:6px 10px;text-align:right;font-weight:700;color:${a.pot >= 0 ? '#1d9e74' : '#dd5f66'};${bd}` }),
+      ...scrFundaCells(m, t.sector, bd).slice(2),
       scrEl('td', { text: (a.weight * (1 - etfPct) * 100).toFixed(1) + '%', style: `padding:6px 10px;text-align:right;font-weight:700;color:#42546a;${bd}` }),
       scrEl('td', { text: scrUsd(a.amount), style: `padding:6px 10px;text-align:right;font-weight:800;color:#22303f;${bd}` }),
     ] }));
@@ -5176,6 +5233,7 @@ function renderAllocTable(res, etfPct, etfAmount) {
       scrEl('td', { text: '', style: `${bd}` }),
       scrEl('td', { text: '', style: `${bd}` }),
       scrEl('td', { text: '', style: `${bd}` }),
+      ...Array.from({ length: 8 }, () => scrEl('td', { text: '', style: `${bd}` })),
       scrEl('td', { text: (cash / grand * 100).toFixed(1) + '%', style: `padding:6px 10px;text-align:right;font-weight:700;color:#9aa7b4;${bd}` }),
       scrEl('td', { text: scrUsd(cash), style: `padding:6px 10px;text-align:right;font-weight:700;color:#9aa7b4;${bd}` }),
     ] }));
@@ -5184,6 +5242,7 @@ function renderAllocTable(res, etfPct, etfAmount) {
     scrEl('td', { text: '', style: 'padding:7px 10px' }),
     scrEl('td', { text: (etfPct > 0.0001 ? alloc.length + ' actions + ETF' : alloc.length + ' lignes'), style: 'padding:7px 10px;font-weight:700;color:#5b6b7d' }),
     scrEl('td', { text: '' }), scrEl('td', { text: '' }), scrEl('td', { text: '' }),
+    ...Array.from({ length: 8 }, () => scrEl('td', { text: '' })),
     scrEl('td', { text: '100%', style: 'padding:7px 10px;text-align:right;font-weight:800;color:#42546a' }),
     scrEl('td', { text: scrUsd(grand), style: 'padding:7px 10px;text-align:right;font-weight:800;color:#22303f' }),
   ] }));
@@ -5241,7 +5300,7 @@ async function scrLoadPositionsAndPrices() {
   try {
     const nodes = await Promise.all([db.ref('stocks/screener/quality').once('value'), db.ref('stocks/screener/smallcap').once('value')]);
     SCR_PRICE_MAP = {};
-    nodes.forEach((snap) => { const v = snap.val(); (v && v.top || []).forEach((t) => { const m = t.metrics || {}; if (t.symbol && m.price != null) SCR_PRICE_MAP[String(t.symbol).toUpperCase()] = { price: m.price, exchange: m.exchange, changePct: m.changePct, name: t.name, website: m.website, sector: t.sector, rating: t.rating, payoutRatio: m.payoutRatio, forwardPE: m.forwardPE, revenueGrowthYoY: m.revenueGrowthYoY, divGrowing: m.divGrowing }; }); });
+    nodes.forEach((snap) => { const v = snap.val(); (v && v.top || []).forEach((t) => { const m = t.metrics || {}; if (t.symbol && m.price != null) SCR_PRICE_MAP[String(t.symbol).toUpperCase()] = Object.assign({}, m, { name: t.name, sector: t.sector, rating: t.rating, valuationScore: t.valuationScore }); }); });
   } catch (e) {}
   await scrApplyLivePrices();
 }
@@ -5509,8 +5568,10 @@ function renderPositionsTable(pos, onChange) {
   if (!pos.length) return scrEl('div', { text: 'Aucune position. Ajoute tes achats Revolut ci-dessus (ticker, quantité d\'actions, prix d\'achat) pour suivre ta performance.', style: 'color:#5b6b7d;font-size:0.8rem;padding:4px 0' });
   const bd = 'border-bottom:1px solid #eef1f5';
   const thead = scrEl('tr', { style: 'background:#f6f8fb;color:#5b6b7d' });
-  [['Ticker', 'left'], ['Qté', 'right'], ["Prix achat", 'right'], ['Investi', 'right'], ['Cours', 'right'], ['Var. jour', 'right'], ['Valeur', 'right'], ['+/−', 'right'], ['', 'right']].forEach(([t, al]) =>
+  [['Ticker', 'left'], ['Qté', 'right'], ["Prix achat", 'right'], ['Investi', 'right'], ['Cours', 'right'], ['Var. jour', 'right'], ['Valeur', 'right'], ['+/−', 'right']].forEach(([t, al]) =>
     thead.appendChild(scrEl('th', { text: t, style: `padding:8px 10px;text-align:${al};font-size:0.68rem;text-transform:uppercase;letter-spacing:.03em;border-bottom:1px solid #e3e8ee;white-space:nowrap` })));
+  scrFundaHeadCells(0).forEach((th) => thead.appendChild(th));   // infos screener : Note, Objectif, ROIC, Croiss CA, PEG, Marge, Rendement, Payout, Div crois, FCF yield
+  thead.appendChild(scrEl('th', { text: '', style: 'padding:8px 10px;border-bottom:1px solid #e3e8ee' }));   // colonne suppression
   const tbody = scrEl('tbody');
   let totInv = 0, totVal = 0, totDay = 0;
   const parts = [];   // pour les graphiques (valeur + secteur par ligne)
@@ -5542,6 +5603,7 @@ function renderPositionsTable(pos, onChange) {
       if (d.divGrowing === false && d.payoutRatio != null && d.payoutRatio > 0) sell.push('Dividende ne croît plus');
     }
     const tkKids = [logo, scrEl('b', { text: p.ticker, style: 'color:#22303f' })];
+    if (d && d.buyback) tkKids.push(scrEl('span', { text: '↺', attrs: { title: "Rachats d'actions réguliers (nombre d'actions en baisse). Critère Dividend King." }, style: 'color:#1d9e74;font-weight:800;font-size:0.85rem;cursor:help' }));
     if (sell.length) tkKids.push(scrEl('span', { text: '⚠', attrs: { title: 'Signaux de vente (à vérifier, PAS un ordre) : ' + sell.join(' · ') + '. Vérifie aussi la thèse et le management.' }, style: 'cursor:help;font-size:0.9rem' }));
     tbody.appendChild(scrEl('tr', { kids: [
       scrEl('td', { style: `padding:6px 10px;${bd}`, kids: [scrEl('div', { style: 'display:flex;align-items:center;gap:8px', kids: tkKids })] }),
@@ -5552,6 +5614,7 @@ function renderPositionsTable(pos, onChange) {
       scrEl('td', { text: dayTxt, style: `padding:6px 10px;text-align:right;${bd};font-weight:700;color:${dayCol};white-space:nowrap` }),
       scrEl('td', { text: scrUsd(valeur), style: `padding:6px 10px;text-align:right;${bd};font-weight:700;color:#22303f` }),
       scrEl('td', { text: (pnl == null ? '–' : (pnl >= 0 ? '+' : '') + scrUsd(pnl) + ' (' + (pnlPct >= 0 ? '+' : '') + (pnlPct * 100).toFixed(1) + '%)'), style: `padding:6px 10px;text-align:right;${bd};font-weight:700;color:${pnlCol};white-space:nowrap` }),
+      ...scrFundaCells(d, (d && d.sector) ? d.sector : 'Autre', bd),
       scrEl('td', { style: `padding:6px 10px;text-align:right;${bd}`, kids: [del] }),
     ] }));
   });
@@ -5565,6 +5628,7 @@ function renderPositionsTable(pos, onChange) {
     scrEl('td', { text: (totDay >= 0 ? '+' : '') + scrUsd(totDay) + ' (' + (dayPctT >= 0 ? '+' : '') + (dayPctT * 100).toFixed(1) + '%)', style: `padding:7px 10px;text-align:right;font-weight:800;color:${dCol};white-space:nowrap` }),
     scrEl('td', { text: scrUsd(totVal), style: 'padding:7px 10px;text-align:right;font-weight:800;color:#22303f' }),
     scrEl('td', { text: (totPnl >= 0 ? '+' : '') + scrUsd(totPnl) + ' (' + (totPct >= 0 ? '+' : '') + (totPct * 100).toFixed(1) + '%)', style: `padding:7px 10px;text-align:right;font-weight:800;color:${tCol};white-space:nowrap` }),
+    ...Array.from({ length: 10 }, () => scrEl('td', { text: '' })),
     scrEl('td', { text: '' }),
   ] }));
   const table = scrEl('table', { style: 'width:100%;border-collapse:collapse;font-size:0.82rem', kids: [scrEl('thead', { kids: [thead] }), tbody] });
