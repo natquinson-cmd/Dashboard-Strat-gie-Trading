@@ -291,3 +291,54 @@ class Yahoo:
             return {'divStreak': streak, 'divCagr': cagr, 'divGrowing': streak >= 3, 'divYears': len(full)}
         except Exception:
             return None
+
+    # --- Croissance REGULIERE (methode DK) : CAGR annualise du CA et du FCF + rachats d'actions ---
+    def fundamentals_history(self, symbol):
+        """Via l'historique annuel (fundamentals-timeseries, ~4-5 ans) :
+          - revCagr  : croissance annualisee du chiffre d'affaires (critere DK : reguliere >= 10 %/an)
+          - fcfCagr  : croissance annualisee du free cash-flow
+          - sharesChange / buyback : variation du nombre d'actions (baisse = rachats reguliers, DK)
+        None si l'historique est indisponible."""
+        try:
+            types = 'annualTotalRevenue,annualFreeCashFlow,annualDilutedAverageShares'
+            url = (f'{BASE}/ws/fundamentals-timeseries/v1/finance/timeseries/{symbol}'
+                   f'?symbol={symbol}&type={types}&period1=1104537600&period2=1893456000')
+            j = self._get(url)
+            res = (j.get('timeseries') or {}).get('result') or []
+            series = {}
+            for r in res:
+                for t in ('annualTotalRevenue', 'annualFreeCashFlow', 'annualDilutedAverageShares'):
+                    arr = r.get(t)
+                    if not arr:
+                        continue
+                    vals = [(a.get('asOfDate'), a['reportedValue'].get('raw')) for a in arr
+                            if a and a.get('reportedValue') and a['reportedValue'].get('raw') is not None]
+                    if len(vals) >= 2:
+                        vals.sort(key=lambda x: x[0] or '')      # chronologique : [0]=plus ancien, [-1]=recent
+                        series[t] = [v for _, v in vals]
+
+            def cagr(vals):
+                if not vals or len(vals) < 2 or vals[0] is None or vals[-1] is None or vals[0] <= 0 or vals[-1] <= 0:
+                    return None
+                return (vals[-1] / vals[0]) ** (1.0 / (len(vals) - 1)) - 1
+
+            out = {}
+            rev = series.get('annualTotalRevenue')
+            if rev:
+                rc = cagr(rev)
+                if rc is not None:
+                    out['revCagr'] = round(rc, 4)
+                    out['revYears'] = len(rev)
+            fcf = series.get('annualFreeCashFlow')
+            if fcf:
+                fc = cagr(fcf)
+                if fc is not None:
+                    out['fcfCagr'] = round(fc, 4)
+            sh = series.get('annualDilutedAverageShares')
+            if sh and sh[0] and sh[-1] and sh[0] > 0:
+                chg = sh[-1] / sh[0] - 1
+                out['sharesChange'] = round(chg, 4)
+                out['buyback'] = chg < -0.005                    # baisse nette du nb d'actions = rachats
+            return out or None
+        except Exception:
+            return None

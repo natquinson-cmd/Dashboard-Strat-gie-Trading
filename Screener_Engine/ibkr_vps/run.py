@@ -221,6 +221,9 @@ def run_quality(y):
             dg = y.dividend_growth(sym)   # croissance du dividende (signature DK)
             if dg:
                 r.update(dg)              # divStreak, divCagr, divGrowing, divYears
+            fh = y.fundamentals_history(sym)   # croissance REGULIERE : CAGR CA/FCF + rachats (DK)
+            if fh:
+                r.update(fh)              # revCagr, revYears, fcfCagr, sharesChange, buyback
             records.append(r)
         if (i + 1) % 25 == 0:
             print(f'  ...enrichi {i + 1}/{len(symbols)}')

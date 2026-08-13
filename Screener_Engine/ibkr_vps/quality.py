@@ -10,7 +10,7 @@ QUALITY_CONFIG = {
         'minRoe': 0.15,               # DK : un bon ROE est > 15 %
         'maxNetDebtToEbitda': 3.0,    # DK : dette/EBITDA < 3 (< 2 ideal, > 3 danger)
         'minNetMargin': 0.10,         # DK : marge nette > 20 % (10 % pour produits physiques) -> plancher 10 %
-        'minRevGrowth': 0.05,         # DK : croissance CA >= 10 %/an ideal -> plancher 5 % (evite les stagnantes)
+        'minRevCagr': 0.10,           # DK : croissance CA REGULIERE >= 10 %/an (moyenne annualisee ~4-5 ans, repli YoY)
         'requirePositiveFcf': True,   # free cash-flow positif
         'requirePositiveEarnings': True,  # benefices en croissance (pas en declin structurel)
         'minMarketCap': 5e9,
@@ -32,6 +32,12 @@ QUALITY_CONFIG = {
 
 def _num(x):
     return x if isinstance(x, (int, float)) and x == x else None
+
+
+def _growth(t):
+    # croissance du CA privilegiee = moyenne annualisee sur l'historique (revCagr), repli sur le YoY
+    rc = _num(t.get('revCagr'))
+    return rc if rc is not None else _num(t.get('revenueGrowthYoY'))
 
 
 def passes_quality(t, cfg=QUALITY_CONFIG):
@@ -58,9 +64,11 @@ def passes_quality(t, cfg=QUALITY_CONFIG):
     nm = _num(t.get('netMargin'))
     if nm is not None and nm < g.get('minNetMargin', 0):
         return False, 'marge nette trop faible'
-    rg = _num(t.get('revenueGrowthYoY'))
-    if rg is not None and rg < g.get('minRevGrowth', -1):
-        return False, 'croissance CA trop faible'
+    # Croissance du CA facon DK : REGULIERE >= 10 %/an, mesuree sur la moyenne annualisee de
+    # l'historique (~4-5 ans, revCagr) ; repli sur le YoY si l'historique manque.
+    growth = _growth(t)
+    if growth is not None and growth < g.get('minRevCagr', 0.10):
+        return False, 'croissance CA (moyenne) trop faible'
     # il faut un vrai multiple exploitable (evite les cotations etrangeres "vides")
     if all(_num(t.get(k)) is None for k in ('peg', 'forwardPE', 'trailingPE')):
         return False, 'valorisation non calculable'
@@ -144,20 +152,24 @@ def rate_universe(universe, cfg=QUALITY_CONFIG):
         'fcf': _dist(survivors, lambda t: _num(t.get('fcfYield'))),
         'fpe': _dist(survivors, fwdpe_signal),
         'div': _dist(survivors, lambda t: _div_signal(t, cfg)),
-        # GARP : croissance du CA, marge nette, ROE, ROA (qualite du capital ~ ROIC, DK)
-        'grw': _dist(survivors, lambda t: _num(t.get('revenueGrowthYoY'))),
+        # GARP : croissance REGULIERE du CA (moyenne annualisee), marge nette, ROE, ROA (~ROIC, DK)
+        # + rachats d'actions (baisse du nombre d'actions = critere DK)
+        'grw': _dist(survivors, _growth),
         'nm': _dist(survivors, lambda t: _num(t.get('netMargin'))),
         'roe': _dist(survivors, lambda t: _num(t.get('roe'))),
         'roa': _dist(survivors, lambda t: _num(t.get('roa'))),
+        'buy': _dist(survivors, lambda t: (-_num(t.get('sharesChange'))) if _num(t.get('sharesChange')) is not None else None),
     }
     w = cfg['weights']
 
     def garp_pct(t):
-        # moyenne des percentiles disponibles : croissance CA + marge nette + ROE + ROA
-        ps = [p for p in (_pct(dists['grw'], _num(t.get('revenueGrowthYoY'))),
+        # moyenne des percentiles dispo : croissance CA (moyenne) + marge nette + ROE + ROA + rachats
+        sc = _num(t.get('sharesChange'))
+        ps = [p for p in (_pct(dists['grw'], _growth(t)),
                           _pct(dists['nm'], _num(t.get('netMargin'))),
                           _pct(dists['roe'], _num(t.get('roe'))),
-                          _pct(dists['roa'], _num(t.get('roa')))) if p is not None]
+                          _pct(dists['roa'], _num(t.get('roa'))),
+                          _pct(dists['buy'], (-sc) if sc is not None else None)) if p is not None]
         return (sum(ps) / len(ps)) if ps else None
 
     scored = []
@@ -183,6 +195,8 @@ def rate_universe(universe, cfg=QUALITY_CONFIG):
                 'earningsCAGR': t.get('earningsCAGR'), 'priceCAGR': t.get('priceCAGR'), 'gap': t.get('gap'),
                 'roe': t.get('roe'), 'roa': t.get('roa'), 'grossMargin': t.get('grossMargin'), 'netMargin': t.get('netMargin'),
                 'fcfYield': t.get('fcfYield'), 'revenueGrowthYoY': t.get('revenueGrowthYoY'),
+                'revCagr': t.get('revCagr'), 'revYears': t.get('revYears'), 'fcfCagr': t.get('fcfCagr'),
+                'sharesChange': t.get('sharesChange'), 'buyback': t.get('buyback'),
                 'earningsGrowthYoY': t.get('earningsGrowthYoY'),
                 'dividendYield': t.get('dividendYield'), 'payoutRatio': t.get('payoutRatio'),
                 'divStreak': t.get('divStreak'), 'divCagr': t.get('divCagr'), 'divGrowing': t.get('divGrowing'),

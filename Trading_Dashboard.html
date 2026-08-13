@@ -5669,6 +5669,7 @@ function screenerRenderQuality(c, data, config) {
     ['Note', 'left', "Note de valorisation au sein des sociétés de qualité. Achat fort = solide ET décotée ; Surévaluée = chère. Combine PEG, écart bénéfices/cours, PE prévisionnel, FCF et dividende. C'est du repérage, pas un conseil."],
     ['PEG', 'right', "PEG = PER divisé par la croissance des bénéfices. Sous 1 = pas cher au regard de la croissance ; au-dessus de 2 = cher."],
     ['Écart bénéf./cours', 'right', "Croissance des bénéfices (sur ~4 ans) moins la hausse du cours (sur 5 ans). Positif = les bénéfices ont grimpé plus vite que le cours, le multiple s'est comprimé (potentiellement décoté)."],
+    ['Croiss. CA', 'right', "Croissance RÉGULIÈRE du chiffre d'affaires, en moyenne annualisée sur ~4-5 ans (critère Dividend King n°2 : au moins 10 %/an). Bien plus fiable qu'un seul trimestre : une valeur peut afficher +16 % sur un trimestre mais +2 %/an en moyenne (ex Apple). Vert = ≥ 10 %. Survole pour la croissance du free cash-flow."],
     ['PE fwd', 'right', "PER prévisionnel = cours divisé par le bénéfice par action attendu l'an prochain. Plus il est bas, moins l'action est chère. ~15 = moyenne historique du marché."],
     ['ROE', 'right', "Rentabilité des capitaux propres = bénéfice net / fonds propres. Au-dessus de 15 % = rentable (seuil Dividend King). En petit : ROA (rentabilité des actifs), utilisé comme proxy du ROIC, le ratio n°1 de la méthode."],
     ['Marge nette', 'right', "Bénéfice net divisé par le chiffre d'affaires. Au-dessus de 20 % = très rentable, souvent le signe d'un avantage concurrentiel durable."],
@@ -5717,9 +5718,17 @@ function screenerRenderQuality(c, data, config) {
     }
     return scrEl('td', { text: txt, attrs: { title: tip }, style: `padding:8px 8px;text-align:right;white-space:nowrap;${bd};color:${col};font-weight:700` });
   };
+  // Croissance RÉGULIÈRE du CA (moyenne annualisée ~4-5 ans) : critère DK n°2 (>= 10 % vert)
+  const crCagrC = (m) => {
+    const v = m.revCagr;
+    const txt = v == null ? '–' : (v >= 0 ? '+' : '') + (v * 100).toFixed(0) + '%';
+    const col = v == null ? '#9aa7b4' : (v >= 0.10 ? '#1d9e74' : '#dd5f66');
+    const tip = v == null ? 'Croissance du CA indisponible' : ('Croissance annualisée du CA sur ~' + (m.revYears || 4) + ' ans' + (m.fcfCagr != null ? ' · FCF ' + (m.fcfCagr >= 0 ? '+' : '') + (m.fcfCagr * 100).toFixed(0) + ' %/an' : ''));
+    return scrEl('td', { text: txt, attrs: { title: tip }, style: `padding:8px 8px;text-align:right;white-space:nowrap;${bd};color:${col};font-weight:700` });
+  };
 
   if (!top.length) {
-    tbody.appendChild(scrEl('tr', { kids: [scrEl('td', { attrs: { colspan: '16' }, text: 'Aucune candidate.', style: 'padding:22px;color:#5b6b7d' })] }));
+    tbody.appendChild(scrEl('tr', { kids: [scrEl('td', { attrs: { colspan: '17' }, text: 'Aucune candidate.', style: 'padding:22px;color:#5b6b7d' })] }));
   } else top.forEach((cd, i) => {
     const m = cd.metrics || {}, rc = SCR_RATING_COL[cd.rating] || SCR_RATING_COL['Neutre'];
     const link = scrEl('a', { text: cd.symbol || '', href: scrQuoteUrl(cd.symbol, m.exchange), attrs: { target: '_blank', rel: 'noopener' }, style: 'font-weight:800;color:#3563e9;text-decoration:none' });
@@ -5728,12 +5737,14 @@ function screenerRenderQuality(c, data, config) {
       scrEl('td', { text: String(i + 1), style: `padding:8px 10px;color:#9aa7b4;${bd}` }),
       scrEl('td', { style: `padding:8px 10px;${bd}`, kids: [scrEl('div', { style: 'display:flex;align-items:center;gap:8px', kids: [
         scrLogo(cd.symbol, m.website),
-        scrEl('div', { kids: [link, scrEl('div', { text: cd.name || '', style: 'color:#5b6b7d;font-size:0.72rem;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap' })] })] })] }),
+        scrEl('div', { kids: [
+          scrEl('div', { style: 'display:flex;align-items:center;gap:5px', kids: m.buyback ? [link, scrEl('span', { text: '↺', attrs: { title: "Rachats d'actions réguliers : le nombre d'actions diminue (" + (m.sharesChange != null ? (m.sharesChange * 100).toFixed(0) + ' % sur ~4 ans' : 'baisse') + '). Critère Dividend King.' }, style: 'color:#1d9e74;font-weight:800;cursor:help;font-size:0.85rem' })] : [link] }),
+          scrEl('div', { text: cd.name || '', style: 'color:#5b6b7d;font-size:0.72rem;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap' })] })] })] }),
       scrCoursCell(m, bd),
       scrTargetCell(m, cd.sector, bd),
       scrEl('td', { text: cd.sector || '–', style: `padding:8px 10px;color:#5b6b7d;${bd}` }),
       scrEl('td', { style: `padding:8px 10px;${bd}`, kids: [chip] }),
-      numC(m.peg, 2), pctC(m.gap, 0), numC(m.forwardPE, 1), roeRoaC(m), pctC(m.netMargin, 0.20), divYieldC(m.dividendYield), payoutC(m.payoutRatio, m.dividendYield), divGrowthC(m), pctC(m.fcfYield, 0.03),
+      numC(m.peg, 2), pctC(m.gap, 0), crCagrC(m), numC(m.forwardPE, 1), roeRoaC(m), pctC(m.netMargin, 0.20), divYieldC(m.dividendYield), payoutC(m.payoutRatio, m.dividendYield), divGrowthC(m), pctC(m.fcfYield, 0.03),
       scrEl('td', { text: scrCap(m.marketCap, m.exchange), style: `padding:8px 10px;text-align:right;color:#5b6b7d;${bd}` }),
     ]}));
   });
