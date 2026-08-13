@@ -5215,7 +5215,61 @@ function computeAllocation(top, amount, nLines, weightMode, divOnly, holdings, s
     .sort((a, b) => (b.add - a.add) || (b.resultingWeight - a.resultingWeight));
   return { rows, cash: Math.max(0, amount - deployed), deployed };
 }
-function renderAllocTable(res, etfPct, etfAmount) {
+// ARBITRAGE à CAPITAL CONSTANT : rééquilibre les positions actuelles vers la cible (renforcer / alléger),
+// sort les titres notés Surévaluée. Somme des achats = somme des ventes (aucun apport).
+function computeArbitrage(top, holdings, nLines, weightMode, divOnly, sectorCap) {
+  holdings = holdings || {};
+  const LC = SCR_ALLOC_LINE_CAP, SC = (sectorCap && sectorCap > 0) ? sectorCap : SCR_ALLOC_SECTOR_CAP;
+  const perSectorMax = Math.max(1, Math.round(SC / LC));
+  const totalCapital = Object.values(holdings).reduce((a, b) => a + b, 0);
+  if (totalCapital <= 0) return { rows: [], cash: 0, deployed: 0, arb: true };
+  const exitSet = new Set(Object.keys(holdings).filter((tk) => { const d = SCR_PRICE_MAP[tk]; return d && d.rating === 'Surévaluée'; }));
+  const pool = (top || []).filter((t) => t.rating && t.rating !== 'Surévaluée' && (!divOnly || (t.metrics && t.metrics.divGrowing === true)))
+    .sort((a, b) => (b.valuationScore || 0) - (a.valuationScore || 0));
+  const cands = [], selCount = {}, seen = new Set();
+  for (const t of pool) {
+    const s = t.sector || 'N/A';
+    if ((selCount[s] || 0) >= perSectorMax) continue;
+    selCount[s] = (selCount[s] || 0) + 1; cands.push(t); seen.add(String(t.symbol || '').toUpperCase());
+    if (cands.length >= nLines) break;
+  }
+  Object.keys(holdings).forEach((tk) => {                       // détenus (hors Surévaluée) -> gardés/rééquilibrés
+    if (seen.has(tk) || exitSet.has(tk) || !(holdings[tk] > 0)) return;
+    const d = SCR_PRICE_MAP[tk]; if (!d) return;
+    cands.push({ symbol: tk, name: d.name || tk, sector: d.sector || 'N/A', rating: d.rating || 'Détenu', valuationScore: d.valuationScore || 0, metrics: d, held: true });
+    seen.add(tk);
+  });
+  const sec = cands.map((t) => t.sector || 'N/A');
+  const potOf = (t) => { const m = t.metrics || {}, fp = scrFairPrice(m, t.sector); return (fp != null && m.price > 0) ? (fp - m.price) / m.price : 0; };
+  const pot = cands.map(potOf);
+  const base = (weightMode === 'conviction') ? cands.map((t) => Math.max(1, t.valuationScore || 1)) : pot.map((p) => Math.max(p, 0.03));
+  const sum0 = base.reduce((a, b) => a + b, 0) || 1;
+  let w = base.map((b) => b / sum0);
+  for (let iter = 0; iter < 80; iter++) {
+    let excess = 0;
+    w = w.map((x) => { if (x > LC + 1e-9) { excess += x - LC; return LC; } return x; });
+    const secSum = {}; sec.forEach((s, i) => { secSum[s] = (secSum[s] || 0) + w[i]; });
+    const scale = {}; for (const s in secSum) if (secSum[s] > SC + 1e-9) scale[s] = SC / secSum[s];
+    if (Object.keys(scale).length) w = w.map((x, i) => { if (scale[sec[i]]) { const cut = x * (1 - scale[sec[i]]); excess += cut; return x - cut; } return x; });
+    if (excess < 1e-9) break;
+    const secSum2 = {}; sec.forEach((s, i) => { secSum2[s] = (secSum2[s] || 0) + w[i]; });
+    const room = w.map((x, i) => (secSum2[sec[i]] < SC - 1e-9) ? Math.max(0, LC - x) : 0);
+    const totalRoom = room.reduce((a, b) => a + b, 0);
+    if (totalRoom < 1e-9) break;
+    w = w.map((x, i) => x + excess * (room[i] / totalRoom));
+  }
+  const rows = cands.map((t, i) => {
+    const cur = holdings[String(t.symbol || '').toUpperCase()] || 0, target = w[i] * totalCapital;
+    return { t, pot: pot[i], current: cur, add: target - cur, targetWeight: w[i], resultingWeight: w[i], held: !!t.held };
+  });
+  exitSet.forEach((tk) => {                                     // Surévaluée détenues -> sortie complète
+    const d = SCR_PRICE_MAP[tk] || {};
+    rows.push({ t: { symbol: tk, name: d.name || tk, sector: d.sector || 'N/A', rating: 'Surévaluée', metrics: d, held: true }, pot: 0, current: holdings[tk], add: -holdings[tk], targetWeight: 0, resultingWeight: 0, held: true });
+  });
+  const turnover = rows.reduce((s, r) => s + Math.max(0, r.add), 0);   // total à acheter (≈ total à vendre)
+  return { rows: rows.filter((r) => Math.abs(r.add) > totalCapital * 0.003 || r.current > 0).sort((a, b) => b.add - a.add), cash: 0, deployed: turnover, arb: true };
+}
+function renderAllocTable(res, etfPct, etfAmount, mode) {
   const alloc = res.rows || [];
   etfPct = etfPct || 0; etfAmount = etfAmount || 0;
   if (!alloc.length && etfAmount <= 0) return scrEl('div', { text: 'Aucune candidate à répartir (que des Surévaluée ?).', style: 'color:#5b6b7d;font-size:0.8rem;padding:8px 0' });
@@ -5224,7 +5278,7 @@ function renderAllocTable(res, etfPct, etfAmount) {
   [['#', 'left'], ['Titre', 'left'], ['Note', 'left'], ['Secteur', 'left'], ['Potentiel', 'right']].forEach(([t, al]) =>
     thead.appendChild(scrEl('th', { text: t, style: `padding:8px 10px;text-align:${al};font-size:0.68rem;text-transform:uppercase;letter-spacing:.03em;border-bottom:1px solid #e3e8ee;white-space:nowrap` })));
   scrFundaHeadCells(2).forEach((th) => thead.appendChild(th));   // infos screener : ROIC, Croiss CA, PEG, Marge, Rendement, Payout, Div crois, FCF yield
-  [['Poids visé', 'right'], ['À déployer', 'right']].forEach(([t, al]) =>
+  [['Poids visé', 'right'], [mode === 'arb' ? 'Mouvement' : 'À déployer', 'right']].forEach(([t, al]) =>
     thead.appendChild(scrEl('th', { text: t, style: `padding:8px 10px;text-align:${al};font-size:0.68rem;text-transform:uppercase;letter-spacing:.03em;border-bottom:1px solid #e3e8ee;white-space:nowrap` })));
   const tbody = scrEl('tbody');
   // ETF socle en tête (méthode Dividend King : ETF socle 50-60% + 5-10 actions de qualité)
@@ -5255,12 +5309,12 @@ function renderAllocTable(res, etfPct, etfAmount) {
       ...scrFundaCells(m, t.sector, bd).slice(2),
       scrEl('td', { attrs: { title: "Poids visé dans ton portefeuille d'actions après ce versement (cible " + (a.targetWeight * 100).toFixed(0) + ' %)' }, text: (a.resultingWeight * 100).toFixed(1) + '%', style: `padding:6px 10px;text-align:right;font-weight:700;color:#42546a;cursor:help;${bd}` }),
       scrEl('td', { style: `padding:6px 10px;text-align:right;${bd}`, kids: [scrEl('div', { style: 'display:flex;flex-direction:column;align-items:flex-end;gap:1px', kids: [
-        scrEl('span', { text: a.add > 0 ? '+' + scrUsd(a.add) : '–', style: `font-weight:800;color:${a.add > 0 ? '#1d9e74' : '#9aa7b4'}` }),
+        scrEl('span', { text: a.add > 0.5 ? '+' + scrUsd(a.add) : (a.add < -0.5 ? scrUsd(a.add) : '–'), style: `font-weight:800;color:${a.add > 0.5 ? '#1d9e74' : (a.add < -0.5 ? '#dd5f66' : '#9aa7b4')}` }),
         (a.current > 0 ? scrEl('span', { text: 'détenu ' + scrUsd(a.current), style: 'font-size:0.62rem;color:#9aa7b4' }) : scrEl('span'))] })] }),
     ] }));
   });
   const totA = alloc.reduce((s, a) => s + a.add, 0);
-  const cash = res.cash || 0, grand = totA + cash + etfAmount;
+  const cash = res.cash || 0, grand = (mode === 'arb') ? (res.deployed || 0) : (totA + cash + etfAmount);
   // ligne Liquidités si la diversification laisse un surplus non réparti
   if (cash > grand * 0.005) {
     tbody.appendChild(scrEl('tr', { kids: [
@@ -5276,7 +5330,7 @@ function renderAllocTable(res, etfPct, etfAmount) {
   }
   tbody.appendChild(scrEl('tr', { style: 'background:#fafbfc', kids: [
     scrEl('td', { text: '', style: 'padding:7px 10px' }),
-    scrEl('td', { text: (etfPct > 0.0001 ? alloc.length + ' actions + ETF' : alloc.length + ' lignes'), style: 'padding:7px 10px;font-weight:700;color:#5b6b7d' }),
+    scrEl('td', { text: (mode === 'arb' ? alloc.length + ' lignes · capital constant' : (etfPct > 0.0001 ? alloc.length + ' actions + ETF' : alloc.length + ' lignes')), style: 'padding:7px 10px;font-weight:700;color:#5b6b7d' }),
     scrEl('td', { text: '' }), scrEl('td', { text: '' }), scrEl('td', { text: '' }),
     ...Array.from({ length: 9 }, () => scrEl('td', { text: '' })),
     scrEl('td', { text: '100%', style: 'padding:7px 10px;text-align:right;font-weight:800;color:#42546a' }),
@@ -5721,7 +5775,10 @@ function screenerQualityAllocPanel(top) {
   const wrap = scrEl('div', { style: 'background:#fff;border:1px solid #e3e8ee;border-radius:14px;padding:14px;margin-bottom:14px' });
   wrap.appendChild(scrEl('div', { style: 'display:flex;align-items:baseline;gap:8px;margin-bottom:12px;flex-wrap:wrap', kids: [
     scrEl('span', { text: 'Répartition proposée', style: 'font-weight:800;color:#22303f;font-size:0.95rem' }),
-    scrEl('span', { text: "plan de DCA pour ton argent libéré de Debitum : où placer selon tes positions déjà détenues, cadre indicatif, pas un conseil", style: 'font-size:0.72rem;color:#5b6b7d' })] }));
+    scrEl('span', { text: "où placer selon tes positions déjà détenues, cadre indicatif, pas un conseil", style: 'font-size:0.72rem;color:#5b6b7d' })] }));
+  let allocMode = (localStorage.getItem('scrAllocMode') === 'arb') ? 'arb' : 'dca';
+  const modeRow = scrEl('div', { style: 'display:inline-flex;border:1px solid #e3e8ee;border-radius:10px;overflow:hidden;margin-bottom:12px' });
+  wrap.appendChild(modeRow);
   const savedAmt = Number(localStorage.getItem('scrAllocAmount')) || 10000;
   let savedN = Number(localStorage.getItem('scrAllocLines')) || 12;
   if (savedN > 15) savedN = 15;   // DK : 10-15 lignes max
@@ -5761,8 +5818,12 @@ function screenerQualityAllocPanel(top) {
     localStorage.setItem('scrAllocDivOnly', divOnly ? '1' : '0');
     localStorage.setItem('scrAllocEtf', String(Math.round(etfPct * 100)));
     localStorage.setItem('scrAllocSecCap', String(Math.round(secCap * 100)));
-    const totalUsd = dispToUsd(amount);
-    results.replaceChildren(renderAllocTable(computeAllocation(top, totalUsd * (1 - etfPct), nLines, wMode, divOnly, scrHoldingsUsd(), secCap), etfPct, totalUsd * etfPct));
+    if (allocMode === 'arb') {
+      results.replaceChildren(renderAllocTable(computeArbitrage(top, scrHoldingsUsd(), nLines, wMode, divOnly, secCap), 0, 0, 'arb'));
+    } else {
+      const totalUsd = dispToUsd(amount);
+      results.replaceChildren(renderAllocTable(computeAllocation(top, totalUsd * (1 - etfPct), nLines, wMode, divOnly, scrHoldingsUsd(), secCap), etfPct, totalUsd * etfPct, 'dca'));
+    }
   }
   amtInput.addEventListener('input', render);
   nSelect.addEventListener('change', render);
@@ -5770,6 +5831,21 @@ function screenerQualityAllocPanel(top) {
   divSelect.addEventListener('change', render);
   etfInput.addEventListener('input', render);
   secInput.addEventListener('input', render);
+  function renderModeRow() {
+    const mk = (label, val, desc) => {
+      const on = allocMode === val;
+      const b = scrEl('button', { text: label, attrs: { title: desc }, style: `padding:7px 14px;border:none;cursor:pointer;font-size:0.8rem;font-weight:700;${on ? 'background:#3563e9;color:#fff' : 'background:#fff;color:#5b6b7d'}` });
+      b.onclick = () => { if (allocMode === val) return; allocMode = val; localStorage.setItem('scrAllocMode', val); renderModeRow(); render(); };
+      return b;
+    };
+    modeRow.replaceChildren(
+      mk('Déployer (DCA)', 'dca', "Répartir de l'argent NOUVEAU (libéré de Debitum) en comblant les écarts vers ta cible, sans rien vendre."),
+      mk('Arbitrer (capital constant)', 'arb', "Rééquilibrer tes positions ACTUELLES vers la cible : renforcer les sous-pondérés, alléger les surpondérés, sortir les Surévaluée. Aucun apport."));
+    const off = allocMode === 'arb';   // en arbitrage, l'argent à déployer et l'ETF socle ne s'appliquent pas
+    amtInput.disabled = off; etfInput.disabled = off;
+    amtInput.style.opacity = off ? '0.4' : '1'; etfInput.style.opacity = off ? '0.4' : '1';
+  }
+  renderModeRow();
   render();
   return wrap;
 }
