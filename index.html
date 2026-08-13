@@ -4953,7 +4953,7 @@ async function renderScreenerTab() {
       const nodes = await Promise.all([db.ref('stocks/screener/quality').once('value'), db.ref('stocks/screener/smallcap').once('value')]);
       nodes.forEach((snap) => { const v = snap.val(); (v && v.top || []).forEach((t) => { const m = t.metrics || {}; if (t.symbol && m.price != null) SCR_PRICE_MAP[String(t.symbol).toUpperCase()] = Object.assign({}, m, { name: t.name, sector: t.sector, rating: t.rating, valuationScore: t.valuationScore }); }); });
     } catch (e) { /* ignore */ }
-    await scrApplyLivePrices();   // cours temps réel (cron VPS) par-dessus le snapshot
+    await scrMergePositionMeta(); await scrApplyLivePrices();   // cours temps réel (cron VPS) par-dessus le snapshot
     // Positions "Mes positions" depuis Firebase (cross-device) + migration one-shot depuis localStorage.
     try {
       const mp = (await db.ref('stocks/screener/myPositions').once('value')).val();
@@ -5292,6 +5292,20 @@ async function scrApplyLivePrices() {
   if (typeof db === 'undefined' || !db) return;
   try { scrApplyLpValue((await db.ref('stocks/screener/livePrices').once('value')).val()); } catch (e) {}
 }
+// Fondamentaux des tickers DÉTENUS hors univers screener (ex SNDK, GS rejetés par le gate) : comble les trous de SCR_PRICE_MAP.
+async function scrMergePositionMeta() {
+  if (typeof db === 'undefined' || !db) return;
+  try {
+    const pm = (await db.ref('stocks/screener/positionMeta').once('value')).val();
+    const list = Array.isArray(pm) ? pm : (pm && typeof pm === 'object' ? Object.values(pm) : []);
+    list.forEach((m) => {
+      if (!m || !m.symbol) return;
+      const k = String(m.symbol).toUpperCase();
+      if (!SCR_PRICE_MAP[k]) SCR_PRICE_MAP[k] = {};
+      Object.keys(m).forEach((f) => { if (SCR_PRICE_MAP[k][f] == null) SCR_PRICE_MAP[k][f] = m[f]; });
+    });
+  } catch (e) {}
+}
 // Recharge les positions (cross-device) + la carte des cours (snapshot + cours live) depuis Firebase.
 async function scrLoadPositionsAndPrices() {
   if (typeof db === 'undefined' || !db) return;
@@ -5304,7 +5318,7 @@ async function scrLoadPositionsAndPrices() {
     SCR_PRICE_MAP = {};
     nodes.forEach((snap) => { const v = snap.val(); (v && v.top || []).forEach((t) => { const m = t.metrics || {}; if (t.symbol && m.price != null) SCR_PRICE_MAP[String(t.symbol).toUpperCase()] = Object.assign({}, m, { name: t.name, sector: t.sector, rating: t.rating, valuationScore: t.valuationScore }); }); });
   } catch (e) {}
-  await scrApplyLivePrices();
+  await scrMergePositionMeta(); await scrApplyLivePrices();
 }
 
 // Graphiques du portefeuille (barres par action, donut par secteur), construits en DOM/SVG.

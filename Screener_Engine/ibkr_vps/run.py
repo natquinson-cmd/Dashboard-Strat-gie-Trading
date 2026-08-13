@@ -248,6 +248,38 @@ def run_quality(y):
             'top': pushed}
 
 
+def push_position_meta(y, db):
+    """Enrichit les fondamentaux des tickers DETENUS (myPositions), meme hors univers screener,
+    pour qu'ils s'affichent dans 'Mes positions' (SNDK, GS... rejetes par le gate). -> positionMeta."""
+    from firebase_push import get, push
+    pos = get(db, 'stocks/screener/myPositions')
+    raw = pos if isinstance(pos, list) else (list(pos.values()) if isinstance(pos, dict) else [])
+    syms = sorted({str(p.get('ticker', '')).upper().strip() for p in raw if isinstance(p, dict) and p.get('ticker')})
+    syms = [s for s in syms if s]
+    if not syms:
+        print('positionMeta : aucune position'); return
+    out = []
+    for sym in syms:
+        r = y.quote_quality(sym)
+        if not r or r.get('price') is None:
+            continue
+        pc = y.price_cagr(sym)
+        r['priceCAGR'] = pc
+        growth = r.get('earningsCAGR') if r.get('earningsCAGR') is not None else r.get('earningsGrowthYoY')
+        r['gap'] = (growth - pc) if (growth is not None and pc is not None) else None
+        dg = y.dividend_growth(sym)
+        if dg:
+            r.update(dg)
+        fh = y.fundamentals_history(sym)
+        if fh:
+            r.update(fh)
+        r['symbol'] = sym
+        out.append({k: v for k, v in r.items() if v is not None})   # pas de null
+        time.sleep(y.pause)
+    push(db, 'stocks/screener/positionMeta', out)
+    print(f'positionMeta pousse : {len(out)} tickers detenus ({", ".join(p["symbol"] for p in out)})')
+
+
 def main():
     apply_firebase_config()
     y = Yahoo()
@@ -276,6 +308,7 @@ def main():
             if do_push:
                 push(db, 'stocks/screener/quality', payload)
                 print(f"Pousse qualite ({len(payload['top'])}).")
+                push_position_meta(y, db)   # fondamentaux des titres detenus hors univers (Mes positions)
             else:
                 print('\n(pas de push) Qualite top 12 :')
                 for c in payload['top'][:12]:
