@@ -5081,10 +5081,30 @@ function buildScreenerParams(panel, config) {
 
 const SCR_RATING_COL = { 'Achat fort': ['#d1f0e3', '#127a54'], 'Achat': ['#e4f5ee', '#1d7a5c'], 'Neutre': ['#eef2f8', '#5b6b7d'], 'Surévaluée': ['#fdeaea', '#c0392b'], 'Détenu': ['#e8effe', '#3563e9'] };
 // Pastille de Note + score sur 100 (valuationScore) en dessous. Pas de score pour les titres non notés (Détenu).
-function scrNoteChip(rating, score) {
+// Note GLOBALE = 70 % Note de valorisation + 30 % score de moat AJUSTÉ (malus si IA menacé / moat qui s'érode).
+function scrGlobalNote(m) {
+  const vs = m && m.valuationScore;
+  if (vs == null || !isFinite(vs)) return null;
+  const moat = m.moatScore;
+  if (moat == null || !isFinite(moat)) return Math.round(vs);   // pas de moat -> Note brute
+  let adj = moat;
+  if (m.aiExposure === 'Menacé') adj *= 0.80;                   // malus IA menacé (choix user)
+  if (m.moatTrend === 'Érode') adj *= 0.85;                     // malus moat qui s'érode
+  return Math.round(0.70 * vs + 0.30 * adj);
+}
+function scrRatingFromScore(s) {
+  return s >= 80 ? 'Achat fort' : (s >= 60 ? 'Achat' : (s >= 40 ? 'Neutre' : 'Surévaluée'));
+}
+// Pastille de Note (rating + score /100). Si un moat existe, la Note devient GLOBALE (rating re-dérivé + '*').
+function scrNoteChip(m) {
+  m = m || {};
+  const g = scrGlobalNote(m);
+  const hasMoat = m.moatScore != null && isFinite(m.moatScore) && m.valuationScore != null;
+  const score = (g != null) ? g : (m.valuationScore != null && isFinite(m.valuationScore) ? Math.round(m.valuationScore) : null);
+  const rating = (g != null) ? scrRatingFromScore(g) : (m.rating || 'Neutre');
   const rc = SCR_RATING_COL[rating] || SCR_RATING_COL['Neutre'];
   const kids = [scrEl('span', { text: rating, style: `background:${rc[0]};color:${rc[1]};border-radius:20px;padding:2px 9px;font-size:0.68rem;font-weight:700;white-space:nowrap` })];
-  if (score != null && isFinite(score) && score > 0) kids.push(scrEl('span', { text: Math.round(score) + '/100', style: 'font-size:0.62rem;color:#9aa7b4;font-weight:700' }));
+  if (score != null && score > 0) kids.push(scrEl('span', { attrs: hasMoat ? { title: "Note globale = 70 % valorisation + 30 % moat (malus si IA menacé / moat qui s'érode)" } : {}, text: score + '/100' + (hasMoat ? '*' : ''), style: `font-size:0.62rem;color:#9aa7b4;font-weight:700${hasMoat ? ';cursor:help' : ''}` }));
   return scrEl('div', { style: 'display:flex;flex-direction:column;align-items:flex-start;gap:2px', kids: kids });
 }
 // Cellule MOAT : pastille Large/Étroit/Aucun + note /100 + ligne exposition IA (menacé rouge / favorable vert). Détail au survol.
@@ -5129,7 +5149,7 @@ function scrFundaCells(m, sector, bd) {
   const cell = (txt, style) => scrEl('td', { text: txt, style: `padding:6px 8px;text-align:right;white-space:nowrap;${bd};${style || 'color:#42546a'}` });
   const rc = SCR_RATING_COL[m.rating];
   const note = (m.rating && rc)
-    ? scrEl('td', { style: `padding:6px 8px;${bd}`, kids: [scrNoteChip(m.rating, m.valuationScore)] })
+    ? scrEl('td', { style: `padding:6px 8px;${bd}`, kids: [scrNoteChip(m)] })
     : scrEl('td', { text: '–', style: `padding:6px 8px;color:${g};${bd}` });
   let roic;
   if (m.roic != null) {
@@ -5201,7 +5221,7 @@ function computeAllocation(top, amount, nLines, weightMode, divOnly, holdings, s
   const potOf = (t) => { const m = t.metrics || {}, fp = scrFairPrice(m, t.sector); return (fp != null && m.price > 0) ? (fp - m.price) / m.price : 0; };
   const pot = cands.map(potOf);
   // 2) POIDS CIBLE (dans le sleeve actions) : potentiel (plancher 3 %) ou conviction, plafonds ligne (10 %) + secteur (SC)
-  const base = (weightMode === 'conviction') ? cands.map((t) => Math.max(1, t.valuationScore || 1)) : pot.map((p) => Math.max(p, 0.03));
+  const base = (weightMode === 'conviction') ? cands.map((t) => { const d = SCR_PRICE_MAP[String(t.symbol || '').toUpperCase()], gg = d ? scrGlobalNote(d) : null; return Math.max(1, (gg != null ? gg : t.valuationScore) || 1); }) : pot.map((p) => Math.max(p, 0.03));
   const sum0 = base.reduce((a, b) => a + b, 0) || 1;
   let w = base.map((b) => b / sum0);
   for (let iter = 0; iter < 80; iter++) {
@@ -5264,7 +5284,7 @@ function computeArbitrage(top, holdings, nLines, weightMode, divOnly, sectorCap)
   const sec = cands.map((t) => t.sector || 'N/A');
   const potOf = (t) => { const m = t.metrics || {}, fp = scrFairPrice(m, t.sector); return (fp != null && m.price > 0) ? (fp - m.price) / m.price : 0; };
   const pot = cands.map(potOf);
-  const base = (weightMode === 'conviction') ? cands.map((t) => Math.max(1, t.valuationScore || 1)) : pot.map((p) => Math.max(p, 0.03));
+  const base = (weightMode === 'conviction') ? cands.map((t) => { const d = SCR_PRICE_MAP[String(t.symbol || '').toUpperCase()], gg = d ? scrGlobalNote(d) : null; return Math.max(1, (gg != null ? gg : t.valuationScore) || 1); }) : pot.map((p) => Math.max(p, 0.03));
   const sum0 = base.reduce((a, b) => a + b, 0) || 1;
   let w = base.map((b) => b / sum0);
   for (let iter = 0; iter < 80; iter++) {
@@ -5325,7 +5345,7 @@ function renderAllocTable(res, etfPct, etfAmount, mode) {
     tbody.appendChild(scrEl('tr', { kids: [
       scrEl('td', { text: String(i + 1), style: `padding:6px 10px;color:#9aa7b4;${bd}` }),
       idcell,
-      scrEl('td', { style: `padding:6px 10px;${bd}`, kids: [scrNoteChip(t.rating, t.valuationScore)] }),
+      scrEl('td', { style: `padding:6px 10px;${bd}`, kids: [scrNoteChip(SCR_PRICE_MAP[String(t.symbol || '').toUpperCase()] || { valuationScore: t.valuationScore, rating: t.rating })] }),
       scrEl('td', { text: t.sector || '–', style: `padding:6px 10px;color:#5b6b7d;font-size:0.78rem;${bd}` }),
       scrEl('td', { text: (a.pot >= 0 ? '+' : '') + (a.pot * 100).toFixed(0) + '%', style: `padding:6px 10px;text-align:right;font-weight:700;color:${a.pot >= 0 ? '#1d9e74' : '#dd5f66'};${bd}` }),
       ...scrFundaCells(SCR_PRICE_MAP[String(t.symbol || '').toUpperCase()] || m, t.sector, bd).slice(2),
@@ -6003,7 +6023,7 @@ function screenerRenderQuality(c, data, config) {
       scrEl('td', { text: cd.sector || '–', style: `padding:8px 10px;color:#5b6b7d;${bd}` }),
       scrEl('td', { text: scrCountryOf(m), style: `padding:8px 10px;color:#5b6b7d;font-size:0.82rem;white-space:nowrap;${bd}` }),
       scrMoatCell(SCR_PRICE_MAP[String(cd.symbol || '').toUpperCase()] || m, 'padding:8px 10px', bd),
-      scrEl('td', { style: `padding:8px 10px;${bd}`, kids: [scrNoteChip(cd.rating, cd.valuationScore)] }),
+      scrEl('td', { style: `padding:8px 10px;${bd}`, kids: [scrNoteChip(SCR_PRICE_MAP[String(cd.symbol || '').toUpperCase()] || { valuationScore: cd.valuationScore, rating: cd.rating })] }),
       numC(m.peg, 2), pctC(m.gap, 0), crCagrC(m), numC(m.forwardPE, 1), roeRoaC(m), pctC(m.netMargin, 0.20), divYieldC(m.dividendYield), payoutC(m.payoutRatio, m.dividendYield), divGrowthC(m), pctC(m.fcfYield, 0.03),
       scrEl('td', { text: scrCap(m.marketCap, m.exchange), style: `padding:8px 10px;text-align:right;color:#5b6b7d;${bd}` }),
     ]}));
