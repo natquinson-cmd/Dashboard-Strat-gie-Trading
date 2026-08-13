@@ -989,11 +989,11 @@
 
   <div class="header">
     <div class="header-left">
-      <h1 id="mainTitle">Trading Auto Dashboard</h1>
+      <h1 id="mainTitle">Trading Dashboard</h1>
       <p id="headerSubtitle">DAX 40 (IntradayGrafV4-3) & NASDAQ 100 (NAS 15 OPR R2.2)</p>
     </div>
     <div class="group-bar">
-      <button class="group-btn active" onclick="switchGroup('trading')">Trading Auto</button>
+      <button class="group-btn active" onclick="switchGroup('trading')">Trading</button>
       <button class="group-btn" onclick="switchGroup('invest')">Portfolio</button>
     </div>
   </div>
@@ -1242,7 +1242,7 @@
       <div class="kpi-grid" id="kpiAdvancedFixed"></div>
     </div>
     <div class="chart-full"><div class="chart-card">
-      <h3>Courbe de Capital — Taille Fixe</h3>
+      <h3>Courbe de Capital — Backtest fixe</h3>
       <canvas id="eqFixed"></canvas>
     </div></div>
     <div class="chart-full"><div class="chart-card">
@@ -1325,7 +1325,7 @@
       <div class="kpi-grid" id="kpiAdvancedReinvest"></div>
     </div>
     <div class="chart-full"><div class="chart-card">
-      <h3>Courbe de Capital — Réinvestissement</h3>
+      <h3>Courbe de Capital — Backtest Réinv</h3>
       <canvas id="eqReinvest"></canvas>
     </div></div>
     <div class="chart-full"><div class="chart-card">
@@ -3548,7 +3548,7 @@ function openBacktestModal(tab) {
   document.getElementById('btNameDax').style.display = 'none';
   document.getElementById('btNameNas').style.display = 'none';
   document.getElementById('btnApplyBt').disabled = true;
-  const label = tab === 'fixed' ? 'Taille Fixe' : 'Réinvestissement';
+  const label = tab === 'fixed' ? 'Backtest fixe' : 'Backtest Réinv';
   document.getElementById('btModalSubtitle').textContent = 'Chargez les fichiers CSV ProRealTime — ' + label;
   document.getElementById('btCsvModal').classList.add('show');
 }
@@ -3685,7 +3685,7 @@ function applyBacktestCsv() {
   renderTabCharts(pendingBtTab);
   tabRendered[pendingBtTab] = true;
   closeBacktestModal();
-  const label = pendingBtTab === 'fixed' ? 'Taille Fixe' : 'Réinvestissement';
+  const label = pendingBtTab === 'fixed' ? 'Backtest fixe' : 'Backtest Réinv';
   setTimeout(() => alert(msg), 300);
 }
 
@@ -4629,9 +4629,9 @@ const tabRendered = { real: false, fixed: false, reinvest: false };
 const GROUP_TABS = {
   trading: [
     { id: 'real', label: 'Trading Réel' },
-    { id: 'fixed', label: 'Taille Fixe' },
-    { id: 'reinvest', label: 'Réinvestissement' },
-    { id: 'screener', label: 'Screener' }
+    { id: 'fixed', label: 'Backtest fixe' },
+    { id: 'reinvest', label: 'Backtest Réinv' },
+    { id: 'screener', label: "Portefeuille d'actions" }
   ],
   invest: [
     { id: 'overview', label: "Vue d'ensemble" },
@@ -4665,7 +4665,7 @@ function updateHeader(group) {
   const title = document.getElementById('mainTitle');
   const subtitle = document.getElementById('headerSubtitle');
   if (group === 'trading') {
-    title.textContent = 'Trading Auto Dashboard';
+    title.textContent = 'Trading Dashboard';
     subtitle.textContent = 'DAX 40 (IntradayGrafV4-3) & NASDAQ 100 (NAS 15 OPR R2.2)';
   } else {
     title.textContent = 'Portfolio Dashboard';
