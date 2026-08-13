@@ -5306,9 +5306,20 @@ function scrDailyPnl(hist) {   // P&L NET des apports : (Δvaleur - Δinvesti) j
   for (let i = 1; i < hist.length; i++) m[hist[i].date] = (hist[i].value - hist[i - 1].value) - (hist[i].invested - hist[i - 1].invested);
   return m;
 }
-function scrKpi(label, val, col) {
-  return scrEl('div', { kids: [
-    scrEl('div', { text: label, style: 'font-size:0.62rem;color:#9aa7b4;text-transform:uppercase;font-weight:700;letter-spacing:.03em' }),
+function scrTWR(hist) {   // Rendement pondéré dans le temps : neutralise les apports (DCA). Π(1 + pnl_i/base_i) - 1
+  if (!hist || hist.length < 2) return null;
+  let twr = 1, ok = false;
+  for (let i = 1; i < hist.length; i++) {
+    const base = hist[i - 1].value;
+    if (!(base > 0)) continue;
+    const pnl = (hist[i].value - hist[i - 1].value) - (hist[i].invested - hist[i - 1].invested);   // gain de marché, hors apport
+    twr *= (1 + pnl / base); ok = true;
+  }
+  return ok ? twr - 1 : null;
+}
+function scrKpi(label, val, col, title) {
+  return scrEl('div', { attrs: title ? { title } : {}, kids: [
+    scrEl('div', { text: label, style: `font-size:0.62rem;color:#9aa7b4;text-transform:uppercase;font-weight:700;letter-spacing:.03em${title ? ';cursor:help' : ''}` }),
     scrEl('div', { text: val, style: `font-size:1rem;font-weight:800;color:${col || '#22303f'}` })] });
 }
 function scrEquityCurve(hist) {
@@ -5371,10 +5382,11 @@ function scrBuildHistSection() {
     return wrap;
   }
   if (SCR_CAL_Y == null) { const last = hist[hist.length - 1].date; SCR_CAL_Y = +last.slice(0, 4); SCR_CAL_M = +last.slice(5, 7) - 1; }
-  const pnlMap = scrDailyPnl(hist), cur = hist[hist.length - 1], gain = cur.value - cur.invested;
+  const pnlMap = scrDailyPnl(hist), cur = hist[hist.length - 1], gain = cur.value - cur.invested, twr = scrTWR(hist);
   wrap.appendChild(scrEl('div', { style: 'display:flex;gap:18px;flex-wrap:wrap;margin-bottom:10px', kids: [
     scrKpi('Valeur', scrUsd(cur.value)), scrKpi('Investi', scrUsd(cur.invested)),
-    scrKpi('Gain total', (gain >= 0 ? '+' : '') + scrUsd(gain), gain >= 0 ? '#1d9e74' : '#dd5f66')] }));
+    scrKpi('Gain total', (gain >= 0 ? '+' : '') + scrUsd(gain), gain >= 0 ? '#1d9e74' : '#dd5f66'),
+    scrKpi('Rendement (TWR)', twr == null ? '–' : (twr >= 0 ? '+' : '') + (twr * 100).toFixed(1) + ' %', twr == null ? '#9aa7b4' : (twr >= 0 ? '#1d9e74' : '#dd5f66'), "Rendement pondéré dans le temps : neutralise l'effet de tes apports (DCA depuis Debitum). C'est la vraie mesure de performance ; le gain en $ est gonflé ou dilué par le timing de tes versements. Disponible dès 2 jours d'historique.")] }));
   wrap.appendChild(scrEquityCurve(hist));
   wrap.appendChild(scrEl('div', { style: 'display:flex;gap:18px;flex-wrap:wrap;margin-top:14px', kids: [
     scrEl('div', { style: 'flex:1;min-width:260px', kids: [scrEl('div', { text: "Calendrier journalier (P&L net d'apports)", style: 'font-size:0.7rem;color:#5b6b7d;font-weight:700;margin-bottom:6px' }), scrDayCalendar(hist, pnlMap)] }),
