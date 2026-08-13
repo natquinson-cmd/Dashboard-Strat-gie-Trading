@@ -189,6 +189,7 @@ class Yahoo:
             'trailingPE': g(sd, 'trailingPE'), 'forwardPE': g(sd, 'forwardPE'),
             'dividendYield': g(sd, 'dividendYield'), 'payoutRatio': g(sd, 'payoutRatio'),
             'website': ap.get('website'),   # pour le logo de repli (favicon du domaine)
+            'country': ap.get('country'),   # pays du siege (pour la repartition geographique)
         }
 
     def price_cagr(self, symbol, years=5):

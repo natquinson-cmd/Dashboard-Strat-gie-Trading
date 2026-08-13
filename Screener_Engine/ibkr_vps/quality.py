@@ -208,7 +208,7 @@ def rate_universe(universe, cfg=QUALITY_CONFIG):
                 'earningsGrowthYoY': t.get('earningsGrowthYoY'),
                 'dividendYield': t.get('dividendYield'), 'payoutRatio': t.get('payoutRatio'),
                 'divStreak': t.get('divStreak'), 'divCagr': t.get('divCagr'), 'divGrowing': t.get('divGrowing'),
-                'website': t.get('website'),
+                'website': t.get('website'), 'country': t.get('country'),
             },
         })
 

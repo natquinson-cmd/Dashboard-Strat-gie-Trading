@@ -57,6 +57,73 @@ def _poslist(pos):
     return [p for p in raw if isinstance(p, dict) and p.get('ticker')]
 
 
+# --- DCA programme ETF Revolut : le VPS fait grossir les lignes ETF au cours du jour ---
+# (choix user) 20 EUR VUAA le mercredi + 10 EUR VFEA le jeudi. Applique 1 fois par jour concerne (idempotent).
+DCA_PLAN = [
+    {'ticker': 'VUAA.DE', 'amountEur': 20.0, 'weekday': 2},   # mercredi (lundi=0 .. dimanche=6)
+    {'ticker': 'VFEA.DE', 'amountEur': 10.0, 'weekday': 3},   # jeudi
+]
+
+
+def _price_eur(price_native, exch, fx):
+    if EXCH_CCY.get(exch) == 'EUR':
+        return price_native
+    pu = _to_usd(price_native, exch, fx)                       # cours -> USD puis -> EUR
+    return (pu * fx['EUR']) if (pu is not None and fx.get('EUR')) else None
+
+
+def compute_dca(poslist, pmap, fx, today, state):
+    """Applique les achats DCA dus aujourd'hui aux lignes de poslist (mutation en place).
+    Renvoie (changed, logs). Pur (aucun I/O) -> testable sans toucher Firebase."""
+    eur = fx.get('EUR')
+    if not eur:
+        return False, []
+    day_str = today.strftime('%Y-%m-%d')
+    wd = today.weekday()
+    logs, changed = [], False
+    for plan in DCA_PLAN:
+        if plan['weekday'] != wd:
+            continue
+        tk = plan['ticker']
+        key = tk.replace('.', '_')                            # clef Firebase sans point
+        if state.get(key) == day_str:                         # deja applique aujourd'hui -> idempotent
+            continue
+        if tk not in pmap:
+            continue
+        pe = _price_eur(pmap[tk][0], pmap[tk][1], fx)
+        if not pe or pe <= 0:
+            continue
+        line = next((p for p in poslist if str(p.get('ticker', '')).upper().strip() == tk), None)
+        if line is None:
+            continue
+        try:
+            qty = float(line.get('qty') or 0)
+            pru = float(line.get('pru') or 0)
+        except (TypeError, ValueError):
+            continue
+        qty_add = plan['amountEur'] / pe                       # actions achetees = EUR / cours EUR
+        cost_usd = plan['amountEur'] / eur                     # 20 EUR -> USD (pru stocke en USD canonique)
+        new_qty = qty + qty_add
+        new_pru = ((qty * pru + cost_usd) / new_qty) if new_qty > 0 else pru
+        line['qty'] = round(new_qty, 8)
+        line['pru'] = round(new_pru, 4)
+        state[key] = day_str
+        changed = True
+        logs.append(f'DCA {tk} : +{qty_add:.5f} act. ({plan["amountEur"]:.0f} EUR @ {pe:.2f} EUR) -> qty {new_qty:.5f} / pru ${new_pru:.2f}')
+    return changed, logs
+
+
+def apply_dca(db, poslist, pmap, fx):
+    state = get(db, 'stocks/screener/dcaState') or {}
+    changed, logs = compute_dca(poslist, pmap, fx, datetime.now(), state)
+    for l in logs:
+        print(l)
+    if changed:
+        push(db, 'stocks/screener/myPositions', poslist)      # lignes ETF mises a jour (qty + pru)
+        push(db, 'stocks/screener/dcaState', state)
+    return changed
+
+
 def main():
     db = os.environ.get('FIREBASE_DB_URL')
     if not db:
@@ -81,8 +148,10 @@ def main():
     push(db, 'stocks/screener/livePrices', {'generatedAt': _now_iso(), 'prices': prices})
     print(f'Cours live pousses : {len(prices)}/{len(tickers)} ({", ".join(p["ticker"] for p in prices)})')
 
-    # --- Instantane quotidien du portefeuille (valeur + investi, en USD) + composition par ticker ---
     fx = _fx_rates()
+    apply_dca(db, poslist, pmap, fx)   # DCA ETF Revolut : grossit les lignes VUAA.DE/VFEA.DE au cours du jour
+
+    # --- Instantane quotidien du portefeuille (valeur + investi, en USD) + composition par ticker ---
     agg = {}   # ticker -> {value, invested} agrege (permet le detail par position au clic d'un jour)
     for p in poslist:
         t = str(p['ticker']).upper().strip()
