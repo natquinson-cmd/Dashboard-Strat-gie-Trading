@@ -5235,7 +5235,7 @@ function scrHoldingsUsd() {
 function computeAllocation(top, amount, nLines, weightMode, divOnly, holdings, sectorCap, lineCap) {
   holdings = holdings || {};
   const LC = (lineCap && lineCap > 0) ? lineCap : SCR_ALLOC_LINE_CAP, SC = (sectorCap && sectorCap > 0) ? sectorCap : SCR_ALLOC_SECTOR_CAP;
-  const perSectorMax = Math.max(1, Math.round(SC / LC));
+  const perSectorMax = Math.max(1, Math.round(SC / SCR_ALLOC_LINE_CAP));   // nb titres/secteur basé sur 10 % nominal : le plafond/ligne ne change QUE la taille des lignes, pas la sélection
   // 1) SÉLECTION : candidats screener (conviction décroissante, diversifiée) + titres DÉTENUS hors screener (renforcement)
   const pool = (top || []).filter((t) => t.rating && t.rating !== 'Surévaluée' && (!divOnly || (t.metrics && t.metrics.divGrowing === true)))
     .sort((a, b) => (b.valuationScore || 0) - (a.valuationScore || 0));
@@ -5298,7 +5298,7 @@ function computeAllocation(top, amount, nLines, weightMode, divOnly, holdings, s
 function computeArbitrage(top, holdings, nLines, weightMode, divOnly, sectorCap, lineCap) {
   holdings = holdings || {};
   const LC = (lineCap && lineCap > 0) ? lineCap : SCR_ALLOC_LINE_CAP, SC = (sectorCap && sectorCap > 0) ? sectorCap : SCR_ALLOC_SECTOR_CAP;
-  const perSectorMax = Math.max(1, Math.round(SC / LC));
+  const perSectorMax = Math.max(1, Math.round(SC / SCR_ALLOC_LINE_CAP));   // nb titres/secteur basé sur 10 % nominal : le plafond/ligne ne change QUE la taille des lignes, pas la sélection
   const totalCapital = Object.values(holdings).reduce((a, b) => a + b, 0);
   if (totalCapital <= 0) return { rows: [], cash: 0, deployed: 0, arb: true };
   const convOf = (t) => { const d = SCR_PRICE_MAP[String(t.symbol || '').toUpperCase()]; const g = d ? scrGlobalNote(d) : null; return (g != null) ? g : (t.valuationScore != null ? t.valuationScore : 0); };
