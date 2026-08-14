@@ -5217,6 +5217,8 @@ function scrFundaCells(m, sector, bd) {
 // (marge de securite), Surevaluee et potentiel negatif exclus, plafond 10 %/ligne et 35 %/secteur.
 const SCR_ALLOC_LINE_CAP = 0.10;    // max par ligne
 const SCR_ALLOC_SECTOR_CAP = 0.35;  // max par secteur (diversification)
+const SCR_CONV_FLOOR = 55;          // plancher de conviction : poids ∝ (note − 55). Contraste les fortes convictions
+                                    // pour que le plafond/ligne MORDE (sinon 10 notes proches 68-79 → poids tous ~10 %, curseur inerte)
 // Valeur actuellement détenue par ticker (sleeve ACTIONS, en USD ; ETF socle exclu), depuis myPositions.
 function scrHoldingsUsd() {
   const h = {};
@@ -5257,7 +5259,7 @@ function computeAllocation(top, amount, nLines, weightMode, divOnly, holdings, s
   const potOf = (t) => { const m = t.metrics || {}, fp = scrFairPrice(m, t.sector); return (fp != null && m.price > 0) ? (fp - m.price) / m.price : 0; };
   const pot = cands.map(potOf);
   // 2) POIDS CIBLE (dans le sleeve actions) : potentiel (plancher 3 %) ou conviction, plafonds ligne (10 %) + secteur (SC)
-  const base = (weightMode === 'conviction') ? cands.map((t) => { const d = SCR_PRICE_MAP[String(t.symbol || '').toUpperCase()], gg = d ? scrGlobalNote(d) : null; return Math.max(1, (gg != null ? gg : t.valuationScore) || 1); }) : pot.map((p) => Math.max(p, 0.03));
+  const base = (weightMode === 'conviction') ? cands.map((t) => Math.max(0.5, scrConvNote(t) - SCR_CONV_FLOOR)) : pot.map((p) => Math.max(p, 0.03));
   const sum0 = base.reduce((a, b) => a + b, 0) || 1;
   let w = base.map((b) => b / sum0);
   for (let iter = 0; iter < 80; iter++) {
@@ -5329,7 +5331,7 @@ function computeArbitrage(top, holdings, nLines, weightMode, divOnly, sectorCap,
   const sec = cands.map((t) => t.sector || 'N/A');
   const potOf = (t) => { const m = t.metrics || {}, fp = scrFairPrice(m, t.sector); return (fp != null && m.price > 0) ? (fp - m.price) / m.price : 0; };
   const pot = cands.map(potOf);
-  const base = (weightMode === 'conviction') ? cands.map((t) => Math.max(1, convOf(t) || 1)) : pot.map((p) => Math.max(p, 0.03));
+  const base = (weightMode === 'conviction') ? cands.map((t) => Math.max(0.5, scrConvNote(t) - SCR_CONV_FLOOR)) : pot.map((p) => Math.max(p, 0.03));
   const sum0 = base.reduce((a, b) => a + b, 0) || 1;
   let w = base.map((b) => b / sum0);
   for (let iter = 0; iter < 80; iter++) {
