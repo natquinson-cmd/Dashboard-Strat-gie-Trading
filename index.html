@@ -5238,22 +5238,28 @@ function computeAllocation(top, amount, nLines, weightMode, divOnly, holdings, s
   holdings = holdings || {};
   const LC = (lineCap && lineCap > 0) ? lineCap : SCR_ALLOC_LINE_CAP, SC = (sectorCap && sectorCap > 0) ? sectorCap : SCR_ALLOC_SECTOR_CAP;
   const perSectorMax = Math.max(1, Math.round(SC / SCR_ALLOC_LINE_CAP));   // nb titres/secteur basé sur 10 % nominal : le plafond/ligne ne change QUE la taille des lignes, pas la sélection
-  // 1) SÉLECTION : candidats screener (conviction décroissante, diversifiée) + titres DÉTENUS hors screener (renforcement)
-  const pool = (top || []).filter((t) => t.rating && t.rating !== 'Surévaluée' && (!divOnly || (t.metrics && t.metrics.divGrowing === true)))
-    .sort((a, b) => (b.valuationScore || 0) - (a.valuationScore || 0));
-  const cands = [], selCount = {}, seen = new Set();
-  for (const t of pool) {
+  // 1) SÉLECTION : univers unifié (survivants screener + titres DÉTENUS hors Surévaluée) classé par CONVICTION,
+  //    top nLines = cible du portefeuille (cohérent avec l'arbitrage, respecte le paramètre "lignes"). DCA ne vend pas :
+  //    les titres détenus HORS du top nLines ne sont pas renforcés (ils restent visibles dans "Mes positions").
+  const univ = new Map();
+  (top || []).forEach((t) => {
+    const sym = String(t.symbol || '').toUpperCase();
+    if (!sym || !t.rating || t.rating === 'Surévaluée') return;
+    if (divOnly && !(t.metrics && t.metrics.divGrowing === true)) return;
+    univ.set(sym, { symbol: sym, name: t.name, sector: t.sector || 'N/A', rating: t.rating, valuationScore: t.valuationScore || 0, metrics: t.metrics || SCR_PRICE_MAP[sym] || {} });
+  });
+  Object.keys(holdings).forEach((sym) => {                      // détenus (hors Surévaluée) en concurrence avec le screener
+    if (!(holdings[sym] > 0) || univ.has(sym)) return;
+    const d = SCR_PRICE_MAP[sym]; if (!d || d.rating === 'Surévaluée') return;
+    univ.set(sym, { symbol: sym, name: d.name || sym, sector: d.sector || 'N/A', rating: d.rating || 'Détenu', valuationScore: d.valuationScore || 0, metrics: d, held: true });
+  });
+  const cands = [], selCount = {};
+  for (const t of [...univ.values()].sort((a, b) => scrConvNote(b) - scrConvNote(a))) {
     const s = t.sector || 'N/A';
     if ((selCount[s] || 0) >= perSectorMax) continue;
-    selCount[s] = (selCount[s] || 0) + 1; cands.push(t); seen.add(String(t.symbol || '').toUpperCase());
+    selCount[s] = (selCount[s] || 0) + 1; cands.push(t);
     if (cands.length >= nLines) break;
   }
-  Object.keys(holdings).forEach((tk) => {                       // titres détenus hors sélection -> ajoutés pour renforcement
-    if (seen.has(tk) || !(holdings[tk] > 0)) return;
-    const d = SCR_PRICE_MAP[tk]; if (!d) return;
-    cands.push({ symbol: tk, name: d.name || tk, sector: d.sector || 'N/A', rating: d.rating || 'Détenu', valuationScore: d.valuationScore || 0, metrics: d, held: true });
-    seen.add(tk);
-  });
   if (!cands.length) return { rows: [], cash: amount, deployed: 0 };
   const sec = cands.map((t) => t.sector || 'N/A');
   const potOf = (t) => { const m = t.metrics || {}, fp = scrFairPrice(m, t.sector); return (fp != null && m.price > 0) ? (fp - m.price) / m.price : 0; };
@@ -5913,7 +5919,7 @@ function screenerQualityAllocPanel(top) {
     scrEl('span', { text: 'max/ligne', style: 'font-size:0.8rem;color:#5b6b7d;margin-left:6px' }), lineInput, scrEl('span', { text: '%', style: 'color:#5b6b7d' })] }));
   const results = scrEl('div');
   wrap.appendChild(results);
-  wrap.appendChild(scrEl('div', { style: 'margin-top:10px;font-size:0.72rem;color:#5b6b7d', text: "Plan de DCA : l'argent que tu déploies (ex libéré de Debitum) va EN PRIORITÉ là où tu es le plus sous ta cible, en tenant compte de tes positions déjà détenues (on ne vend jamais). Cible = conviction (note globale ajustée) par défaut, ou potentiel de l'Objectif au choix, tableau trié par note. Plafonds par ligne et par secteur RÉGLABLES (DK ne s'interdit pas plus de 10 % sur ses plus fortes convictions). Tes titres détenus hors screener peuvent aussi être renforcés. Structure DK : ETF socle 50-60 % + actions de qualité. La décision reste la tienne." }));
+  wrap.appendChild(scrEl('div', { style: 'margin-top:10px;font-size:0.72rem;color:#5b6b7d', text: "Plan de DCA : l'argent que tu déploies (ex libéré de Debitum) va EN PRIORITÉ là où tu es le plus sous ta cible, en tenant compte de tes positions déjà détenues (on ne vend jamais). Cible = conviction (note globale ajustée) par défaut, ou potentiel de l'Objectif au choix, tableau trié par note. Plafonds par ligne et par secteur RÉGLABLES (DK ne s'interdit pas plus de 10 % sur ses plus fortes convictions). « lignes » = taille visée du portefeuille : tes titres détenus concourent au même classement (renforcés s'ils entrent dans le top, sinon conservés hors plan, jamais vendus en DCA). Structure DK : ETF socle 50-60 % + actions de qualité. La décision reste la tienne." }));
   function render() {
     const amount = Math.max(0, Number(amtInput.value) || 0);
     const nLines = Number(nSelect.value) || 12;
