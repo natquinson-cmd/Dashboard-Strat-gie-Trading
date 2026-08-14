@@ -5124,6 +5124,8 @@ function scrRatingFromScore(s) {
   // de valorisation BRUTE (échelle 0-100 non comprimée) : deux échelles, deux barèmes.
   return s >= 75 ? 'Achat fort' : (s >= 66 ? 'Achat' : (s >= 51 ? 'Neutre' : 'Surévaluée'));
 }
+// Note de conviction (note globale ajustée) d'un candidat, pour trier la répartition par le critère qui la pilote.
+function scrConvNote(t) { const d = t && SCR_PRICE_MAP[String(t.symbol || '').toUpperCase()]; const g = d ? scrGlobalNote(d) : null; return (g != null) ? g : (t && t.valuationScore != null ? t.valuationScore : -1); }
 // Pastille de Note (rating + score /100). Si un moat existe, la Note devient GLOBALE (rating re-dérivé + '*').
 function scrNoteChip(m) {
   m = m || {};
@@ -5230,9 +5232,9 @@ function scrHoldingsUsd() {
 }
 // Allocation DCA POSITION-AWARE : répartit `amount` (argent libéré) en comblant l'écart à la cible,
 // en tenant compte des positions déjà détenues (on ne vend jamais). Plafond secteur = paramètre.
-function computeAllocation(top, amount, nLines, weightMode, divOnly, holdings, sectorCap) {
+function computeAllocation(top, amount, nLines, weightMode, divOnly, holdings, sectorCap, lineCap) {
   holdings = holdings || {};
-  const LC = SCR_ALLOC_LINE_CAP, SC = (sectorCap && sectorCap > 0) ? sectorCap : SCR_ALLOC_SECTOR_CAP;
+  const LC = (lineCap && lineCap > 0) ? lineCap : SCR_ALLOC_LINE_CAP, SC = (sectorCap && sectorCap > 0) ? sectorCap : SCR_ALLOC_SECTOR_CAP;
   const perSectorMax = Math.max(1, Math.round(SC / LC));
   // 1) SÉLECTION : candidats screener (conviction décroissante, diversifiée) + titres DÉTENUS hors screener (renforcement)
   const pool = (top || []).filter((t) => t.rating && t.rating !== 'Surévaluée' && (!divOnly || (t.metrics && t.metrics.divGrowing === true)))
@@ -5288,14 +5290,14 @@ function computeAllocation(top, amount, nLines, weightMode, divOnly, holdings, s
   const deployed = add.reduce((a, b) => a + b, 0);
   const rows = cands.map((t, i) => ({ t, pot: pot[i], targetWeight: w[i], current: cur[i], add: add[i], resultingWeight: T > 0 ? (cur[i] + add[i]) / T : 0, held: !!t.held }))
     .filter((r) => r.add > amount * 0.002 || r.current > 0)                 // on affiche ce qui reçoit de l'argent OU ce qu'on détient
-    .sort((a, b) => (b.add - a.add) || (b.resultingWeight - a.resultingWeight));
+    .sort((a, b) => (scrConvNote(b.t) - scrConvNote(a.t)) || (b.resultingWeight - a.resultingWeight));   // tri par note (critère de répartition)
   return { rows, cash: Math.max(0, amount - deployed), deployed };
 }
 // ARBITRAGE à CAPITAL CONSTANT : rééquilibre les positions actuelles vers la cible (renforcer / alléger),
 // sort les titres notés Surévaluée. Somme des achats = somme des ventes (aucun apport).
-function computeArbitrage(top, holdings, nLines, weightMode, divOnly, sectorCap) {
+function computeArbitrage(top, holdings, nLines, weightMode, divOnly, sectorCap, lineCap) {
   holdings = holdings || {};
-  const LC = SCR_ALLOC_LINE_CAP, SC = (sectorCap && sectorCap > 0) ? sectorCap : SCR_ALLOC_SECTOR_CAP;
+  const LC = (lineCap && lineCap > 0) ? lineCap : SCR_ALLOC_LINE_CAP, SC = (sectorCap && sectorCap > 0) ? sectorCap : SCR_ALLOC_SECTOR_CAP;
   const perSectorMax = Math.max(1, Math.round(SC / LC));
   const totalCapital = Object.values(holdings).reduce((a, b) => a + b, 0);
   if (totalCapital <= 0) return { rows: [], cash: 0, deployed: 0, arb: true };
@@ -5352,7 +5354,7 @@ function computeArbitrage(top, holdings, nLines, weightMode, divOnly, sectorCap)
     rows.push({ t: { symbol: tk, name: d.name || tk, sector: d.sector || 'N/A', rating: d.rating || 'Détenu', metrics: d, held: true }, pot: 0, current: holdings[tk], add: -holdings[tk], targetWeight: 0, resultingWeight: 0, held: true });
   });
   const turnover = rows.reduce((s, r) => s + Math.max(0, r.add), 0);   // total à acheter (≈ total à vendre)
-  return { rows: rows.filter((r) => Math.abs(r.add) > totalCapital * 0.003 || r.current > 0).sort((a, b) => b.add - a.add), cash: 0, deployed: turnover, arb: true };
+  return { rows: rows.filter((r) => Math.abs(r.add) > totalCapital * 0.003 || r.current > 0).sort((a, b) => { const ax = a.resultingWeight <= 0, bx = b.resultingWeight <= 0; if (ax !== bx) return ax - bx; return scrConvNote(b.t) - scrConvNote(a.t); }), cash: 0, deployed: turnover, arb: true };   // gardées par note décroissante, sorties en bas
 }
 function renderAllocTable(res, etfPct, etfAmount, mode) {
   const alloc = res.rows || [];
@@ -5895,6 +5897,8 @@ function screenerQualityAllocPanel(top) {
   const etfInput = scrEl('input', { attrs: { type: 'number', min: '0', max: '90', step: '5', value: String(savedEtf), title: 'Part en ETF socle (méthode Dividend King : ETF socle 50-60% + 5-10 actions)' }, style: 'width:58px;padding:8px 8px;border:1px solid #e3e8ee;border-radius:9px;font-size:0.88rem;font-weight:600;color:#42546a' });
   const savedSec = localStorage.getItem('scrAllocSecCap') != null ? Number(localStorage.getItem('scrAllocSecCap')) : 35;
   const secInput = scrEl('input', { attrs: { type: 'number', min: '10', max: '100', step: '5', value: String(savedSec), title: "Plafond par secteur (diversification). Élargis-le si tu veux t'autoriser plus de concentration." }, style: 'width:58px;padding:8px 8px;border:1px solid #e3e8ee;border-radius:9px;font-size:0.88rem;font-weight:600;color:#42546a' });
+  const savedLine = localStorage.getItem('scrAllocLineCap') != null ? Number(localStorage.getItem('scrAllocLineCap')) : 10;
+  const lineInput = scrEl('input', { attrs: { type: 'number', min: '5', max: '50', step: '1', value: String(savedLine), title: "Plafond par ligne = poids max d'une seule valeur. Dividend King concentre parfois plus de 10 % sur ses plus fortes convictions : monte-le pour t'autoriser des lignes plus grosses." }, style: 'width:58px;padding:8px 8px;border:1px solid #e3e8ee;border-radius:9px;font-size:0.88rem;font-weight:600;color:#42546a' });
   const savedDiv = localStorage.getItem('scrAllocDivOnly') === '1';
   const divSelect = scrEl('select', { attrs: { title: 'Restreindre aux titres à dividende CROISSANT (partie Revenus Passifs de la méthode)' }, style: selStyle });
   [['0', 'tous les titres'], ['1', 'dividende croissant']].forEach(([v, label]) => { const o = scrEl('option', { text: label, attrs: { value: v } }); if ((v === '1') === savedDiv) o.selected = true; divSelect.appendChild(o); });
@@ -5903,10 +5907,11 @@ function screenerQualityAllocPanel(top) {
     amtInput, scrEl('span', { text: scrDispSym(), style: 'color:#5b6b7d' }),
     scrEl('span', { text: 'réparti sur', style: 'font-size:0.8rem;color:#5b6b7d;margin-left:6px' }), nSelect, wSelect, divSelect,
     scrEl('span', { text: 'ETF socle', style: 'font-size:0.8rem;color:#5b6b7d;margin-left:6px' }), etfInput, scrEl('span', { text: '%', style: 'color:#5b6b7d' }),
-    scrEl('span', { text: 'max secteur', style: 'font-size:0.8rem;color:#5b6b7d;margin-left:6px' }), secInput, scrEl('span', { text: '%', style: 'color:#5b6b7d' })] }));
+    scrEl('span', { text: 'max secteur', style: 'font-size:0.8rem;color:#5b6b7d;margin-left:6px' }), secInput, scrEl('span', { text: '%', style: 'color:#5b6b7d' }),
+    scrEl('span', { text: 'max/ligne', style: 'font-size:0.8rem;color:#5b6b7d;margin-left:6px' }), lineInput, scrEl('span', { text: '%', style: 'color:#5b6b7d' })] }));
   const results = scrEl('div');
   wrap.appendChild(results);
-  wrap.appendChild(scrEl('div', { style: 'margin-top:10px;font-size:0.72rem;color:#5b6b7d', text: "Plan de DCA : l'argent que tu déploies (ex libéré de Debitum) va EN PRIORITÉ là où tu es le plus sous ta cible, en tenant compte de tes positions déjà détenues (on ne vend jamais). Cible = conviction (note globale ajustée) par défaut, ou potentiel de l'Objectif au choix, plafond 10 %/ligne et max secteur RÉGLABLE. Tes titres détenus hors screener peuvent aussi être renforcés. Structure DK : ETF socle 50-60 % + actions de qualité. La décision reste la tienne." }));
+  wrap.appendChild(scrEl('div', { style: 'margin-top:10px;font-size:0.72rem;color:#5b6b7d', text: "Plan de DCA : l'argent que tu déploies (ex libéré de Debitum) va EN PRIORITÉ là où tu es le plus sous ta cible, en tenant compte de tes positions déjà détenues (on ne vend jamais). Cible = conviction (note globale ajustée) par défaut, ou potentiel de l'Objectif au choix, tableau trié par note. Plafonds par ligne et par secteur RÉGLABLES (DK ne s'interdit pas plus de 10 % sur ses plus fortes convictions). Tes titres détenus hors screener peuvent aussi être renforcés. Structure DK : ETF socle 50-60 % + actions de qualité. La décision reste la tienne." }));
   function render() {
     const amount = Math.max(0, Number(amtInput.value) || 0);
     const nLines = Number(nSelect.value) || 12;
@@ -5914,17 +5919,19 @@ function screenerQualityAllocPanel(top) {
     const divOnly = divSelect.value === '1';
     const etfPct = Math.max(0, Math.min(0.9, (Number(etfInput.value) || 0) / 100));
     const secCap = Math.max(0.10, Math.min(1, (Number(secInput.value) || 35) / 100));
+    const lineCap = Math.max(0.05, Math.min(0.50, (Number(lineInput.value) || 10) / 100));
     localStorage.setItem('scrAllocAmount', String(amount));
     localStorage.setItem('scrAllocLines', String(nLines));
     localStorage.setItem('scrAllocWeight', wMode);
     localStorage.setItem('scrAllocDivOnly', divOnly ? '1' : '0');
     localStorage.setItem('scrAllocEtf', String(Math.round(etfPct * 100)));
     localStorage.setItem('scrAllocSecCap', String(Math.round(secCap * 100)));
+    localStorage.setItem('scrAllocLineCap', String(Math.round(lineCap * 100)));
     if (allocMode === 'arb') {
-      results.replaceChildren(renderAllocTable(computeArbitrage(top, scrHoldingsUsd(), nLines, wMode, divOnly, secCap), 0, 0, 'arb'));
+      results.replaceChildren(renderAllocTable(computeArbitrage(top, scrHoldingsUsd(), nLines, wMode, divOnly, secCap, lineCap), 0, 0, 'arb'));
     } else {
       const totalUsd = dispToUsd(amount);
-      results.replaceChildren(renderAllocTable(computeAllocation(top, totalUsd * (1 - etfPct), nLines, wMode, divOnly, scrHoldingsUsd(), secCap), etfPct, totalUsd * etfPct, 'dca'));
+      results.replaceChildren(renderAllocTable(computeAllocation(top, totalUsd * (1 - etfPct), nLines, wMode, divOnly, scrHoldingsUsd(), secCap, lineCap), etfPct, totalUsd * etfPct, 'dca'));
     }
   }
   amtInput.addEventListener('input', render);
@@ -5933,6 +5940,7 @@ function screenerQualityAllocPanel(top) {
   divSelect.addEventListener('change', render);
   etfInput.addEventListener('input', render);
   secInput.addEventListener('input', render);
+  lineInput.addEventListener('input', render);
   function renderModeRow() {
     const mk = (label, val, desc) => {
       const on = allocMode === val;
