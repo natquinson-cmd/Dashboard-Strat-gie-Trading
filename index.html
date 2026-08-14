@@ -52,6 +52,13 @@
   }
 
   .dashboard { max-width: 1440px; margin: 0 auto; padding: 32px 40px; }
+  /* Portefeuille d'actions : page élargie + tables larges avec scrollbar horizontale EN HAUT et en-têtes figés */
+  #tab-screener { width: min(2000px, 95vw); margin-left: 50%; transform: translateX(-50%); }
+  .scr-tblbox { position: relative; }
+  .scr-tbltop { overflow-x: auto; overflow-y: hidden; }
+  .scr-tbltop > div { height: 1px; }
+  .scr-tblscroll { overflow: auto; max-height: 78vh; }
+  .scr-tblscroll table thead th { position: sticky; top: 0; z-index: 3; background: #f6f8fb; box-shadow: inset 0 -1px 0 #e3e8ee; }
 
   /* Header */
   .header {
@@ -4928,6 +4935,20 @@ function scrEl(tag, o = {}) {
 function scrMsg(c, text, color) {
   c.replaceChildren(scrEl('div', { style: `padding:24px;color:${color || '#5b6b7d'}`, text }));
 }
+// Enveloppe une table large : scrollbar horizontale EN HAUT (synchronisée avec le corps) + en-têtes figés
+// (thead sticky via .scr-tblscroll) + hauteur bornée pour que les colonnes restent lisibles en défilant.
+function scrTableBox(table) {
+  const topInner = scrEl('div');
+  const top = scrEl('div', { cls: 'scr-tbltop', kids: [topInner] });
+  const scroll = scrEl('div', { cls: 'scr-tblscroll', kids: [table] });
+  let lock = false;
+  scroll.addEventListener('scroll', () => { if (lock) return; lock = true; top.scrollLeft = scroll.scrollLeft; lock = false; });
+  top.addEventListener('scroll', () => { if (lock) return; lock = true; scroll.scrollLeft = top.scrollLeft; lock = false; });
+  const sync = () => { topInner.style.width = (table.scrollWidth || 0) + 'px'; };
+  requestAnimationFrame(() => { sync(); requestAnimationFrame(sync); });
+  window.addEventListener('resize', sync);
+  return scrEl('div', { cls: 'scr-tblbox', kids: [top, scroll] });
+}
 
 async function renderScreenerTab() {
   const c = document.getElementById('tab-screener');
@@ -5400,7 +5421,7 @@ function renderAllocTable(res, etfPct, etfAmount, mode) {
   Object.entries(bySec).sort((a, b) => b[1] - a[1]).forEach(([s, wv]) => {
     secChips.appendChild(scrEl('span', { text: s + ' ' + Math.round(wv * 100) + '%', style: 'background:#f6f8fb;color:#5b6b7d;border-radius:20px;padding:2px 9px;font-size:0.68rem;font-weight:600' }));
   });
-  return scrEl('div', { kids: [scrEl('div', { style: 'overflow-x:auto', kids: [table] }), secChips] });
+  return scrEl('div', { kids: [scrTableBox(table), secChips] });
 }
 // Carte des cours par ticker (peuplée depuis les données screener quality+smallcap), pour le suivi des positions.
 let SCR_PRICE_MAP = {};
@@ -5831,7 +5852,7 @@ function renderPositionsTable(pos, onChange) {
   // Graphiques : répartition par action (barres) + par secteur (donut), sur la valeur actuelle
   const parts2 = parts.filter((p) => p.valeur > 0).sort((a, b) => b.valeur - a.valeur);
   const totV = parts2.reduce((s, p) => s + p.valeur, 0);
-  const kids = [scrEl('div', { style: 'overflow-x:auto', kids: [table] }), note];
+  const kids = [scrTableBox(table), note];
   if (parts2.length && totV > 0) {
     const stockItems = parts2.map((p, i) => ({ label: p.ticker, value: p.valeur, color: SCR_CHART_COLORS[i % SCR_CHART_COLORS.length], pctTxt: (p.valeur / totV * 100).toFixed(0) + '%' }));
     const grp = (keyfn) => { const o = {}; parts2.forEach((p) => { const k = keyfn(p) || 'Autre'; o[k] = (o[k] || 0) + p.valeur; }); return Object.keys(o).map((s) => ({ label: s, value: o[s] })).sort((a, b) => b.value - a.value).map((it, i) => ({ label: it.label, value: it.value, color: SCR_CHART_COLORS[i % SCR_CHART_COLORS.length], pctTxt: (it.value / totV * 100).toFixed(0) + '%' })); };
@@ -6048,13 +6069,8 @@ function screenerRenderQuality(c, data, config) {
     ]}));
   });
   const table = scrEl('table', { style: 'width:100%;border-collapse:collapse;font-size:0.82rem', kids: [scrEl('thead', { kids: [thead] }), tbody] });
-  // Conteneur défilable + dégradé de bord droit (indique qu'il reste des colonnes à droite -> Cap.)
-  const scrollDiv = scrEl('div', { style: 'overflow-x:auto', kids: [table] });
-  const fade = scrEl('div', { style: 'position:absolute;top:1px;right:1px;bottom:1px;width:36px;pointer-events:none;background:linear-gradient(90deg,rgba(255,255,255,0),rgba(255,255,255,0.95))' });
-  const updateFade = () => { const more = scrollDiv.scrollWidth > scrollDiv.clientWidth + 2; const atEnd = scrollDiv.scrollLeft + scrollDiv.clientWidth >= scrollDiv.scrollWidth - 2; fade.style.display = (more && !atEnd) ? 'block' : 'none'; };
-  scrollDiv.addEventListener('scroll', updateFade);
-  requestAnimationFrame(updateFade);
-  frag.appendChild(scrEl('div', { style: 'position:relative;background:#fff;border:1px solid #e3e8ee;border-radius:14px;overflow:hidden', kids: [scrollDiv, fade] }));
+  // Table large : scrollbar horizontale en haut (synchronisée) + en-têtes figés
+  frag.appendChild(scrEl('div', { style: 'background:#fff;border:1px solid #e3e8ee;border-radius:14px;overflow:hidden', kids: [scrTableBox(table)] }));
 
   const disc = scrEl('div', { style: 'margin-top:14px;font-size:0.74rem;color:#5b6b7d;background:#fff;border:1px solid #e3e8ee;border-radius:12px;padding:12px 14px' });
   disc.append('Qualité + valorisation + dividende (« prix décroché sous les bénéfices »). Le dividende sain (rendement soutenable, payout raisonnable) valorise la note ; un rendement > 7 % ou un payout trop élevé sont écartés du bonus. ', scrEl('b', { text: '💡 Survole les en-têtes de colonnes' }), ' pour la définition de chaque indicateur. Note ', scrEl('b', { text: '≠' }), " conseil : « pas cher » peut aussi être un value trap (bénéfices sur le point de baisser). Fais ta propre analyse.");
@@ -6153,7 +6169,7 @@ function screenerRender(c, data, positions, config) {
     });
   }
   const table = scrEl('table', { style: 'width:100%;border-collapse:collapse;font-size:0.82rem', kids: [scrEl('thead', { kids: [thead] }), tbody] });
-  frag.appendChild(scrEl('div', { style: 'background:#fff;border:1px solid #e3e8ee;border-radius:14px;overflow:hidden', kids: [scrEl('div', { style: 'overflow-x:auto', kids: [table] })] }));
+  frag.appendChild(scrEl('div', { style: 'background:#fff;border:1px solid #e3e8ee;border-radius:14px;overflow:hidden', kids: [scrTableBox(table)] }));
 
   const disc = scrEl('div', { style: 'margin-top:14px;font-size:0.74rem;color:#5b6b7d;background:#fff;border:1px solid #e3e8ee;border-radius:12px;padding:12px 14px' });
   disc.append('Outil de ', scrEl('b', { text: 'repérage' }), ", pas un conseil d'investissement : le score classe des candidates, il ne dit pas d'acheter. Vérifie la disponibilité du titre dans l'app Revolut avant tout ordre.");
