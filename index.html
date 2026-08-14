@@ -5370,7 +5370,7 @@ function renderAllocTable(res, etfPct, etfAmount, mode) {
   if (!alloc.length && etfAmount <= 0) return scrEl('div', { text: 'Aucune candidate à répartir (que des Surévaluée ?).', style: 'color:#5b6b7d;font-size:0.8rem;padding:8px 0' });
   const bd = 'border-bottom:1px solid #eef1f5';
   const thead = scrEl('tr', { style: 'background:#f6f8fb;color:#5b6b7d' });
-  [['#', 'left'], ['Titre', 'left'], [mode === 'arb' ? 'Mouvement' : 'À déployer', 'right'], ['Secteur', 'left'], ['Potentiel', 'right']].forEach(([t, al]) =>
+  [['#', 'left'], ['Titre', 'left'], ['Note', 'left'], [mode === 'arb' ? 'Mouvement' : 'À déployer', 'right'], ['Secteur', 'left'], ['Potentiel', 'right']].forEach(([t, al]) =>
     thead.appendChild(scrEl('th', { text: t, style: `padding:8px 10px;text-align:${al};font-size:0.68rem;text-transform:uppercase;letter-spacing:.03em;border-bottom:1px solid #e3e8ee;white-space:nowrap` })));
   scrFundaHeadCells(2).forEach((th) => thead.appendChild(th));   // infos screener : Pays, Moat, ROIC, Croiss CA, PEG, Marge, Rendement, Payout, Div crois, FCF yield
   [['Poids visé', 'right']].forEach(([t, al]) =>
@@ -5381,6 +5381,7 @@ function renderAllocTable(res, etfPct, etfAmount, mode) {
     tbody.appendChild(scrEl('tr', { kids: [
       scrEl('td', { text: '—', style: `padding:6px 10px;color:#9aa7b4;${bd}` }),
       scrEl('td', { style: `padding:6px 10px;${bd}`, kids: [scrEl('div', { kids: [scrEl('b', { text: 'ETF socle', style: 'color:#22303f' }), scrEl('div', { text: 'S&P 500 / MSCI World', style: 'color:#5b6b7d;font-size:0.7rem' })] })] }),
+      scrEl('td', { style: `padding:6px 10px;${bd}`, kids: [scrEl('span', { text: 'Socle', style: 'background:#eef2f8;color:#5b6b7d;border-radius:20px;padding:2px 9px;font-size:0.68rem;font-weight:700' })] }),
       scrEl('td', { text: scrUsd(etfAmount), style: `padding:6px 10px;text-align:right;font-weight:800;color:#22303f;${bd}` }),
       scrEl('td', { text: 'Diversifié', style: `padding:6px 10px;color:#5b6b7d;font-size:0.78rem;${bd}` }),
       scrEl('td', { text: '~marché', style: `padding:6px 10px;text-align:right;color:#5b6b7d;${bd}` }),
@@ -5400,6 +5401,7 @@ function renderAllocTable(res, etfPct, etfAmount, mode) {
     tbody.appendChild(scrEl('tr', { kids: [
       scrEl('td', { text: String(i + 1), style: `padding:6px 10px;color:#9aa7b4;${bd}` }),
       idcell,
+      scrEl('td', { style: `padding:6px 10px;${bd}`, kids: [scrNoteChip(SCR_PRICE_MAP[String(t.symbol || '').toUpperCase()] || { valuationScore: t.valuationScore, rating: t.rating })] }),
       moveCell,
       scrEl('td', { text: t.sector || '–', style: `padding:6px 10px;color:#5b6b7d;font-size:0.78rem;${bd}` }),
       scrEl('td', { text: (a.pot >= 0 ? '+' : '') + (a.pot * 100).toFixed(0) + '%', style: `padding:6px 10px;text-align:right;font-weight:700;color:${a.pot >= 0 ? '#1d9e74' : '#dd5f66'};${bd}` }),
@@ -5414,6 +5416,7 @@ function renderAllocTable(res, etfPct, etfAmount, mode) {
     tbody.appendChild(scrEl('tr', { kids: [
       scrEl('td', { text: '', style: `padding:6px 10px;${bd}` }),
       scrEl('td', { style: `padding:6px 10px;${bd}`, kids: [scrEl('span', { text: 'Liquidités', style: 'font-weight:700;color:#42546a' }), scrEl('div', { text: 'surplus non réparti (limite de diversification)', style: 'color:#9aa7b4;font-size:0.7rem' })] }),
+      scrEl('td', { text: '', style: `${bd}` }),
       scrEl('td', { text: scrUsd(cash), style: `padding:6px 10px;text-align:right;font-weight:700;color:#9aa7b4;${bd}` }),
       scrEl('td', { text: '', style: `${bd}` }),
       scrEl('td', { text: '', style: `${bd}` }),
@@ -5424,6 +5427,7 @@ function renderAllocTable(res, etfPct, etfAmount, mode) {
   tbody.appendChild(scrEl('tr', { style: 'background:#fafbfc', kids: [
     scrEl('td', { text: '', style: 'padding:7px 10px' }),
     scrEl('td', { text: (mode === 'arb' ? (alloc.filter((a) => a.resultingWeight > 0).length + ' lignes gardées · ' + alloc.filter((a) => a.resultingWeight <= 0 && a.current > 0).length + ' sorties · capital constant') : (etfPct > 0.0001 ? alloc.length + ' actions + ETF' : alloc.length + ' lignes')), style: 'padding:7px 10px;font-weight:700;color:#5b6b7d' }),
+    scrEl('td', { text: '' }),
     scrEl('td', { text: scrUsd(grand), style: 'padding:7px 10px;text-align:right;font-weight:800;color:#22303f' }),
     scrEl('td', { text: '' }), scrEl('td', { text: '' }),
     ...Array.from({ length: 10 }, () => scrEl('td', { text: '' })),
