@@ -5732,6 +5732,10 @@ function scrBuildHistSection() {
   wrap.appendChild(scrEl('div', { style: 'display:flex;align-items:center;gap:10px;margin-top:14px;flex-wrap:wrap', kids: [
     scrCalToggle(), scrEl('span', { text: '% = rendement TWR, net de tes apports', style: 'font-size:0.66rem;color:#9aa7b4' })] }));
   const dayColKids = [scrEl('div', { text: "Calendrier journalier · clique un jour pour le détail", style: 'font-size:0.7rem;color:#5b6b7d;font-weight:700;margin:10px 0 6px' }), scrDayCalendar(hist, pnlMap, retMap)];
+  if (!Object.keys(pnlMap).length) {   // 1 seul jour : rien à colorer -> expliquer pourquoi (sinon le calendrier paraît "cassé")
+    const sd = hist[0] ? hist[0].date.split('-').reverse().join('/') : '';
+    dayColKids.push(scrEl('div', { style: 'font-size:0.68rem;color:#9aa7b4;margin-top:8px;line-height:1.45;background:#f6f8fb;border-radius:8px;padding:8px 10px', text: 'Historique démarré le ' + sd + ' (' + hist.length + ' jour' + (hist.length > 1 ? 's' : '') + ' enregistré' + (hist.length > 1 ? 's' : '') + '). Le P&L journalier apparaît dès le 2ᵉ jour, car un jour se calcule par rapport à la veille. Le VPS enregistre 1 point/jour à la clôture US (~22h). La case du jour de départ restera vide (pas de veille de référence).' }));
+  }
   if (SCR_CAL_SEL) dayColKids.push(scrDayDetail(hist, SCR_CAL_SEL));
   wrap.appendChild(scrEl('div', { style: 'display:flex;gap:18px;flex-wrap:wrap;margin-top:4px', kids: [
     scrEl('div', { style: 'flex:1;min-width:260px', kids: dayColKids }),
