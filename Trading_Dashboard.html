@@ -5236,6 +5236,18 @@ function scrHoldingsUsd() {
 // en tenant compte des positions déjà détenues (on ne vend jamais). Plafond secteur = paramètre.
 function computeAllocation(top, amount, nLines, weightMode, divOnly, holdings, sectorCap, lineCap) {
   holdings = holdings || {};
+  // Aucun argent à déployer -> SNAPSHOT du portefeuille ACTUEL : toutes tes positions détenues, pondérées par leur
+  // valeur (poids actuel), rien à déployer. Sinon le "plan" se réduirait aux détenus du top nLines (déroutant).
+  if (!(amount > 0)) {
+    const heldSyms = Object.keys(holdings).filter((s) => holdings[s] > 0);
+    if (!heldSyms.length) return { rows: [], cash: 0, deployed: 0, snapshot: true };
+    const Th = heldSyms.reduce((a, s) => a + holdings[s], 0) || 1;
+    const rows = heldSyms.map((s) => {
+      const d = SCR_PRICE_MAP[s] || {}, fp = scrFairPrice(d, d.sector);
+      return { t: { symbol: s, name: d.name || s, sector: d.sector || 'N/A', rating: d.rating, valuationScore: d.valuationScore, metrics: d, held: true }, pot: (fp != null && d.price > 0) ? (fp - d.price) / d.price : 0, current: holdings[s], add: 0, targetWeight: holdings[s] / Th, resultingWeight: holdings[s] / Th, held: true };
+    }).sort((a, b) => scrConvNote(b.t) - scrConvNote(a.t));
+    return { rows, cash: 0, deployed: 0, snapshot: true };
+  }
   const LC = (lineCap && lineCap > 0) ? lineCap : SCR_ALLOC_LINE_CAP, SC = (sectorCap && sectorCap > 0) ? sectorCap : SCR_ALLOC_SECTOR_CAP;
   const perSectorMax = Math.max(1, Math.round(SC / SCR_ALLOC_LINE_CAP));   // nb titres/secteur basé sur 10 % nominal : le plafond/ligne ne change QUE la taille des lignes, pas la sélection
   // 1) SÉLECTION : univers unifié (survivants screener + titres DÉTENUS hors Surévaluée) classé par CONVICTION,
@@ -5440,7 +5452,8 @@ function renderAllocTable(res, etfPct, etfAmount, mode) {
   Object.entries(bySec).sort((a, b) => b[1] - a[1]).forEach(([s, wv]) => {
     secChips.appendChild(scrEl('span', { text: s + ' ' + Math.round(wv * 100) + '%', style: 'background:#f6f8fb;color:#5b6b7d;border-radius:20px;padding:2px 9px;font-size:0.68rem;font-weight:600' }));
   });
-  return scrEl('div', { kids: [scrTableBox(table), secChips] });
+  const snapNote = res.snapshot ? scrEl('div', { style: 'font-size:0.72rem;color:#42546a;background:#eef4ff;border:1px solid #dbe7ff;border-radius:8px;padding:7px 10px;margin-bottom:8px', text: 'Portefeuille actuel (0 à déployer) : tes positions détenues, pondérées par leur valeur. Saisis un montant à déployer pour voir le plan de répartition sur le top ' + (Number((localStorage.getItem('scrAllocLines')) || 12)) + ' lignes.' }) : null;
+  return scrEl('div', { kids: [snapNote, scrTableBox(table), secChips].filter(Boolean) });
 }
 // Carte des cours par ticker (peuplée depuis les données screener quality+smallcap), pour le suivi des positions.
 let SCR_PRICE_MAP = {};
