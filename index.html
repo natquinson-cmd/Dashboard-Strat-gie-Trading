@@ -4944,9 +4944,12 @@ function scrTableBox(table) {
   let lock = false;
   scroll.addEventListener('scroll', () => { if (lock) return; lock = true; top.scrollLeft = scroll.scrollLeft; lock = false; });
   top.addEventListener('scroll', () => { if (lock) return; lock = true; scroll.scrollLeft = top.scrollLeft; lock = false; });
-  const sync = () => { topInner.style.width = (table.scrollWidth || 0) + 'px'; };
+  // largeur = celle du CONTENU débordant (scroll.scrollWidth, fiable) ; table.scrollWidth peut rester à 100% avant reflow
+  const sync = () => { topInner.style.width = (scroll.scrollWidth || 0) + 'px'; };
   requestAnimationFrame(() => { sync(); requestAnimationFrame(sync); });
+  if (window.ResizeObserver) { const ro = new ResizeObserver(sync); ro.observe(table); ro.observe(scroll); }  // reflow tardif (logos/polices) + resize
   window.addEventListener('resize', sync);
+  setTimeout(sync, 500);
   return scrEl('div', { cls: 'scr-tblbox', kids: [top, scroll] });
 }
 
