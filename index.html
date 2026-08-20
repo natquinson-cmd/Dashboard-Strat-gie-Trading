@@ -7821,6 +7821,19 @@ function invRenderDarwinex() {
 
   let h = '';
 
+  // ── Bandeau d'alerte : collecteur VPS en panne (session Darwinex expirée) ou calendrier figé ──
+  { const cs = d.collectorStatus || {};
+    const dkeys = Object.keys(darwinexDaily || {}).filter(k => /^\d{4}-\d{2}-\d{2}$/.test(k)).sort();
+    const last = dkeys.length ? dkeys[dkeys.length - 1] : null;
+    const staleDays = last ? Math.floor((Date.now() - new Date(last + 'T00:00:00').getTime()) / 86400000) : null;
+    const expired = cs.status === 'expired', stale = staleDays != null && staleDays >= 2;
+    if (expired || stale) {
+      const lastFr = last ? last.split('-').reverse().join('/') : '—';
+      const msg = expired ? 'Collecteur Darwinex expiré (session à renouveler). ' : ('Calendrier Darwinex figé depuis ' + staleDays + ' jours. ');
+      h += `<div style="background:#fdeaea;border:1px solid #f5b5b5;border-radius:12px;padding:12px 16px;margin-bottom:16px;color:#a5342f;font-size:0.82rem;line-height:1.5"><b>⚠️ ${msg}</b>Dernier jour enregistré : <b>${lastFr}</b>. Reconnecte-toi à Darwinex dans le Chrome débogué du VPS (<code>start_chrome_debug.bat</code>), puis relance <code>darwinex_scrape_daily.py --backfill</code> pour combler les jours manquants.</div>`;
+    }
+  }
+
   // ── HERO ──
   h += `<div class="inv-card" style="background:linear-gradient(135deg, rgba(95,139,242,0.08), rgba(29,158,116,0.04));border:1px solid rgba(95,139,242,0.18);padding:24px 28px;margin-bottom:20px">`;
   h += `<div class="inv-flex inv-jcsb" style="flex-wrap:wrap;gap:24px;align-items:flex-start">`;
