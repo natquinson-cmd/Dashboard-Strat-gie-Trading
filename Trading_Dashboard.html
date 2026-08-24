@@ -5816,7 +5816,15 @@ function screenerPositionsModule() {
   addBtn.onclick = () => {
     const ticker = (tkIn.value || '').toUpperCase().trim(), qty = Number(qtyIn.value), pru = Number(pruIn.value);
     if (!ticker || !(qty > 0) || !(pru > 0)) return;
-    const pos = scrGetPositions().slice(); pos.push({ ticker, qty, pru: dispToUsd(pru) }); scrSavePositions(pos);
+    const pruUsd = dispToUsd(pru);
+    // Consolide sur UNE seule ligne par ticker : quantité cumulée + PRU MOYEN PONDÉRÉ (en USD canonique).
+    // Fusionne aussi d'éventuels doublons déjà présents pour ce ticker.
+    let pos = scrGetPositions().slice();
+    let totQty = qty, totCost = qty * pruUsd;
+    pos.forEach((p) => { if (String(p.ticker || '').toUpperCase().trim() === ticker) { const q = Number(p.qty) || 0, pr = Number(p.pru) || 0; totQty += q; totCost += q * pr; } });
+    pos = pos.filter((p) => String(p.ticker || '').toUpperCase().trim() !== ticker);
+    pos.push({ ticker, qty: Math.round(totQty * 1e8) / 1e8, pru: totQty > 0 ? Math.round((totCost / totQty) * 1e4) / 1e4 : pruUsd });
+    scrSavePositions(pos);
     tkIn.value = ''; qtyIn.value = ''; pruIn.value = ''; render();
   };
   render();
