@@ -4944,10 +4944,12 @@ function scrMsg(c, text, color) {
 }
 // Enveloppe une table large : scrollbar horizontale EN HAUT (synchronisée avec le corps) + en-têtes figés
 // (thead sticky via .scr-tblscroll) + hauteur bornée pour que les colonnes restent lisibles en défilant.
-function scrTableBox(table) {
+function scrTableBox(table, opts) {
+  opts = opts || {};
   const topInner = scrEl('div');
   const top = scrEl('div', { cls: 'scr-tbltop', kids: [topInner] });
   const scroll = scrEl('div', { cls: 'scr-tblscroll', kids: [table] });
+  if (opts.maxH != null) scroll.style.maxHeight = opts.maxH;   // 'none' = pas de plafond -> pas d'ascenseur vertical, tableau en pleine hauteur
   let lock = false;
   scroll.addEventListener('scroll', () => { if (lock) return; lock = true; top.scrollLeft = scroll.scrollLeft; lock = false; });
   top.addEventListener('scroll', () => { if (lock) return; lock = true; scroll.scrollLeft = top.scrollLeft; lock = false; });
@@ -5903,7 +5905,7 @@ function renderPositionsTable(pos, onChange) {
   // Graphiques : répartition par action (barres) + par secteur (donut), sur la valeur actuelle
   const parts2 = parts.filter((p) => p.valeur > 0).sort((a, b) => b.valeur - a.valeur);
   const totV = parts2.reduce((s, p) => s + p.valeur, 0);
-  const kids = [scrTableBox(table), note];
+  const kids = [scrTableBox(table, { maxH: 'none' }), note];   // Mes positions : pleine hauteur, pas d'ascenseur vertical
   if (parts2.length && totV > 0) {
     const stockItems = parts2.map((p, i) => ({ label: p.ticker, value: p.valeur, color: SCR_CHART_COLORS[i % SCR_CHART_COLORS.length], pctTxt: (p.valeur / totV * 100).toFixed(0) + '%' }));
     const grp = (keyfn) => { const o = {}; parts2.forEach((p) => { const k = keyfn(p) || 'Autre'; o[k] = (o[k] || 0) + p.valeur; }); return Object.keys(o).map((s) => ({ label: s, value: o[s] })).sort((a, b) => b.value - a.value).map((it, i) => ({ label: it.label, value: it.value, color: SCR_CHART_COLORS[i % SCR_CHART_COLORS.length], pctTxt: (it.value / totV * 100).toFixed(0) + '%' })); };
