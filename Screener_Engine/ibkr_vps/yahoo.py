@@ -6,6 +6,8 @@
 #   screen(operands)      -> liste de tickers filtres cote serveur (croissance/cap/region)
 #   quote_summary(symbol) -> fondamentaux + prix (croissance CA/BPA, marges, ROE, MM50/200, 52s-haut, cap, volume, secteur)
 import time
+import calendar
+import datetime as _dt
 import requests
 
 UA = ('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
@@ -310,7 +312,7 @@ class Yahoo:
                    f'?symbol={symbol}&type={types}&period1=1104537600&period2=1893456000')
             j = self._get(url)
             res = (j.get('timeseries') or {}).get('result') or []
-            series = {}
+            series, dated = {}, {}
             for r in res:
                 for k, v in r.items():
                     if k in ('meta', 'timestamp') or not isinstance(v, list):
@@ -320,6 +322,8 @@ class Yahoo:
                     if vals:
                         vals.sort(key=lambda x: x[0] or '')      # chronologique : [0]=plus ancien, [-1]=recent
                         series[k] = [val for _, val in vals]
+                        if k in ('annualNetIncome', 'annualDilutedAverageShares'):
+                            dated[k] = vals                      # on garde les dates pour le P/E moyen historique
 
             def last(key):
                 s = series.get(key)
@@ -367,6 +371,46 @@ class Yahoo:
                     if ni:
                         out['roic'] = round(ni / ic, 4)          # EBIT indispo (ex financieres) -> approx
                         out['roicApprox'] = True
+            # P/E MOYEN historique (multiple de sortie du DCF facon Stock Unlock) : pour chaque exercice,
+            # BPA = resultat net / actions diluees, cours = cloture mensuelle a la date de cloture d'exercice,
+            # P/E = cours / BPA -> moyenne sur les annees dispo. Yahoo ne donne que ~4 ans (pas de fenetre 8-10 ans).
+            try:
+                ni_d = dated.get('annualNetIncome') or []
+                sh_map = {d: v for d, v in (dated.get('annualDilutedAverageShares') or [])}
+                if ni_d and sh_map:
+                    jc = self._get(f'{BASE}/v8/finance/chart/{symbol}?range=6y&interval=1mo')
+                    r0 = ((jc.get('chart') or {}).get('result') or [{}])[0]
+                    ts = r0.get('timestamp') or []
+                    cl = ((r0.get('indicators') or {}).get('quote') or [{}])[0].get('close') or []
+                    px = [(t, c) for t, c in zip(ts, cl)
+                          if isinstance(t, int) and isinstance(c, (int, float)) and c > 0]
+
+                    def price_at(datestr):
+                        if not datestr or not px:
+                            return None
+                        try:
+                            target = calendar.timegm(_dt.datetime.strptime(datestr[:10], '%Y-%m-%d').timetuple())
+                        except Exception:
+                            return None
+                        best = min(px, key=lambda tc: abs(tc[0] - target))
+                        return best[1] if abs(best[0] - target) <= 70 * 86400 else None   # cloture mensuelle a < ~70 j
+
+                    pes = []
+                    for d, ni in ni_d:
+                        sh = sh_map.get(d)
+                        if not sh or sh <= 0 or ni is None or ni <= 0:
+                            continue
+                        eps = ni / sh
+                        p = price_at(d)
+                        if p and eps > 0:
+                            pe = p / eps
+                            if 0 < pe < 200:                 # ecarte les P/E absurdes (BPA quasi nul)
+                                pes.append(pe)
+                    if len(pes) >= 2:
+                        out['avgPe'] = round(sum(pes) / len(pes), 2)
+                        out['avgPeYears'] = len(pes)
+            except Exception:
+                pass
             return out or None
         except Exception:
             return None

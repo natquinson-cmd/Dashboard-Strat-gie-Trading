@@ -4884,13 +4884,15 @@ function scrFairPricePeg(m, sector) {
   return price * (1 + pot);
 }
 // DCF « rendement attendu » (facon Stock Unlock) avec garde-fous : croissance & multiple PLAFONNES car Yahoo
-// ne donne que ~4 ans (pas de fenetre 8-10 ans pour lisser les hyper-growth type NVDA). Curseurs globaux.
-let SCR_DCF_RET = 0.10, SCR_DCF_N = 8, SCR_DCF_DECAY = 0.05, SCR_DCF_GCAP = 0.20;
+// ne donne que ~4 ans (pas de fenetre 8-10 ans pour lisser les hyper-growth type NVDA). DCF deux etages :
+// la croissance FOND lineairement de la croissance initiale (plafonnee) vers une croissance terminale mature
+// sur l'horizon -> pas de composition delirante d'un pic de croissance conjoncturel (ex JPM +47 % YoY). Curseurs globaux.
+let SCR_DCF_RET = 0.10, SCR_DCF_N = 8, SCR_DCF_GTERM = 0.04, SCR_DCF_GCAP = 0.20;
 try {
   const _gi = (k) => { const v = localStorage.getItem(k); return v != null ? Number(v) : null; };
   let v; v = _gi('scrDcfRet'); if (v != null) SCR_DCF_RET = Math.max(0.03, Math.min(0.30, v / 100));
   v = _gi('scrDcfN'); if (v != null) SCR_DCF_N = Math.max(3, Math.min(15, Math.round(v)));
-  v = _gi('scrDcfDecay'); if (v != null) SCR_DCF_DECAY = Math.max(0, Math.min(0.20, v / 100));
+  v = _gi('scrDcfGterm'); if (v != null) SCR_DCF_GTERM = Math.max(0, Math.min(0.10, v / 100));
   v = _gi('scrDcfGcap'); if (v != null) SCR_DCF_GCAP = Math.max(0.05, Math.min(0.60, v / 100));
 } catch (e) {}
 // Cache du dernier rendu qualite pour re-render sans re-fetch quand on bouge un curseur DCF (le DCF pilote
@@ -4906,23 +4908,26 @@ function scrDcf(m, sector) {
   if (price == null || !(price > 0) || !pe || pe <= 0) return null;
   let g = (m.earningsCAGR != null) ? m.earningsCAGR : (m.earningsGrowthYoY != null ? m.earningsGrowthYoY : null);
   if (g == null) return null;
-  const gUsed = Math.max(-0.20, Math.min(SCR_DCF_GCAP, g));                       // croissance plafonnee (anti-aberration)
+  const g0 = Math.max(-0.20, Math.min(SCR_DCF_GCAP, g));                          // croissance initiale plafonnee (anti-aberration)
+  const gTerm = Math.min(SCR_DCF_GTERM, g0);                                       // croissance terminale (mature), jamais > initiale
   let exitPe = (m.avgPe != null && m.avgPe > 0) ? m.avgPe : pe;                    // multiple de sortie = moyenne ~4 ans (moteur) sinon PE actuel
-  exitPe = Math.max(5, Math.min(exitPe, pe * 1.2, 30));                            // borne : pas d'expansion delirante
+  exitPe = Math.max(5, Math.min(exitPe, pe * 1.2, 35));                            // borne : compounders premium ~33x OK, mais coupe les aberrations (NVDA)
   const yrs = m.revYears || 4;
   const scAnnual = (m.sharesChange != null) ? (Math.pow(1 + m.sharesChange, 1 / yrs) - 1) : 0;   // rachats annualises
   const dg = (m.divCagr != null) ? Math.max(-0.20, Math.min(0.20, m.divCagr)) : 0;
   const div0 = (m.dividendYield != null && m.dividendYield > 0) ? m.dividendYield * price : 0;
-  let eps = price / pe, gy = gUsed, cumDiv = 0;
+  let eps = price / pe, cumDiv = 0, gy0 = g0;
   for (let t = 1; t <= SCR_DCF_N; t++) {
-    eps = eps * (1 + gy) / (1 + scAnnual);                                         // BPA : benefice qui croit (decroissant), net des rachats
-    gy = gy * (1 - SCR_DCF_DECAY);
+    const frac = SCR_DCF_N > 1 ? (t - 1) / (SCR_DCF_N - 1) : 1;                     // 0 en annee 1 -> 1 en annee N
+    const gy = g0 + (gTerm - g0) * frac;                                           // fondu lineaire : croissance initiale -> terminale
+    if (t === 1) gy0 = gy;
+    eps = eps * (1 + gy) / (1 + scAnnual);                                         // BPA : benefice qui croit (en ralentissant), net des rachats
     cumDiv += div0 * Math.pow(1 + dg, t);
   }
   const futurePrice = eps * exitPe, futureTotal = futurePrice + cumDiv;
   const fair = futureTotal / Math.pow(1 + SCR_DCF_RET, SCR_DCF_N);                 // prix d'achat cible pour le rendement vise
   const cagr = Math.pow(futureTotal / price, 1 / SCR_DCF_N) - 1;                   // rendement annualise au cours actuel
-  return { fair, futurePrice, futureTotal, cumDiv, cagr, exitPe, gUsed, N: SCR_DCF_N, price, exch: m.exchange };
+  return { fair, futurePrice, futureTotal, cumDiv, cagr, exitPe, gUsed: g0, gTerm, N: SCR_DCF_N, price, exch: m.exchange };
 }
 function scrFairPrice(m, sector) {
   const d = scrDcf(m, sector);
@@ -4978,7 +4983,7 @@ function scrShowBandPopover(anchorEl, m, sector) {
     (function () { const dcf = scrDcf(m, sector); if (!dcf) return scrEl('span'); return scrEl('div', { style: 'margin-top:8px;padding-top:8px;border-top:1px solid #eef1f5;font-size:0.7rem;line-height:1.5;color:#5b6b7d', kids: [
       scrEl('div', { kids: [scrEl('b', { text: 'DCF', style: 'color:#22303f' }), scrEl('span', { text: ' — rendement visé ' + Math.round(SCR_DCF_RET * 100) + ' %, ' + dcf.N + ' ans' })] }),
       scrEl('div', { kids: [scrEl('span', { text: 'CAGR attendu : ' }), scrEl('b', { text: (dcf.cagr >= 0 ? '+' : '') + (dcf.cagr * 100).toFixed(1) + ' %/an', style: `color:${dcf.cagr >= SCR_DCF_RET ? '#1d9e74' : '#dd5f66'}` }), scrEl('span', { text: '   ·   Prix futur : ' + money(dcf.futurePrice) })] }),
-      scrEl('div', { text: 'Croissance retenue : ' + (dcf.gUsed * 100).toFixed(0) + ' %/an (plafonnée)   ·   Multiple sortie : ' + dcf.exitPe.toFixed(1) })] }); })(),
+      scrEl('div', { text: 'Croissance : ' + (dcf.gUsed * 100).toFixed(0) + ' % → ' + (dcf.gTerm * 100).toFixed(0) + ' %/an (init. → finale)   ·   Multiple sortie : ' + dcf.exitPe.toFixed(1) })] }); })(),
     scrEl('div', { style: 'margin-top:6px;font-size:0.6rem;color:#c3ccd6', text: 'Repérage mécanique : juste valeur DCF (prix pour ton rendement visé) + zones d\'achat (marge de sécurité ' + Math.round(SCR_SAFETY * 100) + ' %). Pas un conseil.' })] });
   document.body.appendChild(pop);
   const r = anchorEl.getBoundingClientRect();
@@ -6066,7 +6071,7 @@ function screenerQualityAllocPanel(top) {
   const retInput = scrEl('input', { attrs: { type: 'number', min: '3', max: '30', step: '1', value: String(Math.round(SCR_DCF_RET * 100)), title: "Rendement annuel visé = taux d'actualisation (Stock Unlock : « Desired Annual Return »). Plus il est haut, plus tu es exigeant, donc plus l'Objectif (juste prix) est bas." }, style: dcfStyle });
   const horizonInput = scrEl('input', { attrs: { type: 'number', min: '3', max: '15', step: '1', value: String(SCR_DCF_N), title: "Horizon de projection en années. Un horizon long (8-10 ans) lisse les hyper-croissances et réduit les aberrations (méthode Stock Unlock)." }, style: dcfStyle });
   const gcapInput = scrEl('input', { attrs: { type: 'number', min: '5', max: '60', step: '5', value: String(Math.round(SCR_DCF_GCAP * 100)), title: "Croissance annuelle MAXIMALE retenue (garde-fou anti-aberration : une croissance à +190 % type NVDA est plafonnée). Yahoo ne donne que ~4 ans, ce plafond remplace le lissage long de Stock Unlock." }, style: dcfStyle });
-  const decayInput = scrEl('input', { attrs: { type: 'number', min: '0', max: '20', step: '1', value: String(Math.round(SCR_DCF_DECAY * 100)), title: "Décroissance de la croissance chaque année (fade) : la croissance ralentit avec le temps, comme une entreprise qui mûrit." }, style: dcfStyle });
+  const gtermInput = scrEl('input', { attrs: { type: 'number', min: '0', max: '10', step: '1', value: String(Math.round(SCR_DCF_GTERM * 100)), title: "Croissance TERMINALE (mature) : la croissance fond linéairement de la croissance initiale vers ce niveau sur l'horizon, comme une entreprise qui mûrit. ~4 % ≈ croissance de l'économie. C'est le garde-fou clé contre les pics conjoncturels (ex JPM +47 % qui ne dure pas)." }, style: dcfStyle });
   const savedDiv = localStorage.getItem('scrAllocDivOnly') === '1';
   const divSelect = scrEl('select', { attrs: { title: 'Restreindre aux titres à dividende CROISSANT (partie Revenus Passifs de la méthode)' }, style: selStyle });
   [['0', 'tous les titres'], ['1', 'dividende croissant']].forEach(([v, label]) => { const o = scrEl('option', { text: label, attrs: { value: v } }); if ((v === '1') === savedDiv) o.selected = true; divSelect.appendChild(o); });
@@ -6082,8 +6087,8 @@ function screenerQualityAllocPanel(top) {
     scrEl('span', { text: 'DCF (juste valeur)', attrs: { title: "Modèle « rendement attendu » façon Stock Unlock : on projette le bénéfice sur l'horizon, on applique un multiple de sortie borné, on ajoute les dividendes, puis on actualise à ton rendement visé. Résultat = l'Objectif (juste prix)." }, style: 'font-size:0.8rem;color:#42546a;font-weight:700;cursor:help' }),
     scrEl('span', { text: 'rendement visé', style: 'font-size:0.8rem;color:#5b6b7d;margin-left:6px' }), retInput, scrEl('span', { text: '%/an', style: 'color:#5b6b7d' }),
     scrEl('span', { text: 'horizon', style: 'font-size:0.8rem;color:#5b6b7d;margin-left:6px' }), horizonInput, scrEl('span', { text: 'ans', style: 'color:#5b6b7d' }),
-    scrEl('span', { text: 'croiss. max', style: 'font-size:0.8rem;color:#5b6b7d;margin-left:6px' }), gcapInput, scrEl('span', { text: '%/an', style: 'color:#5b6b7d' }),
-    scrEl('span', { text: 'décroiss.', style: 'font-size:0.8rem;color:#5b6b7d;margin-left:6px' }), decayInput, scrEl('span', { text: '%/an', style: 'color:#5b6b7d' })] }));
+    scrEl('span', { text: 'croiss. init. max', style: 'font-size:0.8rem;color:#5b6b7d;margin-left:6px' }), gcapInput, scrEl('span', { text: '%/an', style: 'color:#5b6b7d' }),
+    scrEl('span', { text: 'croiss. finale', style: 'font-size:0.8rem;color:#5b6b7d;margin-left:6px' }), gtermInput, scrEl('span', { text: '%/an', style: 'color:#5b6b7d' })] }));
   const results = scrEl('div');
   wrap.appendChild(results);
   wrap.appendChild(scrEl('div', { style: 'margin-top:10px;font-size:0.72rem;color:#5b6b7d', text: "Plan de DCA : l'argent que tu déploies (ex libéré de Debitum) va EN PRIORITÉ là où tu es le plus sous ta cible, en tenant compte de tes positions déjà détenues (on ne vend jamais). Cible = conviction (note globale ajustée) par défaut, ou potentiel de l'Objectif au choix, tableau trié par note. Plafonds par ligne et par secteur RÉGLABLES (DK ne s'interdit pas plus de 10 % sur ses plus fortes convictions). « lignes » = taille visée du portefeuille : tes titres détenus concourent au même classement (renforcés s'ils entrent dans le top, sinon conservés hors plan, jamais vendus en DCA). Structure DK : ETF socle 50-60 % + actions de qualité. La décision reste la tienne." }));
@@ -6125,14 +6130,14 @@ function screenerQualityAllocPanel(top) {
     SCR_DCF_RET = Math.max(0.03, Math.min(0.30, (Number(retInput.value) || 10) / 100));
     SCR_DCF_N = Math.max(3, Math.min(15, Math.round(Number(horizonInput.value) || 8)));
     SCR_DCF_GCAP = Math.max(0.05, Math.min(0.60, (Number(gcapInput.value) || 20) / 100));
-    SCR_DCF_DECAY = Math.max(0, Math.min(0.20, (Number(decayInput.value) || 5) / 100));
+    SCR_DCF_GTERM = Math.max(0, Math.min(0.10, (Number(gtermInput.value) || 4) / 100));
     localStorage.setItem('scrDcfRet', String(Math.round(SCR_DCF_RET * 100)));
     localStorage.setItem('scrDcfN', String(SCR_DCF_N));
     localStorage.setItem('scrDcfGcap', String(Math.round(SCR_DCF_GCAP * 100)));
-    localStorage.setItem('scrDcfDecay', String(Math.round(SCR_DCF_DECAY * 100)));
+    localStorage.setItem('scrDcfGterm', String(Math.round(SCR_DCF_GTERM * 100)));
     scrRerenderQuality();
   }
-  [retInput, horizonInput, gcapInput, decayInput].forEach((el) => el.addEventListener('change', dcfApply));
+  [retInput, horizonInput, gcapInput, gtermInput].forEach((el) => el.addEventListener('change', dcfApply));
   function renderModeRow() {
     const mk = (label, val, desc) => {
       const on = allocMode === val;
