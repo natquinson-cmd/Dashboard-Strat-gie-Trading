@@ -4889,12 +4889,15 @@ const SCR_ZONE = {
   plein: { label: 'Plein prix', bg: '#fff2d9', fg: '#8a6d1f', bar: '#f0b64d' },
   cher: { label: 'Cher', bg: '#fdeaea', fg: '#c0392b', bar: '#e58a90' },
 };
+let SCR_SAFETY = 0.15;   // marge de securite de la zone "Ideal" (reglable, plancher 15 %)
+try { const _s = localStorage.getItem('scrAllocSafety'); if (_s != null) SCR_SAFETY = Math.max(0.15, Math.min(0.50, Number(_s) / 100)); } catch (e) {}
 function scrBuyBand(m, sector) {
   m = m || {};
   const fair = scrFairPrice(m, sector), price = m.price;
   if (fair == null || !(fair > 0) || !(price > 0)) return null;
-  const zone = price <= fair * 0.85 ? 'ideal' : (price <= fair ? 'achat' : (price <= fair * 1.10 ? 'plein' : 'cher'));
-  return { fair, price, exch: m.exchange, ideal: fair * 0.85, achat: fair, plein: fair * 1.10, zone };
+  const idealMax = fair * (1 - SCR_SAFETY);
+  const zone = price <= idealMax ? 'ideal' : (price <= fair ? 'achat' : (price <= fair * 1.10 ? 'plein' : 'cher'));
+  return { fair, price, exch: m.exchange, ideal: idealMax, achat: fair, plein: fair * 1.10, zone };
 }
 // Petite pastille de zone (pour le panneau Deployer DCA)
 function scrZonePill(m, sector) {
@@ -6006,6 +6009,8 @@ function screenerQualityAllocPanel(top) {
   const secInput = scrEl('input', { attrs: { type: 'number', min: '10', max: '100', step: '5', value: String(savedSec), title: "Plafond par secteur (diversification). Élargis-le si tu veux t'autoriser plus de concentration." }, style: 'width:58px;padding:8px 8px;border:1px solid #e3e8ee;border-radius:9px;font-size:0.88rem;font-weight:600;color:#42546a' });
   const savedLine = localStorage.getItem('scrAllocLineCap') != null ? Number(localStorage.getItem('scrAllocLineCap')) : 10;
   const lineInput = scrEl('input', { attrs: { type: 'number', min: '5', max: '50', step: '1', value: String(savedLine), title: "Plafond par ligne = poids max d'une seule valeur. Dividend King concentre parfois plus de 10 % sur ses plus fortes convictions : monte-le pour t'autoriser des lignes plus grosses." }, style: 'width:58px;padding:8px 8px;border:1px solid #e3e8ee;border-radius:9px;font-size:0.88rem;font-weight:600;color:#42546a' });
+  const savedSafety = localStorage.getItem('scrAllocSafety') != null ? Math.max(15, Number(localStorage.getItem('scrAllocSafety'))) : 15;
+  const safetyInput = scrEl('input', { attrs: { type: 'number', min: '15', max: '50', step: '5', value: String(savedSafety), title: "Marge de sécurité de la zone « Idéal » : le cours doit être au moins X % SOUS l'Objectif pour être un prix d'achat idéal. Growth = plus volatil -> plancher 15 %, monte-le pour exiger plus de décote avant de renforcer." }, style: 'width:58px;padding:8px 8px;border:1px solid #e3e8ee;border-radius:9px;font-size:0.88rem;font-weight:600;color:#42546a' });
   const savedDiv = localStorage.getItem('scrAllocDivOnly') === '1';
   const divSelect = scrEl('select', { attrs: { title: 'Restreindre aux titres à dividende CROISSANT (partie Revenus Passifs de la méthode)' }, style: selStyle });
   [['0', 'tous les titres'], ['1', 'dividende croissant']].forEach(([v, label]) => { const o = scrEl('option', { text: label, attrs: { value: v } }); if ((v === '1') === savedDiv) o.selected = true; divSelect.appendChild(o); });
@@ -6015,7 +6020,8 @@ function screenerQualityAllocPanel(top) {
     scrEl('span', { text: 'réparti sur', style: 'font-size:0.8rem;color:#5b6b7d;margin-left:6px' }), nSelect, wSelect, divSelect,
     scrEl('span', { text: 'ETF socle', style: 'font-size:0.8rem;color:#5b6b7d;margin-left:6px' }), etfInput, scrEl('span', { text: '%', style: 'color:#5b6b7d' }),
     scrEl('span', { text: 'max secteur', style: 'font-size:0.8rem;color:#5b6b7d;margin-left:6px' }), secInput, scrEl('span', { text: '%', style: 'color:#5b6b7d' }),
-    scrEl('span', { text: 'max/ligne', style: 'font-size:0.8rem;color:#5b6b7d;margin-left:6px' }), lineInput, scrEl('span', { text: '%', style: 'color:#5b6b7d' })] }));
+    scrEl('span', { text: 'max/ligne', style: 'font-size:0.8rem;color:#5b6b7d;margin-left:6px' }), lineInput, scrEl('span', { text: '%', style: 'color:#5b6b7d' }),
+    scrEl('span', { text: 'marge sécu', style: 'font-size:0.8rem;color:#5b6b7d;margin-left:6px' }), safetyInput, scrEl('span', { text: '%', style: 'color:#5b6b7d' })] }));
   const results = scrEl('div');
   wrap.appendChild(results);
   wrap.appendChild(scrEl('div', { style: 'margin-top:10px;font-size:0.72rem;color:#5b6b7d', text: "Plan de DCA : l'argent que tu déploies (ex libéré de Debitum) va EN PRIORITÉ là où tu es le plus sous ta cible, en tenant compte de tes positions déjà détenues (on ne vend jamais). Cible = conviction (note globale ajustée) par défaut, ou potentiel de l'Objectif au choix, tableau trié par note. Plafonds par ligne et par secteur RÉGLABLES (DK ne s'interdit pas plus de 10 % sur ses plus fortes convictions). « lignes » = taille visée du portefeuille : tes titres détenus concourent au même classement (renforcés s'ils entrent dans le top, sinon conservés hors plan, jamais vendus en DCA). Structure DK : ETF socle 50-60 % + actions de qualité. La décision reste la tienne." }));
@@ -6027,6 +6033,7 @@ function screenerQualityAllocPanel(top) {
     const etfPct = Math.max(0, Math.min(0.9, (Number(etfInput.value) || 0) / 100));
     const secCap = Math.max(0.10, Math.min(1, (Number(secInput.value) || 35) / 100));
     const lineCap = Math.max(0.05, Math.min(0.50, (Number(lineInput.value) || 10) / 100));
+    SCR_SAFETY = Math.max(0.15, Math.min(0.50, (Number(safetyInput.value) || 15) / 100));   // marge sécu zone Idéal (plancher 15 %)
     localStorage.setItem('scrAllocAmount', String(amount));
     localStorage.setItem('scrAllocLines', String(nLines));
     localStorage.setItem('scrAllocWeight', wMode);
@@ -6034,6 +6041,7 @@ function screenerQualityAllocPanel(top) {
     localStorage.setItem('scrAllocEtf', String(Math.round(etfPct * 100)));
     localStorage.setItem('scrAllocSecCap', String(Math.round(secCap * 100)));
     localStorage.setItem('scrAllocLineCap', String(Math.round(lineCap * 100)));
+    localStorage.setItem('scrAllocSafety', String(Math.round(SCR_SAFETY * 100)));
     if (allocMode === 'arb') {
       results.replaceChildren(renderAllocTable(computeArbitrage(top, scrHoldingsUsd(), nLines, wMode, divOnly, secCap, lineCap), 0, 0, 'arb'));
     } else {
@@ -6048,6 +6056,7 @@ function screenerQualityAllocPanel(top) {
   etfInput.addEventListener('input', render);
   secInput.addEventListener('input', render);
   lineInput.addEventListener('input', render);
+  safetyInput.addEventListener('input', render);
   function renderModeRow() {
     const mk = (label, val, desc) => {
       const on = allocMode === val;
