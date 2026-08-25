@@ -5174,7 +5174,7 @@ const SCR_FUNDA_HEAD = [
   ['Pays', 'left', "Pays du siège social de la société. ETF = exposition internationale."],
   ['Moat', 'left', "Analyse qualitative du moat (avantage concurrentiel durable) : Large / Étroit / Aucun + note /100, et exposition à l'IA (favorable / neutre / menacé). Opinion de Claude, pas une donnée mesurée ; survole pour la justification. Non auto-actualisée."],
   ['ROIC', 'right', "Rendement du capital investi (ratio n°1 Dividend King) = EBIT×(1−impôt)/capital investi. > 15 % = crée de la valeur. En petit : ROE. Banques (~) : regarde le ROE."],
-  ['Croiss. CA', 'right', "Croissance régulière du chiffre d'affaires, moyenne annualisée ~4-5 ans (DK : ≥ 10 %/an). Vert = ≥ 10 %."],
+  ['Croiss. CA/FCF', 'right', "Croissance annualisée ~4-5 ans du chiffre d'affaires (grand) ET du free cash-flow (petit, « FCF »). Critère DK n°2 : CA ET free cash-flow en hausse régulière ≥ 10 %/an. Vert = ≥ 10 %."],
   ['PEG', 'right', "PER divisé par la croissance des bénéfices. < 1 = pas cher au regard de la croissance ; > 2 = cher."],
   ['Marge', 'right', "Marge nette = bénéfice net / chiffre d'affaires. > 20 % = très rentable (avantage concurrentiel probable)."],
   ['Rendement', 'right', "Rendement du dividende. 2-4 % = sain ; > 7 % = souvent un piège ; vide = pas de dividende."],
@@ -5203,8 +5203,14 @@ function scrFundaCells(m, sector, bd) {
     if (m.roe != null) kids.push(scrEl('span', { text: 'ROE ' + (m.roe * 100).toFixed(0) + '%', style: 'font-size:0.62rem;color:#9aa7b4' }));
     roic = scrEl('td', { style: `padding:6px 8px;text-align:right;white-space:nowrap;${bd}`, kids: [scrEl('div', { style: 'display:flex;flex-direction:column;align-items:flex-end;gap:1px', kids: kids })] });
   } else roic = cell('–', `color:${g}`);
-  const cr = m.revCagr;
-  const croiss = cell(cr == null ? '–' : (cr >= 0 ? '+' : '') + (cr * 100).toFixed(0) + '%', cr == null ? `color:${g}` : `font-weight:700;color:${cr >= 0.10 ? '#1d9e74' : '#dd5f66'}`);
+  const cr = m.revCagr, fc = m.fcfCagr;
+  let croiss;
+  if (cr == null && fc == null) { croiss = cell('–', `color:${g}`); }
+  else {
+    const caKids = [scrEl('span', { text: cr == null ? '–' : (cr >= 0 ? '+' : '') + (cr * 100).toFixed(0) + '%', style: cr == null ? `color:${g}` : `font-weight:700;color:${cr >= 0.10 ? '#1d9e74' : '#dd5f66'}` })];
+    if (fc != null) caKids.push(scrEl('span', { text: 'FCF ' + (fc >= 0 ? '+' : '') + (fc * 100).toFixed(0) + '%', style: `font-size:0.62rem;color:${fc >= 0.10 ? '#1d9e74' : (fc < 0 ? '#dd5f66' : '#9aa7b4')}` }));
+    croiss = scrEl('td', { attrs: { title: "Croissance annualisée ~" + (m.revYears || 4) + " ans : CA (grand) et free cash-flow (petit). DK veut CA ET FCF en hausse ≥ 10 %/an." }, style: `padding:6px 8px;text-align:right;white-space:nowrap;${bd}`, kids: [scrEl('div', { style: 'display:flex;flex-direction:column;align-items:flex-end;gap:1px', kids: caKids })] });
+  }
   const peg = cell(m.peg == null ? '–' : Number(m.peg).toFixed(2), m.peg == null ? `color:${g}` : 'color:#42546a');
   const nm = m.netMargin;
   const marge = cell(nm == null ? '–' : (nm * 100).toFixed(0) + '%', nm == null ? `color:${g}` : `color:${nm >= 0.20 ? '#1d9e74' : '#42546a'}`);
@@ -6040,7 +6046,7 @@ function screenerRenderQuality(c, data, config) {
     ['Moat', 'left', "Analyse qualitative du moat (Large / Étroit / Aucun) + note /100 et exposition à l'IA (favorable / neutre / menacé). Opinion de Claude, pas une donnée mesurée ; survole pour la justification. Non auto-actualisée."],
     ['PEG', 'right', "PEG = PER divisé par la croissance des bénéfices. Sous 1 = pas cher au regard de la croissance ; au-dessus de 2 = cher."],
     ['Écart bénéf./cours', 'right', "Croissance des bénéfices (sur ~4 ans) moins la hausse du cours (sur 5 ans). Positif = les bénéfices ont grimpé plus vite que le cours, le multiple s'est comprimé (potentiellement décoté)."],
-    ['Croiss. CA', 'right', "Croissance RÉGULIÈRE du chiffre d'affaires, en moyenne annualisée sur ~4-5 ans (critère Dividend King n°2 : au moins 10 %/an). Bien plus fiable qu'un seul trimestre : une valeur peut afficher +16 % sur un trimestre mais +2 %/an en moyenne (ex Apple). Vert = ≥ 10 %. Survole pour la croissance du free cash-flow."],
+    ['Croiss. CA/FCF', 'right', "Croissance RÉGULIÈRE annualisée sur ~4-5 ans du chiffre d'affaires (grand) ET du free cash-flow (petit, « FCF »). Critère Dividend King n°2 : CA ET free cash-flow en hausse ≥ 10 %/an. Bien plus fiable qu'un seul trimestre (une valeur peut faire +16 % sur un trimestre mais +2 %/an en moyenne). Vert = ≥ 10 %."],
     ['PE fwd', 'right', "PER prévisionnel = cours divisé par le bénéfice par action attendu l'an prochain. Plus il est bas, moins l'action est chère. ~15 = moyenne historique du marché."],
     ['ROIC', 'right', "Rendement du capital investi = résultat opérationnel après impôt (EBIT × (1 − taux d'impôt)) divisé par le capital investi (dette + fonds propres). LE ratio n°1 de Dividend King : au-dessus de 15 % = la société crée vraiment de la valeur sur son capital. Calculé sur les états financiers réels (fini le proxy). En petit : ROE. Banques (pas d'EBIT) : ROIC peu pertinent, grisé avec un ~, regarde alors le ROE."],
     ['Marge nette', 'right', "Bénéfice net divisé par le chiffre d'affaires. Au-dessus de 20 % = très rentable, souvent le signe d'un avantage concurrentiel durable."],
@@ -6097,11 +6103,12 @@ function screenerRenderQuality(c, data, config) {
   };
   // Croissance RÉGULIÈRE du CA (moyenne annualisée ~4-5 ans) : critère DK n°2 (>= 10 % vert)
   const crCagrC = (m) => {
-    const v = m.revCagr;
-    const txt = v == null ? '–' : (v >= 0 ? '+' : '') + (v * 100).toFixed(0) + '%';
+    const v = m.revCagr, fc = m.fcfCagr;
     const col = v == null ? '#9aa7b4' : (v >= 0.10 ? '#1d9e74' : '#dd5f66');
-    const tip = v == null ? 'Croissance du CA indisponible' : ('Croissance annualisée du CA sur ~' + (m.revYears || 4) + ' ans' + (m.fcfCagr != null ? ' · FCF ' + (m.fcfCagr >= 0 ? '+' : '') + (m.fcfCagr * 100).toFixed(0) + ' %/an' : ''));
-    return scrEl('td', { text: txt, attrs: { title: tip }, style: `padding:8px 8px;text-align:right;white-space:nowrap;${bd};color:${col};font-weight:700` });
+    const kids = [scrEl('span', { text: v == null ? '–' : (v >= 0 ? '+' : '') + (v * 100).toFixed(0) + '%', style: `font-weight:700;color:${col}` })];
+    if (fc != null) kids.push(scrEl('span', { text: 'FCF ' + (fc >= 0 ? '+' : '') + (fc * 100).toFixed(0) + '%', style: `font-size:0.62rem;color:${fc >= 0.10 ? '#1d9e74' : (fc < 0 ? '#dd5f66' : '#9aa7b4')}` }));
+    const tip = 'Croissance annualisée sur ~' + (m.revYears || 4) + " ans : chiffre d'affaires (grand) et free cash-flow (petit, « FCF »). Critère DK : CA ET FCF en hausse ≥ 10 %/an.";
+    return scrEl('td', { attrs: { title: tip }, style: `padding:8px 8px;text-align:right;white-space:nowrap;${bd}`, kids: [scrEl('div', { style: 'display:flex;flex-direction:column;align-items:flex-end;gap:1px', kids: kids })] });
   };
 
   if (!top.length) {
