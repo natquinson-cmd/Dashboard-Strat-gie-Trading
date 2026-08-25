@@ -4882,6 +4882,59 @@ function scrFairPrice(m, sector) {
   const pot = Math.max(-SCR_FAIR.cap, Math.min(SCR_FAIR.cap, w * (fairPe / pe - 1)));
   return price * (1 + pot);
 }
+// Fourchette de prix d'achat depuis l'Objectif (juste prix). Marge de securite 15 % pour la zone "Ideal".
+const SCR_ZONE = {
+  ideal: { label: 'Idéal', bg: '#d1f0e3', fg: '#127a54', bar: '#1d9e74' },
+  achat: { label: 'Achat', bg: '#e5f4ee', fg: '#1d9e74', bar: '#7fd3ab' },
+  plein: { label: 'Plein prix', bg: '#fff2d9', fg: '#8a6d1f', bar: '#f0b64d' },
+  cher: { label: 'Cher', bg: '#fdeaea', fg: '#c0392b', bar: '#e58a90' },
+};
+function scrBuyBand(m, sector) {
+  m = m || {};
+  const fair = scrFairPrice(m, sector), price = m.price;
+  if (fair == null || !(fair > 0) || !(price > 0)) return null;
+  const zone = price <= fair * 0.85 ? 'ideal' : (price <= fair ? 'achat' : (price <= fair * 1.10 ? 'plein' : 'cher'));
+  return { fair, price, exch: m.exchange, ideal: fair * 0.85, achat: fair, plein: fair * 1.10, zone };
+}
+// Petite pastille de zone (pour le panneau Deployer DCA)
+function scrZonePill(m, sector) {
+  const b = scrBuyBand(m, sector); if (!b) return null;
+  const z = SCR_ZONE[b.zone];
+  return scrEl('span', { attrs: { title: "Cours actuel en zone « " + z.label + " » (fourchette d'achat basée sur ton Objectif, marge de sécurité 15 %). Clique l'Objectif pour la jauge." }, text: z.label, style: `background:${z.bg};color:${z.fg};border-radius:20px;padding:1px 7px;font-size:0.6rem;font-weight:700;white-space:nowrap;cursor:help` });
+}
+// Popover jauge : les 4 zones + curseur = cours actuel, au clic sur l'Objectif
+let scrBandPop = null;
+function scrCloseBandPop() { if (scrBandPop) { scrBandPop.remove(); scrBandPop = null; document.removeEventListener('click', scrBandOutside, true); } }
+function scrBandOutside(e) { if (scrBandPop && !scrBandPop.contains(e.target)) scrCloseBandPop(); }
+function scrShowBandPopover(anchorEl, m, sector) {
+  scrCloseBandPop();
+  const b = scrBuyBand(m, sector); if (!b) return;
+  const z = SCR_ZONE[b.zone], money = (v) => scrPrice(v, b.exch);
+  const lo = b.fair * 0.70, hi = b.fair * 1.30, span = (hi - lo) || 1;
+  const pct = (v) => Math.max(0, Math.min(100, (v - lo) / span * 100));
+  const seg = (from, to, key) => scrEl('div', { style: `position:absolute;left:${pct(from)}%;width:${pct(to) - pct(from)}%;top:0;bottom:0;background:${SCR_ZONE[key].bar}` });
+  const bar = scrEl('div', { style: 'position:relative;height:14px;border-radius:7px;overflow:hidden;margin:9px 0 4px', kids: [
+    seg(lo, b.ideal, 'ideal'), seg(b.ideal, b.achat, 'achat'), seg(b.achat, b.plein, 'plein'), seg(b.plein, hi, 'cher'),
+    scrEl('div', { style: `position:absolute;left:${pct(b.price)}%;top:-4px;bottom:-4px;width:2px;background:#22303f;box-shadow:0 0 0 1px #fff;border-radius:1px` })] });
+  const pop = scrEl('div', { style: 'position:fixed;z-index:9999;background:#fff;border:1px solid #e3e8ee;border-radius:12px;box-shadow:0 8px 28px rgba(0,0,0,0.16);padding:12px 14px;width:280px;font-size:0.76rem;color:#42546a', kids: [
+    scrEl('div', { style: 'display:flex;justify-content:space-between;align-items:center;margin-bottom:2px', kids: [
+      scrEl('b', { text: "Fourchette de prix d'achat", style: 'color:#22303f' }),
+      scrEl('span', { text: z.label, style: `background:${z.bg};color:${z.fg};border-radius:20px;padding:1px 8px;font-size:0.66rem;font-weight:700` })] }),
+    scrEl('div', { text: 'Juste prix (Objectif) : ' + money(b.fair), style: 'font-size:0.72rem;color:#5b6b7d' }),
+    bar,
+    scrEl('div', { style: 'line-height:1.55;margin-top:4px', kids: [
+      scrEl('div', { text: 'Idéal ≤ ' + money(b.ideal) + '   ·   Achat ≤ ' + money(b.achat) }),
+      scrEl('div', { text: 'Plein ≤ ' + money(b.plein) + '   ·   Cher > ' + money(b.plein) }),
+      scrEl('div', { style: 'margin-top:4px;font-weight:700;color:#22303f', text: 'Cours actuel : ' + money(b.price) + ' → ' + z.label })] }),
+    scrEl('div', { style: 'margin-top:6px;font-size:0.6rem;color:#c3ccd6', text: 'Repérage mécanique (marge de sécurité 15 % sur ton Objectif). Pas un conseil.' })] });
+  document.body.appendChild(pop);
+  const r = anchorEl.getBoundingClientRect();
+  const left = Math.min(window.innerWidth - 290, Math.max(8, r.left));
+  let top = r.bottom + 6; if (top + pop.offsetHeight > window.innerHeight - 8) top = Math.max(8, r.top - pop.offsetHeight - 6);
+  pop.style.left = left + 'px'; pop.style.top = top + 'px';
+  scrBandPop = pop;
+  setTimeout(() => document.addEventListener('click', scrBandOutside, true), 0);
+}
 // Cellule « Objectif » : juste prix modele + potentiel de hausse/baisse vs cours actuel
 function scrTargetCell(m, sector, bd) {
   const tp = scrFairPrice(m, sector), price = m.price;
@@ -4891,7 +4944,13 @@ function scrTargetCell(m, sector, bd) {
     const up = (tp - price) / price;
     box.appendChild(scrEl('span', { text: (up >= 0 ? '+' : '') + (up * 100).toFixed(0) + '%', style: `font-size:0.72rem;font-weight:700;color:${up >= 0 ? '#1d9e74' : '#dd5f66'}` }));
   }
-  return scrEl('td', { style: `padding:6px 10px;${bd}`, kids: [box] });
+  const td = scrEl('td', { style: `padding:6px 10px;${bd}`, kids: [box] });
+  if (tp != null && price != null && price > 0) {   // cliquable -> fourchette de prix d'achat (jauge)
+    box.style.cursor = 'pointer';
+    td.setAttribute('title', "Clique pour la fourchette de prix d'achat");
+    td.onclick = (e) => { e.stopPropagation(); scrShowBandPopover(td, m, sector); };
+  }
+  return td;
 }
 // Logo societe (mode large cap / qualite uniquement) : FMP en principal (vrais logos US + Europe),
 // repli favicon Google via le domaine du site (metrics.website), sinon masque (le ticker reste affiche).
@@ -5431,7 +5490,7 @@ function renderAllocTable(res, etfPct, etfAmount, mode) {
       scrEl('td', { style: `padding:6px 10px;${bd}`, kids: [scrNoteChip(SCR_PRICE_MAP[String(t.symbol || '').toUpperCase()] || { valuationScore: t.valuationScore, rating: t.rating })] }),
       moveCell,
       scrEl('td', { text: t.sector || '–', style: `padding:6px 10px;color:#5b6b7d;font-size:0.78rem;${bd}` }),
-      scrEl('td', { text: (a.pot >= 0 ? '+' : '') + (a.pot * 100).toFixed(0) + '%', style: `padding:6px 10px;text-align:right;font-weight:700;color:${a.pot >= 0 ? '#1d9e74' : '#dd5f66'};${bd}` }),
+      (function () { const pill = scrZonePill(m, t.sector); const kids = [scrEl('span', { text: (a.pot >= 0 ? '+' : '') + (a.pot * 100).toFixed(0) + '%', style: `font-weight:700;color:${a.pot >= 0 ? '#1d9e74' : '#dd5f66'}` })]; if (pill) kids.push(pill); return scrEl('td', { style: `padding:6px 10px;text-align:right;${bd}`, kids: [scrEl('div', { style: 'display:flex;flex-direction:column;align-items:flex-end;gap:2px', kids: kids })] }); })(),
       ...scrFundaCells(SCR_PRICE_MAP[String(t.symbol || '').toUpperCase()] || m, t.sector, bd).slice(2),
       scrEl('td', { attrs: { title: "Poids visé dans ton portefeuille d'actions après ce versement (cible " + (a.targetWeight * 100).toFixed(0) + ' %)' }, text: (a.resultingWeight * 100).toFixed(1) + '%', style: `padding:6px 10px;text-align:right;font-weight:700;color:#42546a;cursor:help;${bd}` }),
     ] }));
