@@ -4883,20 +4883,14 @@ function scrFairPricePeg(m, sector) {
   const pot = Math.max(-SCR_FAIR.cap, Math.min(SCR_FAIR.cap, w * (fairPe / pe - 1)));
   return price * (1 + pot);
 }
-// DCF « rendement attendu » (facon Stock Unlock) avec garde-fous : croissance & multiple PLAFONNES car Yahoo
-// ne donne que ~4 ans (pas de fenetre 8-10 ans pour lisser les hyper-growth type NVDA). DCF deux etages :
-// la croissance FOND lineairement de la croissance initiale (plafonnee) vers une croissance terminale mature
-// sur l'horizon -> pas de composition delirante d'un pic de croissance conjoncturel (ex JPM +47 % YoY). Curseurs globaux.
-let SCR_DCF_RET = 0.10, SCR_DCF_N = 8, SCR_DCF_GTERM = 0.04, SCR_DCF_GCAP = 0.20;
-try {
-  const _gi = (k) => { const v = localStorage.getItem(k); return v != null ? Number(v) : null; };
-  let v; v = _gi('scrDcfRet'); if (v != null) SCR_DCF_RET = Math.max(0.03, Math.min(0.30, v / 100));
-  v = _gi('scrDcfN'); if (v != null) SCR_DCF_N = Math.max(3, Math.min(15, Math.round(v)));
-  v = _gi('scrDcfGterm'); if (v != null) SCR_DCF_GTERM = Math.max(0, Math.min(0.10, v / 100));
-  v = _gi('scrDcfGcap'); if (v != null) SCR_DCF_GCAP = Math.max(0.05, Math.min(0.60, v / 100));
-} catch (e) {}
-// Cache du dernier rendu qualite pour re-render sans re-fetch quand on bouge un curseur DCF (le DCF pilote
-// l'Objectif de TOUT le tableau, pas seulement le panneau de repartition).
+// DCF « rendement attendu » (facon Stock Unlock). Parametrage GLOBAL fige (choix, AUCUN curseur).
+// AUCUN plafond sur la croissance ni sur le multiple de sortie (demande explicite du user) : on projette
+// les donnees telles quelles. Seule structure conservee = le FONDU de croissance (la croissance courante
+// converge vers une croissance terminale mature sur l'horizon = trajectoire normale d'un DCF, pas un plafond).
+// Consequence : une valeur a croissance recente extreme (ex NVDA +200 %/an sur 4 ans) ressort tres haut ;
+// la croissance retenue est affichee dans le popover pour que le user juge.
+const SCR_DCF_RET = 0.10, SCR_DCF_N = 5, SCR_DCF_GTERM = 0.04;
+// Cache du dernier rendu qualite pour re-render sans re-fetch (le DCF pilote le potentiel de TOUT le tableau).
 let SCR_LAST_Q = null;
 function scrRerenderQuality() {
   if (!SCR_LAST_Q || !SCR_LAST_Q.c) return;
@@ -4908,10 +4902,12 @@ function scrDcf(m, sector) {
   if (price == null || !(price > 0) || !pe || pe <= 0) return null;
   let g = (m.earningsCAGR != null) ? m.earningsCAGR : (m.earningsGrowthYoY != null ? m.earningsGrowthYoY : null);
   if (g == null) return null;
-  const g0 = Math.max(-0.20, Math.min(SCR_DCF_GCAP, g));                          // croissance initiale plafonnee (anti-aberration)
-  const gTerm = Math.min(SCR_DCF_GTERM, g0);                                       // croissance terminale (mature), jamais > initiale
-  let exitPe = (m.avgPe != null && m.avgPe > 0) ? m.avgPe : pe;                    // multiple de sortie = moyenne ~4 ans (moteur) sinon PE actuel
-  exitPe = Math.max(5, Math.min(exitPe, pe * 1.2, 35));                            // borne : compounders premium ~33x OK, mais coupe les aberrations (NVDA)
+  const g0 = Math.max(-0.95, g);                                                  // AUCUN plafond de croissance ; garde-fou numerique seulement
+  const gTerm = Math.min(SCR_DCF_GTERM, g0);                                       // la croissance terminale ne peut pas depasser la courante
+  // Multiple de sortie = P/E moyen historique s'il est PLAUSIBLE (garde anti-bug de DEVISE : benefice ADR en
+  // monnaie locale / cours en USD -> P/E aberrant < 3), sinon P/E actuel. AUCUN plafond (choix user).
+  const avgOk = (m.avgPe != null && m.avgPe >= 3 && m.avgPe <= 150);
+  let exitPe = Math.max(0.5, avgOk ? m.avgPe : pe);
   const yrs = m.revYears || 4;
   const scAnnual = (m.sharesChange != null) ? (Math.pow(1 + m.sharesChange, 1 / yrs) - 1) : 0;   // rachats annualises
   const dg = (m.divCagr != null) ? Math.max(-0.20, Math.min(0.20, m.divCagr)) : 0;
@@ -4993,19 +4989,21 @@ function scrShowBandPopover(anchorEl, m, sector) {
   scrBandPop = pop;
   setTimeout(() => document.addEventListener('click', scrBandOutside, true), 0);
 }
-// Cellule « Objectif » : juste prix modele + potentiel de hausse/baisse vs cours actuel
+// Cellule « Potentiel/an » : rendement annuel attendu par le DCF (CAGR) vs le cours actuel
 function scrTargetCell(m, sector, bd) {
-  const tp = scrFairPrice(m, sector), price = m.price;
-  const box = scrEl('div', { style: 'display:flex;flex-direction:column;gap:2px;min-width:78px' });
-  box.appendChild(scrEl('span', { text: (tp == null ? '–' : scrPrice(tp, m.exchange)), style: 'font-weight:700;color:#22303f;font-size:0.82rem' }));
-  if (tp != null && price != null && price > 0) {
-    const up = (tp - price) / price;
-    box.appendChild(scrEl('span', { text: (up >= 0 ? '+' : '') + (up * 100).toFixed(0) + '%', style: `font-size:0.72rem;font-weight:700;color:${up >= 0 ? '#1d9e74' : '#dd5f66'}` }));
+  const d = scrDcf(m, sector), price = m.price;
+  const box = scrEl('div', { style: 'display:flex;flex-direction:column;gap:2px;min-width:62px;align-items:flex-end' });
+  if (d && isFinite(d.cagr)) {
+    const c = d.cagr;
+    const col = c >= SCR_DCF_RET ? '#1d9e74' : (c >= 0 ? '#42546a' : '#dd5f66');   // vert = bat ton rendement visé, rouge = négatif
+    box.appendChild(scrEl('span', { text: (c >= 0 ? '+' : '') + (c * 100).toFixed(0) + ' %/an', style: `font-weight:700;font-size:0.86rem;color:${col}` }));
+  } else {
+    box.appendChild(scrEl('span', { text: '–', style: 'color:#c3ccd6' }));
   }
   const td = scrEl('td', { style: `padding:6px 10px;${bd}`, kids: [box] });
-  if (tp != null && price != null && price > 0) {   // cliquable -> fourchette de prix d'achat (jauge)
+  if (d && price != null && price > 0) {   // cliquable -> detail DCF + fourchette de prix d'achat (jauge)
     box.style.cursor = 'pointer';
-    td.setAttribute('title', "Clique pour la fourchette de prix d'achat");
+    td.setAttribute('title', "Potentiel annuel attendu (DCF). Clique pour le détail (croissance retenue, multiple) + la fourchette de prix d'achat.");
     td.onclick = (e) => { e.stopPropagation(); scrShowBandPopover(td, m, sector); };
   }
   return td;
@@ -5287,7 +5285,7 @@ function scrMoatCell(m, pad, bd) {
 // m = objet metrics (SCR_PRICE_MAP pour les positions, t.metrics pour la répartition).
 const SCR_FUNDA_HEAD = [
   ['Note', 'left', "Note de valorisation du screener (Achat fort → Surévaluée) au sein des sociétés de qualité. Repérage, pas conseil."],
-  ['Objectif', 'right', "Juste prix estimé par DCF « rendement attendu » (projection du bénéfice sur l'horizon, multiple de sortie borné, dividendes, actualisés à ton rendement visé) et potentiel vs le cours (vert = marge d'achat, rouge = cher). Clique pour la jauge + le CAGR attendu."],
+  ['Potentiel/an', 'right', "Rendement ANNUEL attendu par le DCF (projection du bénéfice sur 5 ans, multiple de sortie = P/E moyen, dividendes) au cours actuel. Vert = bat ton rendement visé (10 %/an), rouge = négatif. Sans plafond de croissance. Clique pour le détail + la fourchette de prix d'achat."],
   ['Pays', 'left', "Pays du siège social de la société. ETF = exposition internationale."],
   ['Moat', 'left', "Analyse qualitative du moat (avantage concurrentiel durable) : Large / Étroit / Aucun + note /100, et exposition à l'IA (favorable / neutre / menacé). Opinion de Claude, pas une donnée mesurée ; survole pour la justification. Non auto-actualisée."],
   ['ROIC', 'right', "Rendement du capital investi (ratio n°1 Dividend King) = EBIT×(1−impôt)/capital investi. > 15 % = crée de la valeur. En petit : ROE. Banques (~) : regarde le ROE."],
@@ -5514,7 +5512,7 @@ function renderAllocTable(res, etfPct, etfAmount, mode) {
   if (!alloc.length && etfAmount <= 0) return scrEl('div', { text: 'Aucune candidate à répartir (que des Surévaluée ?).', style: 'color:#5b6b7d;font-size:0.8rem;padding:8px 0' });
   const bd = 'border-bottom:1px solid #eef1f5';
   const thead = scrEl('tr', { style: 'background:#f6f8fb;color:#5b6b7d' });
-  [['#', 'left'], ['Titre', 'left'], ['Note', 'left'], [mode === 'arb' ? 'Mouvement' : 'À déployer', 'right'], ['Secteur', 'left'], ['Potentiel', 'right']].forEach(([t, al]) =>
+  [['#', 'left'], ['Titre', 'left'], ['Note', 'left'], [mode === 'arb' ? 'Mouvement' : 'À déployer', 'right'], ['Secteur', 'left'], ['Potentiel/an', 'right']].forEach(([t, al]) =>
     thead.appendChild(scrEl('th', { text: t, style: `padding:8px 10px;text-align:${al};font-size:0.68rem;text-transform:uppercase;letter-spacing:.03em;border-bottom:1px solid #e3e8ee;white-space:nowrap` })));
   scrFundaHeadCells(2).forEach((th) => thead.appendChild(th));   // infos screener : Pays, Moat, ROIC, Croiss CA, PEG, Marge, Rendement, Payout, Div crois, FCF yield
   [['Poids visé', 'right']].forEach(([t, al]) =>
@@ -5548,7 +5546,7 @@ function renderAllocTable(res, etfPct, etfAmount, mode) {
       scrEl('td', { style: `padding:6px 10px;${bd}`, kids: [scrNoteChip(SCR_PRICE_MAP[String(t.symbol || '').toUpperCase()] || { valuationScore: t.valuationScore, rating: t.rating })] }),
       moveCell,
       scrEl('td', { text: t.sector || '–', style: `padding:6px 10px;color:#5b6b7d;font-size:0.78rem;${bd}` }),
-      (function () { const pill = scrZonePill(m, t.sector); const kids = [scrEl('span', { text: (a.pot >= 0 ? '+' : '') + (a.pot * 100).toFixed(0) + '%', style: `font-weight:700;color:${a.pot >= 0 ? '#1d9e74' : '#dd5f66'}` })]; if (pill) kids.push(pill); return scrEl('td', { style: `padding:6px 10px;text-align:right;${bd}`, kids: [scrEl('div', { style: 'display:flex;flex-direction:column;align-items:flex-end;gap:2px', kids: kids })] }); })(),
+      (function () { const pill = scrZonePill(m, t.sector); const dd = scrDcf(m, t.sector); const c = dd ? dd.cagr : null; const kids = [scrEl('span', { text: (c == null ? '–' : (c >= 0 ? '+' : '') + (c * 100).toFixed(0) + ' %/an'), style: `font-weight:700;color:${c == null ? '#9aa7b4' : (c >= SCR_DCF_RET ? '#1d9e74' : (c >= 0 ? '#42546a' : '#dd5f66'))}` })]; if (pill) kids.push(pill); return scrEl('td', { style: `padding:6px 10px;text-align:right;${bd}`, kids: [scrEl('div', { style: 'display:flex;flex-direction:column;align-items:flex-end;gap:2px', kids: kids })] }); })(),
       ...scrFundaCells(SCR_PRICE_MAP[String(t.symbol || '').toUpperCase()] || m, t.sector, bd).slice(2),
       scrEl('td', { attrs: { title: "Poids visé dans ton portefeuille d'actions après ce versement (cible " + (a.targetWeight * 100).toFixed(0) + ' %)' }, text: (a.resultingWeight * 100).toFixed(1) + '%', style: `padding:6px 10px;text-align:right;font-weight:700;color:#42546a;cursor:help;${bd}` }),
     ] }));
@@ -6066,12 +6064,6 @@ function screenerQualityAllocPanel(top) {
   const lineInput = scrEl('input', { attrs: { type: 'number', min: '5', max: '50', step: '1', value: String(savedLine), title: "Plafond par ligne = poids max d'une seule valeur. Dividend King concentre parfois plus de 10 % sur ses plus fortes convictions : monte-le pour t'autoriser des lignes plus grosses." }, style: 'width:58px;padding:8px 8px;border:1px solid #e3e8ee;border-radius:9px;font-size:0.88rem;font-weight:600;color:#42546a' });
   const savedSafety = localStorage.getItem('scrAllocSafety') != null ? Math.max(15, Number(localStorage.getItem('scrAllocSafety'))) : 15;
   const safetyInput = scrEl('input', { attrs: { type: 'number', min: '15', max: '50', step: '5', value: String(savedSafety), title: "Marge de sécurité de la zone « Idéal » : le cours doit être au moins X % SOUS l'Objectif pour être un prix d'achat idéal. Growth = plus volatil -> plancher 15 %, monte-le pour exiger plus de décote avant de renforcer." }, style: 'width:58px;padding:8px 8px;border:1px solid #e3e8ee;border-radius:9px;font-size:0.88rem;font-weight:600;color:#42546a' });
-  // Curseurs DCF (juste valeur « rendement attendu » façon Stock Unlock). Pilotent l'Objectif de TOUT le tableau.
-  const dcfStyle = 'width:54px;padding:8px 8px;border:1px solid #e3e8ee;border-radius:9px;font-size:0.88rem;font-weight:600;color:#42546a';
-  const retInput = scrEl('input', { attrs: { type: 'number', min: '3', max: '30', step: '1', value: String(Math.round(SCR_DCF_RET * 100)), title: "Rendement annuel visé = taux d'actualisation (Stock Unlock : « Desired Annual Return »). Plus il est haut, plus tu es exigeant, donc plus l'Objectif (juste prix) est bas." }, style: dcfStyle });
-  const horizonInput = scrEl('input', { attrs: { type: 'number', min: '3', max: '15', step: '1', value: String(SCR_DCF_N), title: "Horizon de projection en années. Un horizon long (8-10 ans) lisse les hyper-croissances et réduit les aberrations (méthode Stock Unlock)." }, style: dcfStyle });
-  const gcapInput = scrEl('input', { attrs: { type: 'number', min: '5', max: '60', step: '5', value: String(Math.round(SCR_DCF_GCAP * 100)), title: "Croissance annuelle MAXIMALE retenue (garde-fou anti-aberration : une croissance à +190 % type NVDA est plafonnée). Yahoo ne donne que ~4 ans, ce plafond remplace le lissage long de Stock Unlock." }, style: dcfStyle });
-  const gtermInput = scrEl('input', { attrs: { type: 'number', min: '0', max: '10', step: '1', value: String(Math.round(SCR_DCF_GTERM * 100)), title: "Croissance TERMINALE (mature) : la croissance fond linéairement de la croissance initiale vers ce niveau sur l'horizon, comme une entreprise qui mûrit. ~4 % ≈ croissance de l'économie. C'est le garde-fou clé contre les pics conjoncturels (ex JPM +47 % qui ne dure pas)." }, style: dcfStyle });
   const savedDiv = localStorage.getItem('scrAllocDivOnly') === '1';
   const divSelect = scrEl('select', { attrs: { title: 'Restreindre aux titres à dividende CROISSANT (partie Revenus Passifs de la méthode)' }, style: selStyle });
   [['0', 'tous les titres'], ['1', 'dividende croissant']].forEach(([v, label]) => { const o = scrEl('option', { text: label, attrs: { value: v } }); if ((v === '1') === savedDiv) o.selected = true; divSelect.appendChild(o); });
@@ -6083,12 +6075,6 @@ function screenerQualityAllocPanel(top) {
     scrEl('span', { text: 'max secteur', style: 'font-size:0.8rem;color:#5b6b7d;margin-left:6px' }), secInput, scrEl('span', { text: '%', style: 'color:#5b6b7d' }),
     scrEl('span', { text: 'max/ligne', style: 'font-size:0.8rem;color:#5b6b7d;margin-left:6px' }), lineInput, scrEl('span', { text: '%', style: 'color:#5b6b7d' }),
     scrEl('span', { text: 'marge sécu', style: 'font-size:0.8rem;color:#5b6b7d;margin-left:6px' }), safetyInput, scrEl('span', { text: '%', style: 'color:#5b6b7d' })] }));
-  wrap.appendChild(scrEl('div', { style: 'display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px;padding-top:2px;border-top:1px dashed #eef1f5', kids: [
-    scrEl('span', { text: 'DCF (juste valeur)', attrs: { title: "Modèle « rendement attendu » façon Stock Unlock : on projette le bénéfice sur l'horizon, on applique un multiple de sortie borné, on ajoute les dividendes, puis on actualise à ton rendement visé. Résultat = l'Objectif (juste prix)." }, style: 'font-size:0.8rem;color:#42546a;font-weight:700;cursor:help' }),
-    scrEl('span', { text: 'rendement visé', style: 'font-size:0.8rem;color:#5b6b7d;margin-left:6px' }), retInput, scrEl('span', { text: '%/an', style: 'color:#5b6b7d' }),
-    scrEl('span', { text: 'horizon', style: 'font-size:0.8rem;color:#5b6b7d;margin-left:6px' }), horizonInput, scrEl('span', { text: 'ans', style: 'color:#5b6b7d' }),
-    scrEl('span', { text: 'croiss. init. max', style: 'font-size:0.8rem;color:#5b6b7d;margin-left:6px' }), gcapInput, scrEl('span', { text: '%/an', style: 'color:#5b6b7d' }),
-    scrEl('span', { text: 'croiss. finale', style: 'font-size:0.8rem;color:#5b6b7d;margin-left:6px' }), gtermInput, scrEl('span', { text: '%/an', style: 'color:#5b6b7d' })] }));
   const results = scrEl('div');
   wrap.appendChild(results);
   wrap.appendChild(scrEl('div', { style: 'margin-top:10px;font-size:0.72rem;color:#5b6b7d', text: "Plan de DCA : l'argent que tu déploies (ex libéré de Debitum) va EN PRIORITÉ là où tu es le plus sous ta cible, en tenant compte de tes positions déjà détenues (on ne vend jamais). Cible = conviction (note globale ajustée) par défaut, ou potentiel de l'Objectif au choix, tableau trié par note. Plafonds par ligne et par secteur RÉGLABLES (DK ne s'interdit pas plus de 10 % sur ses plus fortes convictions). « lignes » = taille visée du portefeuille : tes titres détenus concourent au même classement (renforcés s'ils entrent dans le top, sinon conservés hors plan, jamais vendus en DCA). Structure DK : ETF socle 50-60 % + actions de qualité. La décision reste la tienne." }));
@@ -6124,20 +6110,6 @@ function screenerQualityAllocPanel(top) {
   secInput.addEventListener('input', render);
   lineInput.addEventListener('input', render);
   safetyInput.addEventListener('input', render);
-  // Les curseurs DCF pilotent l'Objectif de TOUT le tableau -> re-render complet (sur 'change' pour ne pas
-  // reconstruire le panneau à chaque frappe et perdre le focus).
-  function dcfApply() {
-    SCR_DCF_RET = Math.max(0.03, Math.min(0.30, (Number(retInput.value) || 10) / 100));
-    SCR_DCF_N = Math.max(3, Math.min(15, Math.round(Number(horizonInput.value) || 8)));
-    SCR_DCF_GCAP = Math.max(0.05, Math.min(0.60, (Number(gcapInput.value) || 20) / 100));
-    SCR_DCF_GTERM = Math.max(0, Math.min(0.10, (Number(gtermInput.value) || 4) / 100));
-    localStorage.setItem('scrDcfRet', String(Math.round(SCR_DCF_RET * 100)));
-    localStorage.setItem('scrDcfN', String(SCR_DCF_N));
-    localStorage.setItem('scrDcfGcap', String(Math.round(SCR_DCF_GCAP * 100)));
-    localStorage.setItem('scrDcfGterm', String(Math.round(SCR_DCF_GTERM * 100)));
-    scrRerenderQuality();
-  }
-  [retInput, horizonInput, gcapInput, gtermInput].forEach((el) => el.addEventListener('change', dcfApply));
   function renderModeRow() {
     const mk = (label, val, desc) => {
       const on = allocMode === val;
@@ -6190,7 +6162,7 @@ function screenerRenderQuality(c, data, config) {
     ['Ticker', 'left', 'Symbole boursier. Clique pour ouvrir le graphique TradingView (passable en ordre via IBKR).'],
     ['Note', 'left', "Note GLOBALE = 70 % valorisation + 30 % moat (avec malus si l'IA menace le modèle ou si le moat s'érode). Achat fort = solide, décotée ET moat large ; Surévaluée = chère même après crédit du moat. Le tableau est trié sur cette note. Repérage, pas un conseil."],
     ['Cours', 'left', "Dernier cours et variation par rapport à la clôture de la veille (vert = hausse du jour, rouge = baisse). Le mini-graphique montre l'évolution du cours sur ~3 mois."],
-    ['Objectif', 'left', "Juste prix estimé par NOTRE modèle (pas les analystes) : un PE cible ancré sur la croissance des bénéfices (PEG ~1,1, borné 13-26), pondéré par une FIABILITÉ. La fiabilité baisse pour les cycliques (PE anormalement bas = bénéfices de pic, pic de croissance, secteur énergie/matériaux/finance) : le juste prix reste alors proche du cours au lieu d'exploser. Le % = potentiel vs le cours (vert = marge d'achat, rouge = cher). Estimation mécanique, pas un conseil."],
+    ['Potentiel/an', 'left', "Rendement ANNUEL attendu par un DCF « rendement attendu » façon Stock Unlock : on projette le bénéfice sur 5 ans (sa croissance courante fondant vers 4 %), on applique le P/E moyen historique comme multiple de sortie, on ajoute les dividendes, et on regarde le rendement annualisé au cours actuel. AUCUN plafond de croissance ni de multiple (une valeur à croissance récente extrême ressort donc très haut). Vert = bat ton rendement visé (10 %/an), rouge = négatif. Clique pour le détail (croissance retenue, multiple) + la fourchette de prix d'achat. Repérage mécanique, pas un conseil."],
     ['Secteur', 'left', "Secteur d'activité de la société."],
     ['Pays', 'left', "Pays du siège social de la société."],
     ['Moat', 'left', "Analyse qualitative du moat (Large / Étroit / Aucun) + note /100 et exposition à l'IA (favorable / neutre / menacé). Opinion de Claude, pas une donnée mesurée ; survole pour la justification. Non auto-actualisée."],

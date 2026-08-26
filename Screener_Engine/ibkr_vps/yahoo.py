@@ -407,8 +407,12 @@ class Yahoo:
                             if 0 < pe < 200:                 # ecarte les P/E absurdes (BPA quasi nul)
                                 pes.append(pe)
                     if len(pes) >= 2:
-                        out['avgPe'] = round(sum(pes) / len(pes), 2)
-                        out['avgPeYears'] = len(pes)
+                        avg = sum(pes) / len(pes)
+                        # garde anti-bug de DEVISE : pour un ADR, le benefice est en monnaie locale (TWD, CNY...)
+                        # alors que le cours est en USD -> P/E aberrant (< 3). On ne garde qu'un P/E moyen plausible.
+                        if 3.0 <= avg <= 150.0:
+                            out['avgPe'] = round(avg, 2)
+                            out['avgPeYears'] = len(pes)
             except Exception:
                 pass
             return out or None
