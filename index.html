@@ -4884,12 +4884,11 @@ function scrFairPricePeg(m, sector) {
   return price * (1 + pot);
 }
 // DCF « rendement attendu » (facon Stock Unlock). Parametrage GLOBAL fige (choix, AUCUN curseur).
-// AUCUN plafond sur la croissance ni sur le multiple de sortie (demande explicite du user) : on projette
-// les donnees telles quelles. Seule structure conservee = le FONDU de croissance (la croissance courante
-// converge vers une croissance terminale mature sur l'horizon = trajectoire normale d'un DCF, pas un plafond).
-// Consequence : une valeur a croissance recente extreme (ex NVDA +200 %/an sur 4 ans) ressort tres haut ;
-// la croissance retenue est affichee dans le popover pour que le user juge.
-const SCR_DCF_RET = 0.10, SCR_DCF_N = 5, SCR_DCF_GTERM = 0.04;
+// Croissance des benefices PLAFONNEE a 15 %/an (demande user, esprit DK : une croissance recente extreme
+// type NVDA +200 % ne dure pas), qui fond ensuite vers une croissance terminale mature sur l'horizon.
+// Le MULTIPLE de sortie reste NON plafonne (= P/E moyen historique). On garde les benefices (pas le FCF) comme
+// moteur : le FCF recent est fausse par les capex IA (MSFT/GOOGL/Visa) et n'existe pas pour les banques.
+const SCR_DCF_RET = 0.10, SCR_DCF_N = 5, SCR_DCF_GTERM = 0.04, SCR_DCF_GCAP = 0.15;
 // Cache du dernier rendu qualite pour re-render sans re-fetch (le DCF pilote le potentiel de TOUT le tableau).
 let SCR_LAST_Q = null;
 function scrRerenderQuality() {
@@ -4902,10 +4901,10 @@ function scrDcf(m, sector) {
   if (price == null || !(price > 0) || !pe || pe <= 0) return null;
   let g = (m.earningsCAGR != null) ? m.earningsCAGR : (m.earningsGrowthYoY != null ? m.earningsGrowthYoY : null);
   if (g == null) return null;
-  const g0 = Math.max(-0.95, g);                                                  // AUCUN plafond de croissance ; garde-fou numerique seulement
+  const g0 = Math.max(-0.95, Math.min(SCR_DCF_GCAP, g));                          // croissance des benefices plafonnee a 15 %/an (choix user)
   const gTerm = Math.min(SCR_DCF_GTERM, g0);                                       // la croissance terminale ne peut pas depasser la courante
   // Multiple de sortie = P/E moyen historique s'il est PLAUSIBLE (garde anti-bug de DEVISE : benefice ADR en
-  // monnaie locale / cours en USD -> P/E aberrant < 3), sinon P/E actuel. AUCUN plafond (choix user).
+  // monnaie locale / cours en USD -> P/E aberrant < 3), sinon P/E actuel. NON plafonne (choix user).
   const avgOk = (m.avgPe != null && m.avgPe >= 3 && m.avgPe <= 150);
   let exitPe = Math.max(0.5, avgOk ? m.avgPe : pe);
   const yrs = m.revYears || 4;
@@ -5285,7 +5284,7 @@ function scrMoatCell(m, pad, bd) {
 // m = objet metrics (SCR_PRICE_MAP pour les positions, t.metrics pour la répartition).
 const SCR_FUNDA_HEAD = [
   ['Note', 'left', "Note de valorisation du screener (Achat fort → Surévaluée) au sein des sociétés de qualité. Repérage, pas conseil."],
-  ['Potentiel/an', 'right', "Rendement ANNUEL attendu par le DCF (projection du bénéfice sur 5 ans, multiple de sortie = P/E moyen, dividendes) au cours actuel. Vert = bat ton rendement visé (10 %/an), rouge = négatif. Sans plafond de croissance. Clique pour le détail + la fourchette de prix d'achat."],
+  ['Potentiel/an', 'right', "Rendement ANNUEL attendu par le DCF (projection du bénéfice sur 5 ans, multiple de sortie = P/E moyen, dividendes) au cours actuel. Croissance des bénéfices plafonnée à 15 %/an. Vert = bat ton rendement visé (10 %/an), rouge = négatif. Clique pour le détail + la fourchette de prix d'achat."],
   ['Pays', 'left', "Pays du siège social de la société. ETF = exposition internationale."],
   ['Moat', 'left', "Analyse qualitative du moat (avantage concurrentiel durable) : Large / Étroit / Aucun + note /100, et exposition à l'IA (favorable / neutre / menacé). Opinion de Claude, pas une donnée mesurée ; survole pour la justification. Non auto-actualisée."],
   ['ROIC', 'right', "Rendement du capital investi (ratio n°1 Dividend King) = EBIT×(1−impôt)/capital investi. > 15 % = crée de la valeur. En petit : ROE. Banques (~) : regarde le ROE."],
@@ -6162,7 +6161,7 @@ function screenerRenderQuality(c, data, config) {
     ['Ticker', 'left', 'Symbole boursier. Clique pour ouvrir le graphique TradingView (passable en ordre via IBKR).'],
     ['Note', 'left', "Note GLOBALE = 70 % valorisation + 30 % moat (avec malus si l'IA menace le modèle ou si le moat s'érode). Achat fort = solide, décotée ET moat large ; Surévaluée = chère même après crédit du moat. Le tableau est trié sur cette note. Repérage, pas un conseil."],
     ['Cours', 'left', "Dernier cours et variation par rapport à la clôture de la veille (vert = hausse du jour, rouge = baisse). Le mini-graphique montre l'évolution du cours sur ~3 mois."],
-    ['Potentiel/an', 'left', "Rendement ANNUEL attendu par un DCF « rendement attendu » façon Stock Unlock : on projette le bénéfice sur 5 ans (sa croissance courante fondant vers 4 %), on applique le P/E moyen historique comme multiple de sortie, on ajoute les dividendes, et on regarde le rendement annualisé au cours actuel. AUCUN plafond de croissance ni de multiple (une valeur à croissance récente extrême ressort donc très haut). Vert = bat ton rendement visé (10 %/an), rouge = négatif. Clique pour le détail (croissance retenue, multiple) + la fourchette de prix d'achat. Repérage mécanique, pas un conseil."],
+    ['Potentiel/an', 'left', "Rendement ANNUEL attendu par un DCF « rendement attendu » façon Stock Unlock : on projette le bénéfice sur 5 ans (sa croissance PLAFONNÉE à 15 %/an fondant ensuite vers 4 %), on applique le P/E moyen historique comme multiple de sortie (non plafonné), on ajoute les dividendes, et on regarde le rendement annualisé au cours actuel. Vert = bat ton rendement visé (10 %/an), rouge = négatif. Clique pour le détail (croissance retenue, multiple) + la fourchette de prix d'achat. Repérage mécanique, pas un conseil."],
     ['Secteur', 'left', "Secteur d'activité de la société."],
     ['Pays', 'left', "Pays du siège social de la société."],
     ['Moat', 'left', "Analyse qualitative du moat (Large / Étroit / Aucun) + note /100 et exposition à l'IA (favorable / neutre / menacé). Opinion de Claude, pas une donnée mesurée ; survole pour la justification. Non auto-actualisée."],
