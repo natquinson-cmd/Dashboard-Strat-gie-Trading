@@ -85,6 +85,11 @@ Q_EU_DEFAULT = ('MC.PA,OR.PA,RMS.PA,SU.PA,AI.PA,SAF.PA,EL.PA,DG.PA,SAN.PA,BNP.PA
                 'NESN.SW,NOVN.SW,ROG.SW,UHR.SW,ZURN.SW,ABBN.SW,NOVO-B.CO,AZN.L,SHEL.L,ULVR.L,RELX.L,HSBA.L,LSEG.L,ITX.MC')
 Q_EU_WATCHLIST = [s.strip() for s in os.environ.get('Q_EU_LIST', Q_EU_DEFAULT).split(',') if s.strip()]
 
+# Watchlist US FORCEE : noms US de qualite qui passent SOUS le seuil de cap des ~261 plus grosses (donc absents
+# du screener trie par cap) mais qu'on veut quand meme evaluer (ex FICO ~24 Md$). Editable via l'env Q_US_LIST.
+Q_US_DEFAULT = 'FICO'
+Q_US_WATCHLIST = [s.strip().upper() for s in os.environ.get('Q_US_LIST', Q_US_DEFAULT).split(',') if s.strip()]
+
 
 def screen_quality(y):
     # US : screener grandes caps (region us = propre), dedoublonne par societe (classes d'actions).
@@ -97,10 +102,12 @@ def screen_quality(y):
         if k not in best or (t.get('marketCap') or 0) > (best[k].get('marketCap') or 0):
             best[k] = t
     us_syms = [t['symbol'] for t in sorted(best.values(), key=lambda t: -(t.get('marketCap') or 0))]
-    us_syms = us_syms[:max(0, Q_UNIVERSE_LIMIT - len(Q_EU_WATCHLIST))]
+    us_syms = us_syms[:max(0, Q_UNIVERSE_LIMIT - len(Q_EU_WATCHLIST) - len(Q_US_WATCHLIST))]
+    # Watchlist US forcee (ex FICO) : ajoutee si le screener ne l'a pas deja captee
+    forced = [s for s in Q_US_WATCHLIST if s not in us_syms]
     # Europe : watchlist curee (tickers primaires, zero doublon)
-    print(f'Screener qualite : {len(us_syms)} US (screener) + {len(Q_EU_WATCHLIST)} EU (watchlist)')
-    return us_syms + Q_EU_WATCHLIST
+    print(f'Screener qualite : {len(us_syms)} US (screener) + {len(forced)} US (watchlist) + {len(Q_EU_WATCHLIST)} EU (watchlist)')
+    return us_syms + forced + Q_EU_WATCHLIST
 
 
 def ibkr_enrich(top):
