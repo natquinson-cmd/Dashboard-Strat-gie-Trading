@@ -4996,6 +4996,8 @@ function scrTargetCell(m, sector, bd) {
     const c = d.cagr;
     const col = c >= SCR_DCF_RET ? '#1d9e74' : (c >= 0 ? '#42546a' : '#dd5f66');   // vert = bat ton rendement visé, rouge = négatif
     box.appendChild(scrEl('span', { text: (c >= 0 ? '+' : '') + (c * 100).toFixed(0) + ' %/an', style: `font-weight:700;font-size:0.86rem;color:${col}` }));
+    const pill = scrZonePill(m, sector);                                           // pastille de zone d'achat (Idéal/Achat/Plein/Cher)
+    if (pill) box.appendChild(pill);
   } else {
     box.appendChild(scrEl('span', { text: '–', style: 'color:#c3ccd6' }));
   }
@@ -5545,7 +5547,7 @@ function renderAllocTable(res, etfPct, etfAmount, mode) {
       scrEl('td', { style: `padding:6px 10px;${bd}`, kids: [scrNoteChip(SCR_PRICE_MAP[String(t.symbol || '').toUpperCase()] || { valuationScore: t.valuationScore, rating: t.rating })] }),
       moveCell,
       scrEl('td', { text: t.sector || '–', style: `padding:6px 10px;color:#5b6b7d;font-size:0.78rem;${bd}` }),
-      (function () { const pill = scrZonePill(m, t.sector); const dd = scrDcf(m, t.sector); const c = dd ? dd.cagr : null; const kids = [scrEl('span', { text: (c == null ? '–' : (c >= 0 ? '+' : '') + (c * 100).toFixed(0) + ' %/an'), style: `font-weight:700;color:${c == null ? '#9aa7b4' : (c >= SCR_DCF_RET ? '#1d9e74' : (c >= 0 ? '#42546a' : '#dd5f66'))}` })]; if (pill) kids.push(pill); return scrEl('td', { style: `padding:6px 10px;text-align:right;${bd}`, kids: [scrEl('div', { style: 'display:flex;flex-direction:column;align-items:flex-end;gap:2px', kids: kids })] }); })(),
+      scrTargetCell(SCR_PRICE_MAP[String(t.symbol || '').toUpperCase()] || m, t.sector, bd),
       ...scrFundaCells(SCR_PRICE_MAP[String(t.symbol || '').toUpperCase()] || m, t.sector, bd).slice(2),
       scrEl('td', { attrs: { title: "Poids visé dans ton portefeuille d'actions après ce versement (cible " + (a.targetWeight * 100).toFixed(0) + ' %)' }, text: (a.resultingWeight * 100).toFixed(1) + '%', style: `padding:6px 10px;text-align:right;font-weight:700;color:#42546a;cursor:help;${bd}` }),
     ] }));
