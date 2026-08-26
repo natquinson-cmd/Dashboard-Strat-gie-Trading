@@ -4895,6 +4895,9 @@ function scrRerenderQuality() {
   if (!SCR_LAST_Q || !SCR_LAST_Q.c) return;
   try { screenerRenderQuality(SCR_LAST_Q.c, SCR_LAST_Q.data, SCR_LAST_Q.config); } catch (e) {}
 }
+// Critere de tri du tableau screener : 'note' (qualite), 'opp' (opportunite = qualite decotee), 'pot' (potentiel/an)
+let SCR_SORT = 'note';
+try { const _s = localStorage.getItem('scrSort'); if (_s === 'opp' || _s === 'pot' || _s === 'note') SCR_SORT = _s; } catch (e) {}
 function scrDcf(m, sector) {
   m = m || {};
   const price = m.price, pe = m.trailingPE || m.forwardPE;
@@ -5008,6 +5011,29 @@ function scrTargetCell(m, sector, bd) {
     td.onclick = (e) => { e.stopPropagation(); scrShowBandPopover(td, m, sector); };
   }
   return td;
+}
+// « Cheapness » 0-100 : à quel point le titre est bas MAINTENANT (deux ancres complementaires) :
+//   - decote vs l'Objectif DCF (marge de securite) : +30 % sous la juste valeur -> 100, au prix -> 50, +30 % au-dessus -> 0
+//   - PEG bas (prix decroche sous la croissance des benefices, idee de depart du user) : PEG 0,5 -> 100, 1,5 -> 50, 2,5 -> 0
+// Moyenne des ancres disponibles. null si aucune.
+function scrCheapness(m, sector) {
+  const parts = [];
+  const b = scrBuyBand(m, sector);
+  if (b && b.fair > 0 && b.price > 0) {
+    const disc = (b.fair - b.price) / b.price;
+    parts.push(Math.max(0, Math.min(100, 50 + disc * (50 / 0.30))));
+  }
+  const peg = m && m.peg;
+  if (peg != null && peg > 0) parts.push(Math.max(0, Math.min(100, 100 - (peg - 0.5) * 50)));
+  return parts.length ? parts.reduce((a, x) => a + x, 0) / parts.length : null;
+}
+// Score OPPORTUNITE 0-100 = « qualite EN SOLDE » : moyenne GEOMETRIQUE de la note globale (qualite) et de la
+// cheapness. La geometrique EXIGE les deux : un bon business au prix fort OU une decote sur du mediocre ne
+// suffisent pas ; il faut de la qualite ET une decote actuelle. null si donnees manquantes.
+function scrOppScore(m, sector) {
+  const note = scrGlobalNote(m), cheap = scrCheapness(m, sector);
+  if (note == null || !isFinite(note) || cheap == null) return null;
+  return Math.round(Math.sqrt(Math.max(0, note) * cheap));
 }
 // Logo societe (mode large cap / qualite uniquement) : FMP en principal (vrais logos US + Europe),
 // repli favicon Google via le domaine du site (metrics.website), sinon masque (le ticker reste affiche).
@@ -6135,7 +6161,11 @@ function screenerRenderQuality(c, data, config) {
   // Note affichée = Note GLOBALE (70 % valo + 30 % moat). On trie et on note le tableau là-dessus
   // (repli valuationScore si le moat n'est pas encore fusionné), pour que l'ordre colle à la colonne Note.
   const scrRowNote = (cd) => { const d = SCR_PRICE_MAP[String(cd.symbol || '').toUpperCase()]; const g = d ? scrGlobalNote(d) : null; return (g != null) ? g : (cd.valuationScore != null ? cd.valuationScore : -1); };
-  const top = [...(data.top || [])].sort((a, b) => scrRowNote(b) - scrRowNote(a));
+  const scrRowMetrics = (cd) => SCR_PRICE_MAP[String(cd.symbol || '').toUpperCase()] || cd.metrics || {};
+  const scrRowOpp = (cd) => { const o = scrOppScore(scrRowMetrics(cd), cd.sector); return (o != null) ? o : -1; };
+  const scrRowPot = (cd) => { const d = scrDcf(scrRowMetrics(cd), cd.sector); return d ? d.cagr : -Infinity; };
+  const sortFn = SCR_SORT === 'opp' ? scrRowOpp : (SCR_SORT === 'pot' ? scrRowPot : scrRowNote);
+  const top = [...(data.top || [])].sort((a, b) => sortFn(b) - sortFn(a));
   const frag = document.createDocumentFragment();
   frag.appendChild(screenerPositionsModule());
   frag.appendChild(screenerModeBar());
@@ -6152,16 +6182,30 @@ function screenerRenderQuality(c, data, config) {
 
   const refresh = scrEl('button', { text: 'Rafraîchir', style: 'padding:7px 13px;border:1px solid #e3e8ee;border-radius:9px;background:#fff;font-weight:600;cursor:pointer' });
   refresh.onclick = () => renderScreenerTab();
+  // Selecteur de tri : Note (qualite) / Opportunite (qualite decotee) / Potentiel/an
+  const sortRow = scrEl('div', { style: 'display:inline-flex;border:1px solid #e3e8ee;border-radius:9px;overflow:hidden' });
+  [['note', 'Note', 'Trier par la note globale (qualité + moat).'],
+   ['opp', 'Opportunité', 'Trier par le score Opportunité = qualité EN SOLDE (bonne note ET prix bas vs sa juste valeur / PEG). Fait remonter les vraies opportunités actuelles.'],
+   ['pot', 'Potentiel/an', 'Trier par le rendement annuel attendu (DCF).']
+  ].forEach(([v, label, tip]) => {
+    const on = SCR_SORT === v;
+    const b = scrEl('button', { text: label, attrs: { title: tip }, style: `padding:7px 12px;border:none;cursor:pointer;font-size:0.78rem;font-weight:700;${on ? 'background:#3563e9;color:#fff' : 'background:#fff;color:#5b6b7d'}` });
+    b.onclick = () => { if (SCR_SORT === v) return; SCR_SORT = v; try { localStorage.setItem('scrSort', v); } catch (e) {} scrRerenderQuality(); };
+    sortRow.appendChild(b);
+  });
   frag.appendChild(scrEl('div', { style: 'display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px', kids: [
-    scrEl('div', { style: 'color:#5b6b7d;font-size:0.76rem', text: (data.generatedAt ? 'Généré le ' + new Date(data.generatedAt).toLocaleString('fr-FR') : '') + ' · Yahoo' }),
-    scrEl('div', { style: 'display:flex;gap:8px', kids: [refresh] })]}));
+    scrEl('div', { style: 'display:flex;align-items:center;gap:8px;flex-wrap:wrap', kids: [
+      scrEl('span', { style: 'color:#5b6b7d;font-size:0.76rem', text: 'Trier :' }), sortRow] }),
+    scrEl('div', { style: 'display:flex;align-items:center;gap:10px', kids: [
+      scrEl('span', { style: 'color:#5b6b7d;font-size:0.76rem', text: (data.generatedAt ? 'Généré le ' + new Date(data.generatedAt).toLocaleString('fr-FR') : '') + ' · Yahoo' }), refresh] })]}));
 
   frag.appendChild(screenerQualityAllocPanel(top));
 
   const cols = [
     ['#', 'left', ''],
     ['Ticker', 'left', 'Symbole boursier. Clique pour ouvrir le graphique TradingView (passable en ordre via IBKR).'],
-    ['Note', 'left', "Note GLOBALE = 70 % valorisation + 30 % moat (avec malus si l'IA menace le modèle ou si le moat s'érode). Achat fort = solide, décotée ET moat large ; Surévaluée = chère même après crédit du moat. Le tableau est trié sur cette note. Repérage, pas un conseil."],
+    ['Note', 'left', "Note GLOBALE = 70 % valorisation + 30 % moat (avec malus si l'IA menace le modèle ou si le moat s'érode). Achat fort = solide, décotée ET moat large ; Surévaluée = chère même après crédit du moat. Repérage, pas un conseil."],
+    ['Opportunité', 'right', "Score « qualité EN SOLDE » (0-100) = moyenne géométrique de la Note (qualité) et de la cheapness du moment (décote vs l'Objectif DCF + PEG bas). Élevé = bon business dont le prix est bas MAINTENANT vs sa juste valeur. Exige les DEUX : ni un bon business au prix fort, ni une décote sur du médiocre ne suffisent. Trie dessus pour faire remonter les vraies opportunités. Repérage, pas un conseil."],
     ['Cours', 'left', "Dernier cours et variation par rapport à la clôture de la veille (vert = hausse du jour, rouge = baisse). Le mini-graphique montre l'évolution du cours sur ~3 mois."],
     ['Potentiel/an', 'left', "Rendement ANNUEL attendu par un DCF « rendement attendu » façon Stock Unlock : on projette le bénéfice sur 5 ans (sa croissance PLAFONNÉE à 15 %/an fondant ensuite vers 4 %), on applique le P/E moyen historique comme multiple de sortie (non plafonné), on ajoute les dividendes, et on regarde le rendement annualisé au cours actuel. Vert = bat ton rendement visé (10 %/an), rouge = négatif. Clique pour le détail (croissance retenue, multiple) + la fourchette de prix d'achat. Repérage mécanique, pas un conseil."],
     ['Secteur', 'left', "Secteur d'activité de la société."],
@@ -6233,9 +6277,18 @@ function screenerRenderQuality(c, data, config) {
     const tip = 'Croissance annualisée sur ~' + (m.revYears || 4) + " ans : chiffre d'affaires (grand) et free cash-flow (petit, « FCF »). Critère DK : CA ET FCF en hausse ≥ 10 %/an.";
     return scrEl('td', { attrs: { title: tip }, style: `padding:8px 8px;text-align:right;white-space:nowrap;${bd}`, kids: [scrEl('div', { style: 'display:flex;flex-direction:column;align-items:flex-end;gap:1px', kids: kids })] });
   };
+  // Score OPPORTUNITE : qualite EN SOLDE (note x cheapness), badge colore 0-100 (vert = forte opportunite)
+  const oppC = (dm, sector) => {
+    const o = scrOppScore(dm, sector);
+    if (o == null) return scrEl('td', { text: '–', style: `padding:8px 10px;text-align:right;color:#c3ccd6;${bd}` });
+    const col = o >= 68 ? '#0f8f63' : (o >= 55 ? '#42546a' : '#9aa7b4');
+    const bg = o >= 68 ? '#e7f7f0' : 'transparent';
+    return scrEl('td', { style: `padding:8px 10px;text-align:right;${bd}`, kids: [
+      scrEl('span', { text: String(o), style: `display:inline-block;min-width:26px;text-align:center;font-weight:800;font-size:0.86rem;color:${col};background:${bg};border-radius:8px;padding:2px 7px` })] });
+  };
 
   if (!top.length) {
-    tbody.appendChild(scrEl('tr', { kids: [scrEl('td', { attrs: { colspan: '19' }, text: 'Aucune candidate.', style: 'padding:22px;color:#5b6b7d' })] }));
+    tbody.appendChild(scrEl('tr', { kids: [scrEl('td', { attrs: { colspan: '20' }, text: 'Aucune candidate.', style: 'padding:22px;color:#5b6b7d' })] }));
   } else top.forEach((cd, i) => {
     const m = cd.metrics || {}, rc = SCR_RATING_COL[cd.rating] || SCR_RATING_COL['Neutre'];
     const link = scrEl('a', { text: cd.symbol || '', href: scrQuoteUrl(cd.symbol, m.exchange), attrs: { target: '_blank', rel: 'noopener' }, style: 'font-weight:800;color:#3563e9;text-decoration:none' });
@@ -6248,6 +6301,7 @@ function screenerRenderQuality(c, data, config) {
           scrEl('div', { style: 'display:flex;align-items:center;gap:5px', kids: m.buyback ? [link, scrEl('span', { text: '↺', attrs: { title: "Rachats d'actions réguliers : le nombre d'actions diminue (" + (m.sharesChange != null ? (m.sharesChange * 100).toFixed(0) + ' % sur ~4 ans' : 'baisse') + '). Critère Dividend King.' }, style: 'color:#1d9e74;font-weight:800;cursor:help;font-size:0.85rem' })] : [link] }),
           scrEl('div', { text: cd.name || '', style: 'color:#5b6b7d;font-size:0.72rem;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap' })] })] })] }),
       scrEl('td', { style: `padding:8px 10px;${bd}`, kids: [scrNoteChip(SCR_PRICE_MAP[String(cd.symbol || '').toUpperCase()] || { valuationScore: cd.valuationScore, rating: cd.rating })] }),
+      oppC(SCR_PRICE_MAP[String(cd.symbol || '').toUpperCase()] || m, cd.sector),
       scrCoursCell(m, bd),
       scrTargetCell(m, cd.sector, bd),
       scrEl('td', { text: cd.sector || '–', style: `padding:8px 10px;color:#5b6b7d;${bd}` }),
