@@ -227,6 +227,7 @@ def rate_universe(universe, cfg=QUALITY_CONFIG):
                 'grossMargin': t.get('grossMargin'), 'netMargin': t.get('netMargin'),
                 'fcfYield': t.get('fcfYield'), 'revenueGrowthYoY': t.get('revenueGrowthYoY'),
                 'revCagr': t.get('revCagr'), 'revYears': t.get('revYears'), 'fcfCagr': t.get('fcfCagr'),
+                'avgPe': t.get('avgPe'), 'avgPeYears': t.get('avgPeYears'),   # P/E moyen historique = multiple de sortie du DCF (decompresse le potentiel)
                 'sharesChange': t.get('sharesChange'), 'buyback': t.get('buyback'),
                 'earningsGrowthYoY': t.get('earningsGrowthYoY'),
                 'dividendYield': t.get('dividendYield'), 'payoutRatio': t.get('payoutRatio'),
