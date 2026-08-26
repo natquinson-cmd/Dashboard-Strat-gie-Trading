@@ -9,7 +9,8 @@ QUALITY_CONFIG = {
     'gate': {
         'minRoe': 0.15,               # DK : un bon ROE est > 15 %
         'minRoic': 0.15,              # DK : ROIC > 15 % = ratio n°1 (la ou l'EBIT est pertinent ; financieres exemptees)
-        'maxNetDebtToEbitda': 3.0,    # DK : dette/EBITDA < 3 (< 2 ideal, > 3 danger)
+        'maxNetDebtToEbitda': 5.0,    # gate ELARGI (etait 3.0) : on laisse entrer les endettes (ex FICO 4,23x) MAIS
+                                      # on PENALISE la note selon la dette (voir debtPenalty*). DK : < 2 ideal, > 3 danger.
         'minNetMargin': 0.10,         # DK : marge nette > 20 % (10 % pour produits physiques) -> plancher 10 %
         'minRevCagr': 0.10,           # DK : croissance CA REGULIERE >= 10 %/an (moyenne annualisee ~4-5 ans, repli YoY)
         'requirePositiveFcf': True,   # free cash-flow positif
@@ -24,6 +25,12 @@ QUALITY_CONFIG = {
     'divTrapYield': 0.09,     # rendement > 9% = piege probable
     'divPayoutIdeal': 0.40,   # DK : payout < 40 % = ideal/durable
     'divPayoutMax': 0.60,     # DK : 40-60 % acceptable, > 60 % = tension
+    # Penalite de DETTE sur la note (esprit DK : < 2x ideal, 2-3x ok, > 3x danger). La note de valo est
+    # multipliee par un facteur qui decroit au-dela de debtPenaltyFrom, de debtPenaltyPerTurn par tour de dette,
+    # avec un plancher debtPenaltyFloor. Ex FICO 4,23x -> facteur ~0,84 (note amputee d'environ 16 %).
+    'debtPenaltyFrom': 2.0,        # pas de penalite jusqu'a 2x (zone ideale DK)
+    'debtPenaltyPerTurn': 0.07,    # -7 % de note par tour de dette au-dela de 2x
+    'debtPenaltyFloor': 0.60,      # au pire on garde 60 % de la note (on ne l'annule pas)
     # Bandes de notation sur le score de valorisation 0-100 (au sein des survivants qualite)
     'ratingBands': [(80, 'Achat fort'), (60, 'Achat'), (40, 'Neutre'), (0, 'Surévaluée')],
     'minSectorBucket': 8,
@@ -102,6 +109,15 @@ def _rating(score, cfg):
         if score >= thr:
             return label
     return cfg['ratingBands'][-1][1]
+
+
+def _debt_factor(nd, cfg):
+    # Facteur multiplicatif de la note selon la dette nette / EBITDA (esprit DK : < 2x ideal, > 3x danger).
+    # 1.0 jusqu'a debtPenaltyFrom, puis -debtPenaltyPerTurn par tour de dette au-dela, plancher debtPenaltyFloor.
+    if nd is None:
+        return 1.0
+    over = max(0.0, nd - cfg.get('debtPenaltyFrom', 2.0))
+    return max(cfg.get('debtPenaltyFloor', 0.60), 1.0 - over * cfg.get('debtPenaltyPerTurn', 0.07))
 
 
 def _div_signal(t, cfg):
@@ -194,12 +210,17 @@ def rate_universe(universe, cfg=QUALITY_CONFIG):
         comps = [(v, ww) for (v, ww) in comps if v is not None]
         wsum = sum(ww for _, ww in comps) or 1
         vscore = sum(v * ww for v, ww in comps) / wsum
+        # Penalite de DETTE : la note de valo est amputee selon la dette nette / EBITDA (esprit DK).
+        nd = _num(t.get('netDebtToEbitda'))
+        dfac = _debt_factor(nd, cfg)
+        vscore = vscore * dfac
         scored.append({
             'symbol': t.get('symbol'), 'name': t.get('name'), 'sector': t.get('sector') or 'N/A',
             'rating': _rating(vscore, cfg),
             'valuationScore': round(vscore, 1),
             'metrics': {
                 'price': t.get('price'), 'marketCap': t.get('marketCap'), 'exchange': t.get('exchange'),
+                'netDebtToEbitda': t.get('netDebtToEbitda'), 'debtPenalty': round(dfac, 3),
                 'peg': t.get('peg'), 'trailingPE': t.get('trailingPE'), 'forwardPE': t.get('forwardPE'),
                 'earningsCAGR': t.get('earningsCAGR'), 'priceCAGR': t.get('priceCAGR'), 'gap': t.get('gap'),
                 'roe': t.get('roe'), 'roa': t.get('roa'), 'roic': t.get('roic'), 'roicApprox': t.get('roicApprox'),
