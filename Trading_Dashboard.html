@@ -3804,7 +3804,7 @@ function ttlBuildEquityDD() {
   ttlMkChart('ttlEquityDDChart', { type:'line',
     data:{ labels: eq.months.map(ttlYm), datasets:[
       { label:'Patrimoine', data: eq.total, borderColor:'#1d9e74', backgroundColor:'rgba(29,158,116,0.10)', fill:true, tension:0.25, pointRadius:0, borderWidth:2, yAxisID:'y' },
-      { label:'Drawdown (TWR)', data: dd, borderColor:'#dd5f66', backgroundColor:'rgba(221,95,102,0.22)', fill:true, tension:0, pointRadius:0, borderWidth:1.5, yAxisID:'y1' } ] },
+      { label:'Drawdown (TWR)', data: dd, borderColor:'#dd5f66', backgroundColor:'rgba(221,95,102,0.22)', fill:true, tension:0.25, pointRadius:0, borderWidth:1.5, yAxisID:'y1' } ] },
     options:{ responsive:true, maintainAspectRatio:false, interaction:{ mode:'index', intersect:false },
       plugins:{ legend:{ position:'bottom', labels:{ boxWidth:12, font:{size:11} } },
         tooltip:{ callbacks:{ label: c => c.dataset.label!=='Patrimoine' ? ('Drawdown TWR : '+c.parsed.y.toFixed(1)+'%') : ('Patrimoine : '+fmt(Math.round(c.parsed.y))+' €') } } },
