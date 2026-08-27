@@ -6361,7 +6361,7 @@ function scrLegend(items) {
 // ---- Historique du portefeuille : courbe d'évolution du capital + calendriers P&L (façon Darwinex) ----
 // Alimenté par stocks/screener/positionsHistory = { 'YYYY-MM-DD': {value, invested} }, un point/jour (cron VPS).
 let SCR_HIST = null;               // [{date, value, invested}] trié
-let SCR_CAL_Y = null, SCR_CAL_M = null, SCR_CAL_SEL = null;   // mois affiché + jour sélectionné (détail)
+let SCR_CAL_Y = null, SCR_CAL_M = null, SCR_CAL_SEL = null, SCR_MONTH_SEL = null;   // mois affiché + jour + mois sélectionné (détail)
 let SCR_CAL_PCT = (function () { try { return localStorage.getItem('scrCalPct') === '1'; } catch (e) { return false; } })();   // calendriers en % (TWR) ou en montant
 let SCR_HIST_RERENDER = null;      // callback de re-rendu de la section (posé par le module)
 const SCR_NAVBTN = 'border:1px solid #e3e8ee;background:#fff;border-radius:7px;width:26px;height:26px;cursor:pointer;color:#42546a;font-weight:700;line-height:1';
@@ -6464,12 +6464,13 @@ function scrMonthCalendar(hist) {
   const grid = scrEl('div', { style: 'display:grid;grid-template-columns:repeat(auto-fill,minmax(88px,1fr));gap:6px' });
   months.forEach((mk) => {
     const a = agg[mk], v = SCR_CAL_PCT ? a.twr : a.sum, yy = +mk.slice(0, 4), mm = +mk.slice(5, 7) - 1;
-    const bg = v >= 0 ? '#e5f4ee' : '#fbe9ea', tc = v >= 0 ? '#1d9e74' : '#dd5f66', cur = (SCR_CAL_Y === yy && SCR_CAL_M === mm);
+    const bg = v >= 0 ? '#e5f4ee' : '#fbe9ea', tc = v >= 0 ? '#1d9e74' : '#dd5f66', sel = (SCR_MONTH_SEL === mk);
     const txt = SCR_CAL_PCT ? ((v >= 0 ? '+' : '') + (v * 100).toFixed(1) + ' %') : ((v >= 0 ? '+' : '') + scrUsd(v));
-    const cell = scrEl('div', { attrs: { title: 'Voir le détail par jour de ' + mn[mm] + ' ' + yy }, style: `background:${bg};border-radius:9px;padding:8px;text-align:center;cursor:pointer;${cur ? 'outline:2px solid #3563e9;outline-offset:-2px;' : ''}`, kids: [
+    const cell = scrEl('div', { attrs: { title: 'Clique pour le détail par position de ' + mn[mm] + ' ' + yy }, style: `background:${bg};border-radius:9px;padding:8px;text-align:center;cursor:pointer;transition:transform .1s;${sel ? 'outline:2px solid #3563e9;outline-offset:-2px;' : ''}`, kids: [
       scrEl('div', { text: mn[mm] + ' ' + yy, style: 'font-size:0.62rem;color:#5b6b7d;font-weight:600' }),
       scrEl('div', { text: txt, style: `font-size:0.8rem;font-weight:800;color:${tc}` })] });
-    cell.onclick = () => { SCR_CAL_Y = yy; SCR_CAL_M = mm; SCR_CAL_SEL = null; SCR_HIST_RERENDER && SCR_HIST_RERENDER(); };
+    cell.onmouseenter = () => cell.style.transform = 'translateY(-1px)'; cell.onmouseleave = () => cell.style.transform = '';
+    cell.onclick = () => { SCR_MONTH_SEL = (SCR_MONTH_SEL === mk ? null : mk); SCR_CAL_Y = yy; SCR_CAL_M = mm; SCR_CAL_SEL = null; SCR_HIST_RERENDER && SCR_HIST_RERENDER(); };
     grid.appendChild(cell);
   });
   return grid;
@@ -6505,6 +6506,46 @@ function scrDayDetail(hist, date) {   // détail par position d'un jour cliqué 
     scrEl('b', { text: (total >= 0 ? '+' : '') + scrUsd(total), style: `color:${total >= 0 ? '#1d9e74' : '#dd5f66'};font-size:0.8rem` })] }));
   return box;
 }
+function scrMonthDetail(hist, mk) {   // détail par position d'un MOIS cliqué : P&L cumulé sur le mois + apports repérés
+  const mn = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
+  const box = scrEl('div', { style: 'margin-top:10px;background:#fff;border:1px solid #eef1f5;border-radius:10px;padding:10px' });
+  const yy = +mk.slice(0, 4), mm = +mk.slice(5, 7) - 1;
+  const close = scrEl('button', { text: '✕', style: 'margin-left:auto;border:none;background:none;cursor:pointer;color:#9aa7b4;font-size:0.9rem;font-weight:700' });
+  close.onclick = () => { SCR_MONTH_SEL = null; SCR_HIST_RERENDER && SCR_HIST_RERENDER(); };
+  box.appendChild(scrEl('div', { style: 'display:flex;align-items:center;gap:8px;margin-bottom:8px', kids: [
+    scrEl('span', { text: 'Détail de ' + mn[mm] + ' ' + yy, style: 'font-weight:700;color:#22303f;font-size:0.8rem' }), close] }));
+  // agrège le P&L par ticker sur les paires de jours consécutifs du mois (là où la composition est enregistrée)
+  const agg = {}; let hasDetail = false;
+  for (let i = 1; i < hist.length; i++) {
+    if (hist[i].date.slice(0, 7) !== mk) continue;
+    const cur = hist[i], prev = hist[i - 1];
+    if (!(cur.lines && cur.lines.length) || !(prev.lines && prev.lines.length)) continue;
+    hasDetail = true;
+    const pL = {}; prev.lines.forEach((l) => pL[l.ticker] = l);
+    const cL = {}; cur.lines.forEach((l) => cL[l.ticker] = l);
+    Array.from(new Set(Object.keys(cL).concat(Object.keys(pL)))).forEach((t) => {
+      const cv = cL[t] ? cL[t].value : 0, ci = cL[t] ? cL[t].invested : 0, pv = pL[t] ? pL[t].value : 0, pi = pL[t] ? pL[t].invested : 0;
+      const a = agg[t] || (agg[t] = { pnl: 0, dep: 0 }); a.pnl += (cv - pv) - (ci - pi); a.dep += (ci - pi);
+    });
+  }
+  const rows = Object.keys(agg).map((t) => ({ t, pnl: agg[t].pnl, dep: agg[t].dep })).filter((r) => Math.abs(r.pnl) >= 0.5 || Math.abs(r.dep) >= 0.5).sort((a, b) => b.pnl - a.pnl);
+  if (!hasDetail || !rows.length) {
+    box.appendChild(scrEl('div', { style: 'color:#9aa7b4;font-size:0.75rem', text: hasDetail ? 'Aucun mouvement notable ce mois.' : "Détail par position dès que le VPS a enregistré la composition sur plusieurs jours du mois." }));
+    return box;
+  }
+  rows.forEach((r) => {
+    const col = r.pnl >= 0 ? '#1d9e74' : '#dd5f66';
+    const left = scrEl('span', { style: 'display:flex;align-items:center;gap:6px', kids: [scrEl('b', { text: r.t, style: 'color:#22303f;font-size:0.78rem' })] });
+    if (Math.abs(r.dep) >= 0.5) left.appendChild(scrEl('span', { text: (r.dep > 0 ? '+apport ' : 'retrait ') + scrUsd(Math.abs(r.dep)), style: 'font-size:0.64rem;color:#3563e9;background:#eef2fe;border-radius:5px;padding:1px 5px' }));
+    box.appendChild(scrEl('div', { style: 'display:flex;justify-content:space-between;align-items:center;padding:3px 0;border-bottom:1px solid #f4f6f9', kids: [
+      left, scrEl('span', { text: (r.pnl >= 0 ? '+' : '') + scrUsd(r.pnl), style: `font-weight:700;color:${col};font-size:0.78rem` })] }));
+  });
+  const total = rows.reduce((s, r) => s + r.pnl, 0);
+  box.appendChild(scrEl('div', { style: 'display:flex;justify-content:space-between;margin-top:6px', kids: [
+    scrEl('b', { text: 'Total du mois', style: 'color:#5b6b7d;font-size:0.76rem' }),
+    scrEl('b', { text: (total >= 0 ? '+' : '') + scrUsd(total), style: `color:${total >= 0 ? '#1d9e74' : '#dd5f66'};font-size:0.8rem` })] }));
+  return box;
+}
 function scrBuildHistSection() {
   const hist = SCR_HIST || [];
   const wrap = scrEl('div', { style: 'background:#fafbfc;border:1px solid #eef1f5;border-radius:12px;padding:14px' });
@@ -6519,7 +6560,7 @@ function scrBuildHistSection() {
     scrKpi('Valeur', scrUsd(cur.value)), scrKpi('Investi', scrUsd(cur.invested)),
     scrKpi('Gain total', (gain >= 0 ? '+' : '') + scrUsd(gain), gain >= 0 ? '#1d9e74' : '#dd5f66'),
     scrKpi('Rendement (TWR)', twr == null ? '–' : (twr >= 0 ? '+' : '') + (twr * 100).toFixed(1) + ' %', twr == null ? '#9aa7b4' : (twr >= 0 ? '#1d9e74' : '#dd5f66'), "Rendement pondéré dans le temps : neutralise l'effet de tes apports (DCA depuis Debitum). C'est la vraie mesure de performance ; le gain en $ est gonflé ou dilué par le timing de tes versements. Disponible dès 2 jours d'historique.")] }));
-  wrap.appendChild(scrEquityCurve(hist));
+  wrap.appendChild(scrEl('div', { style: 'background:#fff;border:1px solid #e3e8ee;border-radius:10px;padding:12px 14px', kids: [scrEquityCurve(hist)] }));
   wrap.appendChild(scrEl('div', { style: 'display:flex;align-items:center;gap:10px;margin-top:14px;flex-wrap:wrap', kids: [
     scrCalToggle(), scrEl('span', { text: '% = rendement TWR, net de tes apports', style: 'font-size:0.66rem;color:#9aa7b4' })] }));
   const dayColKids = [scrEl('div', { text: "Calendrier journalier · clique un jour pour le détail", style: 'font-size:0.7rem;color:#5b6b7d;font-weight:700;margin:10px 0 6px' }), scrDayCalendar(hist, pnlMap, retMap)];
@@ -6528,9 +6569,12 @@ function scrBuildHistSection() {
     dayColKids.push(scrEl('div', { style: 'font-size:0.68rem;color:#9aa7b4;margin-top:8px;line-height:1.45;background:#f6f8fb;border-radius:8px;padding:8px 10px', text: 'Historique démarré le ' + sd + ' (' + hist.length + ' jour' + (hist.length > 1 ? 's' : '') + ' enregistré' + (hist.length > 1 ? 's' : '') + '). Le P&L journalier apparaît dès le 2ᵉ jour, car un jour se calcule par rapport à la veille. Le VPS enregistre 1 point/jour à la clôture US (~22h). La case du jour de départ restera vide (pas de veille de référence).' }));
   }
   if (SCR_CAL_SEL) dayColKids.push(scrDayDetail(hist, SCR_CAL_SEL));
-  wrap.appendChild(scrEl('div', { style: 'display:flex;gap:18px;flex-wrap:wrap;margin-top:4px', kids: [
-    scrEl('div', { style: 'flex:1;min-width:260px', kids: dayColKids }),
-    scrEl('div', { style: 'flex:1;min-width:220px', kids: [scrEl('div', { text: 'Par mois · clique un mois', style: 'font-size:0.7rem;color:#5b6b7d;font-weight:700;margin:10px 0 6px' }), scrMonthCalendar(hist)] })] }));
+  const monthColKids = [scrEl('div', { text: 'Par mois · clique un mois pour le détail', style: 'font-size:0.7rem;color:#5b6b7d;font-weight:700;margin:0 0 8px' }), scrMonthCalendar(hist)];
+  if (SCR_MONTH_SEL) monthColKids.push(scrMonthDetail(hist, SCR_MONTH_SEL));
+  const cardStyle = 'flex:1;background:#fff;border:1px solid #e3e8ee;border-radius:10px;padding:12px 14px;align-self:flex-start';
+  wrap.appendChild(scrEl('div', { style: 'display:flex;gap:14px;flex-wrap:wrap;margin-top:4px;align-items:flex-start', kids: [
+    scrEl('div', { style: cardStyle + ';min-width:260px', kids: dayColKids }),
+    scrEl('div', { style: cardStyle + ';min-width:220px', kids: monthColKids })] }));
   return wrap;
 }
 // Module "Mes positions" en haut du screener : saisie manuelle (Revolut), P&L via les cours du screener.
