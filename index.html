@@ -3542,17 +3542,17 @@ function ttlDestroyCharts() { ttlCharts.forEach(c => { try { c.destroy(); } catc
 function ttlYm(ym) { const p = ym.split('-'); return p[1] + '/' + p[0].slice(2); }
 function ttlMkChart(id, cfg) { const el = document.getElementById(id); if (!el) return; try { const c = new Chart(el, cfg); ttlCharts.push(c); return c; } catch (e) {} }
 // --- Plugins d'etiquettes : ecrivent les valeurs SUR les graphiques (pas seulement au survol) ---
-function ttlBarLabels(sign) {   // valeur au bout/sommet de chaque barre (barres H ou V)
+function ttlBarLabels(sign, pct) {   // valeur au bout/sommet de chaque barre (barres H ou V). pct=true -> "%", sinon "€"
   return { id: 'ttlBarLabels', afterDatasetsDraw(chart) {
     const ctx = chart.ctx, horiz = chart.options.indexAxis === 'y';
     chart.data.datasets.forEach((ds, di) => {
       const meta = chart.getDatasetMeta(di); if (meta.hidden) return;
       meta.data.forEach((el, i) => {
         const v = Number(ds.data[i]); if (isNaN(v)) return;
-        const txt = (sign && v > 0 ? '+' : '') + fmt(Math.round(v)) + ' €';
+        const txt = (sign && v > 0 ? '+' : '') + (pct ? v.toFixed(1) + '%' : fmt(Math.round(v)) + ' €');
         ctx.save(); ctx.font = 'bold 10px Inter, sans-serif'; ctx.fillStyle = v >= 0 ? '#1d9e74' : '#dd5f66';
         if (horiz) { ctx.textBaseline = 'middle'; ctx.textAlign = v >= 0 ? 'left' : 'right'; ctx.fillText(txt, el.x + (v >= 0 ? 5 : -5), el.y); }
-        else { ctx.textAlign = 'center'; ctx.textBaseline = 'bottom'; ctx.fillText(txt, el.x, el.y - 4); }
+        else { ctx.textAlign = 'center'; if (v >= 0) { ctx.textBaseline = 'bottom'; ctx.fillText(txt, el.x, el.y - 4); } else { ctx.textBaseline = 'top'; ctx.fillText(txt, el.x, el.y + 4); } }
         ctx.restore();
       });
     });
@@ -3808,9 +3808,9 @@ function ttlBuildEquityDD() {
 }
 function ttlBuildTwrBySource() {
   const m = ttlSourceMetrics();
-  ttlMkChart('ttlTwrChart', { type:'bar',
+  ttlMkChart('ttlTwrChart', { type:'bar', plugins:[ttlBarLabels(true, true)],
     data:{ labels:[TTL_LABEL.ig, TTL_LABEL.stk, TTL_LABEL.dwx], datasets:[{ data:[+m.ig.ret.toFixed(1), +m.stk.ret.toFixed(1), +m.dwx.ret.toFixed(1)], backgroundColor:[TTL_COL.ig, TTL_COL.stk, TTL_COL.dwx], borderRadius:6 }] },
-    options:{ responsive:true, maintainAspectRatio:false,
+    options:{ responsive:true, maintainAspectRatio:false, layout:{ padding:{ top:16 } },
       plugins:{ legend:{ display:false }, tooltip:{ callbacks:{ label: c => 'TWR : '+(c.parsed.y>=0?'+':'')+c.parsed.y.toFixed(1)+'%' } } },
       scales:{ y:{ ticks:{ callback:v=>v+'%', font:{size:10} } }, x:{ ticks:{ font:{size:11} } } } } });
 }
