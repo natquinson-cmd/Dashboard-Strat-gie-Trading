@@ -5511,32 +5511,49 @@ let SCR_SORT = 'note';
 try { const _s = localStorage.getItem('scrSort'); if (_s === 'opp' || _s === 'pot' || _s === 'note') SCR_SORT = _s; } catch (e) {}
 function scrDcf(m, sector) {
   m = m || {};
+  // Override de valorisation PAR TITRE (fiche fair value) : hypotheses propres a ce titre ou valeur manuelle.
+  const ov = (m.symbol && typeof SCR_VAL_OVERRIDES !== 'undefined') ? SCR_VAL_OVERRIDES[String(m.symbol).toUpperCase()] : null;
+  return scrDcfCore(m, ov || {});
+}
+// Coeur du DCF, parametre par un objet d'overrides `ov` (vide = hypotheses globales). Sert au calcul reel
+// (scrDcf, via SCR_VAL_OVERRIDES) ET a la PREVISUALISATION live de la fiche (avec un brouillon d'hypotheses).
+function scrDcfCore(m, ov) {
+  m = m || {}; ov = ov || {};
   const price = m.price, pe = m.trailingPE || m.forwardPE;
   if (price == null || !(price > 0) || !pe || pe <= 0) return null;
+  const RET = (ov.ret != null) ? ov.ret : SCR_DCF_RET;
+  const N = (ov.n != null) ? Math.max(1, Math.round(ov.n)) : SCR_DCF_N;
+  const overridden = ['ret', 'growth', 'n', 'gterm', 'exitPe', 'fairManual'].some((f) => ov[f] != null);
+  // Valeur MANUELLE : court-circuite le modele (fair = ta valeur ; potentiel/an derive comme le DCF).
+  if (ov.fairManual != null && ov.fairManual > 0) {
+    const fair = ov.fairManual, cagr = (1 + RET) * Math.pow(fair / price, 1 / N) - 1;
+    return { fair, cagr, N, price, exch: m.exchange, RET, manual: true, overridden: true };
+  }
   let g = (m.earningsCAGR != null) ? m.earningsCAGR : (m.earningsGrowthYoY != null ? m.earningsGrowthYoY : null);
+  if (ov.growth != null) g = ov.growth;
   if (g == null) return null;
-  const g0 = Math.max(-0.95, Math.min(SCR_DCF_GCAP, g));                          // croissance des benefices plafonnee a 15 %/an (choix user)
-  const gTerm = Math.min(SCR_DCF_GTERM, g0);                                       // la croissance terminale ne peut pas depasser la courante
-  // Multiple de sortie = P/E moyen historique s'il est PLAUSIBLE (garde anti-bug de DEVISE : benefice ADR en
-  // monnaie locale / cours en USD -> P/E aberrant < 3), sinon P/E actuel. NON plafonne (choix user).
+  // croissance : imposee par titre (non plafonnee) OU auto plafonnee a 15 %/an (global)
+  const g0 = (ov.growth != null) ? Math.max(-0.95, ov.growth) : Math.max(-0.95, Math.min(SCR_DCF_GCAP, g));
+  const gTerm = Math.min((ov.gterm != null) ? ov.gterm : SCR_DCF_GTERM, g0);
+  // Multiple de sortie = override par titre, sinon P/E moyen historique s'il est PLAUSIBLE (garde anti-bug de
+  // DEVISE : benefice ADR en monnaie locale / cours USD -> P/E aberrant < 3), sinon P/E actuel.
   const avgOk = (m.avgPe != null && m.avgPe >= 3 && m.avgPe <= 150);
-  let exitPe = Math.max(0.5, avgOk ? m.avgPe : pe);
+  let exitPe = Math.max(0.5, (ov.exitPe != null) ? ov.exitPe : (avgOk ? m.avgPe : pe));
   const yrs = m.revYears || 4;
   const scAnnual = (m.sharesChange != null) ? (Math.pow(1 + m.sharesChange, 1 / yrs) - 1) : 0;   // rachats annualises
   const dg = (m.divCagr != null) ? Math.max(-0.20, Math.min(0.20, m.divCagr)) : 0;
   const div0 = (m.dividendYield != null && m.dividendYield > 0) ? m.dividendYield * price : 0;
-  let eps = price / pe, cumDiv = 0, gy0 = g0;
-  for (let t = 1; t <= SCR_DCF_N; t++) {
-    const frac = SCR_DCF_N > 1 ? (t - 1) / (SCR_DCF_N - 1) : 1;                     // 0 en annee 1 -> 1 en annee N
-    const gy = g0 + (gTerm - g0) * frac;                                           // fondu lineaire : croissance initiale -> terminale
-    if (t === 1) gy0 = gy;
-    eps = eps * (1 + gy) / (1 + scAnnual);                                         // BPA : benefice qui croit (en ralentissant), net des rachats
+  let eps = price / pe, cumDiv = 0;
+  for (let t = 1; t <= N; t++) {
+    const frac = N > 1 ? (t - 1) / (N - 1) : 1;                                    // 0 en annee 1 -> 1 en annee N
+    const gy = g0 + (gTerm - g0) * frac;                                          // fondu lineaire : croissance initiale -> terminale
+    eps = eps * (1 + gy) / (1 + scAnnual);                                        // BPA : benefice qui croit (en ralentissant), net des rachats
     cumDiv += div0 * Math.pow(1 + dg, t);
   }
   const futurePrice = eps * exitPe, futureTotal = futurePrice + cumDiv;
-  const fair = futureTotal / Math.pow(1 + SCR_DCF_RET, SCR_DCF_N);                 // prix d'achat cible pour le rendement vise
-  const cagr = Math.pow(futureTotal / price, 1 / SCR_DCF_N) - 1;                   // rendement annualise au cours actuel
-  return { fair, futurePrice, futureTotal, cumDiv, cagr, exitPe, gUsed: g0, gTerm, N: SCR_DCF_N, price, exch: m.exchange };
+  const fair = futureTotal / Math.pow(1 + RET, N);                               // prix d'achat cible pour le rendement vise
+  const cagr = Math.pow(futureTotal / price, 1 / N) - 1;                          // rendement annualise au cours actuel
+  return { fair, futurePrice, futureTotal, cumDiv, cagr, exitPe, gUsed: g0, gTerm, N, price, exch: m.exchange, RET, overridden };
 }
 function scrFairPrice(m, sector) {
   const d = scrDcf(m, sector);
@@ -5602,6 +5619,102 @@ function scrShowBandPopover(anchorEl, m, sector) {
   scrBandPop = pop;
   setTimeout(() => document.addEventListener('click', scrBandOutside, true), 0);
 }
+// ── Fiche de VALORISATION par titre (facon Simply Wall St) : jauge + hypotheses DCF propres au titre editables
+//    (rendement vise, croissance, horizon, croissance finale, multiple de sortie) OU juste valeur manuelle, avec
+//    apercu live et enregistrement dans Firebase (cross-device). Ouverte au clic de la colonne Potentiel/an.
+let scrValModal = null;
+function scrCloseValModal() { if (scrValModal) { scrValModal.remove(); scrValModal = null; document.removeEventListener('keydown', scrValEsc, true); } }
+function scrValEsc(e) { if (e.key === 'Escape') scrCloseValModal(); }
+function scrShowValuationCard(m0, sector) {
+  scrCloseValModal(); if (typeof scrCloseBandPop === 'function') scrCloseBandPop();
+  const ticker = String((m0 && m0.symbol) || '').toUpperCase();
+  const m = (ticker && SCR_PRICE_MAP[ticker]) || m0 || {};
+  const price = m.price; if (!ticker || !(price > 0)) return;
+  const money = (v) => scrPrice(v, m.exchange);
+  const draft = Object.assign({}, SCR_VAL_OVERRIDES[ticker] || {});
+
+  const backdrop = scrEl('div', { style: 'position:fixed;inset:0;z-index:10000;background:rgba(20,30,45,0.45);display:flex;align-items:flex-start;justify-content:center;padding:36px 12px;overflow:auto' });
+  const card = scrEl('div', { style: 'background:#fff;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,0.3);width:min(470px,96vw);padding:18px 20px;font-size:0.82rem;color:#42546a' });
+  backdrop.appendChild(card); backdrop.onclick = (e) => { if (e.target === backdrop) scrCloseValModal(); };
+
+  const close = scrEl('button', { text: '✕', style: 'margin-left:auto;border:none;background:none;cursor:pointer;color:#9aa7b4;font-size:1rem;font-weight:700' });
+  close.onclick = scrCloseValModal;
+  card.appendChild(scrEl('div', { style: 'display:flex;align-items:center;gap:8px;margin-bottom:2px', kids: [
+    scrEl('b', { text: ticker, style: 'color:#22303f;font-size:1.05rem' }),
+    scrEl('span', { text: 'Valorisation', style: 'font-size:0.72rem;color:#9aa7b4;text-transform:uppercase;letter-spacing:.04em' }), close] }));
+  if (m.name) card.appendChild(scrEl('div', { text: m.name, style: 'font-size:0.72rem;color:#9aa7b4;margin-bottom:8px' }));
+
+  const summary = scrEl('div');          // fair value + potentiel + badge (recalcule en live)
+  const gaugeBox = scrEl('div', { style: 'margin:8px 0 4px' });
+  card.appendChild(summary); card.appendChild(gaugeBox);
+
+  const iStyle = 'width:66px;padding:6px 8px;border:1px solid #e3e8ee;border-radius:8px;font-size:0.85rem;font-weight:600;color:#22303f';
+  const inp = (val, min, max, step) => scrEl('input', { attrs: { type: 'number', value: (val == null ? '' : String(val)), min: String(min), max: String(max), step: String(step) }, style: iStyle });
+  const eff = scrDcfCore(m, draft) || {};
+  const retIn = inp(Math.round((draft.ret != null ? draft.ret : SCR_DCF_RET) * 100), 3, 40, 1);
+  const growIn = inp(draft.growth != null ? Math.round(draft.growth * 100) : (eff.gUsed != null ? Math.round(eff.gUsed * 100) : 15), -50, 300, 1);
+  const nIn = inp(draft.n != null ? draft.n : (eff.N || SCR_DCF_N), 1, 15, 1);
+  const gtIn = inp(Math.round((draft.gterm != null ? draft.gterm : SCR_DCF_GTERM) * 100), 0, 15, 1);
+  const exitIn = inp(draft.exitPe != null ? draft.exitPe : (eff.exitPe != null ? +eff.exitPe.toFixed(1) : null), 1, 200, 0.5);
+  const manualIn = inp(draft.fairManual != null ? draft.fairManual : null, 0, 1e7, 0.01);
+
+  const field = (label, el, unit) => scrEl('div', { style: 'display:flex;align-items:center;justify-content:space-between;gap:8px', kids: [
+    scrEl('span', { text: label, style: 'font-size:0.76rem;color:#5b6b7d' }),
+    scrEl('span', { style: 'display:flex;align-items:center;gap:4px', kids: [el, scrEl('span', { text: unit, style: 'font-size:0.72rem;color:#9aa7b4' })] })] });
+  card.appendChild(scrEl('div', { text: 'Hypothèses de CE titre', style: 'font-size:0.68rem;text-transform:uppercase;letter-spacing:.03em;color:#9aa7b4;font-weight:700;margin:10px 0 6px;border-top:1px solid #eef1f5;padding-top:10px' }));
+  card.appendChild(scrEl('div', { style: 'display:grid;grid-template-columns:1fr 1fr;gap:8px 16px', kids: [
+    field('Rendement visé', retIn, '%/an'), field('Horizon', nIn, 'ans'),
+    field('Croissance', growIn, '%/an'), field('Croiss. finale', gtIn, '%/an'),
+    field('Multiple sortie', exitIn, '×') ] }));
+  card.appendChild(scrEl('div', { style: 'margin-top:10px;border-top:1px solid #eef1f5;padding-top:10px', kids: [
+    field('OU juste valeur manuelle', manualIn, scrDispSym()),
+    scrEl('div', { text: 'Si tu remplis la valeur manuelle, elle prime sur le modèle (comme un objectif Simply Wall St importé).', style: 'font-size:0.66rem;color:#c3ccd6;margin-top:4px' })] }));
+
+  function draftFromInputs() {
+    const d = {}; const num = (el) => (el.value !== '' && isFinite(Number(el.value))) ? Number(el.value) : null;
+    let v; v = num(retIn); if (v != null) d.ret = v / 100;
+    v = num(growIn); if (v != null) d.growth = v / 100;
+    v = num(nIn); if (v != null) d.n = v;
+    v = num(gtIn); if (v != null) d.gterm = v / 100;
+    v = num(exitIn); if (v != null) d.exitPe = v;
+    v = num(manualIn); if (v != null && v > 0) d.fairManual = v;
+    return d;
+  }
+  function renderPreview() {
+    const dcf = scrDcfCore(m, draftFromInputs());
+    if (!dcf || !(dcf.fair > 0)) { summary.innerHTML = ''; gaugeBox.innerHTML = ''; return; }
+    const disc = (dcf.fair - price) / price;   // >0 = sous la juste valeur
+    const col = disc >= 0 ? '#1d9e74' : '#dd5f66';
+    summary.replaceChildren(scrEl('div', { style: 'display:flex;align-items:baseline;gap:12px;flex-wrap:wrap', kids: [
+      scrEl('div', { kids: [scrEl('span', { text: 'Juste valeur ', style: 'font-size:0.72rem;color:#9aa7b4' }), scrEl('b', { text: money(dcf.fair), style: 'font-size:1.3rem;color:#22303f' })] }),
+      scrEl('span', { text: (disc >= 0 ? '▲ ' : '▼ ') + (disc >= 0 ? '+' : '') + (disc * 100).toFixed(0) + '%', style: `font-weight:800;color:${col}` }),
+      scrEl('span', { text: 'cours ' + money(price), style: 'font-size:0.72rem;color:#9aa7b4' }),
+      scrEl('span', { text: 'potentiel ' + (dcf.cagr >= 0 ? '+' : '') + (dcf.cagr * 100).toFixed(0) + ' %/an', style: `margin-left:auto;font-weight:700;color:${dcf.cagr >= (dcf.RET || SCR_DCF_RET) ? '#1d9e74' : (dcf.cagr >= 0 ? '#42546a' : '#dd5f66')}` })] }));
+    // jauge : Ideal / Achat / Plein / Cher autour de la juste valeur
+    const fair = dcf.fair, ideal = fair * (1 - SCR_SAFETY), plein = fair * 1.10;
+    const lo = fair * 0.70, hi = fair * 1.30, span = (hi - lo) || 1, p = (v) => Math.max(0, Math.min(100, (v - lo) / span * 100));
+    const seg = (from, to, key) => scrEl('div', { style: `position:absolute;left:${p(from)}%;width:${p(to) - p(from)}%;top:0;bottom:0;background:${SCR_ZONE[key].bar}` });
+    const zone = price <= ideal ? 'ideal' : (price <= fair ? 'achat' : (price <= plein ? 'plein' : 'cher'));
+    gaugeBox.replaceChildren(
+      scrEl('div', { style: 'position:relative;height:14px;border-radius:7px;overflow:hidden', kids: [
+        seg(lo, ideal, 'ideal'), seg(ideal, fair, 'achat'), seg(fair, plein, 'plein'), seg(plein, hi, 'cher'),
+        scrEl('div', { style: `position:absolute;left:${p(price)}%;top:-4px;bottom:-4px;width:2px;background:#22303f;box-shadow:0 0 0 1px #fff` })] }),
+      scrEl('div', { style: 'display:flex;justify-content:space-between;font-size:0.62rem;color:#9aa7b4;margin-top:3px', kids: [
+        scrEl('span', { text: 'Idéal ≤ ' + money(ideal) }), scrEl('span', { text: SCR_ZONE[zone].label, style: `color:${SCR_ZONE[zone].fg};font-weight:700` }), scrEl('span', { text: 'Cher > ' + money(plein) })] }));
+  }
+  [retIn, growIn, nIn, gtIn, exitIn, manualIn].forEach((el) => el.addEventListener('input', renderPreview));
+  renderPreview();
+
+  const reset = scrEl('button', { text: 'Réinitialiser (auto)', style: 'padding:8px 12px;border:1px solid #e3e8ee;border-radius:9px;background:#fff;font-weight:600;cursor:pointer;color:#5b6b7d;font-size:0.8rem' });
+  reset.onclick = () => { scrClearValuationOverride(ticker); scrCloseValModal(); scrRerenderQuality && scrRerenderQuality(); };
+  const save = scrEl('button', { text: 'Enregistrer', style: 'padding:8px 16px;border:none;border-radius:9px;background:#3563e9;color:#fff;font-weight:700;cursor:pointer;font-size:0.8rem' });
+  save.onclick = () => { scrSaveValuationOverride(ticker, draftFromInputs()); scrCloseValModal(); scrRerenderQuality && scrRerenderQuality(); };
+  card.appendChild(scrEl('div', { style: 'display:flex;align-items:center;gap:8px;margin-top:14px', kids: [reset, scrEl('span', { style: 'margin-left:auto' }), save] }));
+  card.appendChild(scrEl('div', { style: 'font-size:0.6rem;color:#c3ccd6;margin-top:8px', text: 'Repérage mécanique, pas un conseil. Synchronisé sur tes appareils.' }));
+
+  document.body.appendChild(backdrop); scrValModal = backdrop;
+  document.addEventListener('keydown', scrValEsc, true);
+}
 // Cellule « Potentiel/an » : rendement annuel attendu par le DCF (CAGR) vs le cours actuel
 function scrTargetCell(m, sector, bd) {
   const d = scrDcf(m, sector), price = m.price;
@@ -5616,10 +5729,11 @@ function scrTargetCell(m, sector, bd) {
     box.appendChild(scrEl('span', { text: '–', style: 'color:#c3ccd6' }));
   }
   const td = scrEl('td', { style: `padding:6px 10px;${bd}`, kids: [box] });
-  if (d && price != null && price > 0) {   // cliquable -> detail DCF + fourchette de prix d'achat (jauge)
+  if (d && price != null && price > 0) {   // cliquable -> FICHE de valorisation (juste valeur editable par titre + jauge)
     box.style.cursor = 'pointer';
-    td.setAttribute('title', "Potentiel annuel attendu (DCF). Clique pour le détail (croissance retenue, multiple) + la fourchette de prix d'achat.");
-    td.onclick = (e) => { e.stopPropagation(); scrShowBandPopover(td, m, sector); };
+    if (d.overridden) box.appendChild(scrEl('span', { text: '✎', attrs: { title: 'Valorisation personnalisée pour ce titre' }, style: 'font-size:0.6rem;color:#3563e9' }));
+    td.setAttribute('title', "Potentiel annuel attendu (DCF). Clique pour la fiche de valorisation (juste valeur, hypothèses de CE titre, valeur manuelle).");
+    td.onclick = (e) => { e.stopPropagation(); scrShowValuationCard(m, sector); };
   }
   return td;
 }
@@ -5737,9 +5851,9 @@ async function renderScreenerTab() {
     try {
       SCR_PRICE_MAP = {};
       const nodes = await Promise.all([db.ref('stocks/screener/quality').once('value'), db.ref('stocks/screener/smallcap').once('value')]);
-      nodes.forEach((snap) => { const v = snap.val(); (v && v.top || []).forEach((t) => { const m = t.metrics || {}; if (t.symbol && m.price != null) SCR_PRICE_MAP[String(t.symbol).toUpperCase()] = Object.assign({}, m, { name: t.name, sector: t.sector, rating: t.rating, valuationScore: t.valuationScore }); }); });
+      nodes.forEach((snap) => { const v = snap.val(); (v && v.top || []).forEach((t) => { const m = t.metrics || {}; if (t.symbol && m.price != null) SCR_PRICE_MAP[String(t.symbol).toUpperCase()] = Object.assign({}, m, { symbol: String(t.symbol).toUpperCase(), name: t.name, sector: t.sector, rating: t.rating, valuationScore: t.valuationScore }); }); });
     } catch (e) { /* ignore */ }
-    await scrMergePositionMeta(); await scrMergeMoat(); await scrApplyLivePrices();   // cours temps réel (cron VPS) par-dessus le snapshot
+    await scrMergePositionMeta(); await scrMergeMoat(); await scrMergeValuationOverrides(); await scrApplyLivePrices();   // cours temps réel (cron VPS) par-dessus le snapshot
     // Positions "Mes positions" depuis Firebase (cross-device) + migration one-shot depuis localStorage.
     try {
       const mp = (await db.ref('stocks/screener/myPositions').once('value')).val();
@@ -6268,10 +6382,35 @@ async function scrMergeMoat() {
       if (!m || !m.symbol) return;
       const k = String(m.symbol).toUpperCase();
       if (!SCR_PRICE_MAP[k]) SCR_PRICE_MAP[k] = {};
+      SCR_PRICE_MAP[k].symbol = SCR_PRICE_MAP[k].symbol || k;
       SCR_PRICE_MAP[k].moat = m.moat; SCR_PRICE_MAP[k].moatScore = m.score; SCR_PRICE_MAP[k].aiExposure = m.aiExposure;
       SCR_PRICE_MAP[k].moatSource = m.source; SCR_PRICE_MAP[k].moatTrend = m.trend; SCR_PRICE_MAP[k].moatRationale = m.rationale;
     });
   } catch (e) {}
+}
+// Overrides de VALORISATION par titre (fiche fair value facon Simply Wall St) : hypotheses DCF propres a chaque
+// titre et/ou juste valeur manuelle, stockees dans Firebase (cross-device). { TICKER: {ret,growth,n,gterm,exitPe,fairManual,updatedAt} }
+let SCR_VAL_OVERRIDES = {};
+async function scrMergeValuationOverrides() {
+  if (typeof db === 'undefined' || !db) return;
+  try {
+    const ov = (await db.ref('stocks/screener/valuationOverrides').once('value')).val();
+    SCR_VAL_OVERRIDES = (ov && typeof ov === 'object') ? ov : {};
+  } catch (e) { SCR_VAL_OVERRIDES = {}; }
+}
+function scrSaveValuationOverride(ticker, ov) {
+  const k = String(ticker || '').toUpperCase(); if (!k) return;
+  // nettoie : ne garde que les champs definis (evite d'ecrire des null)
+  const clean = {}; ['ret', 'growth', 'n', 'gterm', 'exitPe', 'fairManual'].forEach((f) => { if (ov[f] != null && isFinite(ov[f])) clean[f] = ov[f]; });
+  if (!Object.keys(clean).length) { scrClearValuationOverride(k); return; }
+  clean.updatedAt = new Date().toISOString();
+  SCR_VAL_OVERRIDES[k] = clean;
+  try { if (typeof db !== 'undefined' && db) db.ref('stocks/screener/valuationOverrides/' + k).set(clean); } catch (e) {}
+}
+function scrClearValuationOverride(ticker) {
+  const k = String(ticker || '').toUpperCase(); if (!k) return;
+  delete SCR_VAL_OVERRIDES[k];
+  try { if (typeof db !== 'undefined' && db) db.ref('stocks/screener/valuationOverrides/' + k).remove(); } catch (e) {}
 }
 // Fondamentaux des tickers DÉTENUS hors univers screener (ex SNDK, GS rejetés par le gate) : comble les trous de SCR_PRICE_MAP.
 async function scrMergePositionMeta() {
@@ -6958,7 +7097,7 @@ function screenerRenderQuality(c, data, config) {
       scrEl('td', { style: `padding:8px 10px;${bd}`, kids: [scrNoteChip(SCR_PRICE_MAP[String(cd.symbol || '').toUpperCase()] || { valuationScore: cd.valuationScore, rating: cd.rating })] }),
       oppC(SCR_PRICE_MAP[String(cd.symbol || '').toUpperCase()] || m, cd.sector),
       scrCoursCell(m, bd),
-      scrTargetCell(m, cd.sector, bd),
+      scrTargetCell(SCR_PRICE_MAP[String(cd.symbol || '').toUpperCase()] || Object.assign({ symbol: cd.symbol }, m), cd.sector, bd),
       scrEl('td', { text: cd.sector || '–', style: `padding:8px 10px;color:#5b6b7d;${bd}` }),
       scrEl('td', { text: scrCountryOf(m), style: `padding:8px 10px;color:#5b6b7d;font-size:0.82rem;white-space:nowrap;${bd}` }),
       scrMoatCell(SCR_PRICE_MAP[String(cd.symbol || '').toUpperCase()] || m, 'padding:8px 10px', bd),
