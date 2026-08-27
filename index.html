@@ -3471,7 +3471,8 @@ function renderTotalTab() {
   const igFees = (typeof getTotalFees === 'function') ? getTotalFees() : 0;
   const igNow = igDep + igTrades + igDiv + igFees, igPnl = igTrades + igDiv + igFees;
   const sh = ttlStockHist();
-  const stkNow = (sh.length ? sh[sh.length-1].value : 0) * fx;
+  const stkUsd = sh.length ? sh[sh.length-1].value : 0;
+  const stkNow = stkUsd * fx;
   const stkPnl = (sh.length > 1 ? Object.values(scrDailyPnl(sh)).reduce((a,b) => a+b, 0) : 0) * fx;
   const stkInv = stkNow - stkPnl;
   const dwK = ttlDwxDates();
@@ -3508,7 +3509,7 @@ function renderTotalTab() {
       '<div style="font-size:0.9rem;color:var(--text-secondary);margin-top:8px;">Investi : ' + fmt(Math.round(invTotal)) + ' € · P&L cumulé : <span style="color:' + (pnlTotal>=0?'var(--positive)':'var(--negative)') + ';font-weight:700">' + (pnlTotal>=0?'+':'') + fmt(Math.round(pnlTotal)) + ' €</span></div>' +
       '<div style="display:flex;gap:18px;flex-wrap:wrap;margin-top:10px;padding-top:10px;border-top:1px solid rgba(34,49,77,0.08);font-size:0.88rem;">' +
         '<span>' + dot('ig') + 'Trading Auto&nbsp;<strong>' + fmt(Math.round(igNow)) + ' €</strong></span>' +
-        '<span>' + dot('stk') + 'Actions&nbsp;<strong>' + fmt(Math.round(stkNow)) + ' €</strong></span>' +
+        '<span>' + dot('stk') + 'Actions&nbsp;<strong>' + fmt(Math.round(stkNow)) + ' €</strong>' + (stkUsd ? '<span style="color:var(--text-secondary);font-size:0.82em">&nbsp;($' + fmt(Math.round(stkUsd)) + ')</span>' : '') + '</span>' +
         '<span>' + dot('dwx') + 'Darwinex&nbsp;<strong>' + fmt(Math.round(dwxNow)) + ' €</strong></span>' +
       '</div>' +
     '</div>';
@@ -3780,28 +3781,33 @@ function ttlSourceMetrics() {
 }
 function ttlBuildEquityDD() {
   const eq = ttlEqMonths; if (!eq.months || !eq.months.length) return;
-  // Drawdown NET DES INJECTIONS DE CAPITAL. Quand une source commence a etre suivie (Darwinex des juin,
-  // Actions des aout), sa valeur "apparait" d'un coup : c'est du capital qui entre, PAS un gain. On la retire
-  // du pic pour ne pas creer de faux plus-haut (qui faussait le drawdown de juin) ni de fausse reprise en aout.
-  // Le vrai drawdown en RENDEMENT par source reste la table "Risque / rendement" (TWR).
+  // Drawdown en RENDEMENT (TWR) : on CHAINE le rendement mensuel NET des apports = P&L organique du mois
+  // (`ttlMonthPnl`, deja net des depots/apparitions) / capital en debut de mois. Le drawdown en EUROS etait
+  // fausse : les depots et l'apparition des sources (Darwinex juin, Actions aout) gonflaient la valeur et
+  // MASQUAIENT les pertes de trading (juin paraissait a 0 % alors que le trading etait en perte). Le TWR les
+  // montre, comme la table "Risque / rendement" et l'onglet IG.
+  const mp = (typeof ttlMonthPnl !== 'undefined' && ttlMonthPnl) ? ttlMonthPnl : {};
   const S = (typeof ttlSeries !== 'undefined' && ttlSeries) ? ttlSeries : { ig: [], stk: [], dwx: [] };
   const srcs = ['ig', 'stk', 'dwx'];
-  let peak = -Infinity, cumInj = 0;
-  const dd = eq.total.map((v, i) => {
-    let inj = 0;
-    srcs.forEach(k => { const arr = S[k] || []; const cur = arr[i] || 0, prev = i > 0 ? (arr[i - 1] || 0) : 0; if (prev === 0 && cur > 0) inj += cur; });
-    cumInj += inj;
-    const adj = v - cumInj;                     // patrimoine "organique", net des apparitions de sources
-    if (adj > peak) peak = adj;
-    return peak > 0 ? (adj - peak) / peak * 100 : 0;
+  let twrEq = 1, peak = 1;
+  const dd = eq.months.map((ym, i) => {
+    if (i > 0) {
+      let inj = 0;   // capital d'une source qui APPARAIT ce mois -> l'ajouter a la base (ce n'est pas un gain)
+      srcs.forEach(k => { const arr = S[k] || []; const cur = arr[i] || 0, prev = arr[i - 1] || 0; if (prev === 0 && cur > 0) inj += cur; });
+      const base = (eq.total[i - 1] || 0) + inj;
+      const pnl = (mp[ym] && mp[ym].total != null) ? mp[ym].total : 0;
+      if (base > 0) twrEq *= (1 + pnl / base);
+    }
+    if (twrEq > peak) peak = twrEq;
+    return peak > 0 ? (twrEq - peak) / peak * 100 : 0;
   });
   ttlMkChart('ttlEquityDDChart', { type:'line',
     data:{ labels: eq.months.map(ttlYm), datasets:[
       { label:'Patrimoine', data: eq.total, borderColor:'#1d9e74', backgroundColor:'rgba(29,158,116,0.10)', fill:true, tension:0.25, pointRadius:0, borderWidth:2, yAxisID:'y' },
-      { label:'Drawdown', data: dd, borderColor:'#dd5f66', backgroundColor:'rgba(221,95,102,0.22)', fill:true, tension:0, pointRadius:0, borderWidth:1.5, yAxisID:'y1' } ] },
+      { label:'Drawdown (TWR)', data: dd, borderColor:'#dd5f66', backgroundColor:'rgba(221,95,102,0.22)', fill:true, tension:0, pointRadius:0, borderWidth:1.5, yAxisID:'y1' } ] },
     options:{ responsive:true, maintainAspectRatio:false, interaction:{ mode:'index', intersect:false },
       plugins:{ legend:{ position:'bottom', labels:{ boxWidth:12, font:{size:11} } },
-        tooltip:{ callbacks:{ label: c => c.dataset.label==='Drawdown' ? ('Drawdown : '+c.parsed.y.toFixed(1)+'%') : ('Patrimoine : '+fmt(Math.round(c.parsed.y))+' €') } } },
+        tooltip:{ callbacks:{ label: c => c.dataset.label!=='Patrimoine' ? ('Drawdown TWR : '+c.parsed.y.toFixed(1)+'%') : ('Patrimoine : '+fmt(Math.round(c.parsed.y))+' €') } } },
       scales:{ y:{ position:'left', ticks:{ callback:v=>fmt(v)+' €', font:{size:10} } },
         y1:{ position:'right', max:0, grid:{ drawOnChartArea:false }, ticks:{ callback:v=>v.toFixed(0)+'%', font:{size:10} } },
         x:{ ticks:{ font:{size:10}, maxRotation:0, autoSkip:true, maxTicksLimit:12 } } } } });
