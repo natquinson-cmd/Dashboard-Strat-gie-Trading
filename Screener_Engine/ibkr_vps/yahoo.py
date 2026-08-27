@@ -245,9 +245,42 @@ class Yahoo:
         except Exception:
             return None
 
+    # Nom d'echange verbeux (module price) -> code court attendu par EXCH_CCY (comme le chart). Non liste = USD par defaut.
+    _PRICE_EXCH = {
+        'NasdaqGS': 'NMS', 'NasdaqGM': 'NGM', 'NasdaqCM': 'NCM', 'NASDAQ': 'NMS', 'NMS': 'NMS',
+        'NYSE': 'NYQ', 'NYSEArca': 'PCX', 'NYSE Arca': 'PCX', 'NYSEAmerican': 'ASE', 'NYSE American': 'ASE',
+        'AMEX': 'ASE', 'BATS': 'BATS', 'Cboe BZX': 'BATS', 'Cboe US': 'BATS',
+        'XETRA': 'GER', 'Frankfurt': 'FRA', 'Amsterdam': 'AMS', 'Euronext Amsterdam': 'AMS',
+        'Paris': 'PAR', 'Euronext Paris': 'PAR', 'Milan': 'MIL', 'Borsa Italiana': 'MIL',
+        'Swiss': 'EBS', 'London': 'LSE', 'LSE': 'LSE', 'Madrid': 'MCE', 'Stockholm': 'STO',
+        'Copenhagen': 'CPH', 'Helsinki': 'HEL', 'Vienna': 'VIE', 'Brussels': 'BRU', 'Lisbon': 'LIS',
+    }
+
     # --- Cours "live" (dernier prix + variation du jour) pour le suivi des positions ---
     def live_quote(self, symbol):
-        """Renvoie {price, changePct, exchange, ts} via la meta du chart. None si indispo."""
+        """Renvoie {price, changePct, exchange, quoteType, ts}. Prix PRE/POST-marche inclus (module price)
+        pour coller a ce qu'affiche un courtier hors seance (ex Revolut) ; repli sur le chart si indispo."""
+        try:
+            j = self._get(f'{BASE}/v10/finance/quoteSummary/{symbol}?modules=price')
+            pm = ((j.get('quoteSummary') or {}).get('result') or [{}])[0].get('price') or {}
+
+            def raw(k):
+                v = pm.get(k)
+                return v.get('raw') if isinstance(v, dict) else v
+            reg = raw('regularMarketPrice')
+            if reg is not None:
+                state = (pm.get('marketState') or '').upper()
+                price, chg = reg, raw('regularMarketChangePercent')
+                if state.startswith('PRE') and raw('preMarketPrice') is not None:
+                    price, chg = raw('preMarketPrice'), raw('preMarketChangePercent')    # pre-marche (comme Revolut)
+                elif state.startswith('POST') and raw('postMarketPrice') is not None:
+                    price, chg = raw('postMarketPrice'), raw('postMarketChangePercent')   # after-hours
+                exch = self._PRICE_EXCH.get(pm.get('exchangeName'), pm.get('exchangeName'))
+                return {'price': price, 'changePct': chg, 'exchange': exch,
+                        'quoteType': pm.get('quoteType'), 'ts': raw('regularMarketTime')}
+        except Exception:
+            pass
+        # Repli : meta du chart (regularMarketPrice seul, pas de pre/post)
         try:
             j = self._get(f'{BASE}/v8/finance/chart/{symbol}?range=1d&interval=1d')
             meta = ((j.get('chart') or {}).get('result') or [{}])[0].get('meta') or {}
