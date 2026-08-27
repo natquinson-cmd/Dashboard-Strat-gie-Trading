@@ -3780,11 +3780,25 @@ function ttlSourceMetrics() {
 }
 function ttlBuildEquityDD() {
   const eq = ttlEqMonths; if (!eq.months || !eq.months.length) return;
-  let peak = -Infinity; const dd = eq.total.map(v => { if (v>peak) peak=v; return peak>0 ? (v-peak)/peak*100 : 0; });
+  // Drawdown NET DES INJECTIONS DE CAPITAL. Quand une source commence a etre suivie (Darwinex des juin,
+  // Actions des aout), sa valeur "apparait" d'un coup : c'est du capital qui entre, PAS un gain. On la retire
+  // du pic pour ne pas creer de faux plus-haut (qui faussait le drawdown de juin) ni de fausse reprise en aout.
+  // Le vrai drawdown en RENDEMENT par source reste la table "Risque / rendement" (TWR).
+  const S = (typeof ttlSeries !== 'undefined' && ttlSeries) ? ttlSeries : { ig: [], stk: [], dwx: [] };
+  const srcs = ['ig', 'stk', 'dwx'];
+  let peak = -Infinity, cumInj = 0;
+  const dd = eq.total.map((v, i) => {
+    let inj = 0;
+    srcs.forEach(k => { const arr = S[k] || []; const cur = arr[i] || 0, prev = i > 0 ? (arr[i - 1] || 0) : 0; if (prev === 0 && cur > 0) inj += cur; });
+    cumInj += inj;
+    const adj = v - cumInj;                     // patrimoine "organique", net des apparitions de sources
+    if (adj > peak) peak = adj;
+    return peak > 0 ? (adj - peak) / peak * 100 : 0;
+  });
   ttlMkChart('ttlEquityDDChart', { type:'line',
     data:{ labels: eq.months.map(ttlYm), datasets:[
       { label:'Patrimoine', data: eq.total, borderColor:'#1d9e74', backgroundColor:'rgba(29,158,116,0.10)', fill:true, tension:0.25, pointRadius:0, borderWidth:2, yAxisID:'y' },
-      { label:'Drawdown', data: dd, borderColor:'#dd5f66', backgroundColor:'rgba(221,95,102,0.22)', fill:true, tension:0.25, pointRadius:0, borderWidth:1, yAxisID:'y1' } ] },
+      { label:'Drawdown', data: dd, borderColor:'#dd5f66', backgroundColor:'rgba(221,95,102,0.22)', fill:true, tension:0, pointRadius:0, borderWidth:1.5, yAxisID:'y1' } ] },
     options:{ responsive:true, maintainAspectRatio:false, interaction:{ mode:'index', intersect:false },
       plugins:{ legend:{ position:'bottom', labels:{ boxWidth:12, font:{size:11} } },
         tooltip:{ callbacks:{ label: c => c.dataset.label==='Drawdown' ? ('Drawdown : '+c.parsed.y.toFixed(1)+'%') : ('Patrimoine : '+fmt(Math.round(c.parsed.y))+' €') } } },
