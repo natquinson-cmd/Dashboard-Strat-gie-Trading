@@ -447,6 +447,16 @@
     display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px;
     margin-bottom:24px;
   }
+  /* Trading total : Capital total a GAUCHE, les 6 cards chiffres en grille a DROITE (remplit le vide) */
+  .ttl-top { display:flex; gap:16px; align-items:stretch; flex-wrap:wrap; margin-bottom:24px; }
+  .ttl-top > .hero-kpi { display:block; flex:1 1 300px; max-width:400px; margin-bottom:0; }
+  .ttl-top > .hero-kpi .hero-card { height:100%; }
+  .ttl-top > .kpi-grid { flex:3 1 520px; margin-bottom:0; grid-template-columns:repeat(3,minmax(0,1fr)); align-content:stretch; }
+  @media (max-width:860px){
+    .ttl-top { flex-direction:column; }
+    .ttl-top > .hero-kpi { max-width:none; }
+    .ttl-top > .kpi-grid { grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); }
+  }
   .hero-kpi { animation: slideUp 0.5s ease backwards; }
   .hero-card {
     background:var(--bg-card); border:1px solid var(--border);
@@ -1015,8 +1025,10 @@
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px">
       <span style="font-size:0.8rem;color:var(--text-secondary)">Patrimoine de trading consolidé — Trading Auto (IG) + Portefeuille d'actions + Darwinex, en euros.</span>
     </div>
-    <div class="hero-kpi" id="ttlHero"></div>
-    <div class="kpi-grid" id="ttlKpi"></div>
+    <div class="ttl-top">
+      <div class="hero-kpi" id="ttlHero"></div>
+      <div class="kpi-grid" id="ttlKpi"></div>
+    </div>
     <div class="chart-full"><div class="chart-card">
       <h3>Évolution du patrimoine (composition)</h3>
       <canvas id="ttlStackChart"></canvas>
@@ -3506,7 +3518,7 @@ function renderTotalTab() {
   document.getElementById('ttlKpi').innerHTML =
     card(pnlTotal>=0?'kpi-green':'kpi-neg', 'P&L cumulé total', sgn(pnlTotal), (pnlPct>=0?'+':'')+pnlPct.toFixed(2)+'% sur '+fmt(Math.round(invTotal))+' € investis') +
     card(pnlMonth>=0?'kpi-green':'kpi-neg', 'P&L du mois', sgn(pnlMonth), monthNamesFull[now.getMonth()]+' '+now.getFullYear()) +
-    card('', 'P&L du jour', pnlToday ? sgn(pnlToday) : '—', pnlToday ? curDay : 'Pas de mouvement aujourd\'hui') +
+    card(pnlToday ? (pnlToday>=0?'kpi-green':'kpi-neg') : '', 'P&L du jour', pnlToday ? sgn(pnlToday) : '—', pnlToday ? curDay : 'Pas de mouvement aujourd\'hui') +
     card('', 'Investi total', fmt(Math.round(invTotal))+' €', 'Apports nets cumulés (3 sources)') +
     card(isATH?'kpi-green':'', 'Plus haut patrimoine', fmt(Math.round(ath))+' €', isATH ? 'Au plus haut historique' : ('Actuel '+ddPct.toFixed(1)+'% sous le pic')) +
     card('', 'Sources agrégées', '3', 'IG · Actions · Darwinex');
@@ -3529,10 +3541,68 @@ function renderTotalTab() {
 function ttlDestroyCharts() { ttlCharts.forEach(c => { try { c.destroy(); } catch (e) {} }); ttlCharts = []; }
 function ttlYm(ym) { const p = ym.split('-'); return p[1] + '/' + p[0].slice(2); }
 function ttlMkChart(id, cfg) { const el = document.getElementById(id); if (!el) return; try { const c = new Chart(el, cfg); ttlCharts.push(c); return c; } catch (e) {} }
+// --- Plugins d'etiquettes : ecrivent les valeurs SUR les graphiques (pas seulement au survol) ---
+function ttlBarLabels(sign) {   // valeur au bout/sommet de chaque barre (barres H ou V)
+  return { id: 'ttlBarLabels', afterDatasetsDraw(chart) {
+    const ctx = chart.ctx, horiz = chart.options.indexAxis === 'y';
+    chart.data.datasets.forEach((ds, di) => {
+      const meta = chart.getDatasetMeta(di); if (meta.hidden) return;
+      meta.data.forEach((el, i) => {
+        const v = Number(ds.data[i]); if (isNaN(v)) return;
+        const txt = (sign && v > 0 ? '+' : '') + fmt(Math.round(v)) + ' €';
+        ctx.save(); ctx.font = 'bold 10px Inter, sans-serif'; ctx.fillStyle = v >= 0 ? '#1d9e74' : '#dd5f66';
+        if (horiz) { ctx.textBaseline = 'middle'; ctx.textAlign = v >= 0 ? 'left' : 'right'; ctx.fillText(txt, el.x + (v >= 0 ? 5 : -5), el.y); }
+        else { ctx.textAlign = 'center'; ctx.textBaseline = 'bottom'; ctx.fillText(txt, el.x, el.y - 4); }
+        ctx.restore();
+      });
+    });
+  } };
+}
+function ttlDoughnutLabels() {   // montant au milieu de chaque part du donut (halo blanc pour lisibilite)
+  return { id: 'ttlDoughnutLabels', afterDatasetsDraw(chart) {
+    const ctx = chart.ctx, ds = chart.data.datasets[0]; if (!ds) return;
+    const tot = ds.data.reduce((a, b) => a + (Number(b) || 0), 0) || 1;
+    chart.getDatasetMeta(0).data.forEach((el, i) => {
+      const v = Number(ds.data[i]) || 0; if (v <= 0 || v / tot < 0.04) return;
+      const p = el.getProps(['startAngle', 'endAngle', 'innerRadius', 'outerRadius', 'x', 'y'], true);
+      const ang = (p.startAngle + p.endAngle) / 2, r = (p.innerRadius + p.outerRadius) / 2;
+      const x = p.x + Math.cos(ang) * r, y = p.y + Math.sin(ang) * r, txt = fmt(Math.round(v)) + ' €';
+      ctx.save(); ctx.font = 'bold 11px Inter, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(255,255,255,0.9)'; ctx.strokeText(txt, x, y);
+      ctx.fillStyle = '#22303f'; ctx.fillText(txt, x, y); ctx.restore();
+    });
+  } };
+}
+function ttlGroupTotalLabels() {   // total (somme des 3 sources) au-dessus de chaque groupe mensuel
+  return { id: 'ttlGroupTotalLabels', afterDatasetsDraw(chart) {
+    const ctx = chart.ctx, dss = chart.data.datasets, n = (dss[0] && dss[0].data.length) || 0;
+    for (let i = 0; i < n; i++) {
+      let tot = 0, topY = Infinity; const xs = [];
+      dss.forEach((ds, di) => { const el = chart.getDatasetMeta(di).data[i]; if (!el) return; tot += Number(ds.data[i]) || 0; if (el.y < topY) topY = el.y; xs.push(el.x); });
+      if (!isFinite(topY) || !xs.length) continue;
+      const cx = xs.reduce((a, b) => a + b, 0) / xs.length;
+      ctx.save(); ctx.font = 'bold 9px Inter, sans-serif'; ctx.fillStyle = tot >= 0 ? '#1d9e74' : '#dd5f66';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+      ctx.fillText((tot >= 0 ? '+' : '') + fmt(Math.round(tot)) + ' €', cx, topY - 3); ctx.restore();
+    }
+  } };
+}
+function ttlLineEndLabels() {   // derniere valeur de chaque courbe, au bord droit
+  return { id: 'ttlLineEndLabels', afterDatasetsDraw(chart) {
+    const ctx = chart.ctx;
+    chart.data.datasets.forEach((ds, di) => {
+      const meta = chart.getDatasetMeta(di); if (meta.hidden || !meta.data.length) return;
+      const el = meta.data[meta.data.length - 1], v = Number(ds.data[ds.data.length - 1]);
+      if (isNaN(v) || v === 0) return;
+      ctx.save(); ctx.font = 'bold 10px Inter, sans-serif'; ctx.fillStyle = ds.borderColor || '#42546a';
+      ctx.textAlign = 'right'; ctx.textBaseline = 'bottom'; ctx.fillText(fmt(Math.round(v)) + ' €', el.x - 2, el.y - 3); ctx.restore();
+    });
+  } };
+}
 function ttlBuildStack() {
   const s = ttlSeries; if (!s.months.length) return;
   const z = a => a.map(v => v == null ? 0 : v);
-  ttlMkChart('ttlStackChart', { type:'line',
+  ttlMkChart('ttlStackChart', { type:'line', plugins:[ttlLineEndLabels()],
     data:{ labels: s.months.map(ttlYm), datasets:[
       { label: TTL_LABEL.ig, data: z(s.ig), borderColor: TTL_COL.ig, backgroundColor: TTL_COL.ig+'33', fill:true, tension:0.25, pointRadius:0, borderWidth:1.5 },
       { label: TTL_LABEL.stk, data: z(s.stk), borderColor: TTL_COL.stk, backgroundColor: TTL_COL.stk+'33', fill:true, tension:0.25, pointRadius:0, borderWidth:1.5 },
@@ -3545,28 +3615,28 @@ function ttlBuildStack() {
 function ttlBuildAlloc(ig, stk, dwx) {
   const data = [Math.max(0,Math.round(ig)), Math.max(0,Math.round(stk)), Math.max(0,Math.round(dwx))];
   const tot = data.reduce((a,b)=>a+b,0) || 1;
-  ttlMkChart('ttlAllocChart', { type:'doughnut',
+  ttlMkChart('ttlAllocChart', { type:'doughnut', plugins:[ttlDoughnutLabels()],
     data:{ labels:[TTL_LABEL.ig, TTL_LABEL.stk, TTL_LABEL.dwx], datasets:[{ data, backgroundColor:[TTL_COL.ig, TTL_COL.stk, TTL_COL.dwx], borderWidth:2, borderColor:'#fff' }] },
     options:{ responsive:true, maintainAspectRatio:false, cutout:'62%',
       plugins:{ legend:{ position:'bottom', labels:{ boxWidth:12, font:{ size:11 } } },
         tooltip:{ callbacks:{ label: c => c.label+' : '+fmt(c.parsed)+' € ('+(c.parsed/tot*100).toFixed(1)+'%)' } } } } });
 }
 function ttlBuildContrib(ig, stk, dwx) {
-  ttlMkChart('ttlContribChart', { type:'bar',
+  ttlMkChart('ttlContribChart', { type:'bar', plugins:[ttlBarLabels(true)],
     data:{ labels:[TTL_LABEL.ig, TTL_LABEL.stk, TTL_LABEL.dwx], datasets:[{ data:[Math.round(ig), Math.round(stk), Math.round(dwx)], backgroundColor:[TTL_COL.ig, TTL_COL.stk, TTL_COL.dwx], borderRadius:6 }] },
-    options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false,
+    options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false, layout:{ padding:{ right:56 } },
       plugins:{ legend:{ display:false }, tooltip:{ callbacks:{ label: c => (c.parsed.x>=0?'+':'')+fmt(Math.round(c.parsed.x))+' €' } } },
       scales:{ x:{ ticks:{ callback:v=>fmt(v)+' €', font:{ size:10 } } }, y:{ ticks:{ font:{ size:11 } } } } } });
 }
 function ttlBuildMonthlyChart() {
   const yms = Object.keys(ttlMonthPnl).sort().slice(-15);
   if (!yms.length) return;
-  ttlMkChart('ttlMonthlyChart', { type:'bar',
+  ttlMkChart('ttlMonthlyChart', { type:'bar', plugins:[ttlGroupTotalLabels()],
     data:{ labels: yms.map(ttlYm), datasets:[
       { label: TTL_LABEL.ig, data: yms.map(y=>Math.round(ttlMonthPnl[y].ig)), backgroundColor: TTL_COL.ig, borderRadius:3 },
       { label: TTL_LABEL.stk, data: yms.map(y=>Math.round(ttlMonthPnl[y].stk)), backgroundColor: TTL_COL.stk, borderRadius:3 },
       { label: TTL_LABEL.dwx, data: yms.map(y=>Math.round(ttlMonthPnl[y].dwx)), backgroundColor: TTL_COL.dwx, borderRadius:3 } ] },
-    options:{ responsive:true, maintainAspectRatio:false, interaction:{ mode:'index', intersect:false },
+    options:{ responsive:true, maintainAspectRatio:false, layout:{ padding:{ top:16 } }, interaction:{ mode:'index', intersect:false },
       plugins:{ legend:{ position:'bottom', labels:{ boxWidth:12, font:{ size:11 } } },
         tooltip:{ callbacks:{ label: c => c.dataset.label+' : '+(c.parsed.y>=0?'+':'')+fmt(Math.round(c.parsed.y))+' €', footer: it => { const t = it.reduce((a,i)=>a+i.parsed.y,0); return 'Total : '+(t>=0?'+':'')+fmt(Math.round(t))+' €'; } } } },
       scales:{ y:{ ticks:{ callback:v=>fmt(v)+' €', font:{ size:10 } } }, x:{ ticks:{ font:{ size:10 } } } } } });
