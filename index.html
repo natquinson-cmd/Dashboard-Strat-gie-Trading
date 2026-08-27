@@ -1011,7 +1011,59 @@
   </div>
 
   <!-- ═══════════════════════ TAB 0 : REAL TRADING ═══════════════════════ -->
-  <div id="tab-real" class="tab-content active">
+  <div id="tab-total" class="tab-content active">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px">
+      <span style="font-size:0.8rem;color:var(--text-secondary)">Patrimoine de trading consolidé — Trading Auto (IG) + Portefeuille d'actions + Darwinex, en euros.</span>
+    </div>
+    <div class="hero-kpi" id="ttlHero"></div>
+    <div class="kpi-grid" id="ttlKpi"></div>
+    <div class="chart-full"><div class="chart-card">
+      <h3>Évolution du patrimoine (composition)</h3>
+      <canvas id="ttlStackChart"></canvas>
+    </div></div>
+    <div class="chart-row">
+      <div class="chart-card"><h3>Répartition du capital</h3><canvas id="ttlAllocChart"></canvas></div>
+      <div class="chart-card"><h3 title="P&L cumulé net des apports, par source">Contribution au P&amp;L</h3><canvas id="ttlContribChart"></canvas></div>
+    </div>
+    <div class="chart-full"><div class="chart-card">
+      <h3>Performance mensuelle comparée</h3>
+      <canvas id="ttlMonthlyChart"></canvas>
+    </div></div>
+    <div class="chart-full"><div class="chart-card">
+      <h3 style="justify-content:space-between;flex-wrap:wrap;">
+        <span style="display:flex;align-items:center;gap:8px;">Calendrier Journalier — patrimoine total</span>
+        <label class="toggle-wrap">
+          <span class="toggle-val">€</span>
+          <input type="checkbox" id="ttlDayPctToggle" onchange="ttlBuildDaily(); this.parentElement.querySelector('.toggle-val').textContent=this.checked?'%':'€'">
+          <span class="toggle-track"></span>
+          <span class="toggle-val">%</span>
+        </label>
+      </h3>
+      <div class="cal-nav">
+        <button onclick="ttlCalPrev()">◀</button>
+        <span class="cal-title" id="ttlCalTitle">—</span>
+        <button onclick="ttlCalNext()">▶</button>
+      </div>
+      <div class="day-grid" id="ttlDayGrid"></div>
+      <div class="day-detail-panel" id="ttlDayDetail"></div>
+      <div class="stats-bar" id="ttlDayStats"></div>
+    </div></div>
+    <div class="chart-full"><div class="chart-card">
+      <h3 style="justify-content:space-between;flex-wrap:wrap;">
+        <span style="display:flex;align-items:center;gap:8px;">Performance Mensuelle — patrimoine total</span>
+        <label class="toggle-wrap">
+          <span class="toggle-val">€</span>
+          <input type="checkbox" id="ttlMonthPctToggle" onchange="ttlBuildMonthly(); this.parentElement.querySelector('.toggle-val').textContent=this.checked?'%':'€'">
+          <span class="toggle-track"></span>
+          <span class="toggle-val">%</span>
+        </label>
+      </h3>
+      <div class="heatmap-container" id="ttlMonthlyHeat"></div>
+      <div class="stats-bar" id="ttlMonthStats"></div>
+    </div></div>
+  </div>
+
+  <div id="tab-real" class="tab-content">
     <div class="real-header-row">
       <div class="asset-filter">
         <button class="filter-btn active" onclick="setAssetFilter('all')">Tout</button>
@@ -3298,6 +3350,325 @@ function buildMonthlyHeatReal() {
   `;
 }
 
+// ══════════════════════════════════════════════════════════════
+// TRADING TOTAL — agrégat des 3 sources (Trading Auto IG + Portefeuille d'actions + Darwinex)
+// Tout est ramené en EUR. Le P&L journalier de chaque source est NET des apports
+// (IG = trades réalisés ; Actions = Δvaleur − Δinvesti ; Darwinex = Δvaleur − dépôt),
+// donc sommable jour par jour. Les actions (USD) passent en EUR via usdEurRate (EUR pour 1 USD).
+// ══════════════════════════════════════════════════════════════
+let ttlCalM = null, ttlCalY = null;
+let ttlCharts = [];
+let ttlSelCell = null;
+let ttlDayData = {};
+let ttlSeries = { months: [], ig: [], stk: [], dwx: [] };
+let ttlEqMonths = { months: [], total: [] };
+let ttlMonthPnl = {};
+const TTL_COL = { ig: '#3563e9', stk: '#f59e0b', dwx: '#8b5cf6' };
+const TTL_LABEL = { ig: 'Trading Auto', stk: "Portefeuille d'actions", dwx: 'Darwinex' };
+
+function ttlEurPerUsd() {
+  if (typeof usdEurRate === 'number' && usdEurRate > 0) return usdEurRate;
+  if (typeof SCR_FX !== 'undefined' && SCR_FX && SCR_FX.EUR) return SCR_FX.EUR;
+  return 1;
+}
+function ttlStockHist() {
+  if (typeof SCR_HIST !== 'undefined' && SCR_HIST && SCR_HIST.length) return SCR_HIST;
+  if (typeof positionsHistoryData !== 'undefined' && positionsHistoryData) return scrHistArray(positionsHistoryData);
+  return [];
+}
+function ttlDwxDates() {
+  return Object.keys(darwinexDaily || {}).filter(k => /^\d{4}-\d{2}-\d{2}$/.test(k) && darwinexDaily[k] && typeof darwinexDaily[k].value === 'number' && darwinexDaily[k].value > 0).sort();
+}
+function ttlDailyMap() {
+  const fx = ttlEurPerUsd(), map = {};
+  const bump = (d, k, v) => { if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return; (map[d] || (map[d] = { ig:0, stk:0, dwx:0 }))[k] += v; };
+  const ig = aggregateByDay((typeof realTrades !== 'undefined' && realTrades) ? realTrades : []);
+  Object.keys(ig).forEach(d => bump(d, 'ig', ig[d].pnl));
+  const sh = ttlStockHist();
+  if (sh.length > 1) { const sp = scrDailyPnl(sh); Object.keys(sp).forEach(d => bump(d, 'stk', sp[d] * fx)); }
+  const dd = dwxComputeDaily();
+  Object.keys(dd).forEach(d => bump(d, 'dwx', dd[d].pnl));
+  Object.keys(map).forEach(d => map[d].total = map[d].ig + map[d].stk + map[d].dwx);
+  return map;
+}
+function ttlEquitySeries() {
+  const fx = ttlEurPerUsd();
+  const igEv = [];
+  (typeof realDeposits !== 'undefined' ? realDeposits : []).forEach(d => igEv.push([d.date||'', d.amount||0]));
+  (typeof realTrades !== 'undefined' ? realTrades : []).forEach(t => igEv.push([t[0]||'', t[2]||0]));
+  (typeof realDividends !== 'undefined' ? realDividends : []).forEach(d => igEv.push([d.date||'', d.amount||0]));
+  (typeof realFees !== 'undefined' ? realFees : []).forEach(f => igEv.push([f.date||'', f.amount||0]));
+  igEv.sort((a,b) => a[0].localeCompare(b[0]));
+  const sh = ttlStockHist(), dwK = ttlDwxDates();
+  const allDates = [];
+  igEv.forEach(e => { if (e[0]) allDates.push(e[0]); });
+  sh.forEach(h => allDates.push(h.date));
+  dwK.forEach(k => allDates.push(k));
+  if (!allDates.length) return { months: [], ig: [], stk: [], dwx: [] };
+  allDates.sort();
+  const now = new Date();
+  const curYM = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0');
+  const months = [];
+  let yy = parseInt(allDates[0].slice(0,4)), mm = parseInt(allDates[0].slice(5,7));
+  while (months.length < 600) {
+    const ym = yy + '-' + String(mm).padStart(2,'0');
+    months.push(ym);
+    if (ym === curYM) break;
+    mm++; if (mm > 12) { mm = 1; yy++; }
+  }
+  const igArr = [], stkArr = [], dwxArr = [];
+  months.forEach(ym => {
+    const lim = ym + '-31';
+    let igv = 0; for (const ev of igEv) { if (ev[0] && ev[0] <= lim) igv += ev[1]; else if (ev[0] > lim) break; }
+    igArr.push(Math.round(igv));
+    let sv = null; for (const h of sh) { if (h.date <= lim) sv = h.value; else break; }
+    stkArr.push(sv != null ? Math.round(sv * fx) : null);
+    let dv = null; for (const k of dwK) { if (k <= lim) dv = darwinexDaily[k].value; else break; }
+    dwxArr.push(dv != null ? Math.round(dv) : null);
+  });
+  return { months, ig: igArr, stk: stkArr, dwx: dwxArr };
+}
+function ttlEquityAtMonthStart(y, m) {
+  const target = y + '-' + String(m+1).padStart(2,'0');
+  const months = ttlEqMonths.months, total = ttlEqMonths.total;
+  let base = 0;
+  for (let i = 0; i < months.length; i++) { if (months[i] < target) base = total[i]; else break; }
+  return base;
+}
+
+function renderTotalTab() {
+  const fx = ttlEurPerUsd();
+  const igDep = (typeof getTotalDeposits === 'function') ? getTotalDeposits() : 0;
+  const igTrades = (typeof realTrades !== 'undefined' && realTrades) ? realTrades.reduce((a,t) => a+(t[2]||0), 0) : 0;
+  const igDiv = (typeof realDividends !== 'undefined' && realDividends) ? realDividends.reduce((a,d) => a+(d.amount||0), 0) : 0;
+  const igFees = (typeof getTotalFees === 'function') ? getTotalFees() : 0;
+  const igNow = igDep + igTrades + igDiv + igFees, igPnl = igTrades + igDiv + igFees;
+  const sh = ttlStockHist();
+  const stkNow = (sh.length ? sh[sh.length-1].value : 0) * fx;
+  const stkPnl = (sh.length > 1 ? Object.values(scrDailyPnl(sh)).reduce((a,b) => a+b, 0) : 0) * fx;
+  const stkInv = stkNow - stkPnl;
+  const dwK = ttlDwxDates();
+  const dwxNow = dwK.length ? darwinexDaily[dwK[dwK.length-1]].value : 0;
+  const dwxPnl = Object.values(dwxComputeDaily()).reduce((a,x) => a + (x.pnl||0), 0);
+  const dwxInv = dwxNow - dwxPnl;
+  const capTotal = igNow + stkNow + dwxNow, pnlTotal = igPnl + stkPnl + dwxPnl, invTotal = igDep + stkInv + dwxInv;
+  const pnlPct = invTotal > 0 ? pnlTotal/invTotal*100 : 0;
+
+  ttlDayData = ttlDailyMap();
+  ttlSeries = ttlEquitySeries();
+  ttlEqMonths = { months: ttlSeries.months, total: ttlSeries.months.map((_,i) => (ttlSeries.ig[i]||0)+(ttlSeries.stk[i]||0)+(ttlSeries.dwx[i]||0)) };
+  ttlMonthPnl = {};
+  Object.keys(ttlDayData).forEach(d => { const ym = d.slice(0,7); const o = ttlMonthPnl[ym] || (ttlMonthPnl[ym] = { ig:0, stk:0, dwx:0, total:0 }); o.ig += ttlDayData[d].ig; o.stk += ttlDayData[d].stk; o.dwx += ttlDayData[d].dwx; o.total += ttlDayData[d].total; });
+
+  let ath = 0; ttlEqMonths.total.forEach(v => { if (v > ath) ath = v; });
+  const ddPct = ath > 0 ? (capTotal - ath)/ath*100 : 0;
+  const isATH = capTotal > 0 && capTotal >= ath - 0.5;
+  const now = new Date();
+  const curYM = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0');
+  const curDay = curYM + '-' + String(now.getDate()).padStart(2,'0');
+  const pnlMonth = (ttlMonthPnl[curYM] || {}).total || 0;
+  const pnlToday = (ttlDayData[curDay] || {}).total || 0;
+
+  const dot = k => '<span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:' + TTL_COL[k] + ';margin-right:6px;vertical-align:-1px"></span>';
+  const athBadge = isATH ? ' <span style="display:inline-flex;align-items:center;background:linear-gradient(135deg,#f59e0b,#fbbf24);color:#000;font-size:0.8rem;font-weight:700;padding:3px 11px;border-radius:20px;vertical-align:middle;margin-left:8px;letter-spacing:0.5px;">ATH</span>' : '';
+  document.getElementById('ttlHero').innerHTML =
+    '<div class="hero-card capital" style="position:relative;flex:1;">' +
+      '<div class="hero-label">Capital total' + athBadge + '</div>' +
+      '<div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;">' +
+        '<div class="hero-value" style="background:linear-gradient(135deg,' + (pnlTotal>=0?'#1d9e74,#34d399':'#dd5f66,#f87171') + ');-webkit-background-clip:text;-webkit-text-fill-color:transparent;">' + fmt(Math.round(capTotal)) + ' €</div>' +
+        '<span class="hero-badge ' + (pnlPct>=0?'pos':'neg') + '" style="font-size:0.95rem;padding:5px 14px;" title="Rendement sur les apports nets cumulés">' + (pnlPct>=0?'+':'') + pnlPct.toFixed(2) + '%</span>' +
+      '</div>' +
+      '<div style="font-size:0.9rem;color:var(--text-secondary);margin-top:8px;">Investi : ' + fmt(Math.round(invTotal)) + ' € · P&L cumulé : <span style="color:' + (pnlTotal>=0?'var(--positive)':'var(--negative)') + ';font-weight:700">' + (pnlTotal>=0?'+':'') + fmt(Math.round(pnlTotal)) + ' €</span></div>' +
+      '<div style="display:flex;gap:18px;flex-wrap:wrap;margin-top:10px;padding-top:10px;border-top:1px solid rgba(34,49,77,0.08);font-size:0.88rem;">' +
+        '<span>' + dot('ig') + 'Trading Auto&nbsp;<strong>' + fmt(Math.round(igNow)) + ' €</strong></span>' +
+        '<span>' + dot('stk') + 'Actions&nbsp;<strong>' + fmt(Math.round(stkNow)) + ' €</strong></span>' +
+        '<span>' + dot('dwx') + 'Darwinex&nbsp;<strong>' + fmt(Math.round(dwxNow)) + ' €</strong></span>' +
+      '</div>' +
+    '</div>';
+
+  const sgn = v => (v>=0?'+':'') + fmt(Math.round(v)) + ' €';
+  const card = (cls,label,value,sub) => '<div class="kpi-card ' + cls + '"><div class="label">' + label + '</div><div class="value">' + value + '</div><div class="sub">' + sub + '</div></div>';
+  document.getElementById('ttlKpi').innerHTML =
+    card(pnlTotal>=0?'kpi-green':'kpi-neg', 'P&L cumulé total', sgn(pnlTotal), (pnlPct>=0?'+':'')+pnlPct.toFixed(2)+'% sur '+fmt(Math.round(invTotal))+' € investis') +
+    card(pnlMonth>=0?'kpi-green':'kpi-neg', 'P&L du mois', sgn(pnlMonth), monthNamesFull[now.getMonth()]+' '+now.getFullYear()) +
+    card('', 'P&L du jour', pnlToday ? sgn(pnlToday) : '—', pnlToday ? curDay : 'Pas de mouvement aujourd\'hui') +
+    card('', 'Investi total', fmt(Math.round(invTotal))+' €', 'Apports nets cumulés (3 sources)') +
+    card(isATH?'kpi-green':'', 'Plus haut patrimoine', fmt(Math.round(ath))+' €', isATH ? 'Au plus haut historique' : ('Actuel '+ddPct.toFixed(1)+'% sous le pic')) +
+    card('', 'Sources agrégées', '3', 'IG · Actions · Darwinex');
+
+  if (ttlCalY === null) {
+    const dks = Object.keys(ttlDayData).sort();
+    const last = dks.length ? dks[dks.length-1] : curDay;
+    ttlCalY = parseInt(last.slice(0,4)); ttlCalM = parseInt(last.slice(5,7)) - 1;
+  }
+
+  ttlDestroyCharts();
+  ttlBuildStack(); ttlBuildAlloc(igNow, stkNow, dwxNow); ttlBuildContrib(igPnl, stkPnl, dwxPnl); ttlBuildMonthlyChart();
+  ttlBuildDaily(); ttlBuildMonthly();
+}
+
+// ── Graphiques (Chart.js) ──
+function ttlDestroyCharts() { ttlCharts.forEach(c => { try { c.destroy(); } catch (e) {} }); ttlCharts = []; }
+function ttlYm(ym) { const p = ym.split('-'); return p[1] + '/' + p[0].slice(2); }
+function ttlMkChart(id, cfg) { const el = document.getElementById(id); if (!el) return; try { const c = new Chart(el, cfg); ttlCharts.push(c); return c; } catch (e) {} }
+function ttlBuildStack() {
+  const s = ttlSeries; if (!s.months.length) return;
+  const z = a => a.map(v => v == null ? 0 : v);
+  ttlMkChart('ttlStackChart', { type:'line',
+    data:{ labels: s.months.map(ttlYm), datasets:[
+      { label: TTL_LABEL.ig, data: z(s.ig), borderColor: TTL_COL.ig, backgroundColor: TTL_COL.ig+'33', fill:true, tension:0.25, pointRadius:0, borderWidth:1.5 },
+      { label: TTL_LABEL.stk, data: z(s.stk), borderColor: TTL_COL.stk, backgroundColor: TTL_COL.stk+'33', fill:true, tension:0.25, pointRadius:0, borderWidth:1.5 },
+      { label: TTL_LABEL.dwx, data: z(s.dwx), borderColor: TTL_COL.dwx, backgroundColor: TTL_COL.dwx+'33', fill:true, tension:0.25, pointRadius:0, borderWidth:1.5 } ] },
+    options:{ responsive:true, maintainAspectRatio:false, interaction:{ mode:'index', intersect:false },
+      plugins:{ legend:{ position:'bottom', labels:{ boxWidth:12, font:{ size:11 } } },
+        tooltip:{ callbacks:{ label: c => c.dataset.label+' : '+fmt(Math.round(c.parsed.y))+' €', footer: it => 'Total : '+fmt(Math.round(it.reduce((a,i)=>a+i.parsed.y,0)))+' €' } } },
+      scales:{ y:{ stacked:true, ticks:{ callback:v=>fmt(v)+' €', font:{ size:10 } } }, x:{ ticks:{ font:{ size:10 }, maxRotation:0, autoSkip:true, maxTicksLimit:12 } } } } });
+}
+function ttlBuildAlloc(ig, stk, dwx) {
+  const data = [Math.max(0,Math.round(ig)), Math.max(0,Math.round(stk)), Math.max(0,Math.round(dwx))];
+  const tot = data.reduce((a,b)=>a+b,0) || 1;
+  ttlMkChart('ttlAllocChart', { type:'doughnut',
+    data:{ labels:[TTL_LABEL.ig, TTL_LABEL.stk, TTL_LABEL.dwx], datasets:[{ data, backgroundColor:[TTL_COL.ig, TTL_COL.stk, TTL_COL.dwx], borderWidth:2, borderColor:'#fff' }] },
+    options:{ responsive:true, maintainAspectRatio:false, cutout:'62%',
+      plugins:{ legend:{ position:'bottom', labels:{ boxWidth:12, font:{ size:11 } } },
+        tooltip:{ callbacks:{ label: c => c.label+' : '+fmt(c.parsed)+' € ('+(c.parsed/tot*100).toFixed(1)+'%)' } } } } });
+}
+function ttlBuildContrib(ig, stk, dwx) {
+  ttlMkChart('ttlContribChart', { type:'bar',
+    data:{ labels:[TTL_LABEL.ig, TTL_LABEL.stk, TTL_LABEL.dwx], datasets:[{ data:[Math.round(ig), Math.round(stk), Math.round(dwx)], backgroundColor:[TTL_COL.ig, TTL_COL.stk, TTL_COL.dwx], borderRadius:6 }] },
+    options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ display:false }, tooltip:{ callbacks:{ label: c => (c.parsed.x>=0?'+':'')+fmt(Math.round(c.parsed.x))+' €' } } },
+      scales:{ x:{ ticks:{ callback:v=>fmt(v)+' €', font:{ size:10 } } }, y:{ ticks:{ font:{ size:11 } } } } } });
+}
+function ttlBuildMonthlyChart() {
+  const yms = Object.keys(ttlMonthPnl).sort().slice(-15);
+  if (!yms.length) return;
+  ttlMkChart('ttlMonthlyChart', { type:'bar',
+    data:{ labels: yms.map(ttlYm), datasets:[
+      { label: TTL_LABEL.ig, data: yms.map(y=>Math.round(ttlMonthPnl[y].ig)), backgroundColor: TTL_COL.ig, borderRadius:3 },
+      { label: TTL_LABEL.stk, data: yms.map(y=>Math.round(ttlMonthPnl[y].stk)), backgroundColor: TTL_COL.stk, borderRadius:3 },
+      { label: TTL_LABEL.dwx, data: yms.map(y=>Math.round(ttlMonthPnl[y].dwx)), backgroundColor: TTL_COL.dwx, borderRadius:3 } ] },
+    options:{ responsive:true, maintainAspectRatio:false, interaction:{ mode:'index', intersect:false },
+      plugins:{ legend:{ position:'bottom', labels:{ boxWidth:12, font:{ size:11 } } },
+        tooltip:{ callbacks:{ label: c => c.dataset.label+' : '+(c.parsed.y>=0?'+':'')+fmt(Math.round(c.parsed.y))+' €', footer: it => { const t = it.reduce((a,i)=>a+i.parsed.y,0); return 'Total : '+(t>=0?'+':'')+fmt(Math.round(t))+' €'; } } } },
+      scales:{ y:{ ticks:{ callback:v=>fmt(v)+' €', font:{ size:10 } } }, x:{ ticks:{ font:{ size:10 } } } } } });
+}
+
+// ── Calendriers (mêmes fonctionnalités que Trading Auto) ──
+function ttlBuildDaily() {
+  const dayData = ttlDayData || {};
+  const showPct = document.getElementById('ttlDayPctToggle') && document.getElementById('ttlDayPctToggle').checked;
+  document.getElementById('ttlCalTitle').textContent = monthNamesFull[ttlCalM] + ' ' + ttlCalY;
+  const daysInMonth = new Date(ttlCalY, ttlCalM+1, 0).getDate();
+  const ymd = dt => dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0');
+  const base = ttlEquityAtMonthStart(ttlCalY, ttlCalM);
+  const todayStr = ymd(new Date());
+  let fwd = 1; while (true) { const dw = new Date(ttlCalY, ttlCalM, fwd).getDay(); if (dw>=1&&dw<=5) break; fwd++; }
+  const fwDow = new Date(ttlCalY, ttlCalM, fwd).getDay();
+  const gridStart = new Date(ttlCalY, ttlCalM, fwd-(fwDow-1));
+  let lwd = daysInMonth; while (true) { const dw = new Date(ttlCalY, ttlCalM, lwd).getDay(); if (dw>=1&&dw<=5) break; lwd--; }
+  const lwDow = new Date(ttlCalY, ttlCalM, lwd).getDay();
+  const gridEnd = new Date(ttlCalY, ttlCalM, lwd+(5-lwDow));
+  const dates = [];
+  for (let dt = new Date(gridStart); dt <= gridEnd; dt.setDate(dt.getDate()+1)) { const dw = dt.getDay(); if (dw===0||dw===6) continue; dates.push(new Date(dt)); }
+  const isInMonth = dt => dt.getMonth()===ttlCalM && dt.getFullYear()===ttlCalY;
+  const maxAbs = Math.max(1, ...dates.map(dt => { const v = dayData[ymd(dt)]; return v ? Math.abs(v.total) : 0; }));
+  let html = ''; ['Lun','Mar','Mer','Jeu','Ven','Σ'].forEach(d => html += '<div class="day-header">' + d + '</div>');
+  let winD = 0, lossD = 0, weekTot = 0, monthTot = 0;
+  function emitWeek() {
+    const disp = showPct ? ((base>0?weekTot/base*100:0)>=0?'+':'')+(base>0?weekTot/base*100:0).toFixed(2)+'%' : (weekTot>=0?'+':'')+weekTot.toFixed(0)+'€';
+    const wI = Math.min(Math.abs(weekTot)/(maxAbs*3||1), 1);
+    const wBg = weekTot>=0 ? 'rgba(29,158,116,' + (0.12+wI*0.55).toFixed(2) + ')' : 'rgba(221,95,102,' + (0.12+wI*0.55).toFixed(2) + ')';
+    html += '<div class="day-cell week-total" style="background:' + wBg + '"><span class="day-pnl" style="color:' + (weekTot>=0?'var(--positive)':'var(--negative)') + '">' + disp + '</span></div>';
+    weekTot = 0;
+  }
+  dates.forEach(dt => {
+    const dow = dt.getDay(), dnum = dt.getDate(), ds = ymd(dt), inM = isInMonth(dt), other = inM?'':'other-month', isTod = ds===todayStr;
+    const dd = dayData[ds];
+    if (dd && Math.abs(dd.total) > 0.005) {
+      if (inM) { if (dd.total>=0) winD++; else lossD++; }
+      const cls = dd.total>=0 ? 'win' : 'loss';
+      let disp; if (showPct) { const p = base>0?dd.total/base*100:0; disp = (p>=0?'+':'') + p.toFixed(2) + '%'; } else disp = (dd.total>=0?'+':'') + dd.total.toFixed(0) + '€';
+      weekTot += dd.total; if (inM) monthTot += dd.total;
+      const inten = maxAbs>0 ? 0.08+(Math.abs(dd.total)/maxAbs)*0.37 : 0.12;
+      const bg = dd.total>=0 ? 'rgba(29,158,116,' + inten.toFixed(2) + ')' : 'rgba(221,95,102,' + inten.toFixed(2) + ')';
+      const dots = ['ig','stk','dwx'].filter(k => Math.abs(dd[k])>0.005).map(k => '<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:' + TTL_COL[k] + ';margin:0 1px"></span>').join('');
+      html += '<div class="day-cell ' + cls + ' ' + other + ' ' + (isTod?'today':'') + '" style="background:' + bg + '" onclick="ttlShowDayDetail(\'' + ds + '\',this)"><span class="day-num">' + dnum + '</span><span class="day-pnl">' + disp + '</span><span class="day-trades">' + dots + '</span></div>';
+    } else {
+      html += '<div class="day-cell no-trade ' + other + ' ' + (isTod?'today':'') + '"><span class="day-num">' + dnum + '</span></div>';
+    }
+    if (dow === 5) emitWeek();
+  });
+  document.getElementById('ttlDayGrid').innerHTML = html;
+  const tradeD = winD + lossD;
+  const winPct = tradeD>0 ? (winD/tradeD*100).toFixed(0) : '0', lossPct = tradeD>0 ? (lossD/tradeD*100).toFixed(0) : '0';
+  const monthDisp = showPct ? ((base>0?monthTot/base*100:0)>=0?'+':'')+(base>0?monthTot/base*100:0).toFixed(2)+'%' : (monthTot>=0?'+':'')+monthTot.toFixed(2)+' €';
+  document.getElementById('ttlDayStats').innerHTML =
+    '<div class="stat-item"><span class="stat-dot green"></span>' + winD + ' jours positifs (' + winPct + '%)</div>' +
+    '<div class="stat-item"><span class="stat-dot red"></span>' + lossD + ' jours négatifs (' + lossPct + '%)</div>' +
+    '<div class="stat-item"><strong>P&L du mois :</strong>&nbsp;<span style="color:' + (monthTot>=0?'var(--positive)':'var(--negative)') + ';font-weight:700">' + monthDisp + '</span></div>' +
+    '<div class="stat-item" style="color:var(--text-secondary);font-size:0.72rem;">Capital début mois : ' + fmt(Math.round(base)) + ' €</div>';
+}
+function ttlCalPrev() { ttlCalM--; if (ttlCalM<0) { ttlCalM=11; ttlCalY--; } ttlCloseDetail(); ttlBuildDaily(); }
+function ttlCalNext() { ttlCalM++; if (ttlCalM>11) { ttlCalM=0; ttlCalY++; } ttlCloseDetail(); ttlBuildDaily(); }
+function ttlShowDayDetail(dateStr, cellEl) {
+  const panel = document.getElementById('ttlDayDetail');
+  if (ttlSelCell === cellEl) { ttlCloseDetail(); return; }
+  if (ttlSelCell) ttlSelCell.classList.remove('selected');
+  cellEl.classList.add('selected'); ttlSelCell = cellEl;
+  const d = (ttlDayData || {})[dateStr];
+  if (!d) { ttlCloseDetail(); return; }
+  const p = dateStr.split('-');
+  const dayNames = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
+  const dObj = new Date(parseInt(p[0]), parseInt(p[1])-1, parseInt(p[2]));
+  const label = dayNames[dObj.getDay()] + ' ' + parseInt(p[2]) + ' ' + monthNames[parseInt(p[1])-1] + ' ' + p[0];
+  const row = k => '<tr><td><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + TTL_COL[k] + ';margin-right:7px"></span>' + TTL_LABEL[k] + '</td><td class="td-r" style="font-weight:700;color:' + (d[k]>=0?'var(--positive)':'var(--negative)') + '">' + (d[k]>=0?'+':'') + d[k].toFixed(2) + ' €</td></tr>';
+  let h = '<div class="detail-header"><h4>' + label + '</h4><span class="detail-close" onclick="ttlCloseDetail()">✕</span></div>';
+  h += '<table class="day-detail-table"><thead><tr><th>Source</th><th class="td-r">P&L net</th></tr></thead><tbody>';
+  ['ig','stk','dwx'].forEach(k => { if (Math.abs(d[k]) > 0.005) h += row(k); });
+  h += '</tbody></table>';
+  h += '<div class="day-detail-summary"><span><strong>Total :</strong> <span style="color:' + (d.total>=0?'var(--positive)':'var(--negative)') + ';font-weight:700">' + (d.total>=0?'+':'') + d.total.toFixed(2) + ' €</span></span></div>';
+  panel.innerHTML = h; panel.classList.add('visible'); panel.scrollIntoView({ behavior:'smooth', block:'nearest' });
+}
+function ttlCloseDetail() {
+  const p = document.getElementById('ttlDayDetail');
+  if (p) { p.classList.remove('visible'); p.innerHTML = ''; }
+  if (ttlSelCell) { ttlSelCell.classList.remove('selected'); ttlSelCell = null; }
+}
+function ttlBuildMonthly() {
+  const mp = ttlMonthPnl || {};
+  const showPct = document.getElementById('ttlMonthPctToggle') && document.getElementById('ttlMonthPctToggle').checked;
+  const years = [...new Set(Object.keys(mp).map(k => parseInt(k.slice(0,4))))].sort((a,b) => b-a);
+  const mh = ['Année', ...monthNames, 'Total'];
+  let html = '<table class="heatmap-table"><thead><tr>' + mh.map(h => '<th>' + h + '</th>').join('') + '</tr></thead><tbody>';
+  let winM = 0, lossM = 0, totM = 0;
+  for (const y of years) {
+    html += '<tr><td class="year-cell">' + y + '</td>';
+    let yearTot = 0, yearPctSum = 0;
+    for (let m = 0; m < 12; m++) {
+      const key = y + '-' + String(m+1).padStart(2,'0'), o = mp[key];
+      if (o && Math.abs(o.total) > 0.005) {
+        totM++; if (o.total>=0) winM++; else lossM++; yearTot += o.total;
+        const base = ttlEquityAtMonthStart(y, m), pct = base>0 ? o.total/base*100 : 0; yearPctSum += pct;
+        const intRef = showPct ? Math.abs(pct)/8 : Math.abs(o.total)/500, inten = Math.min(intRef, 1);
+        const bg = o.total>=0 ? 'rgba(29,158,116,' + (0.12+inten*0.55).toFixed(2) + ')' : 'rgba(221,95,102,' + (0.12+inten*0.55).toFixed(2) + ')';
+        const c = o.total>=0 ? '#1d9e74' : '#dd5f66', disp = showPct ? (pct>=0?'+':'') + pct.toFixed(1) + '%' : (o.total>=0?'+':'') + o.total.toFixed(0) + '€';
+        html += '<td style="background:' + bg + ';color:' + c + ';" title="' + (o.total>=0?'+':'') + o.total.toFixed(2) + '€"><div>' + disp + '</div></td>';
+      } else html += '<td style="background:rgba(34,49,77,0.05);color:#94a0b4;">—</td>';
+    }
+    const totVal = showPct ? yearPctSum : yearTot, tI = Math.min(Math.abs(showPct ? yearPctSum/10 : yearTot/1000), 1);
+    const totBg = totVal>=0 ? 'rgba(29,158,116,' + (0.12+tI*0.55).toFixed(2) + ')' : 'rgba(221,95,102,' + (0.12+tI*0.55).toFixed(2) + ')';
+    const totC = totVal>=0 ? '#1d9e74' : '#dd5f66', totDisp = showPct ? (totVal>=0?'+':'') + totVal.toFixed(1) + '%' : (totVal>=0?'+':'') + totVal.toFixed(0) + '€';
+    html += '<td class="total-cell" style="background:' + totBg + ';color:' + totC + ';">' + totDisp + '</td></tr>';
+  }
+  html += '</tbody></table>';
+  document.getElementById('ttlMonthlyHeat').innerHTML = html;
+  const wPct = totM>0 ? (winM/totM*100).toFixed(0) : '0', lPct = totM>0 ? (lossM/totM*100).toFixed(0) : '0';
+  document.getElementById('ttlMonthStats').innerHTML =
+    '<div class="stat-item"><span class="stat-dot green"></span>' + winM + ' mois positifs (' + wPct + '%)</div>' +
+    '<div class="stat-item"><span class="stat-dot red"></span>' + lossM + ' mois négatifs (' + lPct + '%)</div>';
+}
+
 // ── IG API Sync ──
 const IG_API_BASE = 'https://api.ig.com/gateway/deal';
 
@@ -4630,7 +5001,7 @@ function initCapitalSlider(tabName) {
 // GROUP & TAB SWITCHING
 // ══════════════════════════════════════════════════════════════
 let currentGroup = 'trading';
-let currentTab = 'real';
+let currentTab = 'total';
 const tabRendered = { real: false, fixed: false, reinvest: false };
 
 // Logos officiels des plateformes (favicons/marques reelles) pour les onglets
@@ -4642,7 +5013,8 @@ function tabImg(src, alt) { return '<img src="' + src + '" width="15" height="15
 
 const GROUP_TABS = {
   trading: [
-    { id: 'real', label: tabImg(LOGO_IG, 'IG') + 'Trading Réel' },
+    { id: 'total', label: '📊 Trading total' },
+    { id: 'real', label: tabImg(LOGO_IG, 'IG') + 'Trading Auto' },
     { id: 'fixed', label: 'Backtest fixe' },
     { id: 'reinvest', label: 'Backtest Réinv' },
     { id: 'screener', label: LOGO_REVOLUT + "Portefeuille d'actions" },
@@ -4660,7 +5032,7 @@ const GROUP_TABS = {
   ]
 };
 
-const ALL_TAB_IDS = ['real', 'fixed', 'reinvest', 'overview', 'interests', 'evolution', 'loans', 'realestate', 'darwinex', 'simulateur', 'repartition', 'screener', 'update'];
+const ALL_TAB_IDS = ['total', 'real', 'fixed', 'reinvest', 'overview', 'interests', 'evolution', 'loans', 'realestate', 'darwinex', 'simulateur', 'repartition', 'screener', 'update'];
 
 function renderSubTabs() {
   const bar = document.getElementById('subTabBar');
@@ -4725,6 +5097,9 @@ function switchTab(tab) {
 function activateTab(tab) {
   const el = document.getElementById('tab-' + tab);
   if (el) el.classList.add('active');
+
+  // Trading total : agrégat des 3 sources (rendu autonome)
+  if (tab === 'total') { renderTotalTab(); return; }
 
   // Screener (moteur externe) : rendu autonome, pas via renderPortfolioTab
   if (tab === 'screener') { renderScreenerTab(); return; }
@@ -9751,6 +10126,8 @@ Promise.all([
   syncDarwinexPlatform(); // intègre Darwinex comme plateforme du portfolio
   renderRealTab();
   tabRendered.real = true;
+  renderTotalTab();
+  tabRendered.total = true;
   renderSubTabs();
   displayDashTimestamp();
 });
