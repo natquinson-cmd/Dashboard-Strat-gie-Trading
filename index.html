@@ -5154,10 +5154,12 @@ const LOGO_DARWINEX = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADwAAAA8CAY
 const LOGO_REVOLUT = '<svg fill="currentColor" width="14" height="14" viewBox="0 0 24 24" style="vertical-align:-2px;margin-right:5px" xmlns="http://www.w3.org/2000/svg"><path d="M20.9133 6.9566C20.9133 3.1208 17.7898 0 13.9503 0H2.424v3.8605h10.9782c1.7376 0 3.177 1.3651 3.2087 3.043.016.84-.2994 1.633-.8878 2.2324-.5886.5998-1.375.9303-2.2144.9303H9.2322a.2756.2756 0 0 0-.2755.2752v3.431c0 .0585.018.1142.052.1612L16.2646 24h5.3114l-7.2727-10.094c3.6625-.1838 6.61-3.2612 6.61-6.9494zM6.8943 5.9229H2.424V24h4.4704z"/></svg>';
 const LOGO_LENDERMARKET = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAMAAACdt4HsAAAATlBMVEVHcEyHXvSDW/mCW/mCW/r8txj/ugj/ugiCW/r/ugiCW/n/uweCW/n/vAb/ugiDW/n/ugiCW/n/uwiCW/n/ugf/vgB6VP/ho2PGjpmhcs/tDTrnAAAAE3RSTlMAHKdu0vbWSkhzhRzpmK80NlgNYefPBAAAAW5JREFUWIXtlsmSgzAMRMMOYQmJjCH//6NjMlSwFjM2Pk0VfRX9SqUoct9uly4h3TuALk2OP2r7QqmyESpP2JQe+Xu1qaKVDHbdXfZK7SKEBJCekv1VKlstKuYYAPmD+RuFNaAqMJFpjoWisssPDsCjGJhdqdGq1xIAIHN0z8foAEBXm2Jbin4vgJlm0st2XwDAoqYogNZ6mUSEbweGAbOE8AeYLt4zJwQAPoiCIoIAK4NOMxRgRoGnGQxYZY/iFEC/pzgAwE44CTBrFQcAiAXoORowRQKWWEB0B5E/474IZ/cgchP1HLWJ6CqEAzT6M4YfFHpcwwCaHaTAm8hPYtBVlo6yP8DxLHgDXA+TLyB1PY1+gDyRw4Un4BMPxHjjB8i+dTGi2IBEsKPA+RJSCsp53E4jb0X9BSpn2N7xmGjF3F+RvNzZfjGokrRV0upOcEZle5jMb9K+MDuuQex/U51l9bF9VdU0499fXfpf+gEgVqRKELKBWwAAAABJRU5ErkJggg==';
 function tabImg(src, alt) { return '<img src="' + src + '" width="15" height="15" alt="' + alt + '" style="vertical-align:-3px;margin-right:5px;border-radius:3px">'; }
+// Logo "Trading total" : donut a 3 segments aux couleurs des 3 sources agregees (IG rouge, Actions bleu, Darwinex jaune)
+const LOGO_TOTAL = '<svg width="15" height="15" viewBox="0 0 24 24" style="vertical-align:-3px;margin-right:5px" xmlns="http://www.w3.org/2000/svg"><g fill="none" stroke-width="5"><circle cx="12" cy="12" r="8.5" stroke="#e0342e" stroke-dasharray="17.8 35.6"/><circle cx="12" cy="12" r="8.5" stroke="#2563eb" stroke-dasharray="17.8 35.6" stroke-dashoffset="-17.8"/><circle cx="12" cy="12" r="8.5" stroke="#dcee00" stroke-dasharray="17.8 35.6" stroke-dashoffset="-35.6"/></g></svg>';
 
 const GROUP_TABS = {
   trading: [
-    { id: 'total', label: '📊 Trading total' },
+    { id: 'total', label: LOGO_TOTAL + 'Trading total' },
     { id: 'real', label: tabImg(LOGO_IG, 'IG') + 'Trading Auto' },
     { id: 'fixed', label: 'Backtest fixe' },
     { id: 'reinvest', label: 'Backtest Réinv' },
