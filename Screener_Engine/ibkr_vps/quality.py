@@ -228,6 +228,7 @@ def rate_universe(universe, cfg=QUALITY_CONFIG):
                 'fcfYield': t.get('fcfYield'), 'revenueGrowthYoY': t.get('revenueGrowthYoY'),
                 'revCagr': t.get('revCagr'), 'revYears': t.get('revYears'), 'fcfCagr': t.get('fcfCagr'),
                 'avgPe': t.get('avgPe'), 'avgPeYears': t.get('avgPeYears'),   # P/E moyen historique = multiple de sortie du DCF (decompresse le potentiel)
+                'analystGrowth': t.get('analystGrowth'),   # croissance ANALYSTE prospective (CA +1 an) = source de croissance du DCF
                 'sharesChange': t.get('sharesChange'), 'buyback': t.get('buyback'),
                 'earningsGrowthYoY': t.get('earningsGrowthYoY'),
                 'dividendYield': t.get('dividendYield'), 'payoutRatio': t.get('payoutRatio'),

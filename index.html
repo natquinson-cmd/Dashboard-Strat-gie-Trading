@@ -5529,7 +5529,8 @@ function scrDcfCore(m, ov) {
     const fair = ov.fairManual, cagr = (1 + RET) * Math.pow(fair / price, 1 / N) - 1;
     return { fair, cagr, N, price, exch: m.exchange, RET, manual: true, overridden: true };
   }
-  let g = (m.earningsCAGR != null) ? m.earningsCAGR : (m.earningsGrowthYoY != null ? m.earningsGrowthYoY : null);
+  // Source de croissance : estimation ANALYSTE prospective (CA) en priorite, sinon CAGR historique des benefices.
+  let g = (m.analystGrowth != null) ? m.analystGrowth : ((m.earningsCAGR != null) ? m.earningsCAGR : (m.earningsGrowthYoY != null ? m.earningsGrowthYoY : null));
   if (ov.growth != null) g = ov.growth;
   if (g == null) return null;
   // croissance : imposee par titre (non plafonnee) OU auto plafonnee a 15 %/an (global)
@@ -5652,7 +5653,9 @@ function scrShowValuationCard(m0, sector) {
   const inp = (val, min, max, step) => scrEl('input', { attrs: { type: 'number', value: (val == null ? '' : String(val)), min: String(min), max: String(max), step: String(step) }, style: iStyle });
   const eff = scrDcfCore(m, draft) || {};
   const retIn = inp(Math.round((draft.ret != null ? draft.ret : SCR_DCF_RET) * 100), 3, 40, 1);
-  const growIn = inp(draft.growth != null ? Math.round(draft.growth * 100) : (eff.gUsed != null ? Math.round(eff.gUsed * 100) : 15), -50, 300, 1);
+  // Croissance pre-remplie avec l'ESTIMATION ANALYSTE (CA), brute, si dispo ; sinon la croissance retenue par le modele.
+  const autoGrow = (m.analystGrowth != null) ? m.analystGrowth : (eff.gUsed != null ? eff.gUsed : 0.15);
+  const growIn = inp(draft.growth != null ? Math.round(draft.growth * 100) : Math.round(autoGrow * 100), -50, 300, 1);
   const nIn = inp(draft.n != null ? draft.n : (eff.N || SCR_DCF_N), 1, 15, 1);
   const gtIn = inp(Math.round((draft.gterm != null ? draft.gterm : SCR_DCF_GTERM) * 100), 0, 15, 1);
   const exitIn = inp(draft.exitPe != null ? draft.exitPe : (eff.exitPe != null ? +eff.exitPe.toFixed(1) : null), 1, 200, 0.5);
@@ -5666,6 +5669,11 @@ function scrShowValuationCard(m0, sector) {
     field('Rendement visé', retIn, '%/an'), field('Horizon', nIn, 'ans'),
     field('Croissance', growIn, '%/an'), field('Croiss. finale', gtIn, '%/an'),
     field('Multiple sortie', exitIn, '×') ] }));
+  card.appendChild(scrEl('div', { style: 'font-size:0.64rem;color:#9aa7b4;margin-top:6px;line-height:1.45', text:
+    (m.analystGrowth != null
+      ? 'Croissance pré-remplie = estimation ANALYSTE du chiffre d\'affaires (+1 an, ' + (m.analystGrowth >= 0 ? '+' : '') + (m.analystGrowth * 100).toFixed(0) + ' %/an). '
+      : 'Croissance pré-remplie = croissance historique (estimation analyste pas encore en base). ')
+    + 'Le tableau la plafonne à ' + Math.round(SCR_DCF_GCAP * 100) + ' %/an ; ici tu gardes la valeur complète pour CE titre. Multiple = P/E moyen historique.' }));
   card.appendChild(scrEl('div', { style: 'margin-top:10px;border-top:1px solid #eef1f5;padding-top:10px', kids: [
     field('OU juste valeur manuelle', manualIn, scrDispSym()),
     scrEl('div', { text: 'Si tu remplis la valeur manuelle, elle prime sur le modèle (comme un objectif Simply Wall St importé).', style: 'font-size:0.66rem;color:#c3ccd6;margin-top:4px' })] }));

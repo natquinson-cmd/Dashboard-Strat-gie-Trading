@@ -451,3 +451,25 @@ class Yahoo:
             return out or None
         except Exception:
             return None
+
+    def analyst_growth(self, symbol):
+        """Croissance ANALYSTE prospective pour piloter le DCF : croissance du CHIFFRE D'AFFAIRES estimee
+        (module earningsTrend, periode +1y sinon 0y). On prend le CA et pas le BPA : les estimations de BPA
+        a 1 an sont bruitees par des effets de base (ex GOOGL -28 %, AMZN -17 %) alors que le CA est propre et
+        fiable. Yahoo ne fournit plus l'estimation de croissance a 5 ans (+5y = None). None si indisponible."""
+        try:
+            j = self._get(f'{BASE}/v10/finance/quoteSummary/{symbol}?modules=earningsTrend')
+            trend = ((j.get('quoteSummary') or {}).get('result') or [{}])[0].get('earningsTrend') or {}
+            by_period = {}
+            for t in (trend.get('trend') or []):
+                re_est = t.get('revenueEstimate') or {}
+                g = re_est.get('growth')
+                gv = g.get('raw') if isinstance(g, dict) else g
+                if isinstance(gv, (int, float)):
+                    by_period[t.get('period')] = gv
+            for p in ('+1y', '0y'):
+                if p in by_period and -0.5 <= by_period[p] <= 3.0:   # garde-fou : ecarte les valeurs absurdes
+                    return round(by_period[p], 4)
+            return None
+        except Exception:
+            return None

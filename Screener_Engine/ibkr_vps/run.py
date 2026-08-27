@@ -231,6 +231,9 @@ def run_quality(y):
             fh = y.fundamentals_history(sym)   # croissance REGULIERE : CAGR CA/FCF + rachats (DK)
             if fh:
                 r.update(fh)              # revCagr, revYears, fcfCagr, sharesChange, buyback
+            ag = y.analyst_growth(sym)    # croissance ANALYSTE prospective (CA +1 an) -> pilote le DCF
+            if ag is not None:
+                r['analystGrowth'] = ag
             records.append(r)
         if (i + 1) % 25 == 0:
             print(f'  ...enrichi {i + 1}/{len(symbols)}')
@@ -280,6 +283,9 @@ def push_position_meta(y, db):
         fh = y.fundamentals_history(sym)
         if fh:
             r.update(fh)
+        ag = y.analyst_growth(sym)
+        if ag is not None:
+            r['analystGrowth'] = ag
         r['symbol'] = sym
         out.append({k: v for k, v in r.items() if v is not None})   # pas de null
         time.sleep(y.pause)
