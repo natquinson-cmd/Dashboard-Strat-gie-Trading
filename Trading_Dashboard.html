@@ -6344,7 +6344,7 @@ function renderAllocTable(res, etfPct, etfAmount, mode) {
   if (!alloc.length && etfAmount <= 0) return scrEl('div', { text: 'Aucune candidate à répartir (que des Surévaluée ?).', style: 'color:#5b6b7d;font-size:0.8rem;padding:8px 0' });
   const bd = 'border-bottom:1px solid #eef1f5';
   const thead = scrEl('tr', { style: 'background:#f6f8fb;color:#5b6b7d' });
-  [['#', 'left'], ['Titre', 'left'], ['Cours 3 M', 'left'], ['Note', 'left'], [mode === 'arb' ? 'Mouvement' : 'À déployer', 'right'], ['Secteur', 'left'], ['Potentiel/an', 'right']].forEach(([t, al]) =>
+  [['#', 'left'], ['Titre', 'left'], ['Cours 3 M', 'left'], ['Note', 'left'], [mode === 'arb' ? 'Mouvement' : 'À déployer', 'right'], ['Secteur', 'left'], ['Juste valeur', 'left'], ['Potentiel/an', 'right']].forEach(([t, al]) =>
     thead.appendChild(scrEl('th', { text: t, style: `padding:8px 10px;text-align:${al};font-size:0.68rem;text-transform:uppercase;letter-spacing:.03em;border-bottom:1px solid #e3e8ee;white-space:nowrap` })));
   scrFundaHeadCells(2).forEach((th) => thead.appendChild(th));   // infos screener : Pays, Moat, ROIC, Croiss CA, PEG, Marge, Rendement, Payout, Div crois, FCF yield
   [['Poids visé', 'right']].forEach(([t, al]) =>
@@ -6359,6 +6359,7 @@ function renderAllocTable(res, etfPct, etfAmount, mode) {
       scrEl('td', { style: `padding:6px 10px;${bd}`, kids: [scrEl('span', { text: 'Socle', style: 'background:#eef2f8;color:#5b6b7d;border-radius:20px;padding:2px 9px;font-size:0.68rem;font-weight:700' })] }),
       scrEl('td', { text: scrUsd(etfAmount), style: `padding:6px 10px;text-align:right;font-weight:800;color:#22303f;${bd}` }),
       scrEl('td', { text: 'Diversifié', style: `padding:6px 10px;color:#5b6b7d;font-size:0.78rem;${bd}` }),
+      scrEl('td', { text: '', style: `padding:6px 10px;${bd}` }),
       scrEl('td', { text: '~marché', style: `padding:6px 10px;text-align:right;color:#5b6b7d;${bd}` }),
       ...Array.from({ length: 10 }, () => scrEl('td', { text: '', style: `${bd}` })),
       scrEl('td', { text: (etfPct * 100).toFixed(0) + '%', style: `padding:6px 10px;text-align:right;font-weight:700;color:#42546a;${bd}` }),
@@ -6380,6 +6381,7 @@ function renderAllocTable(res, etfPct, etfAmount, mode) {
       scrEl('td', { style: `padding:6px 10px;${bd}`, kids: [scrNoteChip(SCR_PRICE_MAP[String(t.symbol || '').toUpperCase()] || { valuationScore: t.valuationScore, rating: t.rating })] }),
       moveCell,
       scrEl('td', { text: t.sector || '–', style: `padding:6px 10px;color:#5b6b7d;font-size:0.78rem;${bd}` }),
+      scrValGaugeCell(SCR_PRICE_MAP[String(t.symbol || '').toUpperCase()] || m, t.sector, bd),
       scrTargetCell(SCR_PRICE_MAP[String(t.symbol || '').toUpperCase()] || m, t.sector, bd),
       ...scrFundaCells(SCR_PRICE_MAP[String(t.symbol || '').toUpperCase()] || m, t.sector, bd).slice(2),
       scrEl('td', { attrs: { title: "Poids visé dans ton portefeuille d'actions après ce versement (cible " + (a.targetWeight * 100).toFixed(0) + ' %)' }, text: (a.resultingWeight * 100).toFixed(1) + '%', style: `padding:6px 10px;text-align:right;font-weight:700;color:#42546a;cursor:help;${bd}` }),
@@ -6397,6 +6399,7 @@ function renderAllocTable(res, etfPct, etfAmount, mode) {
       scrEl('td', { text: scrUsd(cash), style: `padding:6px 10px;text-align:right;font-weight:700;color:#9aa7b4;${bd}` }),
       scrEl('td', { text: '', style: `${bd}` }),
       scrEl('td', { text: '', style: `${bd}` }),
+      scrEl('td', { text: '', style: `${bd}` }),
       ...Array.from({ length: 10 }, () => scrEl('td', { text: '', style: `${bd}` })),
       scrEl('td', { text: (cash / grand * 100).toFixed(1) + '%', style: `padding:6px 10px;text-align:right;font-weight:700;color:#9aa7b4;${bd}` }),
     ] }));
@@ -6407,7 +6410,7 @@ function renderAllocTable(res, etfPct, etfAmount, mode) {
     scrEl('td', { text: '' }),
     scrEl('td', { text: '' }),
     scrEl('td', { text: scrUsd(grand), style: 'padding:7px 10px;text-align:right;font-weight:800;color:#22303f' }),
-    scrEl('td', { text: '' }), scrEl('td', { text: '' }),
+    scrEl('td', { text: '' }), scrEl('td', { text: '' }), scrEl('td', { text: '' }),
     ...Array.from({ length: 10 }, () => scrEl('td', { text: '' })),
     scrEl('td', { text: '100%', style: 'padding:7px 10px;text-align:right;font-weight:800;color:#42546a' }),
   ] }));
@@ -7227,7 +7230,7 @@ function renderPositionsTable(pos, onChange) {
   if (!pos.length) return scrEl('div', { text: 'Aucune position. Ajoute tes achats Revolut ci-dessus (ticker, quantité d\'actions, prix d\'achat) pour suivre ta performance.', style: 'color:#5b6b7d;font-size:0.8rem;padding:4px 0' });
   const bd = 'border-bottom:1px solid #eef1f5';
   const thead = scrEl('tr', { style: 'background:#f6f8fb;color:#5b6b7d' });
-  [['Ticker', 'left'], ['Qté', 'right'], ["Prix achat", 'right'], ['Cours 3 M', 'left'], ['Var. jour', 'right'], ['Valeur', 'right'], ['+/−', 'right'], ['Valorisation', 'center']].forEach(([t, al]) =>
+  [['Ticker', 'left'], ['Qté', 'right'], ["Prix achat", 'right'], ['Cours 3 M', 'left'], ['Var. jour', 'right'], ['Valeur', 'right'], ['+/−', 'right']].forEach(([t, al]) =>
     thead.appendChild(scrEl('th', { text: t, style: `padding:8px 10px;text-align:${al};font-size:0.68rem;text-transform:uppercase;letter-spacing:.03em;border-bottom:1px solid #e3e8ee;white-space:nowrap` })));
   const fhead = scrFundaHeadCells(0);   // Note, Potentiel/an, Pays, Moat, ROIC, Croiss CA, PEG, Marge, Rendement, Payout, Div crois, FCF yield
   fhead[0] = scrEl('th', { text: 'Juste valeur', attrs: { title: "Juste valeur DCF + jauge de la zone d'achat (Idéal / Achat / Cher) et écart au cours. Clique une ligne pour la fiche complète." }, style: `padding:8px 8px;text-align:left;font-size:0.66rem;text-transform:uppercase;letter-spacing:.02em;border-bottom:1px solid #e3e8ee;white-space:nowrap;cursor:help;text-decoration:underline dotted #b8c2cf;text-underline-offset:3px` });   // Note -> Juste valeur
@@ -7280,7 +7283,6 @@ function renderPositionsTable(pos, onChange) {
       scrEl('td', { text: dayTxt, style: `padding:6px 10px;text-align:right;${bd};font-weight:700;color:${dayCol};white-space:nowrap` }),
       scrEl('td', { text: scrUsd(valeur), style: `padding:6px 10px;text-align:right;${bd};font-weight:700;color:#22303f` }),
       scrEl('td', { text: (pnl == null ? '–' : (pnl >= 0 ? '+' : '') + scrUsd(pnl) + ' (' + (pnlPct >= 0 ? '+' : '') + (pnlPct * 100).toFixed(1) + '%)'), style: `padding:6px 10px;text-align:right;${bd};font-weight:700;color:${pnlCol};white-space:nowrap` }),
-      scrEl('td', { style: `padding:6px 10px;text-align:center;${bd}`, kids: [scrValPill(vgap)] }),
       ...(() => { const sec = (d && d.sector) ? d.sector : 'Autre'; const f = scrFundaCells(d, sec, bd); f[0] = scrValGaugeCell(d, sec, bd); f.splice(2, 1); return f; })(),
       scrEl('td', { style: `padding:6px 10px;text-align:right;${bd}`, kids: [del] }),
     ] }));
@@ -7294,7 +7296,6 @@ function renderPositionsTable(pos, onChange) {
     scrEl('td', { text: (totDay >= 0 ? '+' : '') + scrUsd(totDay) + ' (' + (dayPctT >= 0 ? '+' : '') + (dayPctT * 100).toFixed(1) + '%)', style: `padding:7px 10px;text-align:right;font-weight:800;color:${dCol};white-space:nowrap` }),
     scrEl('td', { text: scrUsd(totVal), style: 'padding:7px 10px;text-align:right;font-weight:800;color:#22303f' }),
     scrEl('td', { text: (totPnl >= 0 ? '+' : '') + scrUsd(totPnl) + ' (' + (totPct >= 0 ? '+' : '') + (totPct * 100).toFixed(1) + '%)', style: `padding:7px 10px;text-align:right;font-weight:800;color:${tCol};white-space:nowrap` }),
-    scrEl('td', { style: 'padding:7px 10px;text-align:center', kids: [scrValPill(totFairBaseUsd > 0 ? (totFairUsd / totFairBaseUsd - 1) : null)] }),
     ...Array.from({ length: 11 }, () => scrEl('td', { text: '' })),
     scrEl('td', { text: '' }),
   ] }));
@@ -7458,6 +7459,7 @@ function screenerRenderQuality(c, data, config) {
     ['Note', 'left', "Note GLOBALE = 70 % valorisation + 30 % moat (avec malus si l'IA menace le modèle ou si le moat s'érode). Achat fort = solide, décotée ET moat large ; Surévaluée = chère même après crédit du moat. Repérage, pas un conseil."],
     ['Opportunité', 'right', "Score « qualité EN SOLDE » (0-100) = moyenne géométrique de la Note (qualité) et de la cheapness du moment (décote vs l'Objectif DCF + PEG bas). Élevé = bon business dont le prix est bas MAINTENANT vs sa juste valeur. Exige les DEUX : ni un bon business au prix fort, ni une décote sur du médiocre ne suffisent. Trie dessus pour faire remonter les vraies opportunités. Repérage, pas un conseil."],
     ['Cours 3 M', 'left', "Dernier cours et variation sur ~3 mois (période du mini-graphique). Vert = hausse, rouge = baisse."],
+    ['Juste valeur', 'left', "Juste valeur DCF + jauge de la zone d'achat (Idéal / Achat / Cher) et écart au cours. Clique pour la fiche complète (hypothèses, valeur manuelle)."],
     ['Potentiel/an', 'left', "Rendement ANNUEL attendu par un DCF « rendement attendu » façon Stock Unlock : on projette le bénéfice sur 5 ans (sa croissance PLAFONNÉE à 15 %/an fondant ensuite vers 4 %), on applique le P/E moyen historique comme multiple de sortie (non plafonné), on ajoute les dividendes, et on regarde le rendement annualisé au cours actuel. Vert = bat ton rendement visé (10 %/an), rouge = négatif. Clique pour le détail (croissance retenue, multiple) + la fourchette de prix d'achat. Repérage mécanique, pas un conseil."],
     ['Secteur', 'left', "Secteur d'activité de la société."],
     ['Pays', 'left', "Pays du siège social de la société."],
@@ -7539,7 +7541,7 @@ function screenerRenderQuality(c, data, config) {
   };
 
   if (!top.length) {
-    tbody.appendChild(scrEl('tr', { kids: [scrEl('td', { attrs: { colspan: '20' }, text: 'Aucune candidate.', style: 'padding:22px;color:#5b6b7d' })] }));
+    tbody.appendChild(scrEl('tr', { kids: [scrEl('td', { attrs: { colspan: '21' }, text: 'Aucune candidate.', style: 'padding:22px;color:#5b6b7d' })] }));
   } else top.forEach((cd, i) => {
     const m = cd.metrics || {}, rc = SCR_RATING_COL[cd.rating] || SCR_RATING_COL['Neutre'];
     const link = scrEl('a', { text: cd.symbol || '', href: scrQuoteUrl(cd.symbol, m.exchange), attrs: { target: '_blank', rel: 'noopener' }, style: 'font-weight:800;color:#3563e9;text-decoration:none' });
@@ -7554,6 +7556,7 @@ function screenerRenderQuality(c, data, config) {
       scrEl('td', { style: `padding:8px 10px;${bd}`, kids: [scrNoteChip(SCR_PRICE_MAP[String(cd.symbol || '').toUpperCase()] || { valuationScore: cd.valuationScore, rating: cd.rating })] }),
       oppC(SCR_PRICE_MAP[String(cd.symbol || '').toUpperCase()] || m, cd.sector),
       scrCoursCell(m, bd),
+      scrValGaugeCell(SCR_PRICE_MAP[String(cd.symbol || '').toUpperCase()] || m, cd.sector, bd),
       scrTargetCell(SCR_PRICE_MAP[String(cd.symbol || '').toUpperCase()] || Object.assign({ symbol: cd.symbol }, m), cd.sector, bd),
       scrEl('td', { text: cd.sector || '–', style: `padding:8px 10px;color:#5b6b7d;${bd}` }),
       scrEl('td', { text: scrCountryOf(m), style: `padding:8px 10px;color:#5b6b7d;font-size:0.82rem;white-space:nowrap;${bd}` }),
