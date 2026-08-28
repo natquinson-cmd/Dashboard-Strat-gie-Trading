@@ -6877,8 +6877,8 @@ function scrValuationSummary(pos) {
 function scrDividendCard(pos) {
   const wrap = scrEl('div', { style: 'background:#fff;border:1px solid #e3e8ee;border-radius:14px;padding:14px' });
   wrap.appendChild(scrEl('div', { style: 'display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap', kids: [
-    scrEl('span', { text: 'Revenus de dividendes estimés', style: 'font-weight:800;color:#22303f;font-size:0.95rem' }),
-    scrEl('span', { text: 'estimation à partir du rendement, avant fiscalité', style: 'font-size:0.72rem;color:#5b6b7d' })] }));
+    scrEl('span', { text: 'Paiements de dividendes estimés', style: 'font-weight:800;color:#22303f;font-size:0.95rem' }),
+    scrEl('span', { text: 'projection des versements, avant fiscalité', style: 'font-size:0.72rem;color:#5b6b7d' })] }));
   const rows = [];
   let totAnnual = 0;
   (pos || []).forEach((p) => {
@@ -6889,39 +6889,165 @@ function scrDividendCard(pos) {
     if (priceUsd == null || !(qty > 0)) return;
     const valUsd = qty * priceUsd, annual = valUsd * d.dividendYield;
     totAnnual += annual;
-    rows.push({ ticker: p.ticker, d, y: d.dividendYield, annual, valUsd, divCagr: d.divCagr });
+    rows.push({ ticker: p.ticker, d, qty, y: d.dividendYield, annual, valUsd, divCagr: d.divCagr, ds: d.divSchedule || null, name: d.name || d.longName || '' });
   });
   if (!rows.length) {
     wrap.appendChild(scrEl('div', { style: 'color:#9aa7b4;font-size:0.8rem', text: 'Aucune de tes positions ne verse de dividende connu (portefeuille orienté croissance).' }));
     return wrap;
   }
-  rows.sort((a, b) => b.annual - a.annual);
-  const totValued = rows.reduce((s, r) => s + r.valUsd, 0), yoc = totValued > 0 ? totAnnual / totValued : 0;
-  const big = (label, val, c) => scrEl('div', { style: 'padding:0 16px;border-left:3px solid ' + (c || '#e3e8ee'), kids: [
-    scrEl('div', { text: val, style: `font-size:1.4rem;font-weight:800;color:${c || '#22303f'};line-height:1.1` }),
-    scrEl('div', { text: label, style: 'font-size:0.66rem;color:#9aa7b4;text-transform:uppercase;font-weight:700;letter-spacing:.03em;margin-top:2px' })] });
-  wrap.appendChild(scrEl('div', { style: 'display:flex;flex-wrap:wrap;gap:12px 4px;margin-bottom:12px', kids: [
-    big('Estimé sur 1 an', scrUsd(totAnnual), '#1d9e74'),
-    big('Moyenne / mois', scrUsd(totAnnual / 12), '#42546a'),
-    big('Rendement moyen', (yoc * 100).toFixed(2) + '%', '#3563e9')] }));
-  const bd = 'border-bottom:1px solid #eef1f5';
-  const thead = scrEl('tr', { style: 'background:#f6f8fb;color:#5b6b7d' });
-  [['Titre', 'left'], ['Rendement', 'right'], ['Dividende / an', 'right'], ['Croiss. div.', 'right'], ['Part', 'right']].forEach(([t, al]) =>
-    thead.appendChild(scrEl('th', { text: t, style: `padding:7px 10px;text-align:${al};font-size:0.66rem;text-transform:uppercase;letter-spacing:.03em;border-bottom:1px solid #e3e8ee;white-space:nowrap` })));
-  const tbody = scrEl('tbody');
-  rows.forEach((r) => {
-    const logo = r.d ? scrLogo(r.ticker, r.d.website) : scrEl('span', { style: 'display:inline-block;width:22px' });
-    const dg = (r.divCagr != null) ? ((r.divCagr >= 0 ? '+' : '') + (r.divCagr * 100).toFixed(0) + '%/an') : '–';
-    const dgCol = (r.divCagr != null && r.divCagr > 0) ? '#1d9e74' : '#9aa7b4';
-    tbody.appendChild(scrEl('tr', { kids: [
-      scrEl('td', { style: `padding:6px 10px;${bd}`, kids: [scrEl('div', { style: 'display:flex;align-items:center;gap:8px', kids: [logo, scrEl('b', { text: r.ticker, style: 'color:#22303f' })] })] }),
-      scrEl('td', { text: (r.y * 100).toFixed(2) + '%', style: `padding:6px 10px;text-align:right;${bd};color:#42546a;font-weight:600` }),
-      scrEl('td', { text: scrUsd(r.annual), style: `padding:6px 10px;text-align:right;${bd};font-weight:700;color:#1d9e74` }),
-      scrEl('td', { text: dg, style: `padding:6px 10px;text-align:right;${bd};color:${dgCol};font-weight:600` }),
-      scrEl('td', { text: (totAnnual > 0 ? Math.round(r.annual / totAnnual * 100) : 0) + '%', style: `padding:6px 10px;text-align:right;${bd};color:#5b6b7d` })] }));
+  const MN = ['janv', 'févr', 'mars', 'avr', 'mai', 'juin', 'juil', 'août', 'sept', 'oct', 'nov', 'déc'];
+  const withSched = rows.filter((r) => r.ds && r.ds.amount > 0);
+
+  // ===== REPLI : resume annuel tant que le calendrier (divSchedule) n'est pas en base =====
+  if (!withSched.length) {
+    rows.sort((a, b) => b.annual - a.annual);
+    const totValued = rows.reduce((s, r) => s + r.valUsd, 0), yoc = totValued > 0 ? totAnnual / totValued : 0;
+    const big = (label, val, c) => scrEl('div', { style: 'padding:0 16px;border-left:3px solid ' + (c || '#e3e8ee'), kids: [
+      scrEl('div', { text: val, style: `font-size:1.4rem;font-weight:800;color:${c || '#22303f'};line-height:1.1` }),
+      scrEl('div', { text: label, style: 'font-size:0.66rem;color:#9aa7b4;text-transform:uppercase;font-weight:700;letter-spacing:.03em;margin-top:2px' })] });
+    wrap.appendChild(scrEl('div', { style: 'display:flex;flex-wrap:wrap;gap:12px 4px;margin-bottom:12px', kids: [
+      big('Estimé sur 1 an', scrUsd(totAnnual), '#1d9e74'),
+      big('Moyenne / mois', scrUsd(totAnnual / 12), '#42546a'),
+      big('Rendement moyen', (yoc * 100).toFixed(2) + '%', '#3563e9')] }));
+    const bd = 'border-bottom:1px solid #eef1f5';
+    const thead = scrEl('tr', { style: 'background:#f6f8fb;color:#5b6b7d' });
+    [['Titre', 'left'], ['Rendement', 'right'], ['Dividende / an', 'right'], ['Croiss. div.', 'right'], ['Part', 'right']].forEach(([t, al]) =>
+      thead.appendChild(scrEl('th', { text: t, style: `padding:7px 10px;text-align:${al};font-size:0.66rem;text-transform:uppercase;letter-spacing:.03em;border-bottom:1px solid #e3e8ee;white-space:nowrap` })));
+    const tbody = scrEl('tbody');
+    rows.forEach((r) => {
+      const logo = r.d ? scrLogo(r.ticker, r.d.website) : scrEl('span', { style: 'display:inline-block;width:22px' });
+      const dg = (r.divCagr != null) ? ((r.divCagr >= 0 ? '+' : '') + (r.divCagr * 100).toFixed(0) + '%/an') : '–';
+      const dgCol = (r.divCagr != null && r.divCagr > 0) ? '#1d9e74' : '#9aa7b4';
+      tbody.appendChild(scrEl('tr', { kids: [
+        scrEl('td', { style: `padding:6px 10px;${bd}`, kids: [scrEl('div', { style: 'display:flex;align-items:center;gap:8px', kids: [logo, scrEl('b', { text: r.ticker, style: 'color:#22303f' })] })] }),
+        scrEl('td', { text: (r.y * 100).toFixed(2) + '%', style: `padding:6px 10px;text-align:right;${bd};color:#42546a;font-weight:600` }),
+        scrEl('td', { text: scrUsd(r.annual), style: `padding:6px 10px;text-align:right;${bd};font-weight:700;color:#1d9e74` }),
+        scrEl('td', { text: dg, style: `padding:6px 10px;text-align:right;${bd};color:${dgCol};font-weight:600` }),
+        scrEl('td', { text: (totAnnual > 0 ? Math.round(r.annual / totAnnual * 100) : 0) + '%', style: `padding:6px 10px;text-align:right;${bd};color:#5b6b7d` })] }));
+    });
+    wrap.appendChild(scrEl('table', { style: 'width:100%;border-collapse:collapse;font-size:0.82rem', kids: [scrEl('thead', { kids: [thead] }), tbody] }));
+    wrap.appendChild(scrEl('div', { style: 'font-size:0.64rem;color:#9aa7b4;margin-top:8px;line-height:1.45', text: 'Le détail mois par mois (versements déclarés / estimés façon Simply Wall St) apparaîtra après le prochain run du VPS (collecte du calendrier de dividendes).' }));
+    return wrap;
+  }
+
+  // ===== MOIS PAR MOIS interactif (barres a gauche, detail au survol a droite) =====
+  const HORIZON = 36;
+  const now = new Date(), startY = now.getFullYear(), startM = now.getMonth();
+  const hStart = new Date(startY, startM, 1), hEnd = new Date(startY, startM + HORIZON, 1);
+  const addMonths = (dt, k) => new Date(dt.getFullYear(), dt.getMonth() + k, dt.getDate());
+  const mKey = (y, m) => y + '-' + String(m + 1).padStart(2, '0');
+  const dateStr = (dt) => dt.getDate() + ' ' + MN[dt.getMonth()] + ' ' + dt.getFullYear();
+  const monthLabel = (dt) => MN[dt.getMonth()] + ' ' + dt.getFullYear();
+  const divMoney = (usd) => { const v = usdToDisp(usd); return (SCR_DISP_CCY === 'EUR') ? (v.toFixed(2) + ' €') : ('$' + v.toFixed(2)); };
+  // projection des versements sur 36 mois
+  const pays = [];
+  withSched.forEach((r) => {
+    const ds = r.ds, freq = Math.max(1, Math.min(12, ds.freq || 4)), interval = Math.max(1, Math.round(12 / freq));
+    const perShareUsd = scrToUsd(ds.amount, r.d.exchange);
+    if (perShareUsd == null || !(perShareUsd > 0)) return;
+    const amt = perShareUsd * r.qty;
+    let anchor = null, anchorDeclared = false;
+    if (ds.nextDate) { const nd = new Date(ds.nextDate * 1000); if (nd >= hStart) { anchor = nd; anchorDeclared = true; } }
+    if (!anchor && ds.lastDate) { let dt = new Date(ds.lastDate * 1000), g = 0; while (dt < hStart && g < 80) { dt = addMonths(dt, interval); g++; } anchor = dt; }
+    if (!anchor) return;
+    let dt = new Date(anchor.getTime()), i = 0, g = 0;
+    while (dt < hEnd && g < HORIZON + 6) {
+      if (dt >= hStart) pays.push({ y: dt.getFullYear(), m: dt.getMonth(), key: mKey(dt.getFullYear(), dt.getMonth()), date: new Date(dt.getTime()), ticker: r.ticker, name: r.name, amt: amt, declared: (i === 0 && anchorDeclared) });
+      dt = addMonths(dt, interval); i++; g++;
+    }
   });
-  wrap.appendChild(scrEl('table', { style: 'width:100%;border-collapse:collapse;font-size:0.82rem', kids: [scrEl('thead', { kids: [thead] }), tbody] }));
-  wrap.appendChild(scrEl('div', { style: 'font-size:0.64rem;color:#9aa7b4;margin-top:8px;line-height:1.45', text: 'Estimation annuelle = valeur de la ligne × rendement, avant impôts et retenues à la source. Le détail mois par mois (versements déclarés / estimés façon Simply Wall St) nécessite le calendrier de dividendes, à ajouter côté collecteur VPS.' }));
+  if (!pays.length) { wrap.appendChild(scrEl('div', { style: 'color:#9aa7b4;font-size:0.8rem', text: 'Calendrier de dividendes indisponible pour la projection.' })); return wrap; }
+
+  let mode = 'month', selKey = null, currentPeriods = [];
+  const barRects = {};
+  const buildPeriods = () => {
+    const map = {}, arr = [];
+    if (mode === 'year') {
+      for (let y = startY; y <= hEnd.getFullYear(); y++) { const k = String(y); map[k] = { key: k, label: k, total: 0, declared: 0, estimated: 0, pays: [] }; arr.push(map[k]); }
+      pays.forEach((p) => { const k = String(p.y); if (map[k]) { map[k].total += p.amt; map[k][p.declared ? 'declared' : 'estimated'] += p.amt; map[k].pays.push(p); } });
+    } else {
+      for (let i = 0; i < HORIZON; i++) { const dt = new Date(startY, startM + i, 1), k = mKey(dt.getFullYear(), dt.getMonth()); map[k] = { key: k, label: monthLabel(dt), date: dt, total: 0, declared: 0, estimated: 0, pays: [] }; arr.push(map[k]); }
+      pays.forEach((p) => { if (map[p.key]) { map[p.key].total += p.amt; map[p.key][p.declared ? 'declared' : 'estimated'] += p.amt; map[p.key].pays.push(p); } });
+    }
+    return arr;
+  };
+  const layout = scrEl('div', { style: 'display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start' });
+  const left = scrEl('div', { style: 'flex:1.6;min-width:320px' }), right = scrEl('div', { style: 'flex:1;min-width:240px' });
+  layout.appendChild(left); layout.appendChild(right); wrap.appendChild(layout);
+  const selBig = scrEl('div'), chartBox = scrEl('div');
+  const renderRight = (p) => {
+    right.replaceChildren();
+    if (!p) return;
+    const decl = p.pays.filter((x) => x.declared), est = p.pays.filter((x) => !x.declared);
+    right.appendChild(scrEl('div', { style: 'display:flex;align-items:baseline;justify-content:space-between;gap:8px;border-bottom:1px solid #eef1f5;padding-bottom:8px;margin-bottom:4px', kids: [
+      scrEl('b', { text: (mode === 'year' ? 'Année ' : '') + p.label, style: 'color:#22303f;font-size:0.9rem' }),
+      scrEl('span', { text: decl.length + ' déclaré' + (decl.length > 1 ? 's' : '') + ' · ' + est.length + ' estimé' + (est.length > 1 ? 's' : ''), style: 'font-size:0.68rem;color:#9aa7b4' })] }));
+    if (!p.pays.length) { right.appendChild(scrEl('div', { style: 'color:#9aa7b4;font-size:0.76rem;padding:8px 0', text: 'Aucun versement estimé sur cette période.' })); return; }
+    const section = (title, total, list, bg, fg) => {
+      if (!list.length) return;
+      right.appendChild(scrEl('div', { style: `display:flex;justify-content:space-between;background:${bg};color:${fg};padding:7px 10px;border-radius:8px;font-weight:800;font-size:0.78rem;margin-top:8px`, kids: [
+        scrEl('span', { text: title }), scrEl('span', { text: divMoney(total) })] }));
+      list.slice().sort((a, b) => b.amt - a.amt).forEach((x) => {
+        const nmeta = [scrEl('b', { text: x.ticker, style: 'color:#22303f;font-size:0.82rem' })];
+        if (x.name) nmeta.push(scrEl('span', { text: ' ' + x.name, style: 'color:#9aa7b4;font-size:0.7rem' }));
+        right.appendChild(scrEl('div', { style: 'display:flex;justify-content:space-between;align-items:center;padding:6px 10px;border-bottom:1px solid #f2f5f8', kids: [
+          scrEl('div', { kids: [scrEl('div', { kids: nmeta }), scrEl('div', { text: dateStr(x.date), style: 'font-size:0.66rem;color:#9aa7b4' })] }),
+          scrEl('span', { text: divMoney(x.amt), style: 'font-weight:700;color:#42546a' })] }));
+      });
+    };
+    section('Paiements déclarés', p.declared, decl, '#e5f4ee', '#127a54');
+    section('Paiements estimés', p.estimated, est, '#f3ecfb', '#7c3aed');
+  };
+  const select = (key) => {
+    const p = currentPeriods.find((x) => x.key === key); if (!p) return; selKey = key;
+    Object.keys(barRects).forEach((k) => barRects[k].setAttribute('fill', k === key ? '#7c3aed' : '#c9a8f5'));
+    selBig.replaceChildren(
+      scrEl('div', { text: (mode === 'year' ? 'Année ' : '') + p.label + ' (estimé)', style: 'font-size:0.7rem;color:#9aa7b4;font-weight:700' }),
+      scrEl('div', { text: divMoney(p.total), style: 'font-size:1.6rem;font-weight:800;color:#22303f;line-height:1.1' }));
+    renderRight(p);
+  };
+  const buildChart = (periods) => {
+    const NS = 'http://www.w3.org/2000/svg', W = 580, H = 180, padL = 6, padR = 6, padT = 12, padB = 24;
+    const n = periods.length, maxV = Math.max(0.001, Math.max.apply(null, periods.map((p) => p.total)));
+    const bw = (W - padL - padR) / n;
+    const svg = document.createElementNS(NS, 'svg'); svg.setAttribute('viewBox', `0 0 ${W} ${H}`); svg.setAttribute('width', '100%'); svg.style.maxWidth = W + 'px';
+    periods.forEach((p, i) => {
+      const x = padL + i * bw, bh = (p.total / maxV) * (H - padT - padB), y = H - padB - bh;
+      const rect = document.createElementNS(NS, 'rect');
+      rect.setAttribute('x', (x + bw * 0.15).toFixed(1)); rect.setAttribute('y', y.toFixed(1));
+      rect.setAttribute('width', Math.max(1, bw * 0.7).toFixed(1)); rect.setAttribute('height', Math.max(0, bh).toFixed(1));
+      rect.setAttribute('rx', '2'); rect.setAttribute('fill', p.key === selKey ? '#7c3aed' : '#c9a8f5');
+      svg.appendChild(rect); barRects[p.key] = rect;
+      const hit = document.createElementNS(NS, 'rect');
+      hit.setAttribute('x', x.toFixed(1)); hit.setAttribute('y', padT); hit.setAttribute('width', bw.toFixed(1)); hit.setAttribute('height', (H - padT - padB).toFixed(1));
+      hit.setAttribute('fill', 'transparent'); hit.style.cursor = 'pointer';
+      hit.addEventListener('mouseenter', () => select(p.key));
+      hit.addEventListener('click', () => select(p.key));
+      svg.appendChild(hit);
+      if ((mode === 'year') || (i % 3 === 0)) {
+        const tx = document.createElementNS(NS, 'text');
+        tx.setAttribute('x', (x + bw / 2).toFixed(1)); tx.setAttribute('y', (H - 8).toFixed(1)); tx.setAttribute('text-anchor', 'middle');
+        tx.setAttribute('font-size', '9'); tx.setAttribute('fill', '#9aa7b4');
+        tx.textContent = (mode === 'year') ? p.label : (p.date ? MN[p.date.getMonth()] : '');
+        svg.appendChild(tx);
+      }
+    });
+    return svg;
+  };
+  const draw = () => {
+    currentPeriods = buildPeriods();
+    Object.keys(barRects).forEach((k) => delete barRects[k]);
+    chartBox.replaceChildren(buildChart(currentPeriods));
+    if (!selKey || !currentPeriods.some((p) => p.key === selKey)) { const f = currentPeriods.find((p) => p.total > 0) || currentPeriods[0]; selKey = f ? f.key : null; }
+    if (selKey) select(selKey);
+  };
+  const toggle = scrEl('div', { style: 'display:inline-flex;border:1px solid #e3e8ee;border-radius:8px;overflow:hidden' });
+  const mkTgl = (label, m) => { const b = scrEl('button', { text: label, style: `padding:5px 14px;border:none;cursor:pointer;font-size:0.72rem;font-weight:700;${mode === m ? 'background:#3563e9;color:#fff' : 'background:#fff;color:#5b6b7d'}` }); b.onclick = () => { if (mode !== m) { mode = m; selKey = null; toggle.replaceChildren(mkTgl('Mensuel', 'month'), mkTgl('Annuel', 'year')); draw(); } }; return b; };
+  toggle.replaceChildren(mkTgl('Mensuel', 'month'), mkTgl('Annuel', 'year'));
+  left.appendChild(scrEl('div', { style: 'display:flex;align-items:flex-start;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:4px', kids: [selBig, toggle] }));
+  left.appendChild(chartBox);
+  left.appendChild(scrEl('div', { style: 'font-size:0.62rem;color:#c3ccd6;margin-top:6px', text: 'Survole une barre pour le détail. Montants avant fiscalité, projetés au dernier dividende connu.' }));
+  draw();
   return wrap;
 }
 // Module "Mes positions" en haut du screener : saisie manuelle (Revolut), P&L via les cours du screener.
