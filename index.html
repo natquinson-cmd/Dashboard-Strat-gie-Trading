@@ -6872,6 +6872,58 @@ function scrValuationSummary(pos) {
   }
   return wrap;
 }
+// Revenus de dividendes estimes (a partir du rendement reel, avant fiscalite). Granularite ANNUELLE + moyenne
+// mensuelle ; le detail mois par mois (verse/estime facon SWS) demande le calendrier de dividendes cote VPS.
+function scrDividendCard(pos) {
+  const wrap = scrEl('div', { style: 'background:#fff;border:1px solid #e3e8ee;border-radius:14px;padding:14px' });
+  wrap.appendChild(scrEl('div', { style: 'display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap', kids: [
+    scrEl('span', { text: 'Revenus de dividendes estimés', style: 'font-weight:800;color:#22303f;font-size:0.95rem' }),
+    scrEl('span', { text: 'estimation à partir du rendement, avant fiscalité', style: 'font-size:0.72rem;color:#5b6b7d' })] }));
+  const rows = [];
+  let totAnnual = 0;
+  (pos || []).forEach((p) => {
+    const d = p && p.ticker ? SCR_PRICE_MAP[(p.ticker || '').toUpperCase()] : null;
+    if (!d || d.dividendYield == null || !(d.dividendYield > 0)) return;
+    const qty = (p.qty != null) ? p.qty : ((p.amount != null && p.pru) ? p.amount / p.pru : 0);
+    const priceUsd = scrToUsd(d.price, d.exchange);
+    if (priceUsd == null || !(qty > 0)) return;
+    const valUsd = qty * priceUsd, annual = valUsd * d.dividendYield;
+    totAnnual += annual;
+    rows.push({ ticker: p.ticker, d, y: d.dividendYield, annual, valUsd, divCagr: d.divCagr });
+  });
+  if (!rows.length) {
+    wrap.appendChild(scrEl('div', { style: 'color:#9aa7b4;font-size:0.8rem', text: 'Aucune de tes positions ne verse de dividende connu (portefeuille orienté croissance).' }));
+    return wrap;
+  }
+  rows.sort((a, b) => b.annual - a.annual);
+  const totValued = rows.reduce((s, r) => s + r.valUsd, 0), yoc = totValued > 0 ? totAnnual / totValued : 0;
+  const big = (label, val, c) => scrEl('div', { style: 'padding:0 16px;border-left:3px solid ' + (c || '#e3e8ee'), kids: [
+    scrEl('div', { text: val, style: `font-size:1.4rem;font-weight:800;color:${c || '#22303f'};line-height:1.1` }),
+    scrEl('div', { text: label, style: 'font-size:0.66rem;color:#9aa7b4;text-transform:uppercase;font-weight:700;letter-spacing:.03em;margin-top:2px' })] });
+  wrap.appendChild(scrEl('div', { style: 'display:flex;flex-wrap:wrap;gap:12px 4px;margin-bottom:12px', kids: [
+    big('Estimé sur 1 an', scrUsd(totAnnual), '#1d9e74'),
+    big('Moyenne / mois', scrUsd(totAnnual / 12), '#42546a'),
+    big('Rendement moyen', (yoc * 100).toFixed(2) + '%', '#3563e9')] }));
+  const bd = 'border-bottom:1px solid #eef1f5';
+  const thead = scrEl('tr', { style: 'background:#f6f8fb;color:#5b6b7d' });
+  [['Titre', 'left'], ['Rendement', 'right'], ['Dividende / an', 'right'], ['Croiss. div.', 'right'], ['Part', 'right']].forEach(([t, al]) =>
+    thead.appendChild(scrEl('th', { text: t, style: `padding:7px 10px;text-align:${al};font-size:0.66rem;text-transform:uppercase;letter-spacing:.03em;border-bottom:1px solid #e3e8ee;white-space:nowrap` })));
+  const tbody = scrEl('tbody');
+  rows.forEach((r) => {
+    const logo = r.d ? scrLogo(r.ticker, r.d.website) : scrEl('span', { style: 'display:inline-block;width:22px' });
+    const dg = (r.divCagr != null) ? ((r.divCagr >= 0 ? '+' : '') + (r.divCagr * 100).toFixed(0) + '%/an') : '–';
+    const dgCol = (r.divCagr != null && r.divCagr > 0) ? '#1d9e74' : '#9aa7b4';
+    tbody.appendChild(scrEl('tr', { kids: [
+      scrEl('td', { style: `padding:6px 10px;${bd}`, kids: [scrEl('div', { style: 'display:flex;align-items:center;gap:8px', kids: [logo, scrEl('b', { text: r.ticker, style: 'color:#22303f' })] })] }),
+      scrEl('td', { text: (r.y * 100).toFixed(2) + '%', style: `padding:6px 10px;text-align:right;${bd};color:#42546a;font-weight:600` }),
+      scrEl('td', { text: scrUsd(r.annual), style: `padding:6px 10px;text-align:right;${bd};font-weight:700;color:#1d9e74` }),
+      scrEl('td', { text: dg, style: `padding:6px 10px;text-align:right;${bd};color:${dgCol};font-weight:600` }),
+      scrEl('td', { text: (totAnnual > 0 ? Math.round(r.annual / totAnnual * 100) : 0) + '%', style: `padding:6px 10px;text-align:right;${bd};color:#5b6b7d` })] }));
+  });
+  wrap.appendChild(scrEl('table', { style: 'width:100%;border-collapse:collapse;font-size:0.82rem', kids: [scrEl('thead', { kids: [thead] }), tbody] }));
+  wrap.appendChild(scrEl('div', { style: 'font-size:0.64rem;color:#9aa7b4;margin-top:8px;line-height:1.45', text: 'Estimation annuelle = valeur de la ligne × rendement, avant impôts et retenues à la source. Le détail mois par mois (versements déclarés / estimés façon Simply Wall St) nécessite le calendrier de dividendes, à ajouter côté collecteur VPS.' }));
+  return wrap;
+}
 // Module "Mes positions" en haut du screener : saisie manuelle (Revolut), P&L via les cours du screener.
 function screenerPositionsModule() {
   const wrap = scrEl('div', { style: 'background:#fff;border:1px solid #e3e8ee;border-radius:14px;padding:14px;margin-bottom:14px' });
@@ -6894,7 +6946,9 @@ function screenerPositionsModule() {
   wrap.appendChild(valBox);
   const body = scrEl('div');
   wrap.appendChild(body);
-  const render = () => { valBox.replaceChildren(scrValuationSummary(scrGetPositions())); body.replaceChildren(renderPositionsTable(scrGetPositions(), render)); };
+  const divBox = scrEl('div', { style: 'margin-top:14px' });   // revenus de dividendes estimes, SOUS le tableau
+  wrap.appendChild(divBox);
+  const render = () => { valBox.replaceChildren(scrValuationSummary(scrGetPositions())); body.replaceChildren(renderPositionsTable(scrGetPositions(), render)); divBox.replaceChildren(scrDividendCard(scrGetPositions())); };
   // Historique valeur vs juste valeur (courbe qui evolue) : chargé une fois, re-render quand dispo.
   if (typeof db !== 'undefined' && db) {
     db.ref('stocks/screener/valuationHistory').once('value').then((s) => { SCR_VALHIST = s.val() || {}; render(); }).catch(() => {});
