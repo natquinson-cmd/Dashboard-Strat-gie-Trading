@@ -245,6 +245,45 @@ class Yahoo:
         except Exception:
             return None
 
+    def dividend_schedule(self, symbol):
+        """Calendrier de dividendes pour projeter les versements a venir (facon Simply Wall St).
+        {amount:<dernier montant/action>, freq:<n/an>, months:[mois de versement], lastDate:<unix>,
+        nextDate:<unix, prochaine date declaree>, recent:[{date,amount}]}. None si pas de dividende."""
+        try:
+            j = self._get(f'{BASE}/v8/finance/chart/{symbol}?range=2y&interval=1d&events=div')
+            res = (j.get('chart') or {}).get('result')
+            if not res:
+                return None
+            divs = (res[0].get('events') or {}).get('dividends') or {}
+            items = []
+            for v in divs.values():
+                ts, amt = v.get('date'), v.get('amount')
+                if ts and isinstance(amt, (int, float)) and amt > 0:
+                    items.append((int(ts), float(amt)))
+            if not items:
+                return None
+            items.sort()
+            last_ts = items[-1][0]
+            last_year = [it for it in items if it[0] >= last_ts - 360 * 86400]   # ~12 derniers mois
+            freq = max(1, min(12, len(last_year) or 4))                          # nb de versements/an
+            months = sorted(set(_dt.datetime.utcfromtimestamp(t).month for t, _a in (last_year or items[-4:])))
+            amount = (last_year or items)[-1][1]                                 # dernier montant/action
+            recent = [{'date': _dt.datetime.utcfromtimestamp(t).strftime('%Y-%m-%d'), 'amount': round(a, 6)}
+                      for t, a in items[-8:]]
+            out = {'amount': round(amount, 6), 'freq': freq, 'months': months, 'lastDate': last_ts, 'recent': recent}
+            try:   # prochaine date de versement DECLAREE (calendarEvents)
+                j2 = self._get(f'{BASE}/v10/finance/quoteSummary/{symbol}?modules=calendarEvents')
+                ce = ((j2.get('quoteSummary') or {}).get('result') or [{}])[0].get('calendarEvents') or {}
+                dd = ce.get('dividendDate')
+                dd = dd.get('raw') if isinstance(dd, dict) else dd
+                if isinstance(dd, (int, float)) and dd > 0:
+                    out['nextDate'] = int(dd)
+            except Exception:
+                pass
+            return out
+        except Exception:
+            return None
+
     # Nom d'echange verbeux (module price) -> code court attendu par EXCH_CCY (comme le chart). Non liste = USD par defaut.
     _PRICE_EXCH = {
         'NasdaqGS': 'NMS', 'NasdaqGM': 'NGM', 'NasdaqCM': 'NCM', 'NASDAQ': 'NMS', 'NMS': 'NMS',

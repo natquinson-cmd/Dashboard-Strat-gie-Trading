@@ -286,6 +286,10 @@ def push_position_meta(y, db):
         ag = y.analyst_growth(sym)
         if ag is not None:
             r['analystGrowth'] = ag
+        if r.get('dividendYield') and r['dividendYield'] > 0:   # calendrier de dividendes (payeurs uniquement)
+            ds = y.dividend_schedule(sym)
+            if ds:
+                r['divSchedule'] = ds
         r['symbol'] = sym
         out.append({k: v for k, v in r.items() if v is not None})   # pas de null
         time.sleep(y.pause)
