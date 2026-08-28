@@ -5457,14 +5457,14 @@ function scrSpark(values, opts) {
   svg.appendChild(mk(line, 'none', stroke, '1.4'));
   return svg;
 }
-// Cellule "Cours" : prix + variation du jour (chip couleur) + sparkline
+// Cellule "Cours 3 M" : prix + variation sur ~3 mois (chip couleur) + sparkline
 function scrCoursCell(m, bd, use3m) {
   const box = scrEl('div', { style: 'display:flex;flex-direction:column;gap:3px;min-width:84px' });
   const top = scrEl('div', { style: 'display:flex;align-items:baseline;gap:6px;white-space:nowrap' });
   top.appendChild(scrEl('span', { text: scrPrice(m.price, m.exchange), style: 'font-weight:700;color:#22303f;font-size:0.82rem' }));
-  // variation affichee : sur ~3 mois (periode du mini-graphique) si use3m, sinon variation du jour
+  // variation affichee = sur ~3 mois (periode du mini-graphique) quand la sparkline existe, sinon repli sur la variation du jour
   let chg = m.changePct, tip = null;
-  if (use3m && Array.isArray(m.spark) && m.spark.length > 1 && m.spark[0] > 0) {
+  if (Array.isArray(m.spark) && m.spark.length > 1 && m.spark[0] > 0) {
     chg = m.spark[m.spark.length - 1] / m.spark[0] - 1;
     tip = 'Variation sur ~3 mois (période du mini-graphique)';
   }
@@ -6308,7 +6308,7 @@ function renderAllocTable(res, etfPct, etfAmount, mode) {
   if (!alloc.length && etfAmount <= 0) return scrEl('div', { text: 'Aucune candidate à répartir (que des Surévaluée ?).', style: 'color:#5b6b7d;font-size:0.8rem;padding:8px 0' });
   const bd = 'border-bottom:1px solid #eef1f5';
   const thead = scrEl('tr', { style: 'background:#f6f8fb;color:#5b6b7d' });
-  [['#', 'left'], ['Titre', 'left'], ['Note', 'left'], [mode === 'arb' ? 'Mouvement' : 'À déployer', 'right'], ['Secteur', 'left'], ['Potentiel/an', 'right']].forEach(([t, al]) =>
+  [['#', 'left'], ['Titre', 'left'], ['Cours 3 M', 'left'], ['Note', 'left'], [mode === 'arb' ? 'Mouvement' : 'À déployer', 'right'], ['Secteur', 'left'], ['Potentiel/an', 'right']].forEach(([t, al]) =>
     thead.appendChild(scrEl('th', { text: t, style: `padding:8px 10px;text-align:${al};font-size:0.68rem;text-transform:uppercase;letter-spacing:.03em;border-bottom:1px solid #e3e8ee;white-space:nowrap` })));
   scrFundaHeadCells(2).forEach((th) => thead.appendChild(th));   // infos screener : Pays, Moat, ROIC, Croiss CA, PEG, Marge, Rendement, Payout, Div crois, FCF yield
   [['Poids visé', 'right']].forEach(([t, al]) =>
@@ -6319,6 +6319,7 @@ function renderAllocTable(res, etfPct, etfAmount, mode) {
     tbody.appendChild(scrEl('tr', { kids: [
       scrEl('td', { text: '—', style: `padding:6px 10px;color:#9aa7b4;${bd}` }),
       scrEl('td', { style: `padding:6px 10px;${bd}`, kids: [scrEl('div', { kids: [scrEl('b', { text: 'ETF socle', style: 'color:#22303f' }), scrEl('div', { text: 'S&P 500 / MSCI World', style: 'color:#5b6b7d;font-size:0.7rem' })] })] }),
+      scrEl('td', { text: '', style: `padding:6px 10px;${bd}` }),
       scrEl('td', { style: `padding:6px 10px;${bd}`, kids: [scrEl('span', { text: 'Socle', style: 'background:#eef2f8;color:#5b6b7d;border-radius:20px;padding:2px 9px;font-size:0.68rem;font-weight:700' })] }),
       scrEl('td', { text: scrUsd(etfAmount), style: `padding:6px 10px;text-align:right;font-weight:800;color:#22303f;${bd}` }),
       scrEl('td', { text: 'Diversifié', style: `padding:6px 10px;color:#5b6b7d;font-size:0.78rem;${bd}` }),
@@ -6339,6 +6340,7 @@ function renderAllocTable(res, etfPct, etfAmount, mode) {
     tbody.appendChild(scrEl('tr', { kids: [
       scrEl('td', { text: String(i + 1), style: `padding:6px 10px;color:#9aa7b4;${bd}` }),
       idcell,
+      scrCoursCell(SCR_PRICE_MAP[String(t.symbol || '').toUpperCase()] || m, bd),
       scrEl('td', { style: `padding:6px 10px;${bd}`, kids: [scrNoteChip(SCR_PRICE_MAP[String(t.symbol || '').toUpperCase()] || { valuationScore: t.valuationScore, rating: t.rating })] }),
       moveCell,
       scrEl('td', { text: t.sector || '–', style: `padding:6px 10px;color:#5b6b7d;font-size:0.78rem;${bd}` }),
@@ -6355,6 +6357,7 @@ function renderAllocTable(res, etfPct, etfAmount, mode) {
       scrEl('td', { text: '', style: `padding:6px 10px;${bd}` }),
       scrEl('td', { style: `padding:6px 10px;${bd}`, kids: [scrEl('span', { text: 'Liquidités', style: 'font-weight:700;color:#42546a' }), scrEl('div', { text: 'surplus non réparti (limite de diversification)', style: 'color:#9aa7b4;font-size:0.7rem' })] }),
       scrEl('td', { text: '', style: `${bd}` }),
+      scrEl('td', { text: '', style: `${bd}` }),
       scrEl('td', { text: scrUsd(cash), style: `padding:6px 10px;text-align:right;font-weight:700;color:#9aa7b4;${bd}` }),
       scrEl('td', { text: '', style: `${bd}` }),
       scrEl('td', { text: '', style: `${bd}` }),
@@ -6365,6 +6368,7 @@ function renderAllocTable(res, etfPct, etfAmount, mode) {
   tbody.appendChild(scrEl('tr', { style: 'background:#fafbfc', kids: [
     scrEl('td', { text: '', style: 'padding:7px 10px' }),
     scrEl('td', { text: (mode === 'arb' ? (alloc.filter((a) => a.resultingWeight > 0).length + ' lignes gardées · ' + alloc.filter((a) => a.resultingWeight <= 0 && a.current > 0).length + ' sorties · capital constant') : (etfPct > 0.0001 ? alloc.length + ' actions + ETF' : alloc.length + ' lignes')), style: 'padding:7px 10px;font-weight:700;color:#5b6b7d' }),
+    scrEl('td', { text: '' }),
     scrEl('td', { text: '' }),
     scrEl('td', { text: scrUsd(grand), style: 'padding:7px 10px;text-align:right;font-weight:800;color:#22303f' }),
     scrEl('td', { text: '' }), scrEl('td', { text: '' }),
@@ -7414,7 +7418,7 @@ function screenerRenderQuality(c, data, config) {
     ['Ticker', 'left', 'Symbole boursier. Clique pour ouvrir le graphique TradingView (passable en ordre via IBKR).'],
     ['Note', 'left', "Note GLOBALE = 70 % valorisation + 30 % moat (avec malus si l'IA menace le modèle ou si le moat s'érode). Achat fort = solide, décotée ET moat large ; Surévaluée = chère même après crédit du moat. Repérage, pas un conseil."],
     ['Opportunité', 'right', "Score « qualité EN SOLDE » (0-100) = moyenne géométrique de la Note (qualité) et de la cheapness du moment (décote vs l'Objectif DCF + PEG bas). Élevé = bon business dont le prix est bas MAINTENANT vs sa juste valeur. Exige les DEUX : ni un bon business au prix fort, ni une décote sur du médiocre ne suffisent. Trie dessus pour faire remonter les vraies opportunités. Repérage, pas un conseil."],
-    ['Cours', 'left', "Dernier cours et variation par rapport à la clôture de la veille (vert = hausse du jour, rouge = baisse). Le mini-graphique montre l'évolution du cours sur ~3 mois."],
+    ['Cours 3 M', 'left', "Dernier cours et variation sur ~3 mois (période du mini-graphique). Vert = hausse, rouge = baisse."],
     ['Potentiel/an', 'left', "Rendement ANNUEL attendu par un DCF « rendement attendu » façon Stock Unlock : on projette le bénéfice sur 5 ans (sa croissance PLAFONNÉE à 15 %/an fondant ensuite vers 4 %), on applique le P/E moyen historique comme multiple de sortie (non plafonné), on ajoute les dividendes, et on regarde le rendement annualisé au cours actuel. Vert = bat ton rendement visé (10 %/an), rouge = négatif. Clique pour le détail (croissance retenue, multiple) + la fourchette de prix d'achat. Repérage mécanique, pas un conseil."],
     ['Secteur', 'left', "Secteur d'activité de la société."],
     ['Pays', 'left', "Pays du siège social de la société."],
@@ -7587,7 +7591,7 @@ function screenerRender(c, data, positions, config) {
   frag.appendChild(panel);
 
   // Table
-  const cols = [['#', 'left'], ['Ticker', 'left'], ['Cours', 'left'], ['Secteur', 'left'], ['Score', 'right'], ['Crois. CA', 'right'], ['Crois. BPA', 'right'], ['Marge', 'right'], ['ROE', 'right'], ['vs MM200', 'right'], ['/52s-haut', 'right'], ['Cap.', 'right'], ['Signaux', 'left']];
+  const cols = [['#', 'left'], ['Ticker', 'left'], ['Cours 3 M', 'left'], ['Secteur', 'left'], ['Score', 'right'], ['Crois. CA', 'right'], ['Crois. BPA', 'right'], ['Marge', 'right'], ['ROE', 'right'], ['vs MM200', 'right'], ['/52s-haut', 'right'], ['Cap.', 'right'], ['Signaux', 'left']];
   const thead = scrEl('tr', { style: 'background:#f6f8fb;color:#5b6b7d' });
   cols.forEach(([t, al]) => thead.appendChild(scrEl('th', { text: t, style: `padding:8px 8px;text-align:${al};vertical-align:bottom;line-height:1.15;font-size:0.68rem;text-transform:uppercase;letter-spacing:.02em;border-bottom:1px solid #e3e8ee` })));
   const tbody = scrEl('tbody');
