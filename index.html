@@ -5458,13 +5458,19 @@ function scrSpark(values, opts) {
   return svg;
 }
 // Cellule "Cours" : prix + variation du jour (chip couleur) + sparkline
-function scrCoursCell(m, bd) {
+function scrCoursCell(m, bd, use3m) {
   const box = scrEl('div', { style: 'display:flex;flex-direction:column;gap:3px;min-width:84px' });
   const top = scrEl('div', { style: 'display:flex;align-items:baseline;gap:6px;white-space:nowrap' });
   top.appendChild(scrEl('span', { text: scrPrice(m.price, m.exchange), style: 'font-weight:700;color:#22303f;font-size:0.82rem' }));
-  if (m.changePct != null && isFinite(m.changePct)) {
-    const c = m.changePct >= 0 ? '#1d9e74' : '#dd5f66';
-    top.appendChild(scrEl('span', { text: (m.changePct >= 0 ? '+' : '') + (m.changePct * 100).toFixed(2) + '%', style: `font-size:0.72rem;font-weight:700;color:${c}` }));
+  // variation affichee : sur ~3 mois (periode du mini-graphique) si use3m, sinon variation du jour
+  let chg = m.changePct, tip = null;
+  if (use3m && Array.isArray(m.spark) && m.spark.length > 1 && m.spark[0] > 0) {
+    chg = m.spark[m.spark.length - 1] / m.spark[0] - 1;
+    tip = 'Variation sur ~3 mois (période du mini-graphique)';
+  }
+  if (chg != null && isFinite(chg)) {
+    const c = chg >= 0 ? '#1d9e74' : '#dd5f66';
+    top.appendChild(scrEl('span', { attrs: tip ? { title: tip } : {}, text: (chg >= 0 ? '+' : '') + (chg * 100).toFixed(2) + '%', style: `font-size:0.72rem;font-weight:700;color:${c}` }));
   }
   box.appendChild(top);
   box.appendChild((Array.isArray(m.spark) && m.spark.length > 1) ? scrSpark(m.spark) : scrEl('div', { style: 'height:26px' }));
@@ -7138,7 +7144,7 @@ function renderPositionsTable(pos, onChange) {
   if (!pos.length) return scrEl('div', { text: 'Aucune position. Ajoute tes achats Revolut ci-dessus (ticker, quantité d\'actions, prix d\'achat) pour suivre ta performance.', style: 'color:#5b6b7d;font-size:0.8rem;padding:4px 0' });
   const bd = 'border-bottom:1px solid #eef1f5';
   const thead = scrEl('tr', { style: 'background:#f6f8fb;color:#5b6b7d' });
-  [['Ticker', 'left'], ['Qté', 'right'], ["Prix achat", 'right'], ['Cours', 'left'], ['Var. jour', 'right'], ['Valeur', 'right'], ['+/−', 'right'], ['Valorisation', 'center']].forEach(([t, al]) =>
+  [['Ticker', 'left'], ['Qté', 'right'], ["Prix achat", 'right'], ['Cours 3 M', 'left'], ['Var. jour', 'right'], ['Valeur', 'right'], ['+/−', 'right'], ['Valorisation', 'center']].forEach(([t, al]) =>
     thead.appendChild(scrEl('th', { text: t, style: `padding:8px 10px;text-align:${al};font-size:0.68rem;text-transform:uppercase;letter-spacing:.03em;border-bottom:1px solid #e3e8ee;white-space:nowrap` })));
   scrFundaHeadCells(0).forEach((th) => thead.appendChild(th));   // infos screener : Note, Objectif, ROIC, Croiss CA, PEG, Marge, Rendement, Payout, Div crois, FCF yield
   thead.appendChild(scrEl('th', { text: '', style: 'padding:8px 10px;border-bottom:1px solid #e3e8ee' }));   // colonne suppression
@@ -7184,7 +7190,7 @@ function renderPositionsTable(pos, onChange) {
       scrEl('td', { style: `padding:6px 10px;${bd}`, kids: [scrEl('div', { style: 'display:flex;align-items:center;gap:8px', kids: tkKids })] }),
       scrEl('td', { text: qtyTxt, style: `padding:6px 10px;text-align:right;${bd};color:#42546a;font-weight:600` }),
       scrEl('td', { text: (p.pru != null ? usdToDisp(p.pru).toFixed(2) : '–'), style: `padding:6px 10px;text-align:right;${bd};color:#42546a` }),
-      (d ? scrCoursCell(d, bd) : scrEl('td', { text: '–', style: `padding:6px 10px;text-align:right;${bd};color:#c3ccd6` })),
+      (d ? scrCoursCell(d, bd, true) : scrEl('td', { text: '–', style: `padding:6px 10px;text-align:right;${bd};color:#c3ccd6` })),
       scrEl('td', { text: dayTxt, style: `padding:6px 10px;text-align:right;${bd};font-weight:700;color:${dayCol};white-space:nowrap` }),
       scrEl('td', { text: scrUsd(valeur), style: `padding:6px 10px;text-align:right;${bd};font-weight:700;color:#22303f` }),
       scrEl('td', { text: (pnl == null ? '–' : (pnl >= 0 ? '+' : '') + scrUsd(pnl) + ' (' + (pnlPct >= 0 ? '+' : '') + (pnlPct * 100).toFixed(1) + '%)'), style: `padding:6px 10px;text-align:right;${bd};font-weight:700;color:${pnlCol};white-space:nowrap` }),
