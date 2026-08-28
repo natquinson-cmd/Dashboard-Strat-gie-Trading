@@ -5505,7 +5505,7 @@ function scrFairPricePeg(m, sector) {
 // type NVDA +200 % ne dure pas), qui fond ensuite vers une croissance terminale mature sur l'horizon.
 // Le MULTIPLE de sortie reste NON plafonne (= P/E moyen historique). On garde les benefices (pas le FCF) comme
 // moteur : le FCF recent est fausse par les capex IA (MSFT/GOOGL/Visa) et n'existe pas pour les banques.
-const SCR_DCF_RET = 0.10, SCR_DCF_N = 5, SCR_DCF_GTERM = 0.04, SCR_DCF_GCAP = 0.15;
+const SCR_DCF_RET = 0.15, SCR_DCF_N = 5, SCR_DCF_GTERM = 0.04, SCR_DCF_GCAP = 0.15;   // rendement visé par défaut 15 %/an (titres sans override)
 // Cache du dernier rendu qualite pour re-render sans re-fetch (le DCF pilote le potentiel de TOUT le tableau).
 let SCR_LAST_Q = null;
 function scrRerenderQuality() {
@@ -5513,8 +5513,8 @@ function scrRerenderQuality() {
   try { screenerRenderQuality(SCR_LAST_Q.c, SCR_LAST_Q.data, SCR_LAST_Q.config); } catch (e) {}
 }
 // Critere de tri du tableau screener : 'note' (qualite), 'opp' (opportunite = qualite decotee), 'pot' (potentiel/an)
-let SCR_SORT = 'note';
-try { const _s = localStorage.getItem('scrSort'); if (_s === 'opp' || _s === 'pot' || _s === 'note') SCR_SORT = _s; } catch (e) {}
+let SCR_SORT = 'valpot';   // défaut : juste valeur + potentiel/an
+try { const _s = localStorage.getItem('scrSortV2'); if (_s === 'opp' || _s === 'pot' || _s === 'note' || _s === 'valpot') SCR_SORT = _s; } catch (e) {}
 function scrDcf(m, sector) {
   m = m || {};
   // Override de valorisation PAR TITRE (fiche fair value) : hypotheses propres a ce titre ou valeur manuelle.
@@ -6171,7 +6171,7 @@ function scrMoatCell(m, pad, bd) {
 // m = objet metrics (SCR_PRICE_MAP pour les positions, t.metrics pour la répartition).
 const SCR_FUNDA_HEAD = [
   ['Note', 'left', "Note de valorisation du screener (Achat fort → Surévaluée) au sein des sociétés de qualité. Repérage, pas conseil."],
-  ['Potentiel/an', 'right', "Rendement ANNUEL attendu par le DCF (projection du bénéfice sur 5 ans, multiple de sortie = P/E moyen, dividendes) au cours actuel. Croissance des bénéfices plafonnée à 15 %/an. Vert = bat ton rendement visé (10 %/an), rouge = négatif. Clique pour le détail + la fourchette de prix d'achat."],
+  ['Potentiel/an', 'right', "Rendement ANNUEL attendu par le DCF (projection du bénéfice sur 5 ans, multiple de sortie = P/E moyen, dividendes) au cours actuel. Croissance des bénéfices plafonnée à 15 %/an. Vert = bat ton rendement visé (15 %/an), rouge = négatif. Clique pour le détail + la fourchette de prix d'achat."],
   ['Pays', 'left', "Pays du siège social de la société. ETF = exposition internationale."],
   ['Moat', 'left', "Analyse qualitative du moat (avantage concurrentiel durable) : Large / Étroit / Aucun + note /100, et exposition à l'IA (favorable / neutre / menacé). Opinion de Claude, pas une donnée mesurée ; survole pour la justification. Non auto-actualisée."],
   ['ROIC', 'right', "Rendement du capital investi (ratio n°1 Dividend King) = EBIT×(1−impôt)/capital investi. > 15 % = crée de la valeur. En petit : ROE. Banques (~) : regarde le ROE."],
@@ -6250,6 +6250,19 @@ function scrHoldingsUsd() {
 }
 // Allocation DCA POSITION-AWARE : répartit `amount` (argent libéré) en comblant l'écart à la cible,
 // en tenant compte des positions déjà détenues (on ne vend jamais). Plafond secteur = paramètre.
+// Classement « juste valeur + potentiel/an » : moyenne (bornée) de la décote vs juste valeur (fair/cours − 1)
+// et du potentiel annuel du DCF. Sert au tri du screener et à la sélection/ordre de la répartition.
+function scrValPotScore(m, sector) {
+  const d = scrDcf(m, sector);
+  if (!d || !(d.fair > 0) || !(m && m.price > 0)) return -999;
+  const decote = Math.max(-0.5, Math.min(1.2, d.fair / m.price - 1));   // upside à la juste valeur, borné (anti-aberration)
+  const pot = Math.max(-0.3, Math.min(0.6, d.cagr));                     // potentiel/an, borné
+  return (decote + pot) / 2;
+}
+function scrValPotOf(t) {   // pour un candidat répartition {symbol, sector, metrics}
+  const m = (t && SCR_PRICE_MAP[String(t.symbol || '').toUpperCase()]) || (t && t.metrics) || {};
+  return scrValPotScore(m, t && t.sector);
+}
 function computeAllocation(top, amount, nLines, weightMode, divOnly, holdings, sectorCap, lineCap) {
   holdings = holdings || {};
   // Aucun argent à déployer -> SNAPSHOT du portefeuille ACTUEL : toutes tes positions détenues, pondérées par leur
@@ -6261,7 +6274,7 @@ function computeAllocation(top, amount, nLines, weightMode, divOnly, holdings, s
     const rows = heldSyms.map((s) => {
       const d = SCR_PRICE_MAP[s] || {}, fp = scrFairPrice(d, d.sector);
       return { t: { symbol: s, name: d.name || s, sector: d.sector || 'N/A', rating: d.rating, valuationScore: d.valuationScore, metrics: d, held: true }, pot: (fp != null && d.price > 0) ? (fp - d.price) / d.price : 0, current: holdings[s], add: 0, targetWeight: holdings[s] / Th, resultingWeight: holdings[s] / Th, held: true };
-    }).sort((a, b) => scrConvNote(b.t) - scrConvNote(a.t));
+    }).sort((a, b) => scrValPotOf(b.t) - scrValPotOf(a.t));
     return { rows, cash: 0, deployed: 0, snapshot: true };
   }
   const LC = (lineCap && lineCap > 0) ? lineCap : SCR_ALLOC_LINE_CAP, SC = (sectorCap && sectorCap > 0) ? sectorCap : SCR_ALLOC_SECTOR_CAP;
@@ -6282,7 +6295,7 @@ function computeAllocation(top, amount, nLines, weightMode, divOnly, holdings, s
     univ.set(sym, { symbol: sym, name: d.name || sym, sector: d.sector || 'N/A', rating: d.rating || 'Détenu', valuationScore: d.valuationScore || 0, metrics: d, held: true });
   });
   const cands = [], selCount = {};
-  for (const t of [...univ.values()].sort((a, b) => scrConvNote(b) - scrConvNote(a))) {
+  for (const t of [...univ.values()].sort((a, b) => scrValPotOf(b) - scrValPotOf(a))) {   // sélection par juste valeur + potentiel/an
     const s = t.sector || 'N/A';
     if ((selCount[s] || 0) >= perSectorMax) continue;
     selCount[s] = (selCount[s] || 0) + 1; cands.push(t);
@@ -6326,7 +6339,7 @@ function computeAllocation(top, amount, nLines, weightMode, divOnly, holdings, s
   const deployed = add.reduce((a, b) => a + b, 0);
   const rows = cands.map((t, i) => ({ t, pot: pot[i], targetWeight: w[i], current: cur[i], add: add[i], resultingWeight: T > 0 ? (cur[i] + add[i]) / T : 0, held: !!t.held }))
     .filter((r) => r.add > amount * 0.002 || r.current > 0)                 // on affiche ce qui reçoit de l'argent OU ce qu'on détient
-    .sort((a, b) => (scrConvNote(b.t) - scrConvNote(a.t)) || (b.resultingWeight - a.resultingWeight));   // tri par note (critère de répartition)
+    .sort((a, b) => (scrValPotOf(b.t) - scrValPotOf(a.t)) || (b.resultingWeight - a.resultingWeight));   // tri par juste valeur + potentiel/an
   return { rows, cash: Math.max(0, amount - deployed), deployed };
 }
 // ARBITRAGE à CAPITAL CONSTANT : rééquilibre les positions actuelles vers la cible (renforcer / alléger),
@@ -6390,7 +6403,7 @@ function computeArbitrage(top, holdings, nLines, weightMode, divOnly, sectorCap,
     rows.push({ t: { symbol: tk, name: d.name || tk, sector: d.sector || 'N/A', rating: d.rating || 'Détenu', metrics: d, held: true }, pot: 0, current: holdings[tk], add: -holdings[tk], targetWeight: 0, resultingWeight: 0, held: true });
   });
   const turnover = rows.reduce((s, r) => s + Math.max(0, r.add), 0);   // total à acheter (≈ total à vendre)
-  return { rows: rows.filter((r) => Math.abs(r.add) > totalCapital * 0.003 || r.current > 0).sort((a, b) => { const ax = a.resultingWeight <= 0, bx = b.resultingWeight <= 0; if (ax !== bx) return ax - bx; return scrConvNote(b.t) - scrConvNote(a.t); }), cash: 0, deployed: turnover, arb: true };   // gardées par note décroissante, sorties en bas
+  return { rows: rows.filter((r) => Math.abs(r.add) > totalCapital * 0.003 || r.current > 0).sort((a, b) => { const ax = a.resultingWeight <= 0, bx = b.resultingWeight <= 0; if (ax !== bx) return ax - bx; return scrValPotOf(b.t) - scrValPotOf(a.t); }), cash: 0, deployed: turnover, arb: true };   // gardées par juste valeur + potentiel/an, sorties en bas
 }
 function renderAllocTable(res, etfPct, etfAmount, mode) {
   const alloc = res.rows || [];
@@ -7480,7 +7493,8 @@ function screenerRenderQuality(c, data, config) {
   const scrRowMetrics = (cd) => SCR_PRICE_MAP[String(cd.symbol || '').toUpperCase()] || cd.metrics || {};
   const scrRowOpp = (cd) => { const o = scrOppScore(scrRowMetrics(cd), cd.sector); return (o != null) ? o : -1; };
   const scrRowPot = (cd) => { const d = scrDcf(scrRowMetrics(cd), cd.sector); return d ? d.cagr : -Infinity; };
-  const sortFn = SCR_SORT === 'opp' ? scrRowOpp : (SCR_SORT === 'pot' ? scrRowPot : scrRowNote);
+  const scrRowValPot = (cd) => scrValPotScore(scrRowMetrics(cd), cd.sector);   // juste valeur + potentiel/an
+  const sortFn = SCR_SORT === 'opp' ? scrRowOpp : (SCR_SORT === 'pot' ? scrRowPot : (SCR_SORT === 'valpot' ? scrRowValPot : scrRowNote));
   const top = [...(data.top || [])].sort((a, b) => sortFn(b) - sortFn(a));
   const frag = document.createDocumentFragment();
   frag.appendChild(screenerPositionsModule());
@@ -7500,13 +7514,14 @@ function screenerRenderQuality(c, data, config) {
   refresh.onclick = () => renderScreenerTab();
   // Selecteur de tri : Note (qualite) / Opportunite (qualite decotee) / Potentiel/an
   const sortRow = scrEl('div', { style: 'display:inline-flex;border:1px solid #e3e8ee;border-radius:9px;overflow:hidden' });
-  [['note', 'Note', 'Trier par la note globale (qualité + moat).'],
+  [['valpot', 'Juste valeur + Pot.', 'Classement par défaut : combinaison de la juste valeur (décote vs juste valeur DCF) ET du potentiel annuel. Fait remonter les titres à la fois décotés et à fort rendement attendu.'],
+   ['note', 'Note', 'Trier par la note globale (qualité + moat).'],
    ['opp', 'Opportunité', 'Trier par le score Opportunité = qualité EN SOLDE (bonne note ET prix bas vs sa juste valeur / PEG). Fait remonter les vraies opportunités actuelles.'],
    ['pot', 'Potentiel/an', 'Trier par le rendement annuel attendu (DCF).']
   ].forEach(([v, label, tip]) => {
     const on = SCR_SORT === v;
     const b = scrEl('button', { text: label, attrs: { title: tip }, style: `padding:7px 12px;border:none;cursor:pointer;font-size:0.78rem;font-weight:700;${on ? 'background:#3563e9;color:#fff' : 'background:#fff;color:#5b6b7d'}` });
-    b.onclick = () => { if (SCR_SORT === v) return; SCR_SORT = v; try { localStorage.setItem('scrSort', v); } catch (e) {} scrRerenderQuality(); };
+    b.onclick = () => { if (SCR_SORT === v) return; SCR_SORT = v; try { localStorage.setItem('scrSortV2', v); } catch (e) {} scrRerenderQuality(); };
     sortRow.appendChild(b);
   });
   frag.appendChild(scrEl('div', { style: 'display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px', kids: [
@@ -7524,7 +7539,7 @@ function screenerRenderQuality(c, data, config) {
     ['Opportunité', 'right', "Score « qualité EN SOLDE » (0-100) = moyenne géométrique de la Note (qualité) et de la cheapness du moment (décote vs l'Objectif DCF + PEG bas). Élevé = bon business dont le prix est bas MAINTENANT vs sa juste valeur. Exige les DEUX : ni un bon business au prix fort, ni une décote sur du médiocre ne suffisent. Trie dessus pour faire remonter les vraies opportunités. Repérage, pas un conseil."],
     ['Cours 3 M', 'left', "Dernier cours et variation sur ~3 mois (période du mini-graphique). Vert = hausse, rouge = baisse."],
     ['Juste valeur', 'left', "Juste valeur DCF + jauge de la zone d'achat (Idéal / Achat / Cher) et écart au cours. Clique pour la fiche complète (hypothèses, valeur manuelle)."],
-    ['Potentiel/an', 'left', "Rendement ANNUEL attendu par un DCF « rendement attendu » façon Stock Unlock : on projette le bénéfice sur 5 ans (sa croissance PLAFONNÉE à 15 %/an fondant ensuite vers 4 %), on applique le P/E moyen historique comme multiple de sortie (non plafonné), on ajoute les dividendes, et on regarde le rendement annualisé au cours actuel. Vert = bat ton rendement visé (10 %/an), rouge = négatif. Clique pour le détail (croissance retenue, multiple) + la fourchette de prix d'achat. Repérage mécanique, pas un conseil."],
+    ['Potentiel/an', 'left', "Rendement ANNUEL attendu par un DCF « rendement attendu » façon Stock Unlock : on projette le bénéfice sur 5 ans (sa croissance PLAFONNÉE à 15 %/an fondant ensuite vers 4 %), on applique le P/E moyen historique comme multiple de sortie (non plafonné), on ajoute les dividendes, et on regarde le rendement annualisé au cours actuel. Vert = bat ton rendement visé (15 %/an), rouge = négatif. Clique pour le détail (croissance retenue, multiple) + la fourchette de prix d'achat. Repérage mécanique, pas un conseil."],
     ['Secteur', 'left', "Secteur d'activité de la société."],
     ['Pays', 'left', "Pays du siège social de la société."],
     ['Moat', 'left', "Analyse qualitative du moat (Large / Étroit / Aucun) + note /100 et exposition à l'IA (favorable / neutre / menacé). Opinion de Claude, pas une donnée mesurée ; survole pour la justification. Non auto-actualisée."],
