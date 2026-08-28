@@ -6807,19 +6807,62 @@ function scrSnapshotValuation(portVal, portFair, nValued) {
   SCR_VALHIST[today] = { value: Math.round(portVal * 100) / 100, fair: Math.round(portFair * 100) / 100 };
   try { db.ref('stocks/screener/valuationHistory/' + today).set(SCR_VALHIST[today]); } catch (e) {}
 }
-// Courbe SVG valeur (marche) vs juste valeur (DCF), facon Simply Wall St.
+// Courbe SVG valeur (marche) vs juste valeur (DCF) avec axes + infobulle au survol, facon Simply Wall St.
 function scrValFairCurve(vh) {
-  const W = 560, H = 150, pad = 12, n = vh.length, NS = 'http://www.w3.org/2000/svg';
+  const NS = 'http://www.w3.org/2000/svg', MN = ['janv', 'févr', 'mars', 'avr', 'mai', 'juin', 'juil', 'août', 'sept', 'oct', 'nov', 'déc'];
+  const W = 560, H = 170, padL = 54, padR = 12, padT = 12, padB = 24, n = vh.length;
   const vals = vh.map((h) => h.value).concat(vh.map((h) => h.fair));
-  const min = Math.min.apply(null, vals), max = Math.max.apply(null, vals), span = (max - min) || 1;
-  const x = (i) => pad + i * (W - 2 * pad) / (n - 1), y = (v) => H - pad - (v - min) / span * (H - 2 * pad);
-  const svg = document.createElementNS(NS, 'svg'); svg.setAttribute('viewBox', `0 0 ${W} ${H}`); svg.setAttribute('width', '100%'); svg.style.maxWidth = W + 'px';
-  const line = (key, color) => {
-    let d = ''; vh.forEach((h, i) => { d += (i ? 'L' : 'M') + x(i).toFixed(1) + ' ' + y(h[key]).toFixed(1) + ' '; });
-    const p = document.createElementNS(NS, 'path'); p.setAttribute('d', d.trim()); p.setAttribute('fill', 'none'); p.setAttribute('stroke', color); p.setAttribute('stroke-width', '2.2'); svg.appendChild(p);
+  let min = Math.min.apply(null, vals), max = Math.max.apply(null, vals);
+  if (min === max) { min *= 0.98; max *= 1.02; }
+  const mar = (max - min) * 0.12 || 1; min -= mar; max += mar;
+  const span = (max - min) || 1;
+  const x = (i) => padL + (n > 1 ? i * (W - padL - padR) / (n - 1) : (W - padL - padR) / 2);
+  const y = (v) => H - padB - (v - min) / span * (H - padT - padB);
+  const cont = scrEl('div', { style: 'position:relative;max-width:' + W + 'px' });
+  const svg = document.createElementNS(NS, 'svg'); svg.setAttribute('viewBox', `0 0 ${W} ${H}`); svg.setAttribute('width', '100%'); svg.style.display = 'block';
+  const mk = (tag, attrs) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); return e; };
+  // axe Y : lignes de repere + valeurs
+  const NG = 4;
+  for (let g = 0; g <= NG; g++) {
+    const v = min + (max - min) * g / NG, yy = y(v);
+    svg.appendChild(mk('line', { x1: padL, x2: W - padR, y1: yy.toFixed(1), y2: yy.toFixed(1), stroke: '#eef1f5', 'stroke-width': 1 }));
+    const t = mk('text', { x: padL - 6, y: (yy + 3).toFixed(1), 'text-anchor': 'end', 'font-size': 9, fill: '#9aa7b4' }); t.textContent = scrUsd(v); svg.appendChild(t);
+  }
+  // axe X : dates (premier / milieu / dernier)
+  const xIdx = n <= 1 ? [0] : (n <= 3 ? vh.map((_, i) => i) : [0, Math.floor((n - 1) / 2), n - 1]);
+  xIdx.forEach((i) => {
+    const d = new Date(vh[i].date + 'T00:00:00');
+    const t = mk('text', { x: x(i).toFixed(1), y: (H - 8).toFixed(1), 'text-anchor': i === 0 ? 'start' : (i === n - 1 ? 'end' : 'middle'), 'font-size': 9, fill: '#9aa7b4' });
+    t.textContent = d.getDate() + ' ' + MN[d.getMonth()]; svg.appendChild(t);
+  });
+  // lignes + points
+  const drawLine = (key, color) => {
+    let dd = ''; vh.forEach((h, i) => { dd += (i ? 'L' : 'M') + x(i).toFixed(1) + ' ' + y(h[key]).toFixed(1) + ' '; });
+    svg.appendChild(mk('path', { d: dd.trim(), fill: 'none', stroke: color, 'stroke-width': 2.2 }));
+    vh.forEach((h, i) => svg.appendChild(mk('circle', { cx: x(i).toFixed(1), cy: y(h[key]).toFixed(1), r: 2.5, fill: color })));
   };
-  line('fair', '#3563e9'); line('value', '#94a3b8');
-  return svg;
+  drawLine('fair', '#3563e9'); drawLine('value', '#94a3b8');
+  // crosshair + infobulle au survol
+  const cross = mk('line', { stroke: '#c3ccd6', 'stroke-width': 1, 'stroke-dasharray': '3 3', y1: padT, y2: H - padB }); cross.style.display = 'none'; svg.appendChild(cross);
+  const tip = scrEl('div', { style: 'position:absolute;pointer-events:none;background:#22303f;color:#fff;font-size:0.7rem;padding:6px 8px;border-radius:6px;white-space:nowrap;display:none;transform:translate(-50%,-108%);z-index:5;box-shadow:0 2px 8px rgba(0,0,0,.18)' });
+  const bw = n > 1 ? (W - padL - padR) / (n - 1) : (W - padL - padR);
+  vh.forEach((h, i) => {
+    const hit = mk('rect', { x: (x(i) - bw / 2).toFixed(1), y: padT, width: Math.max(6, bw).toFixed(1), height: (H - padT - padB).toFixed(1), fill: 'transparent' }); hit.style.cursor = 'crosshair';
+    hit.addEventListener('mouseenter', () => {
+      cross.setAttribute('x1', x(i).toFixed(1)); cross.setAttribute('x2', x(i).toFixed(1)); cross.style.display = '';
+      const d = new Date(h.date + 'T00:00:00'), gap = h.value > 0 ? (h.fair / h.value - 1) : 0;
+      tip.replaceChildren(
+        scrEl('div', { text: d.toLocaleDateString('fr-FR'), style: 'font-weight:700;margin-bottom:2px' }),
+        scrEl('div', { kids: [scrEl('span', { text: '● ', style: 'color:#3563e9' }), scrEl('span', { text: 'Juste valeur ' + scrUsd(h.fair) })] }),
+        scrEl('div', { kids: [scrEl('span', { text: '● ', style: 'color:#94a3b8' }), scrEl('span', { text: 'Valeur ' + scrUsd(h.value) })] }),
+        scrEl('div', { text: (gap >= 0 ? '+' : '') + (gap * 100).toFixed(1) + '% ' + (gap >= 0 ? 'sous-évalué' : 'sur-évalué'), style: 'color:#8fdcbc;margin-top:2px' }));
+      tip.style.left = (x(i) / W * 100) + '%'; tip.style.top = (Math.min(y(h.fair), y(h.value)) / H * 100) + '%'; tip.style.display = '';
+    });
+    hit.addEventListener('mouseleave', () => { cross.style.display = 'none'; tip.style.display = 'none'; });
+    svg.appendChild(hit);
+  });
+  cont.appendChild(svg); cont.appendChild(tip);
+  return cont;
 }
 // Bloc de synthese "Valorisation du portefeuille" (place au-dessus du tableau des positions).
 function scrValuationSummary(pos) {
