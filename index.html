@@ -5562,6 +5562,25 @@ function scrDcfCore(m, ov) {
   const cagr = Math.pow(futureTotal / price, 1 / N) - 1;                          // rendement annualise au cours actuel
   return { fair, futurePrice, futureTotal, cumDiv, cagr, exitPe, gUsed: g0, gTerm, N, price, exch: m.exchange, RET, overridden };
 }
+// Lentille FCF (méthode Dividend King) : juste valeur basée sur le FREE CASH FLOW, en cross-check du DCF bénéfices.
+// Projette le FCF/action (croissance = fcfCagr historique, plafonnée) et sort sur un P/FCF BORNÉ (8..30, anti multiple
+// de bulle sur un FCF écrasé). Null si pas de FCF exploitable (financière, FCF négatif) -> lentille non applicable.
+function scrDcfFcf(m, sector) {
+  m = m || {};
+  const price = m.price, fy = m.fcfYield;
+  if (price == null || !(price > 0) || fy == null || !(fy > 0)) return null;
+  let g = (m.fcfCagr != null) ? m.fcfCagr : ((m.analystGrowth != null) ? m.analystGrowth : m.earningsCAGR);
+  if (g == null) return null;
+  const RET = SCR_DCF_RET, N = SCR_DCF_N;
+  const g0 = Math.max(-0.95, Math.min(SCR_DCF_GCAP, g));
+  const gTerm = Math.min(SCR_DCF_GTERM, g0);
+  const exitPfcf = Math.max(8, Math.min(30, 1 / fy));   // P/FCF de sortie borné 8..30 (anti multiple de bulle)
+  let fcf = fy * price;                                  // FCF par action aujourd'hui (fcfYield = FCF/capi = FCF-par-action/cours)
+  for (let t = 1; t <= N; t++) { const frac = N > 1 ? (t - 1) / (N - 1) : 1; const gy = g0 + (gTerm - g0) * frac; fcf *= (1 + gy); }
+  const futurePrice = fcf * exitPfcf, fair = futurePrice / Math.pow(1 + RET, N);
+  const cagr = Math.pow(futurePrice / price, 1 / N) - 1;
+  return { fair, cagr, exitPfcf, fcf0: fy * price, gUsed: g0 };
+}
 function scrFairPrice(m, sector) {
   const d = scrDcf(m, sector);
   return (d && d.fair > 0) ? d.fair : scrFairPricePeg(m, sector);
@@ -5654,6 +5673,41 @@ function scrShowValuationCard(m0, sector) {
   const summary = scrEl('div');          // fair value + potentiel + badge (recalcule en live)
   const gaugeBox = scrEl('div', { style: 'margin:8px 0 4px' });
   card.appendChild(summary); card.appendChild(gaugeBox);
+
+  // Lentille FCF (méthode Dividend King) : cross-check par le FREE CASH FLOW. Signaux qualité (rendement, croissance,
+  // conversion bénéfice->cash) toujours affichés ; juste valeur FCF chiffrée SEULEMENT si la conversion est saine
+  // (sinon le FCF est écrasé par le capex -> le chiffre serait trompeur, on signale plutôt le capex).
+  (function () {
+    const fy = m.fcfYield, pe = m.trailingPE || m.forwardPE;
+    const box = scrEl('div', { style: 'margin:6px 0 2px;background:#f8fafc;border:1px solid #eef1f5;border-radius:10px;padding:8px 10px' });
+    box.appendChild(scrEl('div', { style: 'font-size:0.62rem;text-transform:uppercase;letter-spacing:.03em;color:#9aa7b4;font-weight:700;margin-bottom:4px', text: 'Lentille FCF (méthode Dividend King)' }));
+    if (fy == null || !(fy > 0) || fy > 0.15) {
+      box.appendChild(scrEl('div', { style: 'font-size:0.72rem;color:#9aa7b4', text: 'Pas de free cash-flow fiable ici (financière, FCF négatif, ou donnée aberrante) : la lentille FCF ne s\'applique pas.' }));
+    } else {
+      const conv = (pe > 0) ? fy * pe : null;   // conversion bénéfice -> cash = FCF/action ÷ BPA
+      const chip = (label, val, col) => scrEl('span', { kids: [scrEl('span', { text: label + ' ', style: 'color:#9aa7b4' }), scrEl('b', { text: val, style: `color:${col || '#42546a'}` })] });
+      box.appendChild(scrEl('div', { style: 'display:flex;gap:14px;flex-wrap:wrap;font-size:0.72rem;margin-bottom:4px', kids: [
+        chip('Rendement FCF', (fy * 100).toFixed(1) + '%'),
+        chip('Croissance FCF', (m.fcfCagr != null ? ((m.fcfCagr >= 0 ? '+' : '') + (m.fcfCagr * 100).toFixed(0) + '%/an') : '–'), (m.fcfCagr != null && m.fcfCagr >= 0.10) ? '#1d9e74' : '#42546a'),
+        (conv != null ? chip('Conversion bénéf.→cash', (conv * 100).toFixed(0) + '%', conv >= 0.7 ? '#1d9e74' : (conv >= 0.4 ? '#42546a' : '#dd5f66')) : scrEl('span'))] }));
+      const fcf = scrDcfFcf(m, sector), earn = scrDcf(m, sector);
+      if (conv != null && conv >= 0.5 && fcf && fcf.fair > 0) {
+        const gap = (fcf.fair - price) / price, gcol = gap >= 0 ? '#1d9e74' : '#dd5f66';
+        box.appendChild(scrEl('div', { style: 'display:flex;align-items:baseline;gap:10px;flex-wrap:wrap', kids: [
+          scrEl('div', { kids: [scrEl('span', { text: 'Juste valeur FCF ', style: 'font-size:0.7rem;color:#5b6b7d' }), scrEl('b', { text: money(fcf.fair), style: 'font-size:1.05rem;color:#22303f' })] }),
+          scrEl('span', { text: (gap >= 0 ? '▲ +' : '▼ ') + (Math.abs(gap) * 100).toFixed(0) + '%', style: `font-weight:800;color:${gcol}` })] }));
+        if (earn && earn.fair > 0) {
+          const dv = (fcf.fair - earn.fair) / earn.fair;
+          const note = Math.abs(dv) < 0.15 ? 'Cohérent avec la valo bénéfices (écart ' + (dv >= 0 ? '+' : '') + (dv * 100).toFixed(0) + ' %).'
+            : (dv < 0 ? 'Le FCF valorise ' + Math.abs(dv * 100).toFixed(0) + ' % plus bas que les bénéfices.' : 'Le FCF valorise ' + (dv * 100).toFixed(0) + ' % plus haut que les bénéfices.');
+          box.appendChild(scrEl('div', { style: 'font-size:0.66rem;margin-top:3px;color:#5b6b7d', text: note }));
+        }
+      } else {
+        box.appendChild(scrEl('div', { style: 'font-size:0.68rem;margin-top:2px;line-height:1.4;color:#c0392b', text: '⚠ Conversion faible : les bénéfices ne se transforment pas encore en cash (capex élevé, ex investissement IA). La juste valeur bénéfices est donc à prendre avec prudence ; une juste valeur FCF ne serait pas fiable tant que le capex ne se normalise pas.' }));
+      }
+    }
+    card.appendChild(box);
+  })();
 
   const iStyle = 'width:66px;padding:6px 8px;border:1px solid #e3e8ee;border-radius:8px;font-size:0.85rem;font-weight:600;color:#22303f';
   const inp = (val, min, max, step) => scrEl('input', { attrs: { type: 'number', value: (val == null ? '' : String(val)), min: String(min), max: String(max), step: String(step) }, style: iStyle });
