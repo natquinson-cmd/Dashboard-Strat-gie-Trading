@@ -5669,6 +5669,36 @@ function scrShowValuationCard(m0, sector) {
     field('Rendement visé', retIn, '%/an'), field('Horizon', nIn, 'ans'),
     field('Croissance', growIn, '%/an'), field('Croiss. finale', gtIn, '%/an'),
     field('Multiple sortie', exitIn, '×') ] }));
+  // Presets du multiple de sortie, ancres sur le P/E moyen historique de la valeur (= "Normale").
+  (function () {
+    const avgOk = (m.avgPe != null && m.avgPe >= 3 && m.avgPe <= 150);
+    const baseMult = avgOk ? m.avgPe : (m.trailingPE || m.forwardPE || null);
+    if (!(baseMult > 0)) return;
+    const r = (v) => Math.round(v);
+    const presets = [
+      { label: 'Faible', v: r(baseMult * 0.65), title: 'Compression du multiple (~-35 %) : le marché paie moins cher à mesure que la croissance mûrit. Prudent.' },
+      { label: 'Normale', v: r(baseMult), title: 'P/E moyen historique de la valeur : retour à sa valorisation habituelle. Hypothèse neutre.' },
+      { label: 'Haute', v: r(baseMult * 1.30), title: 'Prime maintenue (+30 %) : le marché continue de payer cher. Optimiste.' },
+    ];
+    const pStyle = 'padding:4px 9px;border:1px solid #e3e8ee;border-radius:8px;background:#fff;cursor:pointer;font-size:0.72rem;font-weight:700;color:#42546a';
+    const row = scrEl('div', { style: 'display:flex;align-items:center;gap:6px;margin-top:8px;flex-wrap:wrap', kids: [
+      scrEl('span', { text: 'Multiple sortie :', style: 'font-size:0.7rem;color:#5b6b7d;font-weight:600' })] });
+    const btns = [];
+    presets.forEach((pz) => {
+      const b = scrEl('button', { attrs: { title: pz.title }, text: pz.label + ' ' + pz.v, style: pStyle });
+      b.onclick = () => {
+        exitIn.value = String(pz.v);
+        btns.forEach((x) => { x.style.background = '#fff'; x.style.color = '#42546a'; x.style.borderColor = '#e3e8ee'; });
+        b.style.background = '#eaf0ff'; b.style.color = '#3563e9'; b.style.borderColor = '#3563e9';
+        exitIn.dispatchEvent(new Event('input'));
+      };
+      btns.push(b); row.appendChild(b);
+    });
+    // reflet du bouton actif au chargement si le multiple courant colle a un preset
+    const cur = Number(exitIn.value);
+    presets.forEach((pz, i) => { if (isFinite(cur) && Math.abs(cur - pz.v) < 0.5) { btns[i].style.background = '#eaf0ff'; btns[i].style.color = '#3563e9'; btns[i].style.borderColor = '#3563e9'; } });
+    card.appendChild(row);
+  })();
   card.appendChild(scrEl('div', { style: 'font-size:0.64rem;color:#9aa7b4;margin-top:6px;line-height:1.45', text:
     (m.analystGrowth != null
       ? 'Croissance pré-remplie = estimation ANALYSTE du chiffre d\'affaires (+1 an, ' + (m.analystGrowth >= 0 ? '+' : '') + (m.analystGrowth * 100).toFixed(0) + ' %/an). '
