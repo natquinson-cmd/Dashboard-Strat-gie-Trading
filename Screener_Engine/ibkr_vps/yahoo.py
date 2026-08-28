@@ -270,13 +270,34 @@ class Yahoo:
             reg = raw('regularMarketPrice')
             if reg is not None:
                 state = (pm.get('marketState') or '').upper()
-                price, chg = reg, raw('regularMarketChangePercent')
-                if state.startswith('PRE') and raw('preMarketPrice') is not None:
-                    price, chg = raw('preMarketPrice'), raw('preMarketChangePercent')    # pre-marche (comme Revolut)
-                elif state.startswith('POST') and raw('postMarketPrice') is not None:
-                    price, chg = raw('postMarketPrice'), raw('postMarketChangePercent')   # after-hours
+                rpc = raw('regularMarketPreviousClose')
+                pre, post = raw('preMarketPrice'), raw('postMarketPrice')
+                # Variation TOUJOURS relative a la cloture pertinente selon la phase de marche.
+                # Bug corrige : hors seance (nuit / week-end), l'ancien code affichait
+                # `regularMarketChangePercent` = la variation de la DERNIERE SEANCE REGULIERE, qui apres minuit
+                # devient "celle d'hier" (ex NVDA +8,7% = seance du 27 affichee le 28). On ne l'affiche plus.
+                if state.startswith('PRE') and pre is not None:
+                    price = pre; chg = raw('preMarketChangePercent')
+                    if chg is None and reg: chg = pre / reg - 1                 # overnight = pre-marche vs derniere cloture
+                elif state.startswith('POST') and post is not None:
+                    price = post; chg = raw('postMarketChangePercent')
+                    if chg is None and reg: chg = post / reg - 1                # after-hours vs cloture du jour
+                elif state == 'REGULAR':
+                    price = reg; chg = raw('regularMarketChangePercent')
+                    if chg is None and rpc: chg = reg / rpc - 1                 # seance en cours vs veille
+                else:
+                    # Marche FERME : on garde le dernier prix hors-seance s'il existe (variation reelle overnight/
+                    # after-hours), sinon on fige a la cloture SANS afficher la variation de la veille (chg=None -> "–").
+                    if post is not None:
+                        price = post; chg = raw('postMarketChangePercent')
+                        if chg is None and reg: chg = post / reg - 1
+                    elif pre is not None:
+                        price = pre; chg = raw('preMarketChangePercent')
+                        if chg is None and reg: chg = pre / reg - 1
+                    else:
+                        price = reg; chg = None                                 # fige a la cloture, pas de fausse "var. jour"
                 exch = self._PRICE_EXCH.get(pm.get('exchangeName'), pm.get('exchangeName'))
-                return {'price': price, 'changePct': chg, 'exchange': exch,
+                return {'price': price, 'changePct': chg, 'exchange': exch, 'marketState': state,
                         'quoteType': pm.get('quoteType'), 'ts': raw('regularMarketTime')}
         except Exception:
             pass
