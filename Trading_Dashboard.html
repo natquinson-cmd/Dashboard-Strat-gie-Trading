@@ -7138,7 +7138,7 @@ function renderPositionsTable(pos, onChange) {
   if (!pos.length) return scrEl('div', { text: 'Aucune position. Ajoute tes achats Revolut ci-dessus (ticker, quantité d\'actions, prix d\'achat) pour suivre ta performance.', style: 'color:#5b6b7d;font-size:0.8rem;padding:4px 0' });
   const bd = 'border-bottom:1px solid #eef1f5';
   const thead = scrEl('tr', { style: 'background:#f6f8fb;color:#5b6b7d' });
-  [['Ticker', 'left'], ['Qté', 'right'], ["Prix achat", 'right'], ['Investi', 'right'], ['Cours', 'right'], ['Var. jour', 'right'], ['Valeur', 'right'], ['+/−', 'right'], ['Valorisation', 'center']].forEach(([t, al]) =>
+  [['Ticker', 'left'], ['Qté', 'right'], ["Prix achat", 'right'], ['Cours', 'left'], ['Var. jour', 'right'], ['Valeur', 'right'], ['+/−', 'right'], ['Valorisation', 'center']].forEach(([t, al]) =>
     thead.appendChild(scrEl('th', { text: t, style: `padding:8px 10px;text-align:${al};font-size:0.68rem;text-transform:uppercase;letter-spacing:.03em;border-bottom:1px solid #e3e8ee;white-space:nowrap` })));
   scrFundaHeadCells(0).forEach((th) => thead.appendChild(th));   // infos screener : Note, Objectif, ROIC, Croiss CA, PEG, Marge, Rendement, Payout, Div crois, FCF yield
   thead.appendChild(scrEl('th', { text: '', style: 'padding:8px 10px;border-bottom:1px solid #e3e8ee' }));   // colonne suppression
@@ -7184,8 +7184,7 @@ function renderPositionsTable(pos, onChange) {
       scrEl('td', { style: `padding:6px 10px;${bd}`, kids: [scrEl('div', { style: 'display:flex;align-items:center;gap:8px', kids: tkKids })] }),
       scrEl('td', { text: qtyTxt, style: `padding:6px 10px;text-align:right;${bd};color:#42546a;font-weight:600` }),
       scrEl('td', { text: (p.pru != null ? usdToDisp(p.pru).toFixed(2) : '–'), style: `padding:6px 10px;text-align:right;${bd};color:#42546a` }),
-      scrEl('td', { text: scrUsd(investi), style: `padding:6px 10px;text-align:right;${bd};color:#42546a` }),
-      scrEl('td', { text: (d && d.price != null ? scrPrice(d.price, d.exchange) : '–'), style: `padding:6px 10px;text-align:right;${bd};color:#42546a` }),
+      (d ? scrCoursCell(d, bd) : scrEl('td', { text: '–', style: `padding:6px 10px;text-align:right;${bd};color:#c3ccd6` })),
       scrEl('td', { text: dayTxt, style: `padding:6px 10px;text-align:right;${bd};font-weight:700;color:${dayCol};white-space:nowrap` }),
       scrEl('td', { text: scrUsd(valeur), style: `padding:6px 10px;text-align:right;${bd};font-weight:700;color:#22303f` }),
       scrEl('td', { text: (pnl == null ? '–' : (pnl >= 0 ? '+' : '') + scrUsd(pnl) + ' (' + (pnlPct >= 0 ? '+' : '') + (pnlPct * 100).toFixed(1) + '%)'), style: `padding:6px 10px;text-align:right;${bd};font-weight:700;color:${pnlCol};white-space:nowrap` }),
@@ -7199,7 +7198,6 @@ function renderPositionsTable(pos, onChange) {
   tbody.appendChild(scrEl('tr', { style: 'background:#fafbfc', kids: [
     scrEl('td', { text: pos.length + ' lignes', style: 'padding:7px 10px;font-weight:700;color:#5b6b7d' }),
     scrEl('td', { text: '' }), scrEl('td', { text: '' }),
-    scrEl('td', { text: scrUsd(totInv), style: 'padding:7px 10px;text-align:right;font-weight:800;color:#42546a' }),
     scrEl('td', { text: '' }),
     scrEl('td', { text: (totDay >= 0 ? '+' : '') + scrUsd(totDay) + ' (' + (dayPctT >= 0 ? '+' : '') + (dayPctT * 100).toFixed(1) + '%)', style: `padding:7px 10px;text-align:right;font-weight:800;color:${dCol};white-space:nowrap` }),
     scrEl('td', { text: scrUsd(totVal), style: 'padding:7px 10px;text-align:right;font-weight:800;color:#22303f' }),
