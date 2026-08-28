@@ -5759,26 +5759,62 @@ function scrShowValuationCard(m0, sector) {
   document.body.appendChild(backdrop); scrValModal = backdrop;
   document.addEventListener('keydown', scrValEsc, true);
 }
+// Petite loupe bleue = indice visuel "cliquable -> ouvre la fiche de valorisation".
+function scrMagnifier() {
+  const NS = 'http://www.w3.org/2000/svg', s = document.createElementNS(NS, 'svg');
+  s.setAttribute('viewBox', '0 0 16 16'); s.setAttribute('width', '11'); s.setAttribute('height', '11'); s.style.flex = '0 0 auto';
+  const c = document.createElementNS(NS, 'circle'); c.setAttribute('cx', '6.5'); c.setAttribute('cy', '6.5'); c.setAttribute('r', '4'); c.setAttribute('fill', 'none'); c.setAttribute('stroke', '#3563e9'); c.setAttribute('stroke-width', '1.6');
+  const l = document.createElementNS(NS, 'line'); l.setAttribute('x1', '9.4'); l.setAttribute('y1', '9.4'); l.setAttribute('x2', '14'); l.setAttribute('y2', '14'); l.setAttribute('stroke', '#3563e9'); l.setAttribute('stroke-width', '1.6'); l.setAttribute('stroke-linecap', 'round');
+  s.appendChild(c); s.appendChild(l); return s;
+}
 // Cellule « Potentiel/an » : rendement annuel attendu par le DCF (CAGR) vs le cours actuel
 function scrTargetCell(m, sector, bd) {
   const d = scrDcf(m, sector), price = m.price;
+  const clickable = !!(d && price != null && price > 0);
   const box = scrEl('div', { style: 'display:flex;flex-direction:column;gap:2px;min-width:62px;align-items:flex-end' });
   if (d && isFinite(d.cagr)) {
     const c = d.cagr;
     const col = c >= SCR_DCF_RET ? '#1d9e74' : (c >= 0 ? '#42546a' : '#dd5f66');   // vert = bat ton rendement visé, rouge = négatif
-    box.appendChild(scrEl('span', { text: (c >= 0 ? '+' : '') + (c * 100).toFixed(0) + ' %/an', style: `font-weight:700;font-size:0.86rem;color:${col}` }));
+    const valSpan = scrEl('span', { text: (c >= 0 ? '+' : '') + (c * 100).toFixed(0) + ' %/an', style: `font-weight:700;font-size:0.86rem;color:${col}` });
+    box.appendChild(clickable ? scrEl('div', { style: 'display:flex;align-items:center;gap:4px', kids: [valSpan, scrMagnifier()] }) : valSpan);   // loupe = cliquable
     const pill = scrZonePill(m, sector);                                           // pastille de zone d'achat (Idéal/Achat/Plein/Cher)
     if (pill) box.appendChild(pill);
   } else {
     box.appendChild(scrEl('span', { text: '–', style: 'color:#c3ccd6' }));
   }
   const td = scrEl('td', { style: `padding:6px 10px;${bd}`, kids: [box] });
-  if (d && price != null && price > 0) {   // cliquable -> FICHE de valorisation (juste valeur editable par titre + jauge)
+  if (clickable) {   // cliquable -> FICHE de valorisation (juste valeur editable par titre + jauge)
     box.style.cursor = 'pointer';
     if (d.overridden) box.appendChild(scrEl('span', { text: '✎', attrs: { title: 'Valorisation personnalisée pour ce titre' }, style: 'font-size:0.6rem;color:#3563e9' }));
     td.setAttribute('title', "Potentiel annuel attendu (DCF). Clique pour la fiche de valorisation (juste valeur, hypothèses de CE titre, valeur manuelle).");
     td.onclick = (e) => { e.stopPropagation(); scrShowValuationCard(m, sector); };
   }
+  return td;
+}
+// Cellule compacte "Juste valeur + jauge" (resume + diagramme de la fiche), remplace la colonne Note dans Mes positions.
+function scrValGaugeCell(m, sector, bd) {
+  const d = scrDcf(m, sector), price = m && m.price;
+  if (!d || !(d.fair > 0) || !(price > 0)) return scrEl('td', { text: '–', style: `padding:6px 10px;${bd};color:#c3ccd6` });
+  const fair = d.fair, gap = fair / price - 1, col = gap >= 0 ? '#1d9e74' : '#dd5f66', money = (v) => scrPrice(v, m.exchange);
+  const ideal = fair * (1 - SCR_SAFETY), plein = fair * 1.10, lo = fair * 0.70, hi = fair * 1.30, sp = (hi - lo) || 1;
+  const pp = (v) => Math.max(0, Math.min(100, (v - lo) / sp * 100));
+  const seg = (from, to, key) => scrEl('div', { style: `position:absolute;left:${pp(from)}%;width:${pp(to) - pp(from)}%;top:0;bottom:0;background:${SCR_ZONE[key].bar}` });
+  const zone = price <= ideal ? 'ideal' : (price <= fair ? 'achat' : (price <= plein ? 'plein' : 'cher'));
+  const box = scrEl('div', { style: 'min-width:160px;display:flex;flex-direction:column;gap:3px' });
+  box.appendChild(scrEl('div', { style: 'display:flex;align-items:center;gap:5px;white-space:nowrap', kids: [
+    scrEl('b', { text: money(fair), style: 'font-size:0.86rem;color:#22303f' }),
+    scrEl('span', { text: (gap >= 0 ? '▲ +' : '▼ ') + (Math.abs(gap) * 100).toFixed(0) + '%', style: `font-size:0.72rem;font-weight:700;color:${col}` }),
+    (d.overridden ? scrEl('span', { text: '✎', attrs: { title: 'Valorisation personnalisée' }, style: 'font-size:0.6rem;color:#3563e9' }) : scrEl('span', { style: 'display:none' })),
+    scrMagnifier()] }));
+  box.appendChild(scrEl('div', { style: 'position:relative;height:10px;border-radius:5px;overflow:hidden', kids: [
+    seg(lo, ideal, 'ideal'), seg(ideal, fair, 'achat'), seg(fair, plein, 'plein'), seg(plein, hi, 'cher'),
+    scrEl('div', { style: `position:absolute;left:${pp(price)}%;top:-3px;bottom:-3px;width:2px;background:#22303f;box-shadow:0 0 0 1px #fff` })] }));
+  box.appendChild(scrEl('div', { style: 'display:flex;justify-content:space-between;gap:6px;font-size:0.56rem;color:#9aa7b4;white-space:nowrap', kids: [
+    scrEl('span', { text: 'Idéal ≤ ' + money(ideal) }),
+    scrEl('span', { text: SCR_ZONE[zone].label, style: `color:${SCR_ZONE[zone].fg};font-weight:700` }),
+    scrEl('span', { text: 'Cher > ' + money(plein) })] }));
+  const td = scrEl('td', { style: `padding:6px 10px;${bd};cursor:pointer`, attrs: { title: "Juste valeur DCF + zone d'achat. Clique pour la fiche complète." }, kids: [box] });
+  td.onclick = (e) => { e.stopPropagation(); scrShowValuationCard(m, sector); };
   return td;
 }
 // « Cheapness » 0-100 : à quel point le titre est bas MAINTENANT (deux ancres complementaires) :
@@ -7193,7 +7229,10 @@ function renderPositionsTable(pos, onChange) {
   const thead = scrEl('tr', { style: 'background:#f6f8fb;color:#5b6b7d' });
   [['Ticker', 'left'], ['Qté', 'right'], ["Prix achat", 'right'], ['Cours 3 M', 'left'], ['Var. jour', 'right'], ['Valeur', 'right'], ['+/−', 'right'], ['Valorisation', 'center']].forEach(([t, al]) =>
     thead.appendChild(scrEl('th', { text: t, style: `padding:8px 10px;text-align:${al};font-size:0.68rem;text-transform:uppercase;letter-spacing:.03em;border-bottom:1px solid #e3e8ee;white-space:nowrap` })));
-  scrFundaHeadCells(0).forEach((th) => thead.appendChild(th));   // infos screener : Note, Objectif, ROIC, Croiss CA, PEG, Marge, Rendement, Payout, Div crois, FCF yield
+  const fhead = scrFundaHeadCells(0);   // Note, Potentiel/an, Pays, Moat, ROIC, Croiss CA, PEG, Marge, Rendement, Payout, Div crois, FCF yield
+  fhead[0] = scrEl('th', { text: 'Juste valeur', attrs: { title: "Juste valeur DCF + jauge de la zone d'achat (Idéal / Achat / Cher) et écart au cours. Clique une ligne pour la fiche complète." }, style: `padding:8px 8px;text-align:left;font-size:0.66rem;text-transform:uppercase;letter-spacing:.02em;border-bottom:1px solid #e3e8ee;white-space:nowrap;cursor:help;text-decoration:underline dotted #b8c2cf;text-underline-offset:3px` });   // Note -> Juste valeur
+  fhead.splice(2, 1);   // retire l'en-tête Pays
+  fhead.forEach((th) => thead.appendChild(th));
   thead.appendChild(scrEl('th', { text: '', style: 'padding:8px 10px;border-bottom:1px solid #e3e8ee' }));   // colonne suppression
   const tbody = scrEl('tbody');
   let totInv = 0, totVal = 0, totDay = 0, totFairUsd = 0, totFairBaseUsd = 0;
@@ -7242,7 +7281,7 @@ function renderPositionsTable(pos, onChange) {
       scrEl('td', { text: scrUsd(valeur), style: `padding:6px 10px;text-align:right;${bd};font-weight:700;color:#22303f` }),
       scrEl('td', { text: (pnl == null ? '–' : (pnl >= 0 ? '+' : '') + scrUsd(pnl) + ' (' + (pnlPct >= 0 ? '+' : '') + (pnlPct * 100).toFixed(1) + '%)'), style: `padding:6px 10px;text-align:right;${bd};font-weight:700;color:${pnlCol};white-space:nowrap` }),
       scrEl('td', { style: `padding:6px 10px;text-align:center;${bd}`, kids: [scrValPill(vgap)] }),
-      ...scrFundaCells(d, (d && d.sector) ? d.sector : 'Autre', bd),
+      ...(() => { const sec = (d && d.sector) ? d.sector : 'Autre'; const f = scrFundaCells(d, sec, bd); f[0] = scrValGaugeCell(d, sec, bd); f.splice(2, 1); return f; })(),
       scrEl('td', { style: `padding:6px 10px;text-align:right;${bd}`, kids: [del] }),
     ] }));
   });
@@ -7256,7 +7295,7 @@ function renderPositionsTable(pos, onChange) {
     scrEl('td', { text: scrUsd(totVal), style: 'padding:7px 10px;text-align:right;font-weight:800;color:#22303f' }),
     scrEl('td', { text: (totPnl >= 0 ? '+' : '') + scrUsd(totPnl) + ' (' + (totPct >= 0 ? '+' : '') + (totPct * 100).toFixed(1) + '%)', style: `padding:7px 10px;text-align:right;font-weight:800;color:${tCol};white-space:nowrap` }),
     scrEl('td', { style: 'padding:7px 10px;text-align:center', kids: [scrValPill(totFairBaseUsd > 0 ? (totFairUsd / totFairBaseUsd - 1) : null)] }),
-    ...Array.from({ length: 12 }, () => scrEl('td', { text: '' })),
+    ...Array.from({ length: 11 }, () => scrEl('td', { text: '' })),
     scrEl('td', { text: '' }),
   ] }));
   const table = scrEl('table', { style: 'width:100%;border-collapse:collapse;font-size:0.82rem', kids: [scrEl('thead', { kids: [thead] }), tbody] });
