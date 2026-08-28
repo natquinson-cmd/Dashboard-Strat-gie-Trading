@@ -6263,6 +6263,8 @@ function scrValPotOf(t) {   // pour un candidat répartition {symbol, sector, me
   const m = (t && SCR_PRICE_MAP[String(t.symbol || '').toUpperCase()]) || (t && t.metrics) || {};
   return scrValPotScore(m, t && t.sector);
 }
+// Titre en zone "Cher" (cours nettement au-dessus de la juste valeur DCF) -> à ne PAS proposer à l'achat.
+function scrIsCher(m, sector) { const b = scrBuyBand(m, sector); return !!(b && b.zone === 'cher'); }
 function computeAllocation(top, amount, nLines, weightMode, divOnly, holdings, sectorCap, lineCap) {
   holdings = holdings || {};
   // Aucun argent à déployer -> SNAPSHOT du portefeuille ACTUEL : toutes tes positions détenues, pondérées par leur
@@ -6286,6 +6288,7 @@ function computeAllocation(top, amount, nLines, weightMode, divOnly, holdings, s
   (top || []).forEach((t) => {
     const sym = String(t.symbol || '').toUpperCase();
     if (!sym || !t.rating || t.rating === 'Surévaluée') return;
+    if (scrIsCher(SCR_PRICE_MAP[sym] || t.metrics, t.sector)) return;   // exclut la zone Cher (cours au-dessus de la juste valeur)
     if (divOnly && !(t.metrics && t.metrics.divGrowing === true)) return;
     univ.set(sym, { symbol: sym, name: t.name, sector: t.sector || 'N/A', rating: t.rating, valuationScore: t.valuationScore || 0, metrics: t.metrics || SCR_PRICE_MAP[sym] || {} });
   });
@@ -6306,7 +6309,7 @@ function computeAllocation(top, amount, nLines, weightMode, divOnly, holdings, s
   const potOf = (t) => { const m = t.metrics || {}, fp = scrFairPrice(m, t.sector); return (fp != null && m.price > 0) ? (fp - m.price) / m.price : 0; };
   const pot = cands.map(potOf);
   // 2) POIDS CIBLE (dans le sleeve actions) : potentiel (plancher 3 %) ou conviction, plafonds ligne (10 %) + secteur (SC)
-  const base = (weightMode === 'conviction') ? cands.map((t) => Math.max(0.5, scrConvNote(t) - SCR_CONV_FLOOR)) : pot.map((p) => Math.max(p, 0.03));
+  const base = cands.map((t) => Math.max(0.03, scrValPotOf(t)));   // pondération par juste valeur + potentiel/an
   const sum0 = base.reduce((a, b) => a + b, 0) || 1;
   let w = base.map((b) => b / sum0);
   for (let iter = 0; iter < 80; iter++) {
@@ -6358,6 +6361,7 @@ function computeArbitrage(top, holdings, nLines, weightMode, divOnly, sectorCap,
   (top || []).forEach((t) => {
     const sym = String(t.symbol || '').toUpperCase();
     if (!sym || !t.rating || t.rating === 'Surévaluée') return;
+    if (scrIsCher(SCR_PRICE_MAP[sym] || t.metrics, t.sector)) return;   // exclut la zone Cher (cours au-dessus de la juste valeur)
     if (divOnly && !(t.metrics && t.metrics.divGrowing === true)) return;
     univ.set(sym, { symbol: sym, name: t.name, sector: t.sector || 'N/A', rating: t.rating, valuationScore: t.valuationScore || 0, metrics: t.metrics || SCR_PRICE_MAP[sym] || {} });
   });
@@ -6367,7 +6371,7 @@ function computeArbitrage(top, holdings, nLines, weightMode, divOnly, sectorCap,
     univ.set(sym, { symbol: sym, name: d.name || sym, sector: d.sector || 'N/A', rating: d.rating || 'Détenu', valuationScore: d.valuationScore || 0, metrics: d });
   });
   const cands = [], selCount = {}, selected = new Set();
-  for (const t of [...univ.values()].sort((a, b) => convOf(b) - convOf(a))) {   // classement par conviction décroissante
+  for (const t of [...univ.values()].sort((a, b) => scrValPotOf(b) - scrValPotOf(a))) {   // classement par juste valeur + potentiel/an
     const s = t.sector || 'N/A';
     if ((selCount[s] || 0) >= perSectorMax) continue;
     selCount[s] = (selCount[s] || 0) + 1; cands.push(t); selected.add(t.symbol);
@@ -6378,7 +6382,7 @@ function computeArbitrage(top, holdings, nLines, weightMode, divOnly, sectorCap,
   const sec = cands.map((t) => t.sector || 'N/A');
   const potOf = (t) => { const m = t.metrics || {}, fp = scrFairPrice(m, t.sector); return (fp != null && m.price > 0) ? (fp - m.price) / m.price : 0; };
   const pot = cands.map(potOf);
-  const base = (weightMode === 'conviction') ? cands.map((t) => Math.max(0.5, scrConvNote(t) - SCR_CONV_FLOOR)) : pot.map((p) => Math.max(p, 0.03));
+  const base = cands.map((t) => Math.max(0.03, scrValPotOf(t)));   // pondération par juste valeur + potentiel/an
   const sum0 = base.reduce((a, b) => a + b, 0) || 1;
   let w = base.map((b) => b / sum0);
   for (let iter = 0; iter < 80; iter++) {
@@ -7405,13 +7409,10 @@ function screenerQualityAllocPanel(top) {
   const savedAmt = Number(localStorage.getItem('scrAllocAmount')) || 10000;
   let savedN = Number(localStorage.getItem('scrAllocLines')) || 12;
   if (savedN > 15) savedN = 15;   // DK : 10-15 lignes max
-  const savedW = localStorage.getItem('scrAllocWeight') === 'potentiel' ? 'potentiel' : 'conviction';   // défaut = conviction (poids piloté par la note globale ajustée) ; potentiel = choix explicite
   const selStyle = 'padding:8px 10px;border:1px solid #e3e8ee;border-radius:9px;font-size:0.88rem;font-weight:600;color:#42546a;background:#fff';
   const amtInput = scrEl('input', { attrs: { type: 'number', min: '0', step: '500', value: String(savedAmt) }, style: 'width:130px;padding:8px 10px;border:1px solid #e3e8ee;border-radius:9px;font-size:0.9rem;font-weight:700;color:#22303f' });
   const nSelect = scrEl('select', { style: selStyle });
   [8, 10, 12, 15].forEach((n) => { const o = scrEl('option', { text: n + ' lignes', attrs: { value: String(n) } }); if (n === savedN) o.selected = true; nSelect.appendChild(o); });
-  const wSelect = scrEl('select', { attrs: { title: 'Conviction (façon Dividend King : les plus solides pèsent le plus) ou Potentiel de l\'Objectif' }, style: selStyle });
-  [['potentiel', 'poids : potentiel'], ['conviction', 'poids : conviction']].forEach(([v, label]) => { const o = scrEl('option', { text: label, attrs: { value: v } }); if (v === savedW) o.selected = true; wSelect.appendChild(o); });
   const savedEtf = localStorage.getItem('scrAllocEtf') != null ? Number(localStorage.getItem('scrAllocEtf')) : 50;
   const etfInput = scrEl('input', { attrs: { type: 'number', min: '0', max: '90', step: '5', value: String(savedEtf), title: 'Part en ETF socle (méthode Dividend King : ETF socle 50-60% + 5-10 actions)' }, style: 'width:58px;padding:8px 8px;border:1px solid #e3e8ee;border-radius:9px;font-size:0.88rem;font-weight:600;color:#42546a' });
   const savedSec = localStorage.getItem('scrAllocSecCap') != null ? Number(localStorage.getItem('scrAllocSecCap')) : 35;
@@ -7426,18 +7427,17 @@ function screenerQualityAllocPanel(top) {
   wrap.appendChild(scrEl('div', { style: 'display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px', kids: [
     scrEl('label', { text: 'Argent à déployer', attrs: { title: 'Ex : argent qui se libère de Debitum. Réparti en priorité là où tu es sous ta cible.' }, style: 'font-size:0.8rem;color:#42546a;font-weight:600;cursor:help' }),
     amtInput, scrEl('span', { text: scrDispSym(), style: 'color:#5b6b7d' }),
-    scrEl('span', { text: 'réparti sur', style: 'font-size:0.8rem;color:#5b6b7d;margin-left:6px' }), nSelect, wSelect, divSelect,
+    scrEl('span', { text: 'réparti sur', style: 'font-size:0.8rem;color:#5b6b7d;margin-left:6px' }), nSelect, divSelect,
     scrEl('span', { text: 'ETF socle', style: 'font-size:0.8rem;color:#5b6b7d;margin-left:6px' }), etfInput, scrEl('span', { text: '%', style: 'color:#5b6b7d' }),
     scrEl('span', { text: 'max secteur', style: 'font-size:0.8rem;color:#5b6b7d;margin-left:6px' }), secInput, scrEl('span', { text: '%', style: 'color:#5b6b7d' }),
     scrEl('span', { text: 'max/ligne', style: 'font-size:0.8rem;color:#5b6b7d;margin-left:6px' }), lineInput, scrEl('span', { text: '%', style: 'color:#5b6b7d' }),
     scrEl('span', { text: 'marge sécu', style: 'font-size:0.8rem;color:#5b6b7d;margin-left:6px' }), safetyInput, scrEl('span', { text: '%', style: 'color:#5b6b7d' })] }));
   const results = scrEl('div');
   wrap.appendChild(results);
-  wrap.appendChild(scrEl('div', { style: 'margin-top:10px;font-size:0.72rem;color:#5b6b7d', text: "Plan de DCA : l'argent que tu déploies (ex libéré de Debitum) va EN PRIORITÉ là où tu es le plus sous ta cible, en tenant compte de tes positions déjà détenues (on ne vend jamais). Cible = conviction (note globale ajustée) par défaut, ou potentiel de l'Objectif au choix, tableau trié par note. Plafonds par ligne et par secteur RÉGLABLES (DK ne s'interdit pas plus de 10 % sur ses plus fortes convictions). « lignes » = taille visée du portefeuille : tes titres détenus concourent au même classement (renforcés s'ils entrent dans le top, sinon conservés hors plan, jamais vendus en DCA). Structure DK : ETF socle 50-60 % + actions de qualité. La décision reste la tienne." }));
+  wrap.appendChild(scrEl('div', { style: 'margin-top:10px;font-size:0.72rem;color:#5b6b7d', text: "Plan de DCA : l'argent que tu déploies (ex libéré de Debitum) va EN PRIORITÉ là où tu es le plus sous ta cible, en tenant compte de tes positions déjà détenues (on ne vend jamais). Cible et classement = juste valeur (décote vs juste valeur DCF) + potentiel annuel ; les titres en zone « Cher » (cours au-dessus de la juste valeur) sont exclus des achats. Plafonds par ligne et par secteur RÉGLABLES (DK ne s'interdit pas plus de 10 % sur ses plus fortes convictions). « lignes » = taille visée du portefeuille : tes titres détenus concourent au même classement (renforcés s'ils entrent dans le top, sinon conservés hors plan, jamais vendus en DCA). Structure DK : ETF socle 50-60 % + actions de qualité. La décision reste la tienne." }));
   function render() {
     const amount = Math.max(0, Number(amtInput.value) || 0);
     const nLines = Number(nSelect.value) || 12;
-    const wMode = wSelect.value;
     const divOnly = divSelect.value === '1';
     const etfPct = Math.max(0, Math.min(0.9, (Number(etfInput.value) || 0) / 100));
     const secCap = Math.max(0.10, Math.min(1, (Number(secInput.value) || 35) / 100));
@@ -7445,22 +7445,20 @@ function screenerQualityAllocPanel(top) {
     SCR_SAFETY = Math.max(0.15, Math.min(0.50, (Number(safetyInput.value) || 15) / 100));   // marge sécu zone Idéal (plancher 15 %)
     localStorage.setItem('scrAllocAmount', String(amount));
     localStorage.setItem('scrAllocLines', String(nLines));
-    localStorage.setItem('scrAllocWeight', wMode);
     localStorage.setItem('scrAllocDivOnly', divOnly ? '1' : '0');
     localStorage.setItem('scrAllocEtf', String(Math.round(etfPct * 100)));
     localStorage.setItem('scrAllocSecCap', String(Math.round(secCap * 100)));
     localStorage.setItem('scrAllocLineCap', String(Math.round(lineCap * 100)));
     localStorage.setItem('scrAllocSafety', String(Math.round(SCR_SAFETY * 100)));
     if (allocMode === 'arb') {
-      results.replaceChildren(renderAllocTable(computeArbitrage(top, scrHoldingsUsd(), nLines, wMode, divOnly, secCap, lineCap), 0, 0, 'arb'));
+      results.replaceChildren(renderAllocTable(computeArbitrage(top, scrHoldingsUsd(), nLines, null, divOnly, secCap, lineCap), 0, 0, 'arb'));
     } else {
       const totalUsd = dispToUsd(amount);
-      results.replaceChildren(renderAllocTable(computeAllocation(top, totalUsd * (1 - etfPct), nLines, wMode, divOnly, scrHoldingsUsd(), secCap, lineCap), etfPct, totalUsd * etfPct, 'dca'));
+      results.replaceChildren(renderAllocTable(computeAllocation(top, totalUsd * (1 - etfPct), nLines, null, divOnly, scrHoldingsUsd(), secCap, lineCap), etfPct, totalUsd * etfPct, 'dca'));
     }
   }
   amtInput.addEventListener('input', render);
   nSelect.addEventListener('change', render);
-  wSelect.addEventListener('change', render);
   divSelect.addEventListener('change', render);
   etfInput.addEventListener('input', render);
   secInput.addEventListener('input', render);
