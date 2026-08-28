@@ -7329,8 +7329,11 @@ function renderPositionsTable(pos, onChange) {
     const tkKids = [logo, scrEl('b', { text: p.ticker, style: 'color:#22303f' })];
     if (d && d.buyback) tkKids.push(scrEl('span', { text: '↺', attrs: { title: "Rachats d'actions réguliers (nombre d'actions en baisse). Critère Dividend King." }, style: 'color:#1d9e74;font-weight:800;font-size:0.85rem;cursor:help' }));
     if (sell.length) tkKids.push(scrEl('span', { text: '⚠', attrs: { title: 'Signaux de vente (à vérifier, PAS un ordre) : ' + sell.join(' · ') + '. Vérifie aussi la thèse et le management.' }, style: 'cursor:help;font-size:0.9rem' }));
+    const zSec = (d && d.sector) ? d.sector : 'Autre';
+    const zBand = d ? scrBuyBand(d, zSec) : null;
+    const zStripe = zBand ? (SCR_ZONE[zBand.zone] || {}).bar : null;   // bandeau gauche = zone d'achat (vert décoté -> rouge cher)
     tbody.appendChild(scrEl('tr', { kids: [
-      scrEl('td', { style: `padding:6px 10px;${bd}`, kids: [scrEl('div', { style: 'display:flex;align-items:center;gap:8px', kids: tkKids })] }),
+      scrEl('td', { attrs: zStripe ? { title: "Zone d'achat : " + SCR_ZONE[zBand.zone].label + " (bandeau vert = décoté, rouge = cher, d'après la juste valeur DCF)" } : {}, style: `padding:6px 10px;${bd}${zStripe ? ';box-shadow:inset 4px 0 0 0 ' + zStripe : ''}`, kids: [scrEl('div', { style: 'display:flex;align-items:center;gap:8px', kids: tkKids })] }),
       scrEl('td', { text: qtyTxt, style: `padding:6px 10px;text-align:right;${bd};color:#42546a;font-weight:600` }),
       scrEl('td', { text: (p.pru != null ? usdToDisp(p.pru).toFixed(2) : '–'), style: `padding:6px 10px;text-align:right;${bd};color:#42546a` }),
       (d ? scrCoursCell(d, bd, true) : scrEl('td', { text: '–', style: `padding:6px 10px;text-align:right;${bd};color:#c3ccd6` })),
@@ -7359,7 +7362,12 @@ function renderPositionsTable(pos, onChange) {
   // Graphiques : répartition par action (barres) + par secteur (donut), sur la valeur actuelle
   const parts2 = parts.filter((p) => p.valeur > 0).sort((a, b) => b.valeur - a.valeur);
   const totV = parts2.reduce((s, p) => s + p.valeur, 0);
-  const kids = [scrTableBox(table, { maxH: 'none' }), note];   // Mes positions : pleine hauteur, pas d'ascenseur vertical
+  const zoneLegend = scrEl('div', { style: 'display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:8px;font-size:0.66rem;color:#5b6b7d', kids: [
+    scrEl('span', { text: "Bandeau gauche = zone d'achat :", style: 'font-weight:600' }),
+    ...['ideal', 'achat', 'plein', 'cher'].map((z) => scrEl('span', { style: 'display:flex;align-items:center;gap:4px', kids: [
+      scrEl('span', { style: `display:inline-block;width:11px;height:11px;border-radius:3px;background:${SCR_ZONE[z].bar}` }),
+      scrEl('span', { text: SCR_ZONE[z].label })] }))] });
+  const kids = [scrTableBox(table, { maxH: 'none' }), zoneLegend, note];   // Mes positions : pleine hauteur, pas d'ascenseur vertical
   if (parts2.length && totV > 0) {
     const stockItems = parts2.map((p, i) => ({ label: p.ticker, value: p.valeur, color: SCR_CHART_COLORS[i % SCR_CHART_COLORS.length], pctTxt: (p.valeur / totV * 100).toFixed(0) + '%' }));
     const grp = (keyfn) => { const o = {}; parts2.forEach((p) => { const k = keyfn(p) || 'Autre'; o[k] = (o[k] || 0) + p.valeur; }); return Object.keys(o).map((s) => ({ label: s, value: o[s] })).sort((a, b) => b.value - a.value).map((it, i) => ({ label: it.label, value: it.value, color: SCR_CHART_COLORS[i % SCR_CHART_COLORS.length], pctTxt: (it.value / totV * 100).toFixed(0) + '%' })); };
