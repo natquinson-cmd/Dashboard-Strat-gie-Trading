@@ -6939,6 +6939,7 @@ function scrDividendCard(pos) {
   const dateStr = (dt) => dt.getDate() + ' ' + MN[dt.getMonth()] + ' ' + dt.getFullYear();
   const monthLabel = (dt) => MN[dt.getMonth()] + ' ' + dt.getFullYear();
   const divMoney = (usd) => { const v = usdToDisp(usd); return (SCR_DISP_CCY === 'EUR') ? (v.toFixed(2) + ' €') : ('$' + v.toFixed(2)); };
+  const barColor = (kind, sel) => kind === 'decl' ? (sel ? '#1d9e74' : '#8fdcbc') : (sel ? '#7c3aed' : '#c9a8f5');   // vert = declare, violet = estime
   // projection des versements sur 36 mois
   const pays = [];
   withSched.forEach((r) => {
@@ -6983,6 +6984,20 @@ function scrDividendCard(pos) {
       scrEl('b', { text: (mode === 'year' ? 'Année ' : '') + p.label, style: 'color:#22303f;font-size:0.9rem' }),
       scrEl('span', { text: decl.length + ' déclaré' + (decl.length > 1 ? 's' : '') + ' · ' + est.length + ' estimé' + (est.length > 1 ? 's' : ''), style: 'font-size:0.68rem;color:#9aa7b4' })] }));
     if (!p.pays.length) { right.appendChild(scrEl('div', { style: 'color:#9aa7b4;font-size:0.76rem;padding:8px 0', text: 'Aucun versement estimé sur cette période.' })); return; }
+    if (mode === 'year') {   // vue ANNUELLE : une ligne par titre (agrégé sur l'année), sans date
+      const byTk = {};
+      p.pays.forEach((x) => { const t = (byTk[x.ticker] = byTk[x.ticker] || { ticker: x.ticker, name: x.name, amt: 0 }); t.amt += x.amt; });
+      right.appendChild(scrEl('div', { style: 'display:flex;gap:14px;margin:6px 0 4px;font-size:0.7rem;color:#5b6b7d', kids: [
+        scrEl('span', { kids: [scrEl('span', { text: '● ', style: 'color:#1d9e74;font-weight:900' }), scrEl('span', { text: 'Déclaré ' + divMoney(p.declared) })] }),
+        scrEl('span', { kids: [scrEl('span', { text: '● ', style: 'color:#7c3aed;font-weight:900' }), scrEl('span', { text: 'Estimé ' + divMoney(p.estimated) })] })] }));
+      Object.values(byTk).sort((a, b) => b.amt - a.amt).forEach((t) => {
+        const kids = [scrEl('b', { text: t.ticker, style: 'color:#22303f;font-size:0.82rem' })];
+        if (t.name) kids.push(scrEl('span', { text: ' ' + t.name, style: 'color:#9aa7b4;font-size:0.7rem' }));
+        right.appendChild(scrEl('div', { style: 'display:flex;justify-content:space-between;align-items:center;padding:6px 10px;border-bottom:1px solid #f2f5f8', kids: [
+          scrEl('div', { kids: kids }), scrEl('span', { text: divMoney(t.amt), style: 'font-weight:700;color:#42546a' })] }));
+      });
+      return;
+    }
     const section = (title, total, list, bg, fg) => {
       if (!list.length) return;
       right.appendChild(scrEl('div', { style: `display:flex;justify-content:space-between;background:${bg};color:${fg};padding:7px 10px;border-radius:8px;font-weight:800;font-size:0.78rem;margin-top:8px`, kids: [
@@ -7000,7 +7015,7 @@ function scrDividendCard(pos) {
   };
   const select = (key) => {
     const p = currentPeriods.find((x) => x.key === key); if (!p) return; selKey = key;
-    Object.keys(barRects).forEach((k) => barRects[k].setAttribute('fill', k === key ? '#7c3aed' : '#c9a8f5'));
+    Object.keys(barRects).forEach((k) => barRects[k].forEach((s) => s.el.setAttribute('fill', barColor(s.kind, k === key))));
     selBig.replaceChildren(
       scrEl('div', { text: (mode === 'year' ? 'Année ' : '') + p.label + ' (estimé)', style: 'font-size:0.7rem;color:#9aa7b4;font-weight:700' }),
       scrEl('div', { text: divMoney(p.total), style: 'font-size:1.6rem;font-weight:800;color:#22303f;line-height:1.1' }));
@@ -7012,12 +7027,21 @@ function scrDividendCard(pos) {
     const bw = (W - padL - padR) / n;
     const svg = document.createElementNS(NS, 'svg'); svg.setAttribute('viewBox', `0 0 ${W} ${H}`); svg.setAttribute('width', '100%'); svg.style.maxWidth = W + 'px';
     periods.forEach((p, i) => {
-      const x = padL + i * bw, bh = (p.total / maxV) * (H - padT - padB), y = H - padB - bh;
-      const rect = document.createElementNS(NS, 'rect');
-      rect.setAttribute('x', (x + bw * 0.15).toFixed(1)); rect.setAttribute('y', y.toFixed(1));
-      rect.setAttribute('width', Math.max(1, bw * 0.7).toFixed(1)); rect.setAttribute('height', Math.max(0, bh).toFixed(1));
-      rect.setAttribute('rx', '2'); rect.setAttribute('fill', p.key === selKey ? '#7c3aed' : '#c9a8f5');
-      svg.appendChild(rect); barRects[p.key] = rect;
+      const x = padL + i * bw, avail = H - padT - padB, bx = x + bw * 0.15, bwid = Math.max(1, bw * 0.7);
+      const segs = [];
+      let yCur = H - padB;
+      const mkSeg = (val, kind) => {
+        const h = (val / maxV) * avail;
+        if (!(h > 0)) return;
+        const rect = document.createElementNS(NS, 'rect');
+        rect.setAttribute('x', bx.toFixed(1)); rect.setAttribute('y', (yCur - h).toFixed(1));
+        rect.setAttribute('width', bwid.toFixed(1)); rect.setAttribute('height', h.toFixed(1));
+        rect.setAttribute('rx', '1.5'); rect.setAttribute('fill', barColor(kind, p.key === selKey));
+        svg.appendChild(rect); segs.push({ el: rect, kind }); yCur -= h;
+      };
+      mkSeg(p.declared, 'decl');    // bas = declares (vert)
+      mkSeg(p.estimated, 'est');    // haut = estimes (violet)
+      barRects[p.key] = segs;
       const hit = document.createElementNS(NS, 'rect');
       hit.setAttribute('x', x.toFixed(1)); hit.setAttribute('y', padT); hit.setAttribute('width', bw.toFixed(1)); hit.setAttribute('height', (H - padT - padB).toFixed(1));
       hit.setAttribute('fill', 'transparent'); hit.style.cursor = 'pointer';
