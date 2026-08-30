@@ -6981,6 +6981,77 @@ function scrValFairCurve(vh) {
   return cont;
 }
 // Bloc de synthese "Valorisation du portefeuille" (place au-dessus du tableau des positions).
+// Historique du S&P 500 (^GSPC) pour la comparaison de performance. { 'YYYY-MM-DD': close }
+let SCR_BENCH = null;
+// Graphique de PERFORMANCE (TWR %, façon Revolut) : notre portefeuille (positionsHistory, net des apports) vs S&P 500.
+// Sélecteurs de période (1J/1S/1M/1A/Tout) + comparaison optionnelle au S&P 500. Compact (tendance, pas large).
+function scrPerfChart(hist, bench) {
+  const wrap = scrEl('div');
+  wrap.appendChild(scrEl('div', { style: 'font-weight:800;color:#22303f;font-size:0.9rem', text: 'Performance' }));
+  wrap.appendChild(scrEl('div', { style: 'font-size:0.64rem;color:#9aa7b4;margin-bottom:2px', text: 'pondérée en fonction du temps (TWR), net des apports' }));
+  if (!hist || hist.length < 2) {
+    wrap.appendChild(scrEl('div', { style: 'color:#9aa7b4;font-size:0.72rem;padding:8px 0', text: 'La courbe de performance se trace jour après jour (1 point/jour via le VPS).' }));
+    return wrap;
+  }
+  const PERIODS = [['1J', 1], ['1S', 7], ['1M', 30], ['1A', 365], ['Tout', 1e9]];
+  let period = '1M', compareSP = true;
+  const bigBox = scrEl('div', { style: 'margin:2px 0 4px' }), chartBox = scrEl('div'), ctrlBox = scrEl('div');
+  const parseD = (s) => new Date(s + 'T00:00:00'), dayDiff = (a, b) => Math.round((parseD(a) - parseD(b)) / 86400000);
+  const lastDate = hist[hist.length - 1].date;
+  const filterHist = (days) => (days >= 1e9) ? hist.slice() : hist.filter((h) => dayDiff(lastDate, h.date) <= days);
+  const twrCum = (h) => {   // TWR cumulé net des apports, rebasé à 0 % au début de la fenêtre
+    const out = [{ date: h[0].date, v: 0 }]; let cum = 1;
+    for (let i = 1; i < h.length; i++) { const base = h[i - 1].value; if (base > 0) { const pnl = (h[i].value - h[i - 1].value) - (h[i].invested - h[i - 1].invested); cum *= (1 + pnl / base); } out.push({ date: h[i].date, v: cum - 1 }); }
+    return out;
+  };
+  const spSeries = (startDate) => {
+    if (!bench) return [];
+    const keys = Object.keys(bench).filter((k) => /^\d{4}-\d{2}-\d{2}$/.test(k) && k >= startDate && k <= lastDate).sort();
+    if (keys.length < 2) return [];
+    const b0 = bench[keys[0]];
+    return keys.map((k) => ({ date: k, v: b0 > 0 ? bench[k] / b0 - 1 : 0 }));
+  };
+  const perfSvg = (twr, sp) => {
+    const NS = 'http://www.w3.org/2000/svg', W = 340, H = 168, padL = 6, padR = 42, padT = 10, padB = 18;
+    const all = twr.map((p) => p.v).concat(sp.map((p) => p.v)).concat([0]);
+    let min = Math.min.apply(null, all), max = Math.max.apply(null, all); if (min === max) { min -= 0.01; max += 0.01; }
+    const mar = (max - min) * 0.14 || 0.01; min -= mar; max += mar; const span = (max - min) || 1;
+    const y = (v) => H - padB - (v - min) / span * (H - padT - padB), xOf = (arr, i) => padL + (arr.length > 1 ? i * (W - padL - padR) / (arr.length - 1) : (W - padL - padR) / 2);
+    const svg = document.createElementNS(NS, 'svg'); svg.setAttribute('viewBox', `0 0 ${W} ${H}`); svg.setAttribute('width', '100%'); svg.style.maxWidth = W + 'px';
+    const mk = (tag, a) => { const e = document.createElementNS(NS, tag); for (const k in a) e.setAttribute(k, a[k]); return e; };
+    const y0 = y(0); svg.appendChild(mk('line', { x1: padL, x2: W - padR, y1: y0, y2: y0, stroke: '#c3ccd6', 'stroke-dasharray': '2 3', 'stroke-width': 1 }));
+    const l0 = mk('text', { x: W - padR + 3, y: (y0 + 3).toFixed(1), 'font-size': 9, fill: '#9aa7b4' }); l0.textContent = '0 %'; svg.appendChild(l0);
+    const line = (arr, color) => {
+      if (arr.length < 2) return;
+      let d = ''; arr.forEach((p, i) => { d += (i ? 'L' : 'M') + xOf(arr, i).toFixed(1) + ' ' + y(p.v).toFixed(1) + ' '; });
+      svg.appendChild(mk('path', { d: d.trim(), fill: 'none', stroke: color, 'stroke-width': 2.2 }));
+      const last = arr[arr.length - 1], t = mk('text', { x: W - padR + 3, y: (y(last.v) + 3).toFixed(1), 'font-size': 9, 'font-weight': 700, fill: color });
+      t.textContent = (last.v >= 0 ? '+' : '') + (last.v * 100).toFixed(1) + '%'; svg.appendChild(t);
+    };
+    line(sp, '#7c94b5'); line(twr, '#1d9e74');
+    return svg;
+  };
+  const draw = () => {
+    const days = PERIODS.find((p) => p[0] === period)[1];
+    const fh = filterHist(days), twr = twrCum(fh), sp = compareSP ? spSeries(fh[0].date) : [];
+    const lastTwr = twr.length ? twr[twr.length - 1].v : 0, lastSp = sp.length ? sp[sp.length - 1].v : null;
+    bigBox.replaceChildren(scrEl('div', { text: (lastTwr >= 0 ? '+' : '') + (lastTwr * 100).toFixed(2) + ' %', style: `font-size:1.7rem;font-weight:800;color:${lastTwr >= 0 ? '#1d9e74' : '#dd5f66'};line-height:1` }));
+    chartBox.replaceChildren(perfSvg(twr, sp));
+    ctrlBox.replaceChildren();
+    const pb = scrEl('div', { style: 'display:inline-flex;gap:4px;flex-wrap:wrap;margin-top:6px' });
+    PERIODS.forEach(([lbl]) => { const b = scrEl('button', { text: lbl, style: `padding:3px 9px;border:1px solid ${period === lbl ? '#3563e9' : '#e3e8ee'};border-radius:7px;background:${period === lbl ? '#eaf0ff' : '#fff'};color:${period === lbl ? '#3563e9' : '#5b6b7d'};font-size:0.7rem;font-weight:700;cursor:pointer` }); b.onclick = () => { period = lbl; draw(); }; pb.appendChild(b); });
+    ctrlBox.appendChild(pb);
+    const tog = scrEl('label', { style: 'display:flex;align-items:center;gap:6px;margin-top:8px;font-size:0.72rem;color:#42546a;cursor:pointer' });
+    const cb = scrEl('input', { attrs: { type: 'checkbox' } }); cb.checked = compareSP; cb.onchange = () => { compareSP = cb.checked; draw(); };
+    tog.appendChild(cb);
+    tog.appendChild(scrEl('span', { kids: [scrEl('span', { text: 'Comparer au ' }), scrEl('b', { text: 'S&P 500', style: 'color:#3563e9' })] }));
+    if (compareSP && lastSp != null) tog.appendChild(scrEl('span', { text: (lastSp >= 0 ? '+' : '') + (lastSp * 100).toFixed(2) + ' %', style: `margin-left:auto;font-weight:700;color:${lastSp >= 0 ? '#1d9e74' : '#dd5f66'}` }));
+    ctrlBox.appendChild(tog);
+  };
+  wrap.appendChild(bigBox); wrap.appendChild(chartBox); wrap.appendChild(ctrlBox);
+  draw();
+  return wrap;
+}
 function scrValuationSummary(pos) {
   const wrap = scrEl('div', { style: 'background:#fff;border:1px solid #e3e8ee;border-radius:14px;padding:14px;margin-bottom:14px' });
   wrap.appendChild(scrEl('div', { style: 'display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap', kids: [
@@ -6996,25 +7067,29 @@ function scrValuationSummary(pos) {
   const nUnder = valued.filter((r) => r.gap >= 0).length, nOver = valued.length - nUnder;
   const gapTot = portVal > 0 ? (portFair / portVal - 1) : 0, upside = portFair - portVal, col = gapTot >= 0 ? '#1d9e74' : '#dd5f66';
   scrSnapshotValuation(portVal, portFair, valued.length);
+  // Layout 2 colonnes : GAUCHE = synthèse valorisation, DROITE = graphique de performance (TWR) vs S&P 500.
+  const layout = scrEl('div', { style: 'display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start' });
+  const left = scrEl('div', { style: 'flex:1.5;min-width:300px' });
+  const right = scrEl('div', { style: 'flex:1;min-width:270px;max-width:400px;border-left:1px solid #eef1f5;padding-left:16px' });
+  layout.appendChild(left); layout.appendChild(right); wrap.appendChild(layout);
   // 3 gros chiffres (facon SWS : Valeur / Juste valeur / % sous-evalue)
   const big = (label, val, c) => scrEl('div', { style: 'padding:0 16px;border-left:3px solid ' + (c || '#e3e8ee'), kids: [
     scrEl('div', { text: val, style: `font-size:1.5rem;font-weight:800;color:${c || '#22303f'};line-height:1.1` }),
     scrEl('div', { text: label, style: 'font-size:0.66rem;color:#9aa7b4;text-transform:uppercase;font-weight:700;letter-spacing:.03em;margin-top:2px' })] });
-  wrap.appendChild(scrEl('div', { style: 'display:flex;flex-wrap:wrap;gap:12px 4px;margin-bottom:14px', kids: [
+  left.appendChild(scrEl('div', { style: 'display:flex;flex-wrap:wrap;gap:12px 4px;margin-bottom:14px', kids: [
     big('Valeur du portefeuille', scrUsd(portVal), '#22303f'),
     big('Juste valeur (DCF)', scrUsd(portFair), '#3563e9'),
     big((gapTot >= 0 ? 'Sous-évalué' : 'Sur-évalué'), (Math.abs(gapTot) * 100).toFixed(1) + '%', col)] }));
-  // 4 cartes stats
+  // 3 cartes stats (Lignes évaluées retirée pour l'espace)
   const stat = (label, val, c, title) => scrEl('div', { attrs: title ? { title } : {}, style: 'flex:1;min-width:150px;background:#f8fafc;border:1px solid #eef1f5;border-radius:10px;padding:10px 12px' + (title ? ';cursor:help' : ''), kids: [
     scrEl('div', { text: label, style: 'font-size:0.66rem;color:#5b6b7d;font-weight:700;margin-bottom:3px' }),
     scrEl('div', { text: val, style: `font-size:1rem;font-weight:800;color:${c || '#22303f'}` })] });
   const wUnder = portVal > 0 ? underW / portVal : 0, wOver = portVal > 0 ? overW / portVal : 0;
-  wrap.appendChild(scrEl('div', { style: 'display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px', kids: [
+  left.appendChild(scrEl('div', { style: 'display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px', kids: [
     stat('% du portefeuille sous-évalué', (wUnder * 100).toFixed(0) + '% · ' + nUnder + ' ligne' + (nUnder > 1 ? 's' : ''), '#1d9e74', 'Poids des lignes dont le cours est SOUS la juste valeur DCF.'),
     stat('% du portefeuille sur-évalué', (wOver * 100).toFixed(0) + '% · ' + nOver + ' ligne' + (nOver > 1 ? 's' : ''), nOver ? '#dd5f66' : '#9aa7b4', 'Poids des lignes dont le cours est AU-DESSUS de la juste valeur DCF.'),
-    stat('Lignes évaluées', valued.length + ' / ' + (pos || []).length, '#42546a', 'Les ETF/indices sans BPA ne sont pas évalués par le DCF.'),
     stat('Potentiel agrégé (pondéré)', (upside >= 0 ? '+' : '') + scrUsd(upside), col, 'Juste valeur totale moins valeur actuelle (à cours constant). Positif = potentiel de revalorisation.')] }));
-  // Barre comparaison Valeur vs Juste valeur (visuel immediat, meme avec 1 seul jour d'historique)
+  // Barre comparaison Valeur vs Juste valeur
   const maxV = Math.max(portVal, portFair) || 1;
   const barRow = (label, v, c) => scrEl('div', { style: 'display:flex;align-items:center;gap:10px;margin:5px 0', kids: [
     scrEl('div', { text: label, style: 'width:110px;font-size:0.72rem;color:#5b6b7d;font-weight:600' }),
@@ -7024,17 +7099,19 @@ function scrValuationSummary(pos) {
   const barBox = scrEl('div', { style: 'background:#fbfcfe;border:1px solid #eef1f5;border-radius:10px;padding:12px;margin-bottom:6px' });
   barBox.appendChild(barRow('Valeur actuelle', portVal, '#94a3b8'));
   barBox.appendChild(barRow('Juste valeur', portFair, '#3563e9'));
-  wrap.appendChild(barBox);
+  left.appendChild(barBox);
   // Courbe temporelle valeur vs juste valeur (se construit jour apres jour)
   const vh = scrValHistArray(SCR_VALHIST);
   if (vh.length >= 2) {
-    wrap.appendChild(scrEl('div', { style: 'display:flex;gap:14px;align-items:center;margin:8px 0 2px;font-size:0.7rem;color:#5b6b7d', kids: [
+    left.appendChild(scrEl('div', { style: 'display:flex;gap:14px;align-items:center;margin:8px 0 2px;font-size:0.7rem;color:#5b6b7d', kids: [
       scrEl('span', { kids: [scrEl('span', { text: '▬ ', style: 'color:#94a3b8;font-weight:900' }), scrEl('span', { text: 'Valeur (marché)' })] }),
       scrEl('span', { kids: [scrEl('span', { text: '▬ ', style: 'color:#3563e9;font-weight:900' }), scrEl('span', { text: 'Juste valeur (DCF)' })] })] }));
-    wrap.appendChild(scrValFairCurve(vh));
+    left.appendChild(scrValFairCurve(vh));
   } else {
-    wrap.appendChild(scrEl('div', { style: 'color:#9aa7b4;font-size:0.72rem;padding:4px 0', text: 'La courbe « valeur vs juste valeur » se trace jour après jour (1 point/jour). Aujourd\'hui = 1er point enregistré.' }));
+    left.appendChild(scrEl('div', { style: 'color:#9aa7b4;font-size:0.72rem;padding:4px 0', text: 'La courbe « valeur vs juste valeur » se trace jour après jour (1 point/jour). Aujourd\'hui = 1er point enregistré.' }));
   }
+  // DROITE : graphique de performance TWR vs S&P 500
+  right.appendChild(scrPerfChart(SCR_HIST, SCR_BENCH));
   return wrap;
 }
 // Revenus de dividendes estimes (a partir du rendement reel, avant fiscalite). Granularite ANNUELLE + moyenne
@@ -7264,9 +7341,10 @@ function screenerPositionsModule() {
   const divBox = scrEl('div', { style: 'margin-top:14px' });   // revenus de dividendes estimes, SOUS le tableau
   wrap.appendChild(divBox);
   const render = () => { valBox.replaceChildren(scrValuationSummary(scrGetPositions())); body.replaceChildren(renderPositionsTable(scrGetPositions(), render)); divBox.replaceChildren(scrDividendCard(scrGetPositions())); };
-  // Historique valeur vs juste valeur (courbe qui evolue) : chargé une fois, re-render quand dispo.
+  // Historique valeur vs juste valeur + benchmark S&P 500 : chargés une fois, re-render quand dispo.
   if (typeof db !== 'undefined' && db) {
     db.ref('stocks/screener/valuationHistory').once('value').then((s) => { SCR_VALHIST = s.val() || {}; render(); }).catch(() => {});
+    db.ref('stocks/screener/benchmarkHistory').once('value').then((s) => { SCR_BENCH = s.val() || null; render(); }).catch(() => {});
   }
   // Écoute temps réel : la table + les graphiques se mettent à jour seuls dès que le cron VPS pousse de nouveaux cours (plus de bouton).
   if (typeof db !== 'undefined' && db) {
@@ -7280,7 +7358,7 @@ function screenerPositionsModule() {
   SCR_HIST_RERENDER = () => histBox.replaceChildren(scrBuildHistSection());
   if (typeof db !== 'undefined' && db) {
     db.ref('stocks/screener/positionsHistory').once('value')
-      .then((s) => { SCR_HIST = scrHistArray(s.val()); SCR_HIST_RERENDER(); }).catch(() => {});
+      .then((s) => { SCR_HIST = scrHistArray(s.val()); SCR_HIST_RERENDER(); render(); }).catch(() => {});
   }
   addBtn.onclick = () => {
     const ticker = (tkIn.value || '').toUpperCase().trim(), qty = Number(qtyIn.value), pru = Number(pruIn.value);
