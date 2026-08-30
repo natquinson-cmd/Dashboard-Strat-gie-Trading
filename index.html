@@ -7011,13 +7011,15 @@ function scrPerfChart(hist, bench) {
     const b0 = bench[keys[0]];
     return keys.map((k) => ({ date: k, v: b0 > 0 ? bench[k] / b0 - 1 : 0 }));
   };
+  const MN = ['janv', 'févr', 'mars', 'avr', 'mai', 'juin', 'juil', 'août', 'sept', 'oct', 'nov', 'déc'];
   const perfSvg = (twr, sp) => {
     const NS = 'http://www.w3.org/2000/svg', W = 340, H = 168, padL = 6, padR = 42, padT = 10, padB = 18;
     const all = twr.map((p) => p.v).concat(sp.map((p) => p.v)).concat([0]);
     let min = Math.min.apply(null, all), max = Math.max.apply(null, all); if (min === max) { min -= 0.01; max += 0.01; }
     const mar = (max - min) * 0.14 || 0.01; min -= mar; max += mar; const span = (max - min) || 1;
     const y = (v) => H - padB - (v - min) / span * (H - padT - padB), xOf = (arr, i) => padL + (arr.length > 1 ? i * (W - padL - padR) / (arr.length - 1) : (W - padL - padR) / 2);
-    const svg = document.createElementNS(NS, 'svg'); svg.setAttribute('viewBox', `0 0 ${W} ${H}`); svg.setAttribute('width', '100%'); svg.style.maxWidth = W + 'px';
+    const cont = scrEl('div', { style: 'position:relative;max-width:' + W + 'px' });
+    const svg = document.createElementNS(NS, 'svg'); svg.setAttribute('viewBox', `0 0 ${W} ${H}`); svg.setAttribute('width', '100%'); svg.style.display = 'block';
     const mk = (tag, a) => { const e = document.createElementNS(NS, tag); for (const k in a) e.setAttribute(k, a[k]); return e; };
     const y0 = y(0); svg.appendChild(mk('line', { x1: padL, x2: W - padR, y1: y0, y2: y0, stroke: '#c3ccd6', 'stroke-dasharray': '2 3', 'stroke-width': 1 }));
     const l0 = mk('text', { x: W - padR + 3, y: (y0 + 3).toFixed(1), 'font-size': 9, fill: '#9aa7b4' }); l0.textContent = '0 %'; svg.appendChild(l0);
@@ -7029,7 +7031,36 @@ function scrPerfChart(hist, bench) {
       t.textContent = (last.v >= 0 ? '+' : '') + (last.v * 100).toFixed(1) + '%'; svg.appendChild(t);
     };
     line(sp, '#7c94b5'); line(twr, '#1d9e74');
-    return svg;
+    // survol : crosshair + points + infobulle (date, portefeuille, S&P) ancrés sur les points TWR
+    const spBy = {}; sp.forEach((p) => { spBy[p.date] = p.v; });
+    const cross = mk('line', { stroke: '#c3ccd6', 'stroke-width': 1, 'stroke-dasharray': '3 3', y1: padT, y2: H - padB }); cross.style.display = 'none'; svg.appendChild(cross);
+    const dotT = mk('circle', { r: 3, fill: '#1d9e74', stroke: '#fff', 'stroke-width': 1.2, 'pointer-events': 'none' }); dotT.style.display = 'none';
+    const dotS = mk('circle', { r: 3, fill: '#7c94b5', stroke: '#fff', 'stroke-width': 1.2, 'pointer-events': 'none' }); dotS.style.display = 'none';
+    const tip = scrEl('div', { style: 'position:absolute;pointer-events:none;background:#22303f;color:#fff;font-size:0.68rem;padding:5px 8px;border-radius:6px;white-space:nowrap;display:none;transform:translate(-50%,-108%);z-index:5;box-shadow:0 2px 8px rgba(0,0,0,.18)' });
+    const bw = twr.length > 1 ? (W - padL - padR) / (twr.length - 1) : (W - padL - padR);
+    twr.forEach((p, i) => {
+      const px = xOf(twr, i), spv = spBy[p.date];
+      const hit = mk('rect', { x: (px - bw / 2).toFixed(1), y: padT, width: Math.max(6, bw).toFixed(1), height: (H - padT - padB).toFixed(1), fill: 'transparent' }); hit.style.cursor = 'crosshair';
+      hit.addEventListener('mouseenter', () => {
+        cross.setAttribute('x1', px.toFixed(1)); cross.setAttribute('x2', px.toFixed(1)); cross.style.display = '';
+        dotT.setAttribute('cx', px.toFixed(1)); dotT.setAttribute('cy', y(p.v).toFixed(1)); dotT.style.display = '';
+        const d = new Date(p.date + 'T00:00:00');
+        const kids = [
+          scrEl('div', { text: d.getDate() + ' ' + MN[d.getMonth()] + ' ' + d.getFullYear(), style: 'font-weight:700;margin-bottom:2px' }),
+          scrEl('div', { kids: [scrEl('span', { text: '● ', style: 'color:#1d9e74' }), scrEl('span', { text: 'Portefeuille ' + (p.v >= 0 ? '+' : '') + (p.v * 100).toFixed(2) + '%' })] })];
+        if (spv != null) {
+          dotS.setAttribute('cx', px.toFixed(1)); dotS.setAttribute('cy', y(spv).toFixed(1)); dotS.style.display = '';
+          kids.push(scrEl('div', { kids: [scrEl('span', { text: '● ', style: 'color:#7c94b5' }), scrEl('span', { text: 'S&P 500 ' + (spv >= 0 ? '+' : '') + (spv * 100).toFixed(2) + '%' })] }));
+        } else { dotS.style.display = 'none'; }
+        tip.replaceChildren.apply(tip, kids);
+        tip.style.left = (px / W * 100) + '%'; tip.style.top = (Math.min(y(p.v), spv != null ? y(spv) : y(p.v)) / H * 100) + '%'; tip.style.display = '';
+      });
+      hit.addEventListener('mouseleave', () => { cross.style.display = 'none'; dotT.style.display = 'none'; dotS.style.display = 'none'; tip.style.display = 'none'; });
+      svg.appendChild(hit);
+    });
+    svg.appendChild(dotS); svg.appendChild(dotT);   // points au-dessus des zones de survol
+    cont.appendChild(svg); cont.appendChild(tip);
+    return cont;
   };
   const draw = () => {
     const days = PERIODS.find((p) => p[0] === period)[1];
