@@ -332,6 +332,15 @@ def main():
                     m = c['metrics']
                     print(f"  {c['symbol']:<6} {c['rating']:<12} PEG={_num2(m.get('peg'))} ecart-benef/cours={_p(m.get('gap'))} PEfwd={_num2(m.get('forwardPE'))}")
 
+    if do_push:   # benchmark S&P 500 (^GSPC) pour le graphique de performance (comparaison TWR vs marche)
+        try:
+            bench = y.index_history('^GSPC', '1y')
+            if bench:
+                push(db, 'stocks/screener/benchmarkHistory', bench)
+                print(f"Pousse benchmark S&P 500 ({len(bench)} jours).")
+        except Exception as e:
+            print('benchmark S&P err', e)
+
 
 def _p(x):
     return '-' if x is None else ('%+.0f%%' % (x * 100))

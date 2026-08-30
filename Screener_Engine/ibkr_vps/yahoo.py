@@ -284,6 +284,23 @@ class Yahoo:
         except Exception:
             return None
 
+    def index_history(self, symbol='^GSPC', rng='1y'):
+        """Historique quotidien d'un indice { 'YYYY-MM-DD': close } -> benchmark de performance (S&P 500)."""
+        try:
+            from urllib.parse import quote as _q
+            j = self._get(f'{BASE}/v8/finance/chart/{_q(symbol)}?range={rng}&interval=1d')
+            res = ((j.get('chart') or {}).get('result') or [{}])[0]
+            ts = res.get('timestamp') or []
+            cl = ((res.get('indicators') or {}).get('quote') or [{}])[0].get('close') or []
+            out = {}
+            for i, t in enumerate(ts):
+                c = cl[i] if i < len(cl) else None
+                if t and isinstance(c, (int, float)):
+                    out[_dt.datetime.utcfromtimestamp(int(t)).strftime('%Y-%m-%d')] = round(c, 2)
+            return out or None
+        except Exception:
+            return None
+
     # Nom d'echange verbeux (module price) -> code court attendu par EXCH_CCY (comme le chart). Non liste = USD par defaut.
     _PRICE_EXCH = {
         'NasdaqGS': 'NMS', 'NasdaqGM': 'NGM', 'NasdaqCM': 'NCM', 'NASDAQ': 'NMS', 'NMS': 'NMS',
