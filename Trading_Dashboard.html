@@ -5928,7 +5928,80 @@ function scrLogo(symbol, website) {
     } catch (e) { /* canvas tainted : on garde le logo FMP */ }
   };
   img.src = 'https://financialmodelingprep.com/image-stock/' + encodeURIComponent(symbol) + '.png';
+  img.style.cursor = 'pointer'; img.title = 'Voir la fiche société';
+  img.addEventListener('click', (e) => { e.stopPropagation(); if (typeof scrShowCompanyCard === 'function') scrShowCompanyCard(symbol); });
   return img;
+}
+// ── FICHE SOCIÉTÉ (au clic du logo) : quantitatif live + profil qualitatif (companyProfiles) façon Dividend King ──
+let SCR_PROFILES = null;   // stocks/screener/companyProfiles = { TICKER: {subtype, description, strengths[], weaknesses[], pea, updatedAt} }
+let SCR_COMPANY_MODAL = null;
+const SCR_SECTOR_EMOJI = { 'Communication Services': '🌐', 'Technology': '💻', 'Financial Services': '🏦', 'Consumer Cyclical': '🛍️', 'Consumer Defensive': '🧺', 'Healthcare': '⚕️', 'Industrials': '🏭', 'Energy': '⛽', 'Basic Materials': '⚗️', 'Utilities': '💡', 'Real Estate': '🏢', 'ETF': '📊' };
+function scrFreqLabel(f) { return f >= 12 ? 'Mensuel' : (f >= 4 ? 'Trimestriel' : (f >= 2 ? 'Semestriel' : (f >= 1 ? 'Annuel' : '—'))); }
+function scrCompanyEsc(e) { if (e.key === 'Escape') scrCloseCompanyCard(); }
+function scrCloseCompanyCard() { if (SCR_COMPANY_MODAL) { SCR_COMPANY_MODAL.remove(); SCR_COMPANY_MODAL = null; document.removeEventListener('keydown', scrCompanyEsc, true); } }
+function scrShowCompanyCard(symbol) {
+  const ticker = String(symbol || '').toUpperCase();
+  const m = SCR_PRICE_MAP[ticker] || {};
+  const sector = m.sector || '—';
+  const prof = (SCR_PROFILES && SCR_PROFILES[ticker]) || null;
+  const pos = scrGetPositions().find((p) => String(p.ticker || '').toUpperCase() === ticker);
+  scrCloseCompanyCard();
+  const backdrop = scrEl('div', { style: 'position:fixed;inset:0;z-index:10000;background:rgba(20,30,45,0.45);display:flex;align-items:flex-start;justify-content:center;padding:30px 12px;overflow:auto' });
+  const card = scrEl('div', { style: 'background:#fff;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,0.3);width:min(680px,96vw);padding:20px 22px;font-size:0.85rem;color:#42546a' });
+  backdrop.appendChild(card); backdrop.onclick = (e) => { if (e.target === backdrop) scrCloseCompanyCard(); };
+  const close = scrEl('button', { text: '✕', style: 'border:none;background:none;cursor:pointer;color:#9aa7b4;font-size:1.1rem;font-weight:700' }); close.onclick = scrCloseCompanyCard;
+  card.appendChild(scrEl('div', { style: 'display:flex;align-items:flex-start;justify-content:space-between;gap:10px', kids: [
+    scrEl('div', { kids: [
+      scrEl('div', { text: 'SECTEUR ' + String(sector).toUpperCase(), style: 'color:#3730d6;font-weight:800;font-size:1.05rem;letter-spacing:.02em' }),
+      (prof && prof.subtype) ? scrEl('div', { text: String(prof.subtype).toUpperCase(), style: 'color:#3730d6;font-weight:700;font-size:0.78rem' }) : scrEl('span')] }),
+    scrEl('div', { style: 'display:flex;align-items:center;gap:10px', kids: [scrEl('span', { text: SCR_SECTOR_EMOJI[sector] || '🏢', style: 'font-size:1.7rem' }), close] })] }));
+  // bloc dividende
+  const ds = m.divSchedule;
+  const freqTxt = (ds && ds.freq) ? scrFreqLabel(ds.freq) : ((m.dividendYield > 0) ? 'Trimestriel (est.)' : 'Pas de dividende');
+  const pea = prof ? (prof.pea ? 'Oui' : 'Non') : (scrCountryOf(m) === 'États-Unis' ? 'Non (hors zone PEA)' : 'À vérifier');
+  const dl = (label, val) => scrEl('div', { style: 'font-size:0.82rem;margin:2px 0', kids: [scrEl('b', { text: label + ' : ', style: 'color:#22303f' }), scrEl('span', { text: val })] });
+  card.appendChild(scrEl('div', { style: 'margin:12px 0 8px', kids: [
+    dl('Périodicité du dividende', freqTxt),
+    dl('Années consécutives de versement', (m.divStreak != null ? m.divStreak + ' an' + (m.divStreak > 1 ? 's' : '') : 'N/A')),
+    dl('Augmentation moyenne du dividende (5 ans)', (m.divCagr != null ? ((m.divCagr >= 0 ? '+' : '') + (m.divCagr * 100).toFixed(0) + ' %/an') : 'N/A')),
+    dl('Éligible PEA', pea)] }));
+  // carte metrics (facon Revolut)
+  const price = m.price, qty = pos ? ((pos.qty != null) ? pos.qty : 0) : 0, held = !!(pos && qty > 0);
+  const money = (v) => (v == null ? '–' : scrPrice(v, m.exchange));
+  const retour = (held && pos.pru > 0 && price > 0) ? (price / pos.pru - 1) : null;
+  const divAnnual = (m.dividendYield > 0 && price > 0) ? (m.dividendYield * price * (held ? qty : 1)) : 0;
+  const mc = scrEl('div', { style: 'border:1px solid #e3e8ee;border-radius:12px;padding:12px;margin:4px 0 14px;background:#fbfcfe' });
+  mc.appendChild(scrEl('div', { style: 'display:flex;align-items:center;gap:10px;margin-bottom:10px', kids: [
+    scrLogo(ticker, m.website),
+    scrEl('div', { style: 'flex:1', kids: [scrEl('b', { text: (m.name || ticker), style: 'color:#22303f;font-size:0.95rem' }), scrEl('div', { text: ticker + ' • ' + scrCountryOf(m) + ' • ' + sector, style: 'font-size:0.72rem;color:#9aa7b4' })] }),
+    scrEl('div', { style: 'text-align:right', kids: [(held ? scrEl('div', { text: (qty % 1 === 0 ? qty : qty.toFixed(3)) + ' ' + ticker, style: 'font-size:0.72rem;color:#5b6b7d' }) : scrEl('span')), scrEl('div', { text: money(price), style: 'font-weight:800;color:#22303f;font-size:1rem' })] })] }));
+  const cell = (label, val, c) => scrEl('div', { style: 'flex:1;min-width:74px;text-align:center', kids: [scrEl('div', { text: label, style: 'font-size:0.6rem;color:#9aa7b4;text-transform:uppercase;font-weight:700' }), scrEl('div', { text: val, style: `font-size:0.84rem;font-weight:700;color:${c || '#22303f'};margin-top:2px` })] });
+  mc.appendChild(scrEl('div', { style: 'display:flex;flex-wrap:wrap;gap:8px;border-top:1px solid #eef1f5;padding-top:8px', kids: [
+    cell('P.R.U.', held ? money(pos.pru) : '–'),
+    cell('Retour', retour != null ? ((retour >= 0 ? '+' : '') + (retour * 100).toFixed(0) + '%') : '–', retour != null ? (retour >= 0 ? '#1d9e74' : '#dd5f66') : '#9aa7b4'),
+    cell('Div annuel', divAnnual > 0 ? money(divAnnual) : '–'),
+    cell('Rendement', m.dividendYield > 0 ? (m.dividendYield * 100).toFixed(2) + '%' : '–')] }));
+  mc.appendChild(scrEl('div', { style: 'display:flex;flex-wrap:wrap;gap:8px;border-top:1px solid #eef1f5;padding-top:8px;margin-top:6px', kids: [
+    cell('Prix / 1 an', m.priceCAGR != null ? ((m.priceCAGR >= 0 ? '+' : '') + (m.priceCAGR * 100).toFixed(0) + '%') : '–', m.priceCAGR != null ? (m.priceCAGR >= 0 ? '#1d9e74' : '#dd5f66') : '#9aa7b4'),
+    cell('Croiss. CA', m.revCagr != null ? ((m.revCagr >= 0 ? '+' : '') + (m.revCagr * 100).toFixed(0) + '%/an') : '–', (m.revCagr != null && m.revCagr >= 0.10) ? '#1d9e74' : '#42546a'),
+    cell('ROIC', m.roic != null ? (m.roic * 100).toFixed(0) + '%' : '–', (m.roic != null && m.roic >= 0.15) ? '#1d9e74' : '#42546a')] }));
+  card.appendChild(mc);
+  // nom + description
+  card.appendChild(scrEl('div', { text: (m.name || ticker), style: 'color:#3730d6;font-weight:800;text-align:center;font-size:1rem;margin:4px 0 6px' }));
+  card.appendChild((prof && prof.description)
+    ? scrEl('div', { text: prof.description, style: 'font-size:0.82rem;line-height:1.5;text-align:center;color:#42546a;margin-bottom:14px' })
+    : scrEl('div', { text: 'Profil qualitatif (description, forces, faiblesses) pas encore généré pour ce titre. Le quantitatif ci-dessus est en direct.', style: 'font-size:0.78rem;color:#9aa7b4;text-align:center;margin-bottom:12px' }));
+  // forces / faiblesses
+  if (prof && (prof.strengths || prof.weaknesses)) {
+    const colList = (title, emoji, items) => scrEl('div', { style: 'flex:1;min-width:230px', kids: [
+      scrEl('div', { style: 'display:flex;align-items:center;gap:6px;margin-bottom:6px', kids: [scrEl('span', { text: emoji, style: 'font-size:1.1rem' }), scrEl('b', { text: title, style: 'color:#22303f' })] }),
+      scrEl('ul', { style: 'margin:0;padding-left:18px;font-size:0.78rem;line-height:1.5;color:#42546a', kids: (items || []).map((it) => scrEl('li', { text: it, style: 'margin-bottom:5px' })) })] });
+    card.appendChild(scrEl('div', { style: 'display:flex;gap:18px;flex-wrap:wrap;border-top:1px solid #eef1f5;padding-top:12px', kids: [
+      colList('POINTS FORTS', '🚀', prof.strengths), colList('POINTS FAIBLES', '⚠️', prof.weaknesses)] }));
+  }
+  const upd = (prof && prof.updatedAt) ? ('Profil qualitatif mis à jour le ' + prof.updatedAt + ' · révision semestrielle') : 'Quantitatif en direct · profil qualitatif à générer';
+  card.appendChild(scrEl('div', { style: 'font-size:0.62rem;color:#c3ccd6;margin-top:12px;border-top:1px solid #eef1f5;padding-top:8px', text: upd + '. Repérage / information, pas un conseil.' }));
+  document.body.appendChild(backdrop); SCR_COMPANY_MODAL = backdrop; document.addEventListener('keydown', scrCompanyEsc, true);
 }
 function scrEl(tag, o = {}) {
   const e = document.createElement(tag);
@@ -7376,6 +7449,7 @@ function screenerPositionsModule() {
   if (typeof db !== 'undefined' && db) {
     db.ref('stocks/screener/valuationHistory').once('value').then((s) => { SCR_VALHIST = s.val() || {}; render(); }).catch(() => {});
     db.ref('stocks/screener/benchmarkHistory').once('value').then((s) => { SCR_BENCH = s.val() || null; render(); }).catch(() => {});
+    db.ref('stocks/screener/companyProfiles').once('value').then((s) => { SCR_PROFILES = s.val() || {}; }).catch(() => {});
   }
   // Écoute temps réel : la table + les graphiques se mettent à jour seuls dès que le cron VPS pousse de nouveaux cours (plus de bouton).
   if (typeof db !== 'undefined' && db) {
