@@ -5367,15 +5367,8 @@ function activateTab(tab) {
 // ══════════════════════════════════════════════════════════════
 let screenerWorkerUrl = localStorage.getItem('screenerWorkerUrl') || '';
 let screenerUrlLoaded = false;
-let screenerMode = localStorage.getItem('screenerMode') || 'smallcap';   // smallcap | quality
+let screenerMode = 'quality';   // small-cap abandonné : le screener est désormais uniquement Qualité-valorisation
 function screenerModeBar() {
-  const bar = scrEl('div', { style: 'display:inline-flex;border:1px solid #e3e8ee;border-radius:10px;overflow:hidden' });
-  [['smallcap', 'Small-cap explosif'], ['quality', 'Qualité-valorisation']].forEach(([m, label]) => {
-    const on = screenerMode === m;
-    const b = scrEl('button', { text: label, style: `padding:8px 16px;border:none;cursor:pointer;font-weight:700;font-size:0.8rem;background:${on ? '#3563e9' : '#fff'};color:${on ? '#fff' : '#5b6b7d'}` });
-    b.onclick = () => { if (screenerMode !== m) { screenerMode = m; localStorage.setItem('screenerMode', m); renderScreenerTab(); } };
-    bar.appendChild(b);
-  });
   // Bascule devise d'affichage $/€ (convertit tout l'onglet)
   const ccyBar = scrEl('div', { style: 'display:inline-flex;border:1px solid #e3e8ee;border-radius:10px;overflow:hidden' });
   [['USD', '$'], ['EUR', '€']].forEach(([ccy, sym]) => {
@@ -5384,7 +5377,7 @@ function screenerModeBar() {
     b.onclick = () => { if (SCR_DISP_CCY !== ccy) { SCR_DISP_CCY = ccy; try { localStorage.setItem('scrDispCcy', ccy); } catch (e) {} renderScreenerTab(); } };
     ccyBar.appendChild(b);
   });
-  return scrEl('div', { style: 'display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px', kids: [bar, ccyBar] });
+  return scrEl('div', { style: 'display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px', kids: [ccyBar] });
 }
 const scrCap = (x, exch) => { if (x == null) return '–'; const d = scrToDisp(x, exch); const v = (d != null) ? d : x; const body = v >= 1e9 ? (v / 1e9).toFixed(1) + 'B' : v >= 1e6 ? (v / 1e6).toFixed(0) + 'M' : String(Math.round(v)); return SCR_DISP_CCY === 'EUR' ? (body + ' €') : ('$' + body); };
 const scrCol = (x, y) => x == null ? '#5b6b7d' : (x >= y ? '#1d9e74' : '#dd5f66');
@@ -6042,8 +6035,8 @@ async function renderScreenerTab() {
   if (!c) return;
   scrMsg(c, 'Chargement du classement…');
   if (typeof db === 'undefined') { scrMsg(c, 'Firebase indisponible.', '#dd5f66'); return; }
-  // Clé Firebase selon le mode (quality, ou smallcap avec repli 'latest' pour compat).
-  const keys = screenerMode === 'quality' ? ['quality'] : ['smallcap', 'latest'];
+  // Screener = uniquement Qualité-valorisation (small-cap abandonné).
+  const keys = ['quality'];
   let fb = null;
   for (let i = 0; i < 3 && !fb; i++) {
     for (const k of keys) {
@@ -6055,10 +6048,10 @@ async function renderScreenerTab() {
     let positions = null, config = null;
     try { positions = (await db.ref('stocks/screener/positions').once('value')).val(); } catch (e) { /* ignore */ }
     try { config = (await db.ref('stocks/screener/config').once('value')).val(); } catch (e) { /* ignore */ }
-    // Carte des cours (quality + smallcap) pour le module "Mes positions".
+    // Carte des cours (quality) pour le module "Mes positions".
     try {
       SCR_PRICE_MAP = {};
-      const nodes = await Promise.all([db.ref('stocks/screener/quality').once('value'), db.ref('stocks/screener/smallcap').once('value')]);
+      const nodes = await Promise.all([db.ref('stocks/screener/quality').once('value')]);
       nodes.forEach((snap) => { const v = snap.val(); (v && v.top || []).forEach((t) => { const m = t.metrics || {}; if (t.symbol && m.price != null) SCR_PRICE_MAP[String(t.symbol).toUpperCase()] = Object.assign({}, m, { symbol: String(t.symbol).toUpperCase(), name: t.name, sector: t.sector, rating: t.rating, valuationScore: t.valuationScore }); }); });
     } catch (e) { /* ignore */ }
     await scrMergePositionMeta(); await scrMergeMoat(); await scrMergeValuationOverrides(); await scrApplyLivePrices();   // cours temps réel (cron VPS) par-dessus le snapshot
@@ -6081,7 +6074,7 @@ async function renderScreenerTab() {
         else if (cached && cached.rates) { SCR_FX = cached.rates; }
       }
     } catch (e) { try { const cc = JSON.parse(localStorage.getItem('scrFxCache') || 'null'); if (cc && cc.rates) SCR_FX = cc.rates; } catch (e3) {} }
-    return screenerMode === 'quality' ? screenerRenderQuality(c, fb, config) : screenerRender(c, fb, positions, config);
+    return screenerRenderQuality(c, fb, config);
   }
   // Pas encore de classement pour ce mode
   const btn = scrEl('button', { text: 'Réessayer', style: 'padding:8px 14px;border:1px solid #e3e8ee;border-radius:10px;background:#fff;font-weight:600;cursor:pointer' });
@@ -6668,7 +6661,7 @@ async function scrLoadPositionsAndPrices() {
     SCR_POSITIONS = Array.isArray(mp) ? mp : (mp && typeof mp === 'object' ? Object.values(mp) : []);
   } catch (e) {}
   try {
-    const nodes = await Promise.all([db.ref('stocks/screener/quality').once('value'), db.ref('stocks/screener/smallcap').once('value')]);
+    const nodes = await Promise.all([db.ref('stocks/screener/quality').once('value')]);
     SCR_PRICE_MAP = {};
     nodes.forEach((snap) => { const v = snap.val(); (v && v.top || []).forEach((t) => { const m = t.metrics || {}; if (t.symbol && m.price != null) SCR_PRICE_MAP[String(t.symbol).toUpperCase()] = Object.assign({}, m, { name: t.name, sector: t.sector, rating: t.rating, valuationScore: t.valuationScore }); }); });
   } catch (e) {}
@@ -7056,10 +7049,11 @@ function scrValFairCurve(vh) {
 }
 // Bloc de synthese "Valorisation du portefeuille" (place au-dessus du tableau des positions).
 // Historique du S&P 500 (^GSPC) pour la comparaison de performance. { 'YYYY-MM-DD': close }
-let SCR_BENCH = null;
+let SCR_BENCH = null;      // S&P 500 { date: close }
+let SCR_BENCH_NDX = null;  // Nasdaq Composite { date: close }
 // Graphique de PERFORMANCE (TWR %, façon Revolut) : notre portefeuille (positionsHistory, net des apports) vs S&P 500.
 // Sélecteurs de période (1J/1S/1M/1A/Tout) + comparaison optionnelle au S&P 500. Compact (tendance, pas large).
-function scrPerfChart(hist, bench) {
+function scrPerfChart(hist, bench, benchN) {
   const wrap = scrEl('div');
   wrap.appendChild(scrEl('div', { style: 'font-weight:800;color:#22303f;font-size:0.9rem', text: 'Performance' }));
   wrap.appendChild(scrEl('div', { style: 'font-size:0.64rem;color:#9aa7b4;margin-bottom:2px', text: 'pondérée en fonction du temps (TWR), net des apports' }));
@@ -7068,7 +7062,8 @@ function scrPerfChart(hist, bench) {
     return wrap;
   }
   const PERIODS = [['1J', 1], ['1S', 7], ['1M', 30], ['1A', 365], ['Tout', 1e9]];
-  let period = '1M', compareSP = true;
+  const SP_COL = '#7c94b5', NDX_COL = '#8b6fc9';   // S&P 500 = bleu-gris, Nasdaq = violet
+  let period = '1M', compareSP = true, compareNdx = true;
   const bigBox = scrEl('div', { style: 'margin:2px 0 4px' }), chartBox = scrEl('div'), ctrlBox = scrEl('div');
   const parseD = (s) => new Date(s + 'T00:00:00'), dayDiff = (a, b) => Math.round((parseD(a) - parseD(b)) / 86400000);
   const lastDate = hist[hist.length - 1].date;
@@ -7078,17 +7073,19 @@ function scrPerfChart(hist, bench) {
     for (let i = 1; i < h.length; i++) { const base = h[i - 1].value; if (base > 0) { const pnl = (h[i].value - h[i - 1].value) - (h[i].invested - h[i - 1].invested); cum *= (1 + pnl / base); } out.push({ date: h[i].date, v: cum - 1 }); }
     return out;
   };
-  const spSeries = (startDate) => {
-    if (!bench) return [];
-    const keys = Object.keys(bench).filter((k) => /^\d{4}-\d{2}-\d{2}$/.test(k) && k >= startDate && k <= lastDate).sort();
+  const benchSeries = (b, startDate) => {   // indice rebasé à 0 % au début de la fenêtre { date, v }
+    if (!b) return [];
+    const keys = Object.keys(b).filter((k) => /^\d{4}-\d{2}-\d{2}$/.test(k) && k >= startDate && k <= lastDate).sort();
     if (keys.length < 2) return [];
-    const b0 = bench[keys[0]];
-    return keys.map((k) => ({ date: k, v: b0 > 0 ? bench[k] / b0 - 1 : 0 }));
+    const b0 = b[keys[0]];
+    return keys.map((k) => ({ date: k, v: b0 > 0 ? b[k] / b0 - 1 : 0 }));
   };
+  const spSeries = (startDate) => benchSeries(bench, startDate);
+  const ndxSeries = (startDate) => benchSeries(benchN, startDate);
   const MN = ['janv', 'févr', 'mars', 'avr', 'mai', 'juin', 'juil', 'août', 'sept', 'oct', 'nov', 'déc'];
-  const perfSvg = (twr, sp) => {
+  const perfSvg = (twr, sp, ndx) => {
     const NS = 'http://www.w3.org/2000/svg', W = 340, H = 168, padL = 6, padR = 42, padT = 10, padB = 18;
-    const all = twr.map((p) => p.v).concat(sp.map((p) => p.v)).concat([0]);
+    const all = twr.map((p) => p.v).concat(sp.map((p) => p.v)).concat(ndx.map((p) => p.v)).concat([0]);
     let min = Math.min.apply(null, all), max = Math.max.apply(null, all); if (min === max) { min -= 0.01; max += 0.01; }
     const mar = (max - min) * 0.14 || 0.01; min -= mar; max += mar; const span = (max - min) || 1;
     const y = (v) => H - padB - (v - min) / span * (H - padT - padB), xOf = (arr, i) => padL + (arr.length > 1 ? i * (W - padL - padR) / (arr.length - 1) : (W - padL - padR) / 2);
@@ -7098,22 +7095,29 @@ function scrPerfChart(hist, bench) {
     const y0 = y(0); svg.appendChild(mk('line', { x1: padL, x2: W - padR, y1: y0, y2: y0, stroke: '#c3ccd6', 'stroke-dasharray': '2 3', 'stroke-width': 1 }));
     const l0 = mk('text', { x: W - padR + 3, y: (y0 + 3).toFixed(1), 'font-size': 9, fill: '#9aa7b4' }); l0.textContent = '0 %'; svg.appendChild(l0);
     const line = (arr, color) => {
-      if (arr.length < 2) return;
+      if (arr.length < 2) return null;
       let d = ''; arr.forEach((p, i) => { d += (i ? 'L' : 'M') + xOf(arr, i).toFixed(1) + ' ' + y(p.v).toFixed(1) + ' '; });
       svg.appendChild(mk('path', { d: d.trim(), fill: 'none', stroke: color, 'stroke-width': 2.2 }));
-      const last = arr[arr.length - 1], t = mk('text', { x: W - padR + 3, y: (y(last.v) + 3).toFixed(1), 'font-size': 9, 'font-weight': 700, fill: color });
-      t.textContent = (last.v >= 0 ? '+' : '') + (last.v * 100).toFixed(1) + '%'; svg.appendChild(t);
+      return arr[arr.length - 1];
     };
-    line(sp, '#7c94b5'); line(twr, '#1d9e74');
-    // survol : crosshair + points + infobulle (date, portefeuille, S&P) ancrés sur les points TWR
+    const ends = []; let e;   // portefeuille dessiné en dernier (au-dessus)
+    e = line(ndx, NDX_COL); if (e) ends.push({ v: e.v, color: NDX_COL });
+    e = line(sp, SP_COL); if (e) ends.push({ v: e.v, color: SP_COL });
+    e = line(twr, '#1d9e74'); if (e) ends.push({ v: e.v, color: '#1d9e74' });
+    // étiquettes de fin, anti-collision verticale (>=11px d'écart)
+    ends.sort((a, b) => y(a.v) - y(b.v)); let prevY = -1e9;
+    ends.forEach((en) => { let ly = y(en.v); if (ly - prevY < 11) ly = prevY + 11; prevY = ly; const t = mk('text', { x: W - padR + 3, y: (ly + 3).toFixed(1), 'font-size': 9, 'font-weight': 700, fill: en.color }); t.textContent = (en.v >= 0 ? '+' : '') + (en.v * 100).toFixed(1) + '%'; svg.appendChild(t); });
+    // survol : crosshair + points + infobulle (date, portefeuille, S&P, Nasdaq) ancrés sur les points TWR
     const spBy = {}; sp.forEach((p) => { spBy[p.date] = p.v; });
+    const ndxBy = {}; ndx.forEach((p) => { ndxBy[p.date] = p.v; });
     const cross = mk('line', { stroke: '#c3ccd6', 'stroke-width': 1, 'stroke-dasharray': '3 3', y1: padT, y2: H - padB }); cross.style.display = 'none'; svg.appendChild(cross);
     const dotT = mk('circle', { r: 3, fill: '#1d9e74', stroke: '#fff', 'stroke-width': 1.2, 'pointer-events': 'none' }); dotT.style.display = 'none';
-    const dotS = mk('circle', { r: 3, fill: '#7c94b5', stroke: '#fff', 'stroke-width': 1.2, 'pointer-events': 'none' }); dotS.style.display = 'none';
+    const dotS = mk('circle', { r: 3, fill: SP_COL, stroke: '#fff', 'stroke-width': 1.2, 'pointer-events': 'none' }); dotS.style.display = 'none';
+    const dotN = mk('circle', { r: 3, fill: NDX_COL, stroke: '#fff', 'stroke-width': 1.2, 'pointer-events': 'none' }); dotN.style.display = 'none';
     const tip = scrEl('div', { style: 'position:absolute;pointer-events:none;background:#22303f;color:#fff;font-size:0.68rem;padding:5px 8px;border-radius:6px;white-space:nowrap;display:none;transform:translate(-50%,-108%);z-index:5;box-shadow:0 2px 8px rgba(0,0,0,.18)' });
     const bw = twr.length > 1 ? (W - padL - padR) / (twr.length - 1) : (W - padL - padR);
     twr.forEach((p, i) => {
-      const px = xOf(twr, i), spv = spBy[p.date];
+      const px = xOf(twr, i), spv = spBy[p.date], ndxv = ndxBy[p.date];
       const hit = mk('rect', { x: (px - bw / 2).toFixed(1), y: padT, width: Math.max(6, bw).toFixed(1), height: (H - padT - padB).toFixed(1), fill: 'transparent' }); hit.style.cursor = 'crosshair';
       hit.addEventListener('mouseenter', () => {
         cross.setAttribute('x1', px.toFixed(1)); cross.setAttribute('x2', px.toFixed(1)); cross.style.display = '';
@@ -7124,34 +7128,44 @@ function scrPerfChart(hist, bench) {
           scrEl('div', { kids: [scrEl('span', { text: '● ', style: 'color:#1d9e74' }), scrEl('span', { text: 'Portefeuille ' + (p.v >= 0 ? '+' : '') + (p.v * 100).toFixed(2) + '%' })] })];
         if (spv != null) {
           dotS.setAttribute('cx', px.toFixed(1)); dotS.setAttribute('cy', y(spv).toFixed(1)); dotS.style.display = '';
-          kids.push(scrEl('div', { kids: [scrEl('span', { text: '● ', style: 'color:#7c94b5' }), scrEl('span', { text: 'S&P 500 ' + (spv >= 0 ? '+' : '') + (spv * 100).toFixed(2) + '%' })] }));
+          kids.push(scrEl('div', { kids: [scrEl('span', { text: '● ', style: 'color:' + SP_COL }), scrEl('span', { text: 'S&P 500 ' + (spv >= 0 ? '+' : '') + (spv * 100).toFixed(2) + '%' })] }));
         } else { dotS.style.display = 'none'; }
+        if (ndxv != null) {
+          dotN.setAttribute('cx', px.toFixed(1)); dotN.setAttribute('cy', y(ndxv).toFixed(1)); dotN.style.display = '';
+          kids.push(scrEl('div', { kids: [scrEl('span', { text: '● ', style: 'color:' + NDX_COL }), scrEl('span', { text: 'Nasdaq ' + (ndxv >= 0 ? '+' : '') + (ndxv * 100).toFixed(2) + '%' })] }));
+        } else { dotN.style.display = 'none'; }
         tip.replaceChildren.apply(tip, kids);
-        tip.style.left = (px / W * 100) + '%'; tip.style.top = (Math.min(y(p.v), spv != null ? y(spv) : y(p.v)) / H * 100) + '%'; tip.style.display = '';
+        const topY = Math.min(y(p.v), spv != null ? y(spv) : 1e9, ndxv != null ? y(ndxv) : 1e9);
+        tip.style.left = (px / W * 100) + '%'; tip.style.top = (topY / H * 100) + '%'; tip.style.display = '';
       });
-      hit.addEventListener('mouseleave', () => { cross.style.display = 'none'; dotT.style.display = 'none'; dotS.style.display = 'none'; tip.style.display = 'none'; });
+      hit.addEventListener('mouseleave', () => { cross.style.display = 'none'; dotT.style.display = 'none'; dotS.style.display = 'none'; dotN.style.display = 'none'; tip.style.display = 'none'; });
       svg.appendChild(hit);
     });
-    svg.appendChild(dotS); svg.appendChild(dotT);   // points au-dessus des zones de survol
+    svg.appendChild(dotN); svg.appendChild(dotS); svg.appendChild(dotT);   // points au-dessus des zones de survol
     cont.appendChild(svg); cont.appendChild(tip);
     return cont;
   };
   const draw = () => {
     const days = PERIODS.find((p) => p[0] === period)[1];
-    const fh = filterHist(days), twr = twrCum(fh), sp = compareSP ? spSeries(fh[0].date) : [];
-    const lastTwr = twr.length ? twr[twr.length - 1].v : 0, lastSp = sp.length ? sp[sp.length - 1].v : null;
+    const fh = filterHist(days), twr = twrCum(fh);
+    const sp = compareSP ? spSeries(fh[0].date) : [], ndx = compareNdx ? ndxSeries(fh[0].date) : [];
+    const lastTwr = twr.length ? twr[twr.length - 1].v : 0, lastSp = sp.length ? sp[sp.length - 1].v : null, lastNdx = ndx.length ? ndx[ndx.length - 1].v : null;
     bigBox.replaceChildren(scrEl('div', { text: (lastTwr >= 0 ? '+' : '') + (lastTwr * 100).toFixed(2) + ' %', style: `font-size:1.7rem;font-weight:800;color:${lastTwr >= 0 ? '#1d9e74' : '#dd5f66'};line-height:1` }));
-    chartBox.replaceChildren(perfSvg(twr, sp));
+    chartBox.replaceChildren(perfSvg(twr, sp, ndx));
     ctrlBox.replaceChildren();
     const pb = scrEl('div', { style: 'display:inline-flex;gap:4px;flex-wrap:wrap;margin-top:6px' });
     PERIODS.forEach(([lbl]) => { const b = scrEl('button', { text: lbl, style: `padding:3px 9px;border:1px solid ${period === lbl ? '#3563e9' : '#e3e8ee'};border-radius:7px;background:${period === lbl ? '#eaf0ff' : '#fff'};color:${period === lbl ? '#3563e9' : '#5b6b7d'};font-size:0.7rem;font-weight:700;cursor:pointer` }); b.onclick = () => { period = lbl; draw(); }; pb.appendChild(b); });
     ctrlBox.appendChild(pb);
-    const tog = scrEl('label', { style: 'display:flex;align-items:center;gap:6px;margin-top:8px;font-size:0.72rem;color:#42546a;cursor:pointer' });
-    const cb = scrEl('input', { attrs: { type: 'checkbox' } }); cb.checked = compareSP; cb.onchange = () => { compareSP = cb.checked; draw(); };
-    tog.appendChild(cb);
-    tog.appendChild(scrEl('span', { kids: [scrEl('span', { text: 'Comparer au ' }), scrEl('b', { text: 'S&P 500', style: 'color:#3563e9' })] }));
-    if (compareSP && lastSp != null) tog.appendChild(scrEl('span', { text: (lastSp >= 0 ? '+' : '') + (lastSp * 100).toFixed(2) + ' %', style: `margin-left:auto;font-weight:700;color:${lastSp >= 0 ? '#1d9e74' : '#dd5f66'}` }));
-    ctrlBox.appendChild(tog);
+    const mkTog = (labelTxt, col, checked, setter, lastVal) => {
+      const t = scrEl('label', { style: 'display:flex;align-items:center;gap:6px;margin-top:8px;font-size:0.72rem;color:#42546a;cursor:pointer' });
+      const cb = scrEl('input', { attrs: { type: 'checkbox' } }); cb.checked = checked; cb.onchange = () => { setter(cb.checked); draw(); };
+      t.appendChild(cb);
+      t.appendChild(scrEl('span', { kids: [scrEl('span', { text: 'Comparer au ' }), scrEl('b', { text: labelTxt, style: 'color:' + col })] }));
+      if (checked && lastVal != null) t.appendChild(scrEl('span', { text: (lastVal >= 0 ? '+' : '') + (lastVal * 100).toFixed(2) + ' %', style: `margin-left:auto;font-weight:700;color:${lastVal >= 0 ? '#1d9e74' : '#dd5f66'}` }));
+      return t;
+    };
+    ctrlBox.appendChild(mkTog('S&P 500', SP_COL, compareSP, (v) => { compareSP = v; }, lastSp));
+    ctrlBox.appendChild(mkTog('Nasdaq', NDX_COL, compareNdx, (v) => { compareNdx = v; }, lastNdx));
   };
   wrap.appendChild(bigBox); wrap.appendChild(chartBox); wrap.appendChild(ctrlBox);
   draw();
@@ -7216,7 +7230,7 @@ function scrValuationSummary(pos) {
     left.appendChild(scrEl('div', { style: 'color:#9aa7b4;font-size:0.72rem;padding:4px 0', text: 'La courbe « valeur vs juste valeur » se trace jour après jour (1 point/jour). Aujourd\'hui = 1er point enregistré.' }));
   }
   // DROITE : graphique de performance TWR vs S&P 500
-  right.appendChild(scrPerfChart(SCR_HIST, SCR_BENCH));
+  right.appendChild(scrPerfChart(SCR_HIST, SCR_BENCH, SCR_BENCH_NDX));
   return wrap;
 }
 // Revenus de dividendes estimes (a partir du rendement reel, avant fiscalite). Granularite ANNUELLE + moyenne
@@ -7450,6 +7464,7 @@ function screenerPositionsModule() {
   if (typeof db !== 'undefined' && db) {
     db.ref('stocks/screener/valuationHistory').once('value').then((s) => { SCR_VALHIST = s.val() || {}; render(); }).catch(() => {});
     db.ref('stocks/screener/benchmarkHistory').once('value').then((s) => { SCR_BENCH = s.val() || null; render(); }).catch(() => {});
+    db.ref('stocks/screener/benchmarkNasdaq').once('value').then((s) => { SCR_BENCH_NDX = s.val() || null; render(); }).catch(() => {});
     db.ref('stocks/screener/companyProfiles').once('value').then((s) => { SCR_PROFILES = s.val() || {}; }).catch(() => {});
   }
   // Écoute temps réel : la table + les graphiques se mettent à jour seuls dès que le cron VPS pousse de nouveaux cours (plus de bouton).
