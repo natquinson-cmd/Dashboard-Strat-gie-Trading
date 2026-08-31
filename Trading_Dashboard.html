@@ -5943,7 +5943,8 @@ function scrShowCompanyCard(symbol) {
   const ticker = String(symbol || '').toUpperCase();
   const m = SCR_PRICE_MAP[ticker] || {};
   const sector = m.sector || '—';
-  const prof = (SCR_PROFILES && SCR_PROFILES[ticker]) || null;
+  const profKey = ticker.replace(/[.#$\[\]\/]/g, '_'); // clés Firebase : point interdit (ex NOVO-B.CO -> NOVO-B_CO)
+  const prof = (SCR_PROFILES && (SCR_PROFILES[ticker] || SCR_PROFILES[profKey])) || null;
   const pos = scrGetPositions().find((p) => String(p.ticker || '').toUpperCase() === ticker);
   scrCloseCompanyCard();
   const backdrop = scrEl('div', { style: 'position:fixed;inset:0;z-index:10000;background:rgba(20,30,45,0.45);display:flex;align-items:flex-start;justify-content:center;padding:30px 12px;overflow:auto' });
