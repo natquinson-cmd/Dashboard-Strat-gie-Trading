@@ -6360,15 +6360,11 @@ function scrValPotOf(t) {   // pour un candidat répartition {symbol, sector, me
 }
 // Titre en zone "Cher" (cours nettement au-dessus de la juste valeur DCF) -> à ne PAS proposer à l'achat.
 function scrIsCher(m, sector) { const b = scrBuyBand(m, sector); return !!(b && b.zone === 'cher'); }
-// MOAT FAIBLE = exclu des propositions de répartition (choix user) : moat "Aucun", ou score sous le
-// neutre SCR_MOAT_UNKNOWN (50). Un moat NON ANALYSÉ n'est PAS "faible" : il reste neutre, sinon on
-// pénaliserait un titre juste parce que l'analyse (qualitative, curée) n'a pas encore été faite.
-const SCR_MOAT_MIN = SCR_MOAT_UNKNOWN;   // 50
-function scrIsWeakMoat(m) {
-  if (!m) return false;
-  if (m.moat === 'Aucun') return true;
-  return (m.moatScore != null && isFinite(m.moatScore) && m.moatScore < SCR_MOAT_MIN);
-}
+// RÈGLE (choix user) : seul un moat LARGE peut apparaître dans les propositions de répartition.
+// Tout le reste est écarté : « Étroit », « Aucun », ET les titres dont le moat n'est pas encore
+// analysé (on ne propose pas un titre dont l'avantage concurrentiel n'a pas été établi).
+// L'ETF socle n'est pas concerné : il est injecté à part et les ETF sont hors du sleeve actions.
+function scrMoatRejected(m) { return !(m && m.moat === 'Large'); }
 function computeAllocation(top, amount, nLines, weightMode, divOnly, holdings, sectorCap, lineCap) {
   holdings = holdings || {};
   // Aucun argent à déployer -> SNAPSHOT du portefeuille ACTUEL : toutes tes positions détenues, pondérées par leur
@@ -6393,14 +6389,14 @@ function computeAllocation(top, amount, nLines, weightMode, divOnly, holdings, s
     const sym = String(t.symbol || '').toUpperCase();
     if (!sym || !t.rating || t.rating === 'Surévaluée') return;
     if (scrIsCher(SCR_PRICE_MAP[sym] || t.metrics, t.sector)) return;   // exclut la zone Cher (cours au-dessus de la juste valeur)
-    if (scrIsWeakMoat(SCR_PRICE_MAP[sym] || t.metrics)) return;         // exclut les moats faibles (Aucun / score < 50)
+    if (scrMoatRejected(SCR_PRICE_MAP[sym] || t.metrics)) return;       // seul un moat LARGE est retenu
     if (divOnly && !(t.metrics && t.metrics.divGrowing === true)) return;
     univ.set(sym, { symbol: sym, name: t.name, sector: t.sector || 'N/A', rating: t.rating, valuationScore: t.valuationScore || 0, metrics: t.metrics || SCR_PRICE_MAP[sym] || {} });
   });
   Object.keys(holdings).forEach((sym) => {                      // détenus (hors Surévaluée) en concurrence avec le screener
     if (!(holdings[sym] > 0) || univ.has(sym)) return;
     const d = SCR_PRICE_MAP[sym]; if (!d || d.rating === 'Surévaluée') return;
-    if (scrIsWeakMoat(d)) return;                                       // un détenu à moat faible n'est plus proposé non plus
+    if (scrMoatRejected(d)) return;                                     // un détenu sans moat large n'est plus proposé non plus
     univ.set(sym, { symbol: sym, name: d.name || sym, sector: d.sector || 'N/A', rating: d.rating || 'Détenu', valuationScore: d.valuationScore || 0, metrics: d, held: true });
   });
   const cands = [], selCount = {};
@@ -6468,14 +6464,14 @@ function computeArbitrage(top, holdings, nLines, weightMode, divOnly, sectorCap,
     const sym = String(t.symbol || '').toUpperCase();
     if (!sym || !t.rating || t.rating === 'Surévaluée') return;
     if (scrIsCher(SCR_PRICE_MAP[sym] || t.metrics, t.sector)) return;   // exclut la zone Cher (cours au-dessus de la juste valeur)
-    if (scrIsWeakMoat(SCR_PRICE_MAP[sym] || t.metrics)) return;         // exclut les moats faibles (Aucun / score < 50)
+    if (scrMoatRejected(SCR_PRICE_MAP[sym] || t.metrics)) return;       // seul un moat LARGE est retenu
     if (divOnly && !(t.metrics && t.metrics.divGrowing === true)) return;
     univ.set(sym, { symbol: sym, name: t.name, sector: t.sector || 'N/A', rating: t.rating, valuationScore: t.valuationScore || 0, metrics: t.metrics || SCR_PRICE_MAP[sym] || {} });
   });
   Object.keys(holdings).forEach((sym) => {                      // détenus (hors Surévaluée) rejoignent l'univers, en concurrence avec le screener
     if (!(holdings[sym] > 0) || univ.has(sym)) return;
     const d = SCR_PRICE_MAP[sym]; if (!d || d.rating === 'Surévaluée') return;
-    if (scrIsWeakMoat(d)) return;                                       // un détenu à moat faible n'est plus proposé non plus
+    if (scrMoatRejected(d)) return;                                     // un détenu sans moat large n'est plus proposé non plus
     univ.set(sym, { symbol: sym, name: d.name || sym, sector: d.sector || 'N/A', rating: d.rating || 'Détenu', valuationScore: d.valuationScore || 0, metrics: d });
   });
   const cands = [], selCount = {}, selected = new Set();
@@ -7682,7 +7678,7 @@ function screenerQualityAllocPanel(top) {
     scrEl('span', { text: 'marge sécu', style: 'font-size:0.8rem;color:#5b6b7d;margin-left:6px' }), safetyInput, scrEl('span', { text: '%', style: 'color:#5b6b7d' })] }));
   const results = scrEl('div');
   wrap.appendChild(results);
-  wrap.appendChild(scrEl('div', { style: 'margin-top:10px;font-size:0.72rem;color:#5b6b7d', text: "Plan de DCA : l'argent que tu déploies (ex libéré de Debitum) va EN PRIORITÉ là où tu es le plus sous ta cible, en tenant compte de tes positions déjà détenues (on ne vend jamais). Cible et classement = juste valeur (décote vs juste valeur DCF) + potentiel annuel ; les titres en zone « Cher » (cours au-dessus de la juste valeur) et ceux à MOAT FAIBLE (« Aucun », ou score < 50) sont exclus des achats. Plafonds par ligne et par secteur RÉGLABLES (DK ne s'interdit pas plus de 10 % sur ses plus fortes convictions). « lignes » = taille visée du portefeuille : tes titres détenus concourent au même classement (renforcés s'ils entrent dans le top, sinon conservés hors plan, jamais vendus en DCA). Structure DK : ETF socle 50-60 % + actions de qualité. La décision reste la tienne." }));
+  wrap.appendChild(scrEl('div', { style: 'margin-top:10px;font-size:0.72rem;color:#5b6b7d', text: "Plan de DCA : l'argent que tu déploies (ex libéré de Debitum) va EN PRIORITÉ là où tu es le plus sous ta cible, en tenant compte de tes positions déjà détenues (on ne vend jamais). Cible et classement = juste valeur (décote vs juste valeur DCF) + potentiel annuel ; les titres en zone « Cher » (cours au-dessus de la juste valeur) sont exclus des achats, et seuls les titres à MOAT LARGE sont retenus (« Étroit », « Aucun » et les moats non analysés sont écartés). Plafonds par ligne et par secteur RÉGLABLES (DK ne s'interdit pas plus de 10 % sur ses plus fortes convictions). « lignes » = taille visée du portefeuille : tes titres détenus concourent au même classement (renforcés s'ils entrent dans le top, sinon conservés hors plan, jamais vendus en DCA). Structure DK : ETF socle 50-60 % + actions de qualité. La décision reste la tienne." }));
   function render() {
     const amount = Math.max(0, Number(amtInput.value) || 0);
     const nLines = Number(nSelect.value) || 12;
