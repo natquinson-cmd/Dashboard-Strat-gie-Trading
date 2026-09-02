@@ -173,6 +173,18 @@ def main():
     push(db, f'stocks/screener/positionsHistory/{day}', snap)
     print(f'Instantane {day} : valeur ${value:.0f} / investi ${invested:.0f} ({len(lines)} lignes)')
 
+    # --- Benchmarks (S&P 500 ^GSPC + Nasdaq Composite ^IXIC) pour le graphique de performance ---
+    # Pousses ICI (script quotidien) pour rester synchronises avec l'instantane du portefeuille
+    # (evite le gel des courbes S&P/Nasdaq quand le screener run.py ne tourne pas tous les jours).
+    for sym, node, label in (('^GSPC', 'benchmarkHistory', 'S&P 500'), ('^IXIC', 'benchmarkNasdaq', 'Nasdaq')):
+        try:
+            bench = y.index_history(sym, '1y')
+            if bench:
+                push(db, f'stocks/screener/{node}', bench)
+                print(f'Benchmark {label} : {len(bench)} jours (dernier {sorted(bench)[-1]})')
+        except Exception as e:
+            print(f'Benchmark {label} err', e)
+
 
 if __name__ == '__main__':
     main()
