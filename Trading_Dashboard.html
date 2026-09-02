@@ -7512,12 +7512,18 @@ function renderPositionsTable(pos, onChange) {
   const tbody = scrEl('tbody');
   let totInv = 0, totVal = 0, totDay = 0, totFairUsd = 0, totFairBaseUsd = 0;
   const parts = [];   // pour les graphiques (valeur + secteur par ligne)
-  pos.forEach((p, i) => {
+  // Lignes pré-calculées puis TRIÉES PAR VALEUR décroissante. On conserve l'index d'origine (i)
+  // car le bouton de suppression splice dans la liste STOCKÉE, pas dans l'ordre affiché.
+  const rows = pos.map((p, idx) => {
     const d = SCR_PRICE_MAP[(p.ticker || '').toUpperCase()];
     const qty = (p.qty != null) ? p.qty : ((p.amount != null && p.pru) ? p.amount / p.pru : 0);   // migration ancien format {amount}
     const investi = qty * (p.pru || 0);                          // USD (pru stocke en USD)
     const priceUsd = d ? scrToUsd(d.price, d.exchange) : null;   // cours en USD
     const valeur = priceUsd != null ? qty * priceUsd : investi;
+    return { p: p, i: idx, d: d, qty: qty, investi: investi, priceUsd: priceUsd, valeur: valeur };
+  }).sort((a, b) => b.valeur - a.valeur);
+  const totValAll = rows.reduce((s, r) => s + r.valeur, 0);   // dénominateur du poids (%) de chaque ligne
+  rows.forEach(({ p, i, d, qty, investi, priceUsd, valeur }) => {
     const pnl = priceUsd != null ? valeur - investi : null;
     const pnlPct = (priceUsd != null && p.pru > 0) ? priceUsd / p.pru - 1 : null;
     const chg = d && d.changePct != null ? d.changePct : null;
@@ -7556,7 +7562,9 @@ function renderPositionsTable(pos, onChange) {
       scrEl('td', { text: (p.pru != null ? usdToDisp(p.pru).toFixed(2) : '–'), style: `padding:6px 10px;text-align:right;${bd};color:#42546a` }),
       (d ? scrCoursCell(d, bd, true) : scrEl('td', { text: '–', style: `padding:6px 10px;text-align:right;${bd};color:#c3ccd6` })),
       scrEl('td', { text: dayTxt, style: `padding:6px 10px;text-align:right;${bd};font-weight:700;color:${dayCol};white-space:nowrap` }),
-      scrEl('td', { text: scrUsd(valeur), style: `padding:6px 10px;text-align:right;${bd};font-weight:700;color:#22303f` }),
+      scrEl('td', { style: `padding:6px 10px;text-align:right;${bd};font-weight:700;color:#22303f;white-space:nowrap`, kids: [
+        scrEl('span', { text: scrUsd(valeur) }),
+        scrEl('span', { text: totValAll > 0 ? ' (' + (valeur / totValAll * 100).toFixed(1) + '%)' : '', style: 'font-weight:600;color:#9aa7b4' })] }),
       scrEl('td', { text: (pnl == null ? '–' : (pnl >= 0 ? '+' : '') + scrUsd(pnl) + ' (' + (pnlPct >= 0 ? '+' : '') + (pnlPct * 100).toFixed(1) + '%)'), style: `padding:6px 10px;text-align:right;${bd};font-weight:700;color:${pnlCol};white-space:nowrap` }),
       ...(() => { const sec = (d && d.sector) ? d.sector : 'Autre'; const f = scrFundaCells(d, sec, bd); f[0] = scrValGaugeCell(d, sec, bd); f.splice(2, 1); return f; })(),
       scrEl('td', { style: `padding:6px 10px;text-align:right;${bd}`, kids: [del] }),
