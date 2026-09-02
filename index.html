@@ -5932,6 +5932,33 @@ const SCR_SECTOR_EMOJI = { 'Communication Services': '🌐', 'Technology': '💻
 function scrFreqLabel(f) { return f >= 12 ? 'Mensuel' : (f >= 4 ? 'Trimestriel' : (f >= 2 ? 'Semestriel' : (f >= 1 ? 'Annuel' : '—'))); }
 function scrCompanyEsc(e) { if (e.key === 'Escape') scrCloseCompanyCard(); }
 function scrCloseCompanyCard() { if (SCR_COMPANY_MODAL) { SCR_COMPANY_MODAL.remove(); SCR_COMPANY_MODAL = null; document.removeEventListener('keydown', scrCompanyEsc, true); } }
+// Bloc MOAT mis en avant dans la fiche société : reprend EXACTEMENT l'analyse de la colonne Moat
+// du tableau (moatRatings) -> gros score /100, largeur du moat, exposition IA, tendance, justification.
+function scrMoatBlock(m) {
+  const moat = m.moat, score = m.moatScore, ai = m.aiExposure;
+  const col = SCR_MOAT_COL[moat] || ['#eef2f8', '#5b6b7d'];
+  const has = !!moat && score != null && isFinite(score);
+  const pct = has ? Math.max(0, Math.min(100, Math.round(score))) : 0;
+  const box = scrEl('div', { style: `border:1px solid ${has ? col[1] + '33' : '#e3e8ee'};background:${has ? col[0] + '66' : '#fbfcfe'};border-radius:12px;padding:12px 14px;margin:4px 0 14px` });
+  const big = scrEl('div', { style: 'display:flex;align-items:baseline;gap:3px', kids: [
+    scrEl('span', { text: has ? String(pct) : '–', style: `font-size:2.7rem;font-weight:800;line-height:1;color:${has ? col[1] : '#9aa7b4'}` }),
+    scrEl('span', { text: '/100', style: 'font-size:0.78rem;font-weight:700;color:#9aa7b4' })] });
+  const chips = scrEl('div', { style: 'display:flex;align-items:center;gap:6px;flex-wrap:wrap' });
+  chips.appendChild(scrEl('span', { text: 'MOAT ' + (moat ? String(moat).toUpperCase() : 'NON ANALYSÉ'), style: `background:${has ? col[1] : '#c3ccd6'};color:#fff;border-radius:20px;padding:3px 10px;font-size:0.68rem;font-weight:800;letter-spacing:.03em` }));
+  if (ai) {
+    const aiCol = /menac/i.test(ai) ? ['#fdeaea', '#c0392b'] : (/favorab/i.test(ai) ? ['#d1f0e3', '#127a54'] : ['#eef2f8', '#5b6b7d']);
+    chips.appendChild(scrEl('span', { text: 'IA ' + ai, style: `background:${aiCol[0]};color:${aiCol[1]};border-radius:20px;padding:3px 9px;font-size:0.66rem;font-weight:700` }));
+  }
+  if (m.moatTrend) chips.appendChild(scrEl('span', { text: 'Tendance : ' + m.moatTrend, style: 'background:#eef2f8;color:#5b6b7d;border-radius:20px;padding:3px 9px;font-size:0.66rem;font-weight:700' }));
+  const bar = scrEl('div', { style: 'height:7px;border-radius:5px;background:#e8edf3;overflow:hidden;margin-top:8px', kids: [
+    scrEl('div', { style: `height:100%;width:${pct}%;background:${has ? col[1] : '#c3ccd6'};border-radius:5px` })] });
+  box.appendChild(scrEl('div', { style: 'display:flex;align-items:center;gap:16px;flex-wrap:wrap', kids: [
+    scrEl('div', { kids: [scrEl('div', { text: 'AVANTAGE CONCURRENTIEL', style: 'font-size:0.58rem;font-weight:800;color:#9aa7b4;letter-spacing:.06em;margin-bottom:3px' }), big] }),
+    scrEl('div', { style: 'flex:1;min-width:200px', kids: [chips, bar] })] }));
+  if (m.moatRationale) box.appendChild(scrEl('div', { text: m.moatRationale, style: 'font-size:0.75rem;line-height:1.45;color:#42546a;margin-top:9px;border-top:1px solid rgba(0,0,0,.07);padding-top:8px' }));
+  box.appendChild(scrEl('div', { text: has ? ((m.moatSource ? 'Source : ' + m.moatSource + ' · ' : '') + 'Analyse qualitative curée, pas une donnée mesurée.') : "Moat pas encore analysé pour ce titre (analyse qualitative curée, non auto-actualisée).", style: 'font-size:0.63rem;color:#9aa7b4;margin-top:7px' }));
+  return box;
+}
 function scrShowCompanyCard(symbol) {
   const ticker = String(symbol || '').toUpperCase();
   const m = SCR_PRICE_MAP[ticker] || {};
@@ -5980,6 +6007,7 @@ function scrShowCompanyCard(symbol) {
     cell('Croiss. CA', m.revCagr != null ? ((m.revCagr >= 0 ? '+' : '') + (m.revCagr * 100).toFixed(0) + '%/an') : '–', (m.revCagr != null && m.revCagr >= 0.10) ? '#1d9e74' : '#42546a'),
     cell('ROIC', m.roic != null ? (m.roic * 100).toFixed(0) + '%' : '–', (m.roic != null && m.roic >= 0.15) ? '#1d9e74' : '#42546a')] }));
   card.appendChild(mc);
+  card.appendChild(scrMoatBlock(m));   // score MOAT en gros (même analyse que la colonne Moat du tableau)
   // nom + description
   card.appendChild(scrEl('div', { text: (m.name || ticker), style: 'color:#3730d6;font-weight:800;text-align:center;font-size:1rem;margin:4px 0 6px' }));
   card.appendChild((prof && prof.description)
