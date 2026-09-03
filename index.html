@@ -7301,6 +7301,69 @@ function scrValuationSummary(pos) {
 }
 // Revenus de dividendes estimes (a partir du rendement reel, avant fiscalite). Granularite ANNUELLE + moyenne
 // mensuelle ; le detail mois par mois (verse/estime facon SWS) demande le calendrier de dividendes cote VPS.
+let SCR_TX = null;   // journal de transactions (stocks/screener/transactions), alimente par le releve Revolut
+// PLUS-VALUES REALISEES : cout moyen pondere, net de frais.
+// Le champ `total` du releve Revolut est deja NET (frais ajoutes a l'achat, deduits a la vente), donc le
+// cout de revient integre les frais d'acquisition, ce qui est le traitement fiscal correct. Revolut affiche
+// de son cote un prix moyen HORS frais, d'ou un leger ecart assume entre les deux.
+function scrRealized(tx) {
+  const list = (Array.isArray(tx) ? tx : Object.values(tx || {}))
+    .filter((t) => t && (t.type === 'BUY' || t.type === 'SELL') && t.ticker)
+    .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+  const pos = {}, closed = [];
+  let fees = 0;
+  list.forEach((t) => {
+    const k = String(t.ticker).toUpperCase(), q = Number(t.qty) || 0, tot = Number(t.total) || 0, px = Number(t.price) || 0;
+    if (t.type === 'BUY') {
+      const p = pos[k] = pos[k] || { qty: 0, cost: 0 };
+      p.qty += q; p.cost += tot; fees += (tot - q * px);
+    } else {
+      const p = pos[k]; if (!p || p.qty <= 1e-9) return;   // vente d'un titre acquis hors periode -> ignoree
+      const cost = (p.cost / p.qty) * q;
+      closed.push({ date: String(t.date).slice(0, 10), ticker: k, qty: q, price: px, cost: cost, proceeds: tot, pnl: tot - cost, pct: cost > 0 ? (tot - cost) / cost : 0 });
+      p.qty -= q; p.cost -= cost; fees += (q * px - tot);
+      if (p.qty <= 1e-9) delete pos[k];
+    }
+  });
+  return { closed: closed.reverse(), total: closed.reduce((a, c) => a + c.pnl, 0), engaged: closed.reduce((a, c) => a + c.cost, 0), fees: fees };
+}
+function scrRealizedCard(tx) {
+  const wrap = scrEl('div', { style: 'background:#fff;border:1px solid #e3e8ee;border-radius:14px;padding:14px' });
+  wrap.appendChild(scrEl('div', { style: 'display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap', kids: [
+    scrEl('span', { text: 'Plus-values réalisées', style: 'font-weight:800;color:#22303f;font-size:0.95rem' }),
+    scrEl('span', { text: 'cessions clôturées, coût moyen pondéré, net de frais', style: 'font-size:0.72rem;color:#5b6b7d' })] }));
+  const r = scrRealized(tx);
+  if (!r.closed.length) {
+    wrap.appendChild(scrEl('div', { style: 'color:#9aa7b4;font-size:0.8rem', text: "Aucune cession enregistrée. Le journal se remplit depuis le relevé Revolut (Compte, puis Relevé), rien à saisir à la main." }));
+    return wrap;
+  }
+  const col = r.total >= 0 ? '#1d9e74' : '#dd5f66';
+  const bd = 'border-bottom:1px solid #eef1f5';
+  wrap.appendChild(scrEl('div', { style: 'display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px', kids: [
+    scrKpi('Résultat réalisé', (r.total >= 0 ? '+' : '') + scrUsd(r.total), col, "Somme des plus et moins-values des cessions, net de frais. En compte-titres, c'est cette somme qui constitue la base imposable."),
+    scrKpi('Cessions', String(r.closed.length)),
+    scrKpi('Capital engagé', scrUsd(r.engaged), null, 'Coût de revient cumulé des lignes cédées.'),
+    scrKpi('Frais payés', scrUsd(r.fees), '#dd5f66', 'Frais de courtage cumulés sur TOUS les ordres du journal, achats comme ventes.')] }));
+  const thead = scrEl('tr', { style: 'background:#f6f8fb;color:#5b6b7d' });
+  [['Date', 'left'], ['Titre', 'left'], ['Qté', 'right'], ['Prix vente', 'right'], ['Coût', 'right'], ['Encaissé', 'right'], ['+/−', 'right']].forEach(function (h) {
+    thead.appendChild(scrEl('th', { text: h[0], style: 'padding:7px 9px;text-align:' + h[1] + ';font-size:0.66rem;text-transform:uppercase;letter-spacing:.03em;border-bottom:1px solid #e3e8ee;white-space:nowrap' }));
+  });
+  const tbody = scrEl('tbody');
+  r.closed.forEach((c) => {
+    const cc = c.pnl >= 0 ? '#1d9e74' : '#dd5f66';
+    tbody.appendChild(scrEl('tr', { kids: [
+      scrEl('td', { text: c.date, style: 'padding:6px 9px;' + bd + ';color:#5b6b7d;white-space:nowrap' }),
+      scrEl('td', { style: 'padding:6px 9px;' + bd, kids: [scrEl('b', { text: c.ticker, style: 'color:#22303f' })] }),
+      scrEl('td', { text: (c.qty % 1 === 0 ? String(c.qty) : c.qty.toLocaleString('fr-FR', { maximumFractionDigits: 4 })), style: 'padding:6px 9px;text-align:right;' + bd + ';color:#42546a' }),
+      scrEl('td', { text: scrUsd(c.price), style: 'padding:6px 9px;text-align:right;' + bd + ';color:#42546a' }),
+      scrEl('td', { text: scrUsd(c.cost), style: 'padding:6px 9px;text-align:right;' + bd + ';color:#42546a' }),
+      scrEl('td', { text: scrUsd(c.proceeds), style: 'padding:6px 9px;text-align:right;' + bd + ';color:#42546a' }),
+      scrEl('td', { text: (c.pnl >= 0 ? '+' : '') + scrUsd(c.pnl) + ' (' + (c.pct >= 0 ? '+' : '') + (c.pct * 100).toFixed(1) + '%)', style: 'padding:6px 9px;text-align:right;' + bd + ';font-weight:700;color:' + cc + ';white-space:nowrap' })] }));
+  });
+  wrap.appendChild(scrTableBox(scrEl('table', { style: 'width:100%;border-collapse:collapse;font-size:0.8rem', kids: [scrEl('thead', { kids: [thead] }), tbody] }), { maxH: 'none' }));
+  wrap.appendChild(scrEl('div', { style: 'margin-top:8px;font-size:0.7rem;color:#9aa7b4', text: "Coût de revient FRAIS INCLUS (Revolut affiche un prix moyen hors frais, d'où un léger écart). Une vente portant sur un titre acheté avant la période du relevé est ignorée, faute de prix de revient connu. Information, pas un conseil fiscal." }));
+  return wrap;
+}
 function scrDividendCard(pos) {
   const wrap = scrEl('div', { style: 'background:#fff;border:1px solid #e3e8ee;border-radius:14px;padding:14px' });
   wrap.appendChild(scrEl('div', { style: 'display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap', kids: [
@@ -7525,13 +7588,16 @@ function screenerPositionsModule() {
   wrap.appendChild(body);
   const divBox = scrEl('div', { style: 'margin-top:14px' });   // revenus de dividendes estimes, SOUS le tableau
   wrap.appendChild(divBox);
-  const render = () => { valBox.replaceChildren(scrValuationSummary(scrGetPositions())); body.replaceChildren(renderPositionsTable(scrGetPositions(), render)); divBox.replaceChildren(scrDividendCard(scrGetPositions())); };
+  const realBox = scrEl('div', { style: 'margin-top:14px' });   // plus-values REALISEES (journal de transactions)
+  wrap.appendChild(realBox);
+  const render = () => { valBox.replaceChildren(scrValuationSummary(scrGetPositions())); body.replaceChildren(renderPositionsTable(scrGetPositions(), render)); divBox.replaceChildren(scrDividendCard(scrGetPositions())); realBox.replaceChildren(scrRealizedCard(SCR_TX)); };
   // Historique valeur vs juste valeur + benchmark S&P 500 : chargés une fois, re-render quand dispo.
   if (typeof db !== 'undefined' && db) {
     db.ref('stocks/screener/valuationHistory').once('value').then((s) => { SCR_VALHIST = s.val() || {}; render(); }).catch(() => {});
     db.ref('stocks/screener/benchmarkHistory').once('value').then((s) => { SCR_BENCH = s.val() || null; render(); }).catch(() => {});
     db.ref('stocks/screener/benchmarkNasdaq').once('value').then((s) => { SCR_BENCH_NDX = s.val() || null; render(); }).catch(() => {});
     db.ref('stocks/screener/companyProfiles').once('value').then((s) => { SCR_PROFILES = s.val() || {}; }).catch(() => {});
+    db.ref('stocks/screener/transactions').once('value').then((s) => { SCR_TX = s.val() || null; render(); }).catch(() => {});
   }
   // Écoute temps réel : la table + les graphiques se mettent à jour seuls dès que le cron VPS pousse de nouveaux cours (plus de bouton).
   if (typeof db !== 'undefined' && db) {
