@@ -6253,7 +6253,7 @@ function renderEnfantsTab() {
   wrap.appendChild(scrEl('div', { style: 'display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px', kids: [
     tile('Valeur de la poche', money(agg.value), agg.price != null ? (cfg.ticker + ' à ' + money(agg.price)) : 'cours indisponible', '#22303f',
       'Valeur de marché de toutes les parts détenues pour les enfants. Cette poche est exclue de ton capital personnel.'),
-    tile('Total versé', money(agg.invested), agg.units.toFixed(4).replace(/0+$/, '') + ' parts', '#3563e9',
+    tile('Total versé', money(agg.invested), String(+agg.units.toFixed(4)) + ' parts', '#3563e9',
       'Somme de tous tes versements. Le nombre de parts est la seule source de vérité de la répartition.'),
     tile('Plus-value', agg.pnl == null ? '–' : sign(agg.pnl) + money(agg.pnl),
       agg.pnlPct == null ? '' : sign(agg.pnlPct) + (agg.pnlPct * 100).toFixed(2) + '% sur les versements',
@@ -6284,7 +6284,7 @@ function renderEnfantsTab() {
         scrEl('b', { text: k.child, style: 'color:#22303f' }),
         scrEl('span', { text: k.n + ' versement' + (k.n > 1 ? 's' : ''), style: 'font-size:0.64rem;color:#9aa7b4' })] })] }),
       scrEl('td', { text: money(k.invested), style: 'padding:6px 9px;text-align:right;' + bd + ';color:#42546a' }),
-      scrEl('td', { text: k.units.toFixed(4).replace(/0+$/, ''), style: 'padding:6px 9px;text-align:right;' + bd + ';color:#9aa7b4;font-size:0.76rem' }),
+      scrEl('td', { text: String(+k.units.toFixed(4)), style: 'padding:6px 9px;text-align:right;' + bd + ';color:#9aa7b4;font-size:0.76rem' }),
       scrEl('td', { text: money(k.value), style: 'padding:6px 9px;text-align:right;' + bd + ';font-weight:700;color:#22303f' }),
       scrEl('td', { text: k.pnl == null ? '–' : (sign(k.pnl) + money(k.pnl) + ' (' + sign(k.pct) + (k.pct * 100).toFixed(1) + '%)'),
                     style: 'padding:6px 9px;text-align:right;' + bd + ';font-weight:700;white-space:nowrap;color:' + col }),
