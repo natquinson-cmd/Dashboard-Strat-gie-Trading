@@ -7704,15 +7704,15 @@ function screenerPositionsModule() {
   wrap.appendChild(kpiBox);
   const histBox = scrEl('div', { style: 'margin-bottom:14px' });       // 2) evolution du capital + CALENDRIERS (remontes)
   wrap.appendChild(histBox);
-  const valBox = scrEl('div');                                          // 3) valorisation + graphique de performance
-  wrap.appendChild(valBox);
-  const body = scrEl('div');                                            // 4) tableau des positions + repartitions
-  wrap.appendChild(body);
-  const detailRow = scrEl('div', { style: 'display:flex;gap:14px;flex-wrap:wrap;margin-top:14px;align-items:flex-start' });
-  const divBox = scrEl('div', { style: 'flex:1;min-width:340px' });      // 5) dividendes ET cessions cote a cote (supprime les vides)
+  const detailRow = scrEl('div', { style: 'display:flex;gap:14px;flex-wrap:wrap;margin-bottom:14px;align-items:flex-start' });
+  const divBox = scrEl('div', { style: 'flex:1;min-width:340px' });      // 3) dividendes ET cessions cote a cote, remontes AVANT la valorisation
   const realBox = scrEl('div', { style: 'flex:1;min-width:340px' });
   detailRow.appendChild(divBox); detailRow.appendChild(realBox);
   wrap.appendChild(detailRow);
+  const valBox = scrEl('div');                                          // 4) valorisation (pleine largeur)
+  wrap.appendChild(valBox);
+  const body = scrEl('div');                                            // 5) tableau des positions + repartitions
+  wrap.appendChild(body);
   const render = () => { kpiBox.replaceChildren(scrTopKpiBand(scrGetPositions())); valBox.replaceChildren(scrValuationSummary(scrGetPositions())); body.replaceChildren(renderPositionsTable(scrGetPositions(), render)); divBox.replaceChildren(scrDividendCard(scrGetPositions())); realBox.replaceChildren(scrRealizedCard(SCR_TX)); };
   // Historique valeur vs juste valeur + benchmark S&P 500 : chargés une fois, re-render quand dispo.
   if (typeof db !== 'undefined' && db) {
