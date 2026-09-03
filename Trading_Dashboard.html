@@ -7537,11 +7537,18 @@ function scrPerfChart(hist, bench, benchN) {
     const mk = (tag, a) => { const e = document.createElementNS(NS, tag); for (const k in a) e.setAttribute(k, a[k]); return e; };
     const y0 = y(0); svg.appendChild(mk('line', { x1: padL, x2: W - padR, y1: y0, y2: y0, stroke: '#c3ccd6', 'stroke-dasharray': '2 3', 'stroke-width': 1 }));
     const l0 = mk('text', { x: W - padR + 3, y: (y0 + 3).toFixed(1), 'font-size': 9, fill: '#9aa7b4' }); l0.textContent = '0 %'; svg.appendChild(l0);
+    // ALIGNEMENT PAR DATE : chaque courbe est positionnee sur l'axe des dates du PORTEFEUILLE.
+    // Sans ca, une serie ayant MOINS de points (typiquement le benchmark, en retard d'une seance
+    // tant que la bourse US n'a pas cloture) etait etiree sur toute la largeur : ses points
+    // tombaient a cote des bonnes dates et une hausse pouvait s'afficher comme une baisse.
+    const idxOf = {}; twr.forEach((p, i) => { idxOf[p.date] = i; });
     const line = (arr, color) => {
-      if (arr.length < 2) return null;
-      let d = ''; arr.forEach((p, i) => { d += (i ? 'L' : 'M') + xOf(arr, i).toFixed(1) + ' ' + y(p.v).toFixed(1) + ' '; });
+      const pts = [];
+      arr.forEach((p) => { const i = idxOf[p.date]; if (i != null) pts.push({ i: i, v: p.v }); });
+      if (pts.length < 2) return null;
+      let d = ''; pts.forEach((p, k) => { d += (k ? 'L' : 'M') + xOf(twr, p.i).toFixed(1) + ' ' + y(p.v).toFixed(1) + ' '; });
       svg.appendChild(mk('path', { d: d.trim(), fill: 'none', stroke: color, 'stroke-width': 2.2 }));
-      return arr[arr.length - 1];
+      return { v: pts[pts.length - 1].v };
     };
     const ends = []; let e;   // portefeuille dessiné en dernier (au-dessus)
     e = line(ndx, NDX_COL); if (e) ends.push({ v: e.v, color: NDX_COL });
