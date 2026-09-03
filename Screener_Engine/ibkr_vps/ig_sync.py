@@ -175,15 +175,7 @@ def row_to_trade(r):
 
 
 # ------------------------------------------------------------------------ main
-def main():
-    full = '--full' in sys.argv
-    dry = '--dry-run' in sys.argv
-    cfg = load_config()
-    db = os.environ.get('FIREBASE_DB_URL')
-    if not db:
-        log('ERREUR : variable d environnement FIREBASE_DB_URL manquante.')
-        sys.exit(1)
-
+def run(cfg, db, full, dry):
     # 1. connexion IG
     log('Connexion a IG...')
     hdrs, _ = ig_request(cfg['apiBase'], '/session', 'POST',
@@ -219,7 +211,7 @@ def main():
     log('%d transaction(s) recuperee(s).' % len(txs))
     if not txs:
         log('Rien a fusionner, arret.')
-        return
+        return 'Aucune transaction IG sur la periode.'
 
     # 4. conversion
     data = convert_ig_transactions(txs)
@@ -265,16 +257,17 @@ def main():
     new_fees = [f for f in data['fees'] if f['ref'] not in fee_refs]
     fees = fees + new_fees
 
-    log('Fusion : %d nouveau(x) trade(s), %d mis a jour, %d doublon(s) ignore(s), '
-        '+%d dividende(s), +%d depot(s), +%d frais.'
-        % (new_count, updated, dup, len(new_divs), len(new_deps), len(new_fees)))
+    msg = ('%d nouveau(x) trade(s), %d mis a jour, %d doublon(s) ignore(s), '
+           '+%d dividende(s), +%d depot(s), +%d frais.'
+           % (new_count, updated, dup, len(new_divs), len(new_deps), len(new_fees)))
+    log('Fusion : ' + msg)
 
     if dry:
         log('--dry-run : aucune ecriture effectuee.')
-        return
+        return msg
     if new_count == 0 and updated == 0 and not new_divs and not new_deps and not new_fees:
         log('Rien de nouveau, on n ecrit pas (evite de reecrire inutilement).')
-        return
+        return msg
 
     # 6. ecriture (memes noeuds que le dashboard)
     fb_push(db, 'trades', [row_to_trade(r) for r in trades])
@@ -284,11 +277,41 @@ def main():
     fb_push(db, 'lastDataUpdate', int(time.time() * 1000))
     log('Ecrit dans Firebase : %d trades, %d dividendes, %d depots, %d frais.'
         % (len(trades), len(dividends), len(deposits), len(fees)))
+    return msg
+
+
+def write_status(db, ok, message):
+    """Statut de la derniere synchro, lu par le dashboard pour ALERTER en cas d echec.
+
+    Ecrit succes ET echec : sans ca, une cle API IG expiree passerait inapercue
+    pendant des semaines, le dashboard continuant d afficher de vieilles donnees.
+    """
+    payload = {'ok': bool(ok), 'at': int(time.time() * 1000), 'message': str(message)[:400]}
+    try:
+        fb_push(db, 'igSyncStatus', payload)
+        log('Statut ecrit (ok=%s).' % bool(ok))
+    except Exception as e:
+        log('(statut non ecrit : %s)' % e)
+
+
+def main():
+    full = '--full' in sys.argv
+    dry = '--dry-run' in sys.argv
+    cfg = load_config()
+    db = os.environ.get('FIREBASE_DB_URL')
+    if not db:
+        log('ERREUR : variable d environnement FIREBASE_DB_URL manquante.')
+        sys.exit(1)
+    try:
+        msg = run(cfg, db, full, dry)
+    except Exception as e:
+        log('ECHEC : %s' % e)
+        if not dry:
+            write_status(db, False, e)   # l echec DOIT etre trace
+        sys.exit(1)
+    if not dry:
+        write_status(db, True, msg)
 
 
 if __name__ == '__main__':
-    try:
-        main()
-    except Exception as e:
-        log('ECHEC : %s' % e)
-        sys.exit(1)
+    main()

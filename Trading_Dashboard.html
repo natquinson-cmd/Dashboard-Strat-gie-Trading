@@ -1098,6 +1098,7 @@
       <div style="display:flex;gap:8px;align-items:center;">
         <button class="csv-btn" onclick="syncFromIG()" id="btnIgSync" style="background:linear-gradient(135deg,rgba(29,158,116,0.15),rgba(46,181,160,0.15));border-color:rgba(29,158,116,0.3);">Synchroniser IG</button>
         <button class="csv-btn" onclick="syncFromIG(true)" id="btnIgFull" title="Recharger tout l'historique depuis IG" style="font-size:0.7rem;padding:6px 10px;opacity:0.7;">Historique complet</button>
+        <span id="igSyncStatus" style="font-size:0.72rem;font-weight:700;padding:5px 10px;border-radius:8px;white-space:nowrap;cursor:help"></span>
       </div>
     </div>
     <div class="hero-kpi" id="heroReal"></div>
@@ -3913,6 +3914,35 @@ async function igRequest(path, method, headers, body) {
   const json = await res.json();
   if (!res.ok) throw new Error(json.errorCode || `HTTP ${res.status}`);
   return { headers: Object.fromEntries(res.headers.entries()), body: json };
+}
+
+// ALERTE synchro automatique : lit le noeud igSyncStatus ecrit par ig_sync.py sur le VPS.
+// Sans ca, une cle API IG expiree passerait inapercue et le dashboard afficherait
+// de vieilles donnees en silence, ce qui est le pire des cas.
+function renderIgSyncStatus(st) {
+  const el = document.getElementById('igSyncStatus');
+  if (!el) return;
+  const set = (txt, bg, fg, tip) => { el.textContent = txt; el.style.background = bg; el.style.color = fg; el.title = tip || ''; };
+  if (!st || !st.at) {
+    set('Synchro auto : jamais exécutée', 'rgba(148,163,181,0.16)', '#7b8a9a',
+        "Le VPS n'a pas encore lancé ig_sync.py. Vérifie la tâche planifiée de 23h.");
+    return;
+  }
+  const h = Math.floor((Date.now() - st.at) / 3600000);
+  const quand = h < 1 ? "il y a moins d'une heure" : (h < 48 ? 'il y a ' + h + ' h' : 'il y a ' + Math.floor(h / 24) + ' j');
+  if (!st.ok) {
+    set('⚠ Échec synchro auto ' + quand, 'rgba(221,95,102,0.18)', '#c0392b',
+        'Dernière erreur : ' + (st.message || 'inconnue') + '. Relance run_ig_sync.bat sur le VPS pour diagnostiquer.');
+  } else if (h >= 36) {
+    set('⚠ Aucune synchro auto ' + quand, 'rgba(240,182,77,0.22)', '#8a6d1f',
+        "La tâche de 23h ne s'est pas exécutée : VPS éteint, ou tâche désactivée.");
+  } else {
+    set('✓ Synchro auto ' + quand, 'rgba(29,158,116,0.16)', '#127a54', st.message || '');
+  }
+}
+function loadIgSyncStatus() {
+  if (typeof db === 'undefined' || !db) return Promise.resolve();
+  return db.ref('igSyncStatus').once('value').then((s) => renderIgSyncStatus(s.val())).catch(() => {});
 }
 
 async function syncFromIG(fullSync) {
@@ -11553,6 +11583,7 @@ function loadDataTimestamp() {
 
 // ── INIT ──
 Promise.all([
+  loadIgSyncStatus(),
   loadTradesFromFirebase(),
   loadDividendsFromFirebase(),
   loadDepositsFromFirebase(),
