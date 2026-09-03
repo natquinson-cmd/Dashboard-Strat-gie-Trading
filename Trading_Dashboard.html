@@ -6869,7 +6869,7 @@ function scrEquityCurve(hist) {
   const y = (v) => H - padB - (v - min) / span * (H - padT - padB);
   const GREY = '#94a3b5';
   const last = hist[n - 1], up = last.value >= last.invested, valCol = up ? '#1d9e74' : '#dd5f66';
-  const cont = scrEl('div', { style: 'position:relative;max-width:' + W + 'px' });
+  const cont = scrEl('div', { style: 'position:relative;width:100%' });
   const svg = document.createElementNS(NS, 'svg');
   svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H); svg.setAttribute('width', '100%'); svg.style.display = 'block';
   const mk = (t, a) => { const e = document.createElementNS(NS, t); for (const k in a) e.setAttribute(k, a[k]); return e; };
@@ -6947,19 +6947,52 @@ function scrDayCalendar(hist, pnlMap, retMap) {
   next.onclick = () => { SCR_CAL_M++; if (SCR_CAL_M > 11) { SCR_CAL_M = 0; SCR_CAL_Y++; } SCR_CAL_SEL = null; SCR_HIST_RERENDER && SCR_HIST_RERENDER(); };
   box.appendChild(scrEl('div', { style: 'display:flex;align-items:center;gap:10px;margin-bottom:8px', kids: [
     prev, scrEl('span', { text: mois[m] + ' ' + y, style: 'font-weight:700;color:#22303f;font-size:0.85rem' }), next] }));
-  const grid = scrEl('div', { style: 'display:grid;grid-template-columns:repeat(7,1fr);gap:4px' });
-  ['L', 'M', 'M', 'J', 'V', 'S', 'D'].forEach((d) => grid.appendChild(scrEl('div', { text: d, style: 'text-align:center;font-size:0.6rem;color:#9aa7b4;font-weight:700' })));
-  const offset = (new Date(y, m, 1).getDay() + 6) % 7, days = new Date(y, m + 1, 0).getDate();
-  for (let i = 0; i < offset; i++) grid.appendChild(scrEl('div'));
+  // Semaine de BOURSE : lundi a vendredi + une colonne de TOTAL hebdo (comme l'onglet Trading Auto).
+  const grid = scrEl('div', { style: 'display:grid;grid-template-columns:repeat(6,1fr);gap:4px' });
+  ['L', 'M', 'M', 'J', 'V', 'Σ'].forEach((d, i) => grid.appendChild(scrEl('div', {
+    text: d, attrs: i === 5 ? { title: 'Total de la semaine' } : {},
+    style: 'text-align:center;font-size:0.6rem;font-weight:700;color:' + (i === 5 ? '#5b6b7d' : '#9aa7b4') })));
+  const days = new Date(y, m + 1, 0).getDate();
+  const offset = (new Date(y, m, 1).getDay() + 6) % 7;   // 0 = lundi
+  let weekSum = 0, weekFactor = 1, weekHas = false;
+  const emitWeek = () => {
+    const bg = weekHas ? (weekSum >= 0 ? '#d8f0e6' : '#fbdcde') : '#f8fafc';
+    const fg = weekHas ? (weekSum >= 0 ? '#127a54' : '#c0392b') : '#c3ccd6';
+    let txt = '–';
+    if (weekHas) {
+      const pct = (weekFactor - 1) * 100;
+      txt = (SCR_CAL_PCT) ? ((pct >= 0 ? '+' : '') + pct.toFixed(2) + '%') : ((weekSum >= 0 ? '+' : '') + scrUsd(weekSum));
+    }
+    grid.appendChild(scrEl('div', {
+      attrs: { title: 'Total de la semaine' },
+      style: 'background:' + bg + ';border-radius:7px;min-height:38px;display:flex;align-items:center;justify-content:center;padding:4px 2px',
+      kids: [scrEl('div', { text: txt, style: 'font-size:0.62rem;font-weight:800;color:' + fg })] }));
+    weekSum = 0; weekFactor = 1; weekHas = false;
+  };
+  // Un mois qui commence un samedi ou un dimanche demarre en fait le lundi suivant.
+  const startOffset = (offset >= 5) ? 0 : offset;
+  let col = startOffset;
+  for (let i = 0; i < startOffset; i++) grid.appendChild(scrEl('div'));
   for (let d = 1; d <= days; d++) {
-    const key = `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`, pnl = pnlMap[key], has = pnl != null, sel = SCR_CAL_SEL === key;
+    const dow = (new Date(y, m, d).getDay() + 6) % 7;   // 0 = lundi ... 6 = dimanche
+    if (dow >= 5) continue;                              // samedi et dimanche retires (marches fermes)
+    const key = y + '-' + String(m + 1).padStart(2, '0') + '-' + String(d).padStart(2, '0');
+    const pnl = pnlMap[key], has = pnl != null, sel = SCR_CAL_SEL === key;
     const bg = !has ? '#f6f8fb' : (pnl >= 0 ? '#e5f4ee' : '#fbe9ea'), tc = !has ? '#c3ccd6' : (pnl >= 0 ? '#1d9e74' : '#dd5f66');
-    const cell = scrEl('div', { style: `background:${bg};border-radius:7px;padding:5px 2px;min-height:38px;text-align:center;${has ? 'cursor:pointer;' : ''}${sel ? 'outline:2px solid #3563e9;outline-offset:-2px;' : ''}` });
+    const cell = scrEl('div', { style: 'background:' + bg + ';border-radius:7px;padding:5px 2px;min-height:38px;text-align:center;' + (has ? 'cursor:pointer;' : '') + (sel ? 'outline:2px solid #3563e9;outline-offset:-2px;' : '') });
     cell.appendChild(scrEl('div', { text: String(d), style: 'font-size:0.58rem;color:#9aa7b4' }));
-    if (has) { const r = retMap ? retMap[key] : null; const txt = (SCR_CAL_PCT && r != null) ? ((r >= 0 ? '+' : '') + (r * 100).toFixed(1) + '%') : ((pnl >= 0 ? '+' : '') + scrUsd(pnl)); cell.appendChild(scrEl('div', { text: txt, style: `font-size:0.6rem;font-weight:700;color:${tc}` })); }
-    if (has) cell.onclick = () => { SCR_CAL_SEL = (SCR_CAL_SEL === key ? null : key); SCR_HIST_RERENDER && SCR_HIST_RERENDER(); };
-    grid.appendChild(cell);
+    if (has) {
+      const r = retMap ? retMap[key] : null;
+      const txt = (SCR_CAL_PCT && r != null) ? ((r >= 0 ? '+' : '') + (r * 100).toFixed(1) + '%') : ((pnl >= 0 ? '+' : '') + scrUsd(pnl));
+      cell.appendChild(scrEl('div', { text: txt, style: 'font-size:0.6rem;font-weight:700;color:' + tc }));
+      weekSum += pnl; weekHas = true;
+      if (r != null) weekFactor *= (1 + r);
+      cell.onclick = () => { SCR_CAL_SEL = (SCR_CAL_SEL === key ? null : key); SCR_HIST_RERENDER && SCR_HIST_RERENDER(); };
+    }
+    grid.appendChild(cell); col++;
+    if (dow === 4) { emitWeek(); col = 0; }              // vendredi : on ferme la semaine
   }
+  if (col > 0) { while (col < 5) { grid.appendChild(scrEl('div')); col++; } emitWeek(); }
   box.appendChild(grid);
   return box;
 }
@@ -7223,7 +7256,7 @@ function scrPerfChart(hist, bench, benchN) {
     let min = Math.min.apply(null, all), max = Math.max.apply(null, all); if (min === max) { min -= 0.01; max += 0.01; }
     const mar = (max - min) * 0.14 || 0.01; min -= mar; max += mar; const span = (max - min) || 1;
     const y = (v) => H - padB - (v - min) / span * (H - padT - padB), xOf = (arr, i) => padL + (arr.length > 1 ? i * (W - padL - padR) / (arr.length - 1) : (W - padL - padR) / 2);
-    const cont = scrEl('div', { style: 'position:relative;max-width:' + W + 'px' });
+    const cont = scrEl('div', { style: 'position:relative;width:100%' });
     const svg = document.createElementNS(NS, 'svg'); svg.setAttribute('viewBox', `0 0 ${W} ${H}`); svg.setAttribute('width', '100%'); svg.style.display = 'block';
     const mk = (tag, a) => { const e = document.createElementNS(NS, tag); for (const k in a) e.setAttribute(k, a[k]); return e; };
     const y0 = y(0); svg.appendChild(mk('line', { x1: padL, x2: W - padR, y1: y0, y2: y0, stroke: '#c3ccd6', 'stroke-dasharray': '2 3', 'stroke-width': 1 }));
