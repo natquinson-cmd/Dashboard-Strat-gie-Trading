@@ -7747,9 +7747,17 @@ function scrDividendCard(pos) {
 // Module "Mes positions" en haut du screener : saisie manuelle (Revolut), P&L via les cours du screener.
 function screenerPositionsModule() {
   const wrap = scrEl('div', { style: 'background:#fff;border:1px solid #e3e8ee;border-radius:14px;padding:14px;margin-bottom:14px' });
+  // Horodatage de la derniere mise a jour des cours, AFFICHE ICI (il etait dans la note sous le tableau).
+  const liveStamp = scrEl('span', { style: 'font-weight:600;color:#5b6b7d' });
+  const refreshStamp = () => {
+    if (!SCR_LIVE_AT) { liveStamp.textContent = ''; return; }
+    const d = new Date(SCR_LIVE_AT);
+    liveStamp.textContent = ' · ' + d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })
+      + ' à ' + d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  };
   const liveBadge = scrEl('span', { attrs: { title: 'Cours mis à jour automatiquement dès que le cron VPS pousse de nouveaux prix. Plus besoin de rafraîchir.' }, style: 'margin-left:auto;display:flex;align-items:center;gap:6px;font-size:0.74rem;color:#1d9e74;font-weight:700', kids: [
     scrEl('span', { style: 'width:8px;height:8px;border-radius:50%;background:#1d9e74;display:inline-block' }),
-    scrEl('span', { text: 'en direct' })] });
+    scrEl('span', { text: 'en direct' }), liveStamp] });
   wrap.appendChild(scrEl('div', { style: 'display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap', kids: [
     scrEl('span', { text: 'Mes positions', style: 'font-weight:800;color:#22303f;font-size:0.95rem' }),
     scrEl('span', { text: 'saisie manuelle (Revolut), synchronisées sur tous tes appareils', style: 'font-size:0.72rem;color:#5b6b7d' }),
@@ -7776,7 +7784,7 @@ function screenerPositionsModule() {
   wrap.appendChild(valBox);
   const body = scrEl('div');                                            // 5) tableau des positions + repartitions
   wrap.appendChild(body);
-  const render = () => { kpiBox.replaceChildren(scrTopKpiBand(scrGetPositions())); valBox.replaceChildren(scrValuationSummary(scrGetPositions())); body.replaceChildren(renderPositionsTable(scrGetPositions(), render)); divBox.replaceChildren(scrDividendCard(scrGetPositions())); realBox.replaceChildren(scrRealizedCard(SCR_TX)); };
+  const render = () => { refreshStamp(); kpiBox.replaceChildren(scrTopKpiBand(scrGetPositions())); valBox.replaceChildren(scrValuationSummary(scrGetPositions())); body.replaceChildren(renderPositionsTable(scrGetPositions(), render)); divBox.replaceChildren(scrDividendCard(scrGetPositions())); realBox.replaceChildren(scrRealizedCard(SCR_TX)); };
   // Historique valeur vs juste valeur + benchmark S&P 500 : chargés une fois, re-render quand dispo.
   if (typeof db !== 'undefined' && db) {
     db.ref('stocks/screener/valuationHistory').once('value').then((s) => { SCR_VALHIST = s.val() || {}; render(); }).catch(() => {});
@@ -7899,7 +7907,7 @@ function renderPositionsTable(pos, onChange) {
     scrEl('td', { text: '' }),
   ] }));
   const table = scrEl('table', { style: 'width:100%;border-collapse:collapse;font-size:0.82rem', kids: [scrEl('thead', { kids: [thead] }), tbody] });
-  const liveTxt = SCR_LIVE_AT ? ('Cours temps réel, mis à jour ' + new Date(SCR_LIVE_AT).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) + '. ') : 'Cours = snapshot du run VPS (pas encore de cron temps réel). ';
+  const liveTxt = SCR_LIVE_AT ? '' : 'Cours = snapshot du run VPS (pas encore de cron temps réel). ';   // horodatage DEPLACE dans l'en-tete
   const note = scrEl('div', { style: 'margin-top:8px;font-size:0.7rem;color:#9aa7b4', text: liveTxt + "Saisis la quantité d'actions et ton prix d'achat (en " + scrDispSym() + ", la devise affichée). Cours étrangers convertis au taux du jour. Titre hors univers screené : cours indisponible. P&L hors frais de change. ⚠ = signaux de vente à vérifier." });
   // Graphiques : répartition par action (barres) + par secteur (donut), sur la valeur actuelle
   const parts2 = parts.filter((p) => p.valeur > 0).sort((a, b) => b.valeur - a.valeur);
