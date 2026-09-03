@@ -6779,16 +6779,45 @@ function scrHistArray(raw) {
   return Object.keys(raw).filter((k) => /^\d{4}-\d{2}-\d{2}$/.test(k) && raw[k]).sort()
     .map((k) => ({ date: k, value: Number(raw[k].value) || 0, invested: Number(raw[k].invested) || 0, lines: Array.isArray(raw[k].lines) ? raw[k].lines : null }));
 }
-function scrDailyPnl(hist) {   // P&L NET des apports : (Δvaleur - Δinvesti) jour par jour
+// FLUX NET entre deux instantanés, calculé LIGNE PAR LIGNE.
+// Pourquoi : le champ `invested` global ne suffit pas. À la VENTE d'une ligne, la valeur baisse du prix
+// de MARCHÉ mais l'investi baisse du prix de REVIENT ; l'écart est la plus-value déjà accumulée jour
+// après jour, et l'ancienne formule (Δvaleur - Δinvesti) l'annulait le jour de la vente (vendre un
+// gagnant faisait BAISSER la performance affichée, vendre un perdant la faisait monter).
+// Traitement correct en TWR : une sortie est un RETRAIT À LA VALEUR DE MARCHÉ, donc neutre en performance.
+function scrLinesMap(s) {
+  const o = {};
+  ((s && s.lines) || []).forEach((l) => { if (l && l.ticker) o[String(l.ticker).toUpperCase()] = { v: Number(l.value) || 0, i: Number(l.invested) || 0 }; });
+  return o;
+}
+function scrNetFlow(prev, cur) {   // null si le détail par ligne manque (vieux instantanés) -> repli global
+  if (!prev || !cur || !Array.isArray(prev.lines) || !Array.isArray(cur.lines) || !prev.lines.length || !cur.lines.length) return null;
+  const a = scrLinesMap(prev), b = scrLinesMap(cur);
+  let flow = 0;
+  Object.keys(a).forEach((k) => {
+    const p = a[k], c = b[k];
+    if (!c) { flow -= p.v; return; }                                   // ligne SORTIE -> retrait à la valeur de marché (neutre)
+    const di = c.i - p.i;
+    if (di > 0) flow += di;                                            // renforcement -> apport au prix d'achat
+    else if (di < 0) flow += di * (p.i > 0 ? (p.v / p.i) : 1);         // allègement partiel -> retrait au prorata du marché
+  });
+  Object.keys(b).forEach((k) => { if (!a[k]) flow += b[k].i; });       // nouvelle ligne -> apport au prix d'achat
+  return flow;
+}
+function scrFlowBetween(prev, cur) {
+  const f = scrNetFlow(prev, cur);
+  return (f == null) ? (cur.invested - prev.invested) : f;
+}
+function scrDailyPnl(hist) {   // P&L NET des flux (ventes valorisées au marché) jour par jour
   const m = {};
-  for (let i = 1; i < hist.length; i++) m[hist[i].date] = (hist[i].value - hist[i - 1].value) - (hist[i].invested - hist[i - 1].invested);
+  for (let i = 1; i < hist.length; i++) m[hist[i].date] = (hist[i].value - hist[i - 1].value) - scrFlowBetween(hist[i - 1], hist[i]);
   return m;
 }
 function scrDayRet(hist) {   // rendement journalier TWR : pnl_jour / valeur de la veille (base avant apport)
   const m = {};
   for (let i = 1; i < hist.length; i++) {
     const base = hist[i - 1].value;
-    if (base > 0) m[hist[i].date] = ((hist[i].value - hist[i - 1].value) - (hist[i].invested - hist[i - 1].invested)) / base;
+    if (base > 0) m[hist[i].date] = ((hist[i].value - hist[i - 1].value) - scrFlowBetween(hist[i - 1], hist[i])) / base;
   }
   return m;
 }
@@ -6816,7 +6845,7 @@ function scrTWR(hist) {   // Rendement pondéré dans le temps : neutralise les 
   for (let i = 1; i < hist.length; i++) {
     const base = hist[i - 1].value;
     if (!(base > 0)) continue;
-    const pnl = (hist[i].value - hist[i - 1].value) - (hist[i].invested - hist[i - 1].invested);   // gain de marché, hors apport
+    const pnl = (hist[i].value - hist[i - 1].value) - scrFlowBetween(hist[i - 1], hist[i]);   // gain de marché, hors flux (ventes valorisées au marché)
     twr *= (1 + pnl / base); ok = true;
   }
   return ok ? twr - 1 : null;
@@ -7107,7 +7136,7 @@ function scrPerfChart(hist, bench, benchN) {
   const filterHist = (days) => (days >= 1e9) ? hist.slice() : hist.filter((h) => dayDiff(lastDate, h.date) <= days);
   const twrCum = (h) => {   // TWR cumulé net des apports, rebasé à 0 % au début de la fenêtre
     const out = [{ date: h[0].date, v: 0 }]; let cum = 1;
-    for (let i = 1; i < h.length; i++) { const base = h[i - 1].value; if (base > 0) { const pnl = (h[i].value - h[i - 1].value) - (h[i].invested - h[i - 1].invested); cum *= (1 + pnl / base); } out.push({ date: h[i].date, v: cum - 1 }); }
+    for (let i = 1; i < h.length; i++) { const base = h[i - 1].value; if (base > 0) { const pnl = (h[i].value - h[i - 1].value) - scrFlowBetween(h[i - 1], h[i]); cum *= (1 + pnl / base); } out.push({ date: h[i].date, v: cum - 1 }); }
     return out;
   };
   const benchSeries = (b, startDate) => {   // indice rebasé à 0 % au début de la fenêtre { date, v }
