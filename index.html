@@ -6996,10 +6996,7 @@ function scrBuildHistSection() {
   }
   if (SCR_CAL_Y == null) { const last = hist[hist.length - 1].date; SCR_CAL_Y = +last.slice(0, 4); SCR_CAL_M = +last.slice(5, 7) - 1; }
   const pnlMap = scrDailyPnl(hist), retMap = scrDayRet(hist), cur = hist[hist.length - 1], gain = cur.value - cur.invested, twr = scrTWR(hist);
-  wrap.appendChild(scrEl('div', { style: 'display:flex;gap:18px;flex-wrap:wrap;margin-bottom:10px', kids: [
-    scrKpi('Valeur', scrUsd(cur.value)), scrKpi('Investi', scrUsd(cur.invested)),
-    scrKpi('Gain total', (gain >= 0 ? '+' : '') + scrUsd(gain), gain >= 0 ? '#1d9e74' : '#dd5f66'),
-    scrKpi('Rendement (TWR)', twr == null ? '–' : (twr >= 0 ? '+' : '') + (twr * 100).toFixed(1) + ' %', twr == null ? '#9aa7b4' : (twr >= 0 ? '#1d9e74' : '#dd5f66'), "Rendement pondéré dans le temps : neutralise l'effet de tes apports (DCA depuis Debitum). C'est la vraie mesure de performance ; le gain en $ est gonflé ou dilué par le timing de tes versements. Disponible dès 2 jours d'historique.")] }));
+  // KPI Valeur / Investi / Gain / TWR RETIRES : ils sont desormais dans le bandeau KPI en tete de page (refonte, plus de doublon).
   wrap.appendChild(scrEl('div', { style: 'background:#fff;border:1px solid #e3e8ee;border-radius:10px;padding:12px 14px', kids: [scrEquityCurve(hist)] }));
   wrap.appendChild(scrEl('div', { style: 'display:flex;align-items:center;gap:10px;margin-top:14px;flex-wrap:wrap', kids: [
     scrCalToggle(), scrEl('span', { text: '% = rendement TWR, net de tes apports', style: 'font-size:0.66rem;color:#9aa7b4' })] }));
