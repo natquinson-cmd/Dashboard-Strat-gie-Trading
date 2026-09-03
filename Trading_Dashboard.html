@@ -6859,19 +6859,85 @@ function scrKpi(label, val, col, title) {
 }
 function scrEquityCurve(hist) {
   if (hist.length < 2) return scrEl('div', { style: 'color:#9aa7b4;font-size:0.78rem;padding:6px 0', text: 'La courbe se dessine dès 2 journées enregistrées (1 point/jour via le VPS).' });
-  const W = 560, H = 170, pad = 10, n = hist.length, NS = 'http://www.w3.org/2000/svg';
+  const NS = 'http://www.w3.org/2000/svg';
+  const W = 620, H = 210, padL = 58, padR = 14, padT = 12, padB = 26, n = hist.length;
   const vals = hist.map((h) => h.value).concat(hist.map((h) => h.invested));
-  const min = Math.min.apply(null, vals), max = Math.max.apply(null, vals), span = (max - min) || 1;
-  const x = (i) => pad + i * (W - 2 * pad) / (n - 1), y = (v) => H - pad - (v - min) / span * (H - 2 * pad);
-  const svg = document.createElementNS(NS, 'svg'); svg.setAttribute('viewBox', `0 0 ${W} ${H}`); svg.setAttribute('width', '100%'); svg.style.maxWidth = W + 'px';
+  let min = Math.min.apply(null, vals), max = Math.max.apply(null, vals);
+  const marge = (max - min) * 0.10 || 1; min -= marge; max += marge;
+  const span = (max - min) || 1;
+  const x = (i) => padL + (n > 1 ? i * (W - padL - padR) / (n - 1) : (W - padL - padR) / 2);
+  const y = (v) => H - padB - (v - min) / span * (H - padT - padB);
+  const GREY = '#94a3b5';
+  const last = hist[n - 1], up = last.value >= last.invested, valCol = up ? '#1d9e74' : '#dd5f66';
+  const cont = scrEl('div', { style: 'position:relative;max-width:' + W + 'px' });
+  const svg = document.createElementNS(NS, 'svg');
+  svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H); svg.setAttribute('width', '100%'); svg.style.display = 'block';
+  const mk = (t, a) => { const e = document.createElementNS(NS, t); for (const k in a) e.setAttribute(k, a[k]); return e; };
+  // AXE Y numeroté + grille horizontale
+  const TICKS = 4;
+  for (let i = 0; i <= TICKS; i++) {
+    const v = min + span * i / TICKS, yy = y(v);
+    svg.appendChild(mk('line', { x1: padL, x2: W - padR, y1: yy.toFixed(1), y2: yy.toFixed(1), stroke: '#eef1f5', 'stroke-width': 1 }));
+    const t = mk('text', { x: padL - 7, y: (yy + 3).toFixed(1), 'font-size': 9.5, fill: '#9aa7b4', 'text-anchor': 'end' });
+    t.textContent = scrUsd(v); svg.appendChild(t);
+  }
+  // AXE X : dates
+  const MN = ['janv', 'févr', 'mars', 'avr', 'mai', 'juin', 'juil', 'août', 'sept', 'oct', 'nov', 'déc'];
+  const lbl = (d) => { const dt = new Date(d + 'T00:00:00'); return dt.getDate() + ' ' + MN[dt.getMonth()]; };
+  const step = Math.max(1, Math.ceil(n / 6));
+  for (let i = 0; i < n; i += step) {
+    const t = mk('text', { x: x(i).toFixed(1), y: H - 9, 'font-size': 9.5, fill: '#9aa7b4', 'text-anchor': i === 0 ? 'start' : 'middle' });
+    t.textContent = lbl(hist[i].date); svg.appendChild(t);
+  }
+  svg.appendChild(mk('line', { x1: padL, x2: W - padR, y1: (H - padB).toFixed(1), y2: (H - padB).toFixed(1), stroke: '#e3e8ee', 'stroke-width': 1 }));
+  // AIRE sous la valeur, teintée selon gain ou perte
+  let dArea = 'M' + x(0).toFixed(1) + ' ' + y(hist[0].value).toFixed(1) + ' ';
+  hist.forEach((h, i) => { if (i) dArea += 'L' + x(i).toFixed(1) + ' ' + y(h.value).toFixed(1) + ' '; });
+  dArea += 'L' + x(n - 1).toFixed(1) + ' ' + (H - padB).toFixed(1) + ' L' + x(0).toFixed(1) + ' ' + (H - padB).toFixed(1) + ' Z';
+  svg.appendChild(mk('path', { d: dArea, fill: up ? 'rgba(29,158,116,0.10)' : 'rgba(221,95,102,0.10)', stroke: 'none' }));
   const line = (key, color, dash) => {
     let d = ''; hist.forEach((h, i) => { d += (i ? 'L' : 'M') + x(i).toFixed(1) + ' ' + y(h[key]).toFixed(1) + ' '; });
-    const p = document.createElementNS(NS, 'path'); p.setAttribute('d', d.trim()); p.setAttribute('fill', 'none');
-    p.setAttribute('stroke', color); p.setAttribute('stroke-width', '2'); if (dash) p.setAttribute('stroke-dasharray', '4 3'); svg.appendChild(p);
+    const p = mk('path', { d: d.trim(), fill: 'none', stroke: color, 'stroke-width': 2.2 });
+    if (dash) p.setAttribute('stroke-dasharray', '4 3');
+    svg.appendChild(p);
   };
-  line('invested', '#c3ccd6', true);
-  line('value', hist[hist.length - 1].value >= hist[hist.length - 1].invested ? '#1d9e74' : '#dd5f66', false);
-  return svg;
+  line('invested', GREY, true);
+  line('value', valCol, false);
+  // SURVOL : crosshair + points + infobulle
+  const cross = mk('line', { stroke: '#c3ccd6', 'stroke-width': 1, 'stroke-dasharray': '3 3', y1: padT, y2: H - padB }); cross.style.display = 'none'; svg.appendChild(cross);
+  const dotV = mk('circle', { r: 3.4, fill: valCol, stroke: '#fff', 'stroke-width': 1.3, 'pointer-events': 'none' }); dotV.style.display = 'none';
+  const dotI = mk('circle', { r: 3.4, fill: GREY, stroke: '#fff', 'stroke-width': 1.3, 'pointer-events': 'none' }); dotI.style.display = 'none';
+  const tip = scrEl('div', { style: 'position:absolute;pointer-events:none;background:#22303f;color:#fff;font-size:0.68rem;padding:6px 9px;border-radius:6px;white-space:nowrap;display:none;transform:translate(-50%,-112%);z-index:5;box-shadow:0 2px 8px rgba(0,0,0,.18)' });
+  const bw = n > 1 ? (W - padL - padR) / (n - 1) : (W - padL - padR);
+  hist.forEach((h, i) => {
+    const px = x(i), gain = h.value - h.invested;
+    const hit = mk('rect', { x: (px - bw / 2).toFixed(1), y: padT, width: Math.max(6, bw).toFixed(1), height: (H - padT - padB).toFixed(1), fill: 'transparent' });
+    hit.style.cursor = 'crosshair';
+    hit.addEventListener('mouseenter', () => {
+      cross.setAttribute('x1', px.toFixed(1)); cross.setAttribute('x2', px.toFixed(1)); cross.style.display = '';
+      dotV.setAttribute('cx', px.toFixed(1)); dotV.setAttribute('cy', y(h.value).toFixed(1)); dotV.style.display = '';
+      dotI.setAttribute('cx', px.toFixed(1)); dotI.setAttribute('cy', y(h.invested).toFixed(1)); dotI.style.display = '';
+      const dt = new Date(h.date + 'T00:00:00');
+      tip.replaceChildren(
+        scrEl('div', { text: dt.getDate() + ' ' + MN[dt.getMonth()] + ' ' + dt.getFullYear(), style: 'font-weight:700;margin-bottom:3px' }),
+        scrEl('div', { kids: [scrEl('span', { text: '● ', style: 'color:' + valCol }), scrEl('span', { text: 'Valeur ' + scrUsd(h.value) })] }),
+        scrEl('div', { kids: [scrEl('span', { text: '● ', style: 'color:' + GREY }), scrEl('span', { text: 'Investi ' + scrUsd(h.invested) })] }),
+        scrEl('div', { style: 'margin-top:2px;font-weight:700;color:' + (gain >= 0 ? '#7ee2bb' : '#ffa8ad'), text: 'Gain ' + (gain >= 0 ? '+' : '') + scrUsd(gain) }));
+      tip.style.left = (px / W * 100) + '%';
+      tip.style.top = (Math.min(y(h.value), y(h.invested)) / H * 100) + '%';
+      tip.style.display = '';
+    });
+    hit.addEventListener('mouseleave', () => { cross.style.display = 'none'; dotV.style.display = 'none'; dotI.style.display = 'none'; tip.style.display = 'none'; });
+    svg.appendChild(hit);
+  });
+  svg.appendChild(dotI); svg.appendChild(dotV);
+  // LEGENDE
+  const leg = scrEl('div', { style: 'display:flex;gap:14px;align-items:center;margin-bottom:6px;font-size:0.68rem;color:#5b6b7d;flex-wrap:wrap', kids: [
+    scrEl('span', { style: 'display:flex;align-items:center;gap:5px', kids: [scrEl('span', { style: 'display:inline-block;width:14px;height:2.5px;border-radius:2px;background:' + valCol }), scrEl('span', { text: 'Valeur de marché' })] }),
+    scrEl('span', { style: 'display:flex;align-items:center;gap:5px', kids: [scrEl('span', { style: 'display:inline-block;width:14px;height:0;border-top:2.5px dashed ' + GREY }), scrEl('span', { text: 'Investi (prix de revient)' })] }),
+    scrEl('span', { style: 'margin-left:auto;font-weight:700;color:' + valCol, text: (last.value - last.invested >= 0 ? '+' : '') + scrUsd(last.value - last.invested) })] });
+  cont.appendChild(leg); cont.appendChild(svg); cont.appendChild(tip);
+  return cont;
 }
 function scrDayCalendar(hist, pnlMap, retMap) {
   const box = scrEl('div'), y = SCR_CAL_Y, m = SCR_CAL_M;
