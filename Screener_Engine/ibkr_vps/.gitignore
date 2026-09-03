@@ -2,3 +2,6 @@ __pycache__/
 *.pyc
 .venv/
 .env
+
+# Identifiants IG (ne JAMAIS committer)
+ig_config.json

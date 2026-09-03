@@ -1,0 +1,7 @@
+{
+  "_comment": "Copie ce fichier en ig_config.json puis renseigne TES identifiants. ig_config.json est ignore par git et ne doit JAMAIS etre partage.",
+  "apiKey": "TA_CLE_API_IG",
+  "username": "TON_IDENTIFIANT_IG",
+  "password": "TON_MOT_DE_PASSE_IG",
+  "apiBase": "https://api.ig.com/gateway/deal"
+}
