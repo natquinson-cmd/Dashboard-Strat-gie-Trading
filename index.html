@@ -6583,7 +6583,9 @@ function renderAllocTable(res, etfPct, etfAmount, mode) {
       (a.current > 0 ? scrEl('span', { text: 'détenu ' + scrUsd(a.current), style: 'font-size:0.62rem;color:#9aa7b4' }) : scrEl('span'))] })] });
     const zBand2 = scrBuyBand(SCR_PRICE_MAP[String(t.symbol || '').toUpperCase()] || m, t.sector);
     const zStripe2 = zBand2 ? (SCR_ZONE[zBand2.zone] || {}).bar : null;   // bandeau gauche = zone d'achat
-    tbody.appendChild(scrEl('tr', { kids: [
+    // SORTIE : ligne detenue que l'arbitrage ramene a zero -> fond rouge clair pour la reperer d'un coup d'oeil
+    const isExit = (mode === 'arb') && a.resultingWeight <= 0 && a.current > 0;
+    tbody.appendChild(scrEl('tr', { style: isExit ? 'background:#fdeaea' : '', attrs: isExit ? { title: 'Ligne à SORTIR : la cible de répartition la ramène à zéro.' } : {}, kids: [
       scrEl('td', { text: String(i + 1), attrs: zStripe2 ? { title: "Zone d'achat : " + SCR_ZONE[zBand2.zone].label + " (vert = décoté, rouge = cher)" } : {}, style: `padding:6px 10px;color:#9aa7b4;${bd}${zStripe2 ? ';box-shadow:inset 4px 0 0 0 ' + zStripe2 : ''}` }),
       idcell,
       scrCoursCell(SCR_PRICE_MAP[String(t.symbol || '').toUpperCase()] || m, bd),
@@ -6631,7 +6633,7 @@ function renderAllocTable(res, etfPct, etfAmount, mode) {
     secChips.appendChild(scrEl('span', { text: s + ' ' + Math.round(wv * 100) + '%', style: 'background:#f6f8fb;color:#5b6b7d;border-radius:20px;padding:2px 9px;font-size:0.68rem;font-weight:600' }));
   });
   const snapNote = res.snapshot ? scrEl('div', { style: 'font-size:0.72rem;color:#42546a;background:#eef4ff;border:1px solid #dbe7ff;border-radius:8px;padding:7px 10px;margin-bottom:8px', text: 'Portefeuille actuel (0 à déployer) : tes positions détenues, pondérées par leur valeur. Saisis un montant à déployer pour voir le plan de répartition sur le top ' + (Number((localStorage.getItem('scrAllocLines')) || 12)) + ' lignes.' }) : null;
-  return scrEl('div', { kids: [snapNote, scrTableBox(table), secChips].filter(Boolean) });
+  return scrEl('div', { kids: [snapNote, scrTableBox(table, { maxH: 'none' }), secChips].filter(Boolean) });   // maxH none = pleine hauteur, pas d'ascenseur vertical
 }
 // Carte des cours par ticker (peuplée depuis les données screener quality+smallcap), pour le suivi des positions.
 let SCR_PRICE_MAP = {};
