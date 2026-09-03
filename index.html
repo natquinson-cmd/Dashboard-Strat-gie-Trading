@@ -1453,6 +1453,7 @@
   <div id="tab-simulateur" class="tab-content"></div>
   <div id="tab-repartition" class="tab-content"></div>
   <div id="tab-screener" class="tab-content"></div>
+  <div id="tab-enfants" class="tab-content"></div>
   <div id="tab-update" class="tab-content"></div>
 
   <div class="footer" id="dashFooter">
@@ -3940,6 +3941,14 @@ function renderIgSyncStatus(st) {
     set('✓ Synchro auto ' + quand, 'rgba(29,158,116,0.16)', '#127a54', st.message || '');
   }
 }
+function loadKidsFromFirebase() {
+  if (typeof db === 'undefined' || !db) return Promise.resolve();
+  return Promise.all([
+    db.ref('stocks/kids').once('value').then((s) => { const v = s.val(); if (v) SCR_KIDS = v; }).catch(() => {}),
+    db.ref('stocks/kidsPrice').once('value').then((s) => { SCR_KIDS_PRICE = s.val() || null; }).catch(() => {}),
+    db.ref('stocks/kidsHistory').once('value').then((s) => { SCR_KIDS_HIST = s.val() || null; }).catch(() => {})
+  ]).then(() => { if (typeof currentTab !== 'undefined' && currentTab === 'enfants') renderEnfantsTab(); }).catch(() => {});
+}
 function loadIgSyncStatus() {
   if (typeof db === 'undefined' || !db) return Promise.resolve();
   return db.ref('igSyncStatus').once('value').then((s) => renderIgSyncStatus(s.val())).catch(() => {});
@@ -5284,7 +5293,8 @@ const GROUP_TABS = {
     { id: 'fixed', label: 'Backtest fixe' },
     { id: 'reinvest', label: 'Backtest Réinv' },
     { id: 'screener', label: LOGO_REVOLUT + "Portefeuille d'actions" },
-    { id: 'darwinex', label: tabImg(LOGO_DARWINEX, 'Darwinex') + 'Darwinex' }
+    { id: 'darwinex', label: tabImg(LOGO_DARWINEX, 'Darwinex') + 'Darwinex' },
+    { id: 'enfants', label: '👶 Enfants' }
   ],
   invest: [
     { id: 'overview', label: "Vue d'ensemble" },
@@ -5298,7 +5308,7 @@ const GROUP_TABS = {
   ]
 };
 
-const ALL_TAB_IDS = ['total', 'real', 'fixed', 'reinvest', 'overview', 'interests', 'evolution', 'loans', 'realestate', 'darwinex', 'simulateur', 'repartition', 'screener', 'update'];
+const ALL_TAB_IDS = ['total', 'real', 'fixed', 'reinvest', 'overview', 'interests', 'evolution', 'loans', 'realestate', 'darwinex', 'simulateur', 'repartition', 'screener', 'enfants', 'update'];
 
 function renderSubTabs() {
   const bar = document.getElementById('subTabBar');
@@ -5369,6 +5379,9 @@ function activateTab(tab) {
 
   // Screener (moteur externe) : rendu autonome, pas via renderPortfolioTab
   if (tab === 'screener') { renderScreenerTab(); return; }
+
+  // Epargne des enfants : poche isolee, rendu autonome
+  if (tab === 'enfants') { renderEnfantsTab(); return; }
 
   // Trading tabs
   if (['real', 'fixed', 'reinvest'].includes(tab)) {
@@ -6088,6 +6101,228 @@ function scrTableBox(table, opts) {
   window.addEventListener('resize', sync);
   setTimeout(sync, 500);
   return scrEl('div', { cls: 'scr-tblbox', kids: [top, scroll] });
+}
+
+// ══════════════════════════════════════════════════════════════
+// ONGLET ENFANTS : epargne des enfants dans UN SEUL ETF capitalisant.
+// POCHE TOTALEMENT SEPAREE : n'entre ni dans le capital, ni dans le TWR,
+// ni dans la repartition du portefeuille personnel.
+//
+// MODELE : chaque versement ACHETE DES PARTS. Chaque enfant possede un nombre
+// de parts, jamais un pourcentage. C'est ce qui evite le bug de reconstruction
+// (cf. Lendermarket : 42 106 EUR affiches au lieu de 20 322) : un pourcentage
+// courant ne permet PAS de retrouver un historique, des parts si.
+// ══════════════════════════════════════════════════════════════
+let SCR_KIDS = null;         // { config:{ticker,horizonYears,annualReturn}, contributions:[{date,child,amount,units}] }
+let SCR_KIDS_PRICE = null;   // { price, at }        cours courant de l'ETF (pousse par le VPS)
+let SCR_KIDS_HIST = null;    // { 'YYYY-MM-DD': close }  historique de l'ETF (pousse par le VPS)
+const KID_COLORS = ['#3563e9', '#a855f7', '#1d9e74', '#f59e0b'];
+
+function kidsCfg() {
+  const c = (SCR_KIDS && SCR_KIDS.config) || {};
+  return {
+    ticker: c.ticker || 'VWCE.DE',
+    horizonYears: (c.horizonYears != null ? c.horizonYears : 10),
+    annualReturn: (c.annualReturn != null ? c.annualReturn : 0.07),
+  };
+}
+function kidsContribs() {
+  const raw = (SCR_KIDS && SCR_KIDS.contributions) || [];
+  const list = Array.isArray(raw) ? raw : Object.values(raw);
+  return list.filter((c) => c && c.date && c.child).sort((a, b) => (a.date < b.date ? -1 : 1));
+}
+function kidsSave() {
+  if (typeof db === 'undefined' || !db) return;
+  try { db.ref('stocks/kids').set(SCR_KIDS); } catch (e) {}
+}
+
+// Agregat par enfant + total. Tout decoule des PARTS, rien n'est reconstruit.
+function kidsCompute() {
+  const px = (SCR_KIDS_PRICE && SCR_KIDS_PRICE.price) || null;
+  const byKid = {};
+  kidsContribs().forEach((c) => {
+    const k = String(c.child).trim();
+    const a = byKid[k] = byKid[k] || { child: k, units: 0, invested: 0, n: 0, first: c.date };
+    a.units += (+c.units || 0);
+    a.invested += (+c.amount || 0);
+    a.n++;
+  });
+  const kids = Object.values(byKid).map((a) => {
+    a.value = (px != null) ? a.units * px : null;
+    a.pnl = (a.value != null) ? a.value - a.invested : null;
+    a.pct = (a.invested > 0 && a.pnl != null) ? a.pnl / a.invested : null;
+    return a;
+  }).sort((a, b) => b.units - a.units);
+  const units = kids.reduce((s, k) => s + k.units, 0);
+  const invested = kids.reduce((s, k) => s + k.invested, 0);
+  const value = (px != null) ? units * px : null;
+  kids.forEach((k) => { k.share = units > 0 ? k.units / units : 0; });
+  return { kids: kids, units: units, invested: invested, value: value, price: px,
+           pnl: (value != null) ? value - invested : null,
+           pnlPct: (value != null && invested > 0) ? (value - invested) / invested : null };
+}
+
+// Courbe : valeur de la poche jour par jour = parts detenues ce jour-la x cours du jour.
+function kidsHistSeries() {
+  if (!SCR_KIDS_HIST) return [];
+  const contribs = kidsContribs();
+  if (!contribs.length) return [];
+  const start = contribs[0].date;
+  const days = Object.keys(SCR_KIDS_HIST).filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d) && d >= start).sort();
+  const out = [];
+  let i = 0, units = 0, invested = 0;
+  days.forEach((d) => {
+    while (i < contribs.length && contribs[i].date <= d) { units += (+contribs[i].units || 0); invested += (+contribs[i].amount || 0); i++; }
+    const px = SCR_KIDS_HIST[d];
+    if (px > 0 && units > 0) out.push({ date: d, value: units * px, invested: invested });
+  });
+  return out;
+}
+
+function renderEnfantsTab() {
+  const c = document.getElementById('tab-enfants');
+  if (!c) return;
+  const cfg = kidsCfg(), agg = kidsCompute();
+  const wrap = scrEl('div', { style: 'background:#fff;border:1px solid #e3e8ee;border-radius:14px;padding:14px;margin-bottom:14px' });
+  wrap.appendChild(scrEl('div', { style: 'display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap', kids: [
+    scrEl('span', { text: 'Épargne des enfants', style: 'font-weight:800;color:#22303f;font-size:0.95rem' }),
+    scrEl('span', { text: 'poche séparée : elle n’entre PAS dans ton capital, ni dans ta performance, ni dans ta répartition', style: 'font-size:0.72rem;color:#5b6b7d' })] }));
+
+  // ---- Reglages (ticker, horizon, rendement) ----
+  const iSt = 'padding:7px 9px;border:1px solid #e3e8ee;border-radius:9px;font-size:0.84rem;color:#22303f';
+  const tkIn = scrEl('input', { attrs: { type: 'text', value: cfg.ticker, title: "Ticker de l'ETF (le VPS ira chercher son cours)" }, style: iSt + ';width:110px;text-transform:uppercase' });
+  const hzIn = scrEl('input', { attrs: { type: 'number', min: '1', max: '40', step: '1', value: String(cfg.horizonYears) }, style: iSt + ';width:64px' });
+  const rdIn = scrEl('input', { attrs: { type: 'number', min: '0', max: '20', step: '0.5', value: String((cfg.annualReturn * 100).toFixed(1)) }, style: iSt + ';width:70px' });
+  const saveCfg = () => {
+    SCR_KIDS = SCR_KIDS || {};
+    SCR_KIDS.config = { ticker: (tkIn.value || 'VWCE.DE').toUpperCase().trim(),
+                        horizonYears: Math.max(1, +hzIn.value || 10),
+                        annualReturn: Math.max(0, (+rdIn.value || 7) / 100) };
+    kidsSave(); renderEnfantsTab();
+  };
+  [tkIn, hzIn, rdIn].forEach((el) => { el.onchange = saveCfg; });
+  wrap.appendChild(scrEl('div', { style: 'display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px;font-size:0.8rem;color:#5b6b7d', kids: [
+    scrEl('span', { text: 'ETF' }), tkIn,
+    scrEl('span', { text: 'horizon' }), hzIn, scrEl('span', { text: 'ans' }),
+    scrEl('span', { text: 'rendement annuel supposé' }), rdIn, scrEl('span', { text: '%' })] }));
+
+  // ---- Saisie d'un versement ----
+  const dIn = scrEl('input', { attrs: { type: 'date', value: new Date().toISOString().slice(0, 10) }, style: iSt + ';width:140px' });
+  const kIn = scrEl('input', { attrs: { type: 'text', placeholder: 'Enfant (ex Elie)', list: 'kidsList' }, style: iSt + ';width:130px' });
+  const aIn = scrEl('input', { attrs: { type: 'number', min: '0', step: '0.01', placeholder: 'Montant' }, style: iSt + ';width:110px' });
+  const uIn = scrEl('input', { attrs: { type: 'number', min: '0', step: '0.00000001', placeholder: 'Nb de parts' }, style: iSt + ';width:130px' });
+  const dl = scrEl('datalist', { attrs: { id: 'kidsList' } });
+  agg.kids.forEach((k) => dl.appendChild(scrEl('option', { attrs: { value: k.child } })));
+  const addBtn = scrEl('button', { text: '+ Ajouter', style: 'padding:8px 15px;border:none;border-radius:9px;background:#3563e9;color:#fff;font-weight:700;cursor:pointer' });
+  addBtn.onclick = () => {
+    const child = (kIn.value || '').trim(), amount = +aIn.value, units = +uIn.value;
+    if (!child || !(amount > 0) || !(units > 0)) { alert('Renseigne l’enfant, le montant et le nombre de parts.'); return; }
+    SCR_KIDS = SCR_KIDS || {};
+    SCR_KIDS.config = SCR_KIDS.config || cfg;
+    const list = kidsContribs().slice();
+    list.push({ date: dIn.value || new Date().toISOString().slice(0, 10), child: child, amount: amount, units: units });
+    SCR_KIDS.contributions = list;
+    kidsSave(); kIn.value = ''; aIn.value = ''; uIn.value = ''; renderEnfantsTab();
+  };
+  wrap.appendChild(scrEl('div', { style: 'display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px', kids: [dIn, kIn, aIn, uIn, addBtn, dl] }));
+
+  if (!kidsContribs().length) {
+    wrap.appendChild(scrEl('div', { style: 'color:#9aa7b4;font-size:0.82rem;line-height:1.5', text: "Aucun versement enregistré. Saisis un premier versement ci-dessus : la date, le prénom de l’enfant, le montant versé et le nombre de parts achetées (les deux figurent dans ta transaction Revolut). Chaque enfant possède ainsi un nombre de parts exact, ce qui rend la répartition incontestable." }));
+    c.replaceChildren(wrap);
+    return;
+  }
+
+  // ---- Indicateurs (uniquement ceux qui ont du sens pour une poche mono-ETF capitalisante) ----
+  const money = (v) => (v == null ? '–' : scrUsd(v));
+  const sign = (x) => (x >= 0 ? '+' : '');
+  const tile = (label, main, sub, col, title) => scrEl('div', { attrs: title ? { title: title } : {},
+    style: 'flex:1;min-width:150px;background:#fff;border:1px solid #e3e8ee;border-radius:12px;padding:11px 13px' + (title ? ';cursor:help' : ''), kids: [
+      scrEl('div', { text: label, style: 'font-size:0.59rem;color:#9aa7b4;text-transform:uppercase;font-weight:800;letter-spacing:.05em' }),
+      scrEl('div', { text: main, style: 'font-size:1.3rem;font-weight:800;line-height:1.15;margin-top:3px;color:' + (col || '#22303f') }),
+      scrEl('div', { text: sub || '', style: 'font-size:0.68rem;color:#5b6b7d;margin-top:1px' })] });
+  const gainShare = (agg.value != null && agg.value > 0 && agg.pnl != null) ? (agg.pnl / agg.value) : null;
+  wrap.appendChild(scrEl('div', { style: 'display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px', kids: [
+    tile('Valeur de la poche', money(agg.value), agg.price != null ? (cfg.ticker + ' à ' + money(agg.price)) : 'cours indisponible', '#22303f',
+      'Valeur de marché de toutes les parts détenues pour les enfants. Cette poche est exclue de ton capital personnel.'),
+    tile('Total versé', money(agg.invested), agg.units.toFixed(4).replace(/0+$/, '') + ' parts', '#3563e9',
+      'Somme de tous tes versements. Le nombre de parts est la seule source de vérité de la répartition.'),
+    tile('Plus-value', agg.pnl == null ? '–' : sign(agg.pnl) + money(agg.pnl),
+      agg.pnlPct == null ? '' : sign(agg.pnlPct) + (agg.pnlPct * 100).toFixed(2) + '% sur les versements',
+      agg.pnl == null ? '#9aa7b4' : (agg.pnl >= 0 ? '#1d9e74' : '#dd5f66'),
+      'Ce que le marché a ajouté à tes versements. C’est le gain réellement obtenu, pas une performance théorique.'),
+    tile('Part des gains', gainShare == null ? '–' : (gainShare * 100).toFixed(1) + ' %', 'de la valeur vient du marché',
+      '#a855f7', 'Part de la valeur actuelle qui provient des gains et non de tes versements. Sur 10 ans, cette part grossit fortement : c’est l’effet des intérêts composés.')] }));
+
+  // ---- Courbe d'evolution (reutilise le graphique du portefeuille, axes + survol) ----
+  const serie = kidsHistSeries();
+  if (serie.length >= 2) {
+    wrap.appendChild(scrEl('div', { style: 'background:#fff;border:1px solid #e3e8ee;border-radius:10px;padding:12px 14px;margin-bottom:14px', kids: [scrEquityCurve(serie)] }));
+  }
+
+  // ---- Repartition par enfant : camembert + tableau ----
+  const items = agg.kids.map((k, i) => ({ label: k.child, value: k.units, color: KID_COLORS[i % KID_COLORS.length],
+                                          pctTxt: (k.share * 100).toFixed(1) + '%' }));
+  const bd = 'border-bottom:1px solid #eef1f5';
+  const thead = scrEl('tr', { style: 'background:#f6f8fb;color:#5b6b7d' });
+  [['Enfant', 'left'], ['Versé', 'right'], ['Parts', 'right'], ['Valeur', 'right'], ['Plus-value', 'right'], ['Part', 'right']].forEach(([t, al]) =>
+    thead.appendChild(scrEl('th', { text: t, style: 'padding:7px 9px;text-align:' + al + ';font-size:0.66rem;text-transform:uppercase;letter-spacing:.03em;border-bottom:1px solid #e3e8ee;white-space:nowrap' })));
+  const tbody = scrEl('tbody');
+  agg.kids.forEach((k, i) => {
+    const col = k.pnl == null ? '#5b6b7d' : (k.pnl >= 0 ? '#1d9e74' : '#dd5f66');
+    tbody.appendChild(scrEl('tr', { kids: [
+      scrEl('td', { style: 'padding:6px 9px;' + bd, kids: [scrEl('div', { style: 'display:flex;align-items:center;gap:7px', kids: [
+        scrEl('span', { style: 'width:10px;height:10px;border-radius:3px;display:inline-block;background:' + KID_COLORS[i % KID_COLORS.length] }),
+        scrEl('b', { text: k.child, style: 'color:#22303f' }),
+        scrEl('span', { text: k.n + ' versement' + (k.n > 1 ? 's' : ''), style: 'font-size:0.64rem;color:#9aa7b4' })] })] }),
+      scrEl('td', { text: money(k.invested), style: 'padding:6px 9px;text-align:right;' + bd + ';color:#42546a' }),
+      scrEl('td', { text: k.units.toFixed(4).replace(/0+$/, ''), style: 'padding:6px 9px;text-align:right;' + bd + ';color:#9aa7b4;font-size:0.76rem' }),
+      scrEl('td', { text: money(k.value), style: 'padding:6px 9px;text-align:right;' + bd + ';font-weight:700;color:#22303f' }),
+      scrEl('td', { text: k.pnl == null ? '–' : (sign(k.pnl) + money(k.pnl) + ' (' + sign(k.pct) + (k.pct * 100).toFixed(1) + '%)'),
+                    style: 'padding:6px 9px;text-align:right;' + bd + ';font-weight:700;white-space:nowrap;color:' + col }),
+      scrEl('td', { text: (k.share * 100).toFixed(1) + '%', style: 'padding:6px 9px;text-align:right;' + bd + ';font-weight:800;color:#3563e9' })] }));
+  });
+  const table = scrEl('table', { style: 'width:100%;border-collapse:collapse;font-size:0.82rem', kids: [scrEl('thead', { kids: [thead] }), tbody] });
+  wrap.appendChild(scrEl('div', { style: 'display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start;margin-bottom:14px', kids: [
+    scrEl('div', { style: 'flex:0 0 auto;background:#fafbfc;border:1px solid #eef1f5;border-radius:12px;padding:12px', kids: [
+      scrEl('div', { text: 'Répartition', style: 'font-size:0.7rem;text-transform:uppercase;letter-spacing:.03em;color:#5b6b7d;font-weight:700;margin-bottom:10px' }),
+      scrEl('div', { style: 'display:flex;align-items:center;gap:12px;flex-wrap:wrap', kids: [scrDonut(items, 150), scrLegend(items)] })] }),
+    scrEl('div', { style: 'flex:1;min-width:340px', kids: [table] })] }));
+
+  // ---- Equite entre enfants (facile a laisser deriver avec des versements irreguliers) ----
+  if (agg.kids.length > 1) {
+    const mx = Math.max.apply(null, agg.kids.map((k) => k.invested)), mn = Math.min.apply(null, agg.kids.map((k) => k.invested));
+    const ecart = mx - mn;
+    if (ecart > Math.max(20, mx * 0.05)) {
+      const moins = agg.kids.filter((k) => k.invested === mn)[0];
+      wrap.appendChild(scrEl('div', { style: 'background:#fff8e6;border:1px solid #f0d9a0;border-radius:10px;padding:10px 13px;margin-bottom:14px;font-size:0.78rem;color:#8a6d1f',
+        text: 'Équité : ' + moins.child + ' a reçu ' + money(ecart) + ' de moins que l’enfant le mieux doté. Un rattrapage de ' + money(ecart) + ' rétablirait l’équilibre des versements.' }));
+    }
+  }
+
+  // ---- Projection a l'horizon ----
+  if (agg.value != null) {
+    const y = cfg.horizonYears, r = cfg.annualReturn;
+    const f = Math.pow(1 + r, y);
+    const proj = agg.value * f;
+    const box = scrEl('div', { style: 'background:#fafbfc;border:1px solid #eef1f5;border-radius:12px;padding:12px 14px' });
+    box.appendChild(scrEl('div', { text: 'Projection à ' + y + ' ans', style: 'font-size:0.7rem;text-transform:uppercase;letter-spacing:.03em;color:#5b6b7d;font-weight:700;margin-bottom:10px' }));
+    const prow = scrEl('div', { style: 'display:flex;gap:10px;flex-wrap:wrap' });
+    prow.appendChild(tile('Valeur projetée', money(proj), 'sans nouveau versement', '#1d9e74',
+      'Valeur actuelle capitalisée à ' + (r * 100).toFixed(1) + ' % par an pendant ' + y + ' ans. HYPOTHÈSE, pas une promesse : les marchés ne montent pas en ligne droite.'));
+    agg.kids.forEach((k, i) => {
+      if (k.value == null) return;
+      prow.appendChild(tile(k.child, money(k.value * f), 'aujourd’hui ' + money(k.value), KID_COLORS[i % KID_COLORS.length],
+        'Projection de la part de ' + k.child + ' au même rythme.'));
+    });
+    box.appendChild(prow);
+    box.appendChild(scrEl('div', { style: 'font-size:0.66rem;color:#9aa7b4;margin-top:9px;line-height:1.45',
+      text: 'Projection mécanique à rendement constant, à titre indicatif. Le rendement réel sera irrégulier et peut être négatif sur plusieurs années. Ce n’est ni une prévision ni un conseil en investissement.' }));
+    wrap.appendChild(box);
+  }
+
+  wrap.appendChild(scrEl('div', { style: 'font-size:0.68rem;color:#9aa7b4;margin-top:12px;line-height:1.5',
+    text: 'Cette poche est totalement isolée du reste du dashboard : elle n’est comptée ni dans ton capital, ni dans ta performance, ni dans ta répartition. La répartition entre enfants repose sur le NOMBRE DE PARTS de chacun, jamais sur un pourcentage figé, pour rester exacte quels que soient les cours au moment de chaque versement.' }));
+  c.replaceChildren(wrap);
 }
 
 async function renderScreenerTab() {
@@ -11594,6 +11829,7 @@ function loadDataTimestamp() {
 // ── INIT ──
 Promise.all([
   loadIgSyncStatus(),
+  loadKidsFromFirebase(),
   loadTradesFromFirebase(),
   loadDividendsFromFirebase(),
   loadDepositsFromFirebase(),
