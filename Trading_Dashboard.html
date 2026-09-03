@@ -7309,10 +7309,10 @@ function scrValuationSummary(pos) {
   const big = (label, val, c) => scrEl('div', { style: 'padding:0 16px;border-left:3px solid ' + (c || '#e3e8ee'), kids: [
     scrEl('div', { text: val, style: `font-size:1.5rem;font-weight:800;color:${c || '#22303f'};line-height:1.1` }),
     scrEl('div', { text: label, style: 'font-size:0.66rem;color:#9aa7b4;text-transform:uppercase;font-weight:700;letter-spacing:.03em;margin-top:2px' })] });
+  // Doublons RETIRES (refonte) : 'Valeur du portefeuille' et le % sous-evalue sont deja dans le bandeau KPI
+  // en tete de page. On ne garde ici que la juste valeur en montant, que le bandeau n'affiche pas.
   left.appendChild(scrEl('div', { style: 'display:flex;flex-wrap:wrap;gap:12px 4px;margin-bottom:14px', kids: [
-    big('Valeur du portefeuille', scrUsd(portVal), '#22303f'),
-    big('Juste valeur (DCF)', scrUsd(portFair), '#3563e9'),
-    big((gapTot >= 0 ? 'Sous-évalué' : 'Sur-évalué'), (Math.abs(gapTot) * 100).toFixed(1) + '%', col)] }));
+    big('Juste valeur (DCF)', scrUsd(portFair), '#3563e9')] }));
   // 3 cartes stats (Lignes évaluées retirée pour l'espace)
   const stat = (label, val, c, title) => scrEl('div', { attrs: title ? { title } : {}, style: 'flex:1;min-width:150px;background:#f8fafc;border:1px solid #eef1f5;border-radius:10px;padding:10px 12px' + (title ? ';cursor:help' : ''), kids: [
     scrEl('div', { text: label, style: 'font-size:0.66rem;color:#5b6b7d;font-weight:700;margin-bottom:3px' }),
