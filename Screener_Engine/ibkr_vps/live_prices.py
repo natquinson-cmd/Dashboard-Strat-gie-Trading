@@ -185,6 +185,24 @@ def main():
         except Exception as e:
             print(f'Benchmark {label} err', e)
 
+    # --- ETF de l'epargne des enfants (onglet Enfants) : cours + historique ---
+    # Ecrit dans des noeuds SEPARES (kidsPrice / kidsHistory) : on ne touche JAMAIS a
+    # stocks/kids, qui contient la config et les versements saisis dans le dashboard.
+    try:
+        kcfg = get(db, 'stocks/kids/config') or {}
+        kt = (kcfg.get('ticker') or 'VWCE.DE').strip().upper()
+        q = y.live_quote(kt)
+        if q and q.get('price') is not None:
+            push(db, 'stocks/kidsPrice', {'price': q['price'], 'currency': q.get('currency') or 'EUR',
+                                          'ticker': kt, 'at': _now_iso()})
+            print(f'ETF enfants {kt} : {q["price"]} {q.get("currency") or "EUR"}')
+        khist = y.index_history(kt, '1y')
+        if khist:
+            push(db, 'stocks/kidsHistory', khist)
+            print(f'Historique ETF enfants : {len(khist)} jours (dernier {sorted(khist)[-1]})')
+    except Exception as e:
+        print('ETF enfants err', e)
+
 
 if __name__ == '__main__':
     main()

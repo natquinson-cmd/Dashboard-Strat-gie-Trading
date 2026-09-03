@@ -6179,6 +6179,15 @@ function kidsHistSeries() {
   return out;
 }
 
+function kidsMoney(v) {
+  if (v == null || !isFinite(v)) return '–';
+  const cur = (SCR_KIDS_PRICE && SCR_KIDS_PRICE.currency) || 'EUR';
+  const a = Math.abs(v).toLocaleString('fr-FR', { maximumFractionDigits: (Math.abs(v) < 10 ? 2 : 0) });
+  const neg = v < 0 ? '-' : '';
+  if (cur === 'EUR') return neg + a + ' €';
+  if (cur === 'USD') return neg + '$' + a;
+  return neg + a + ' ' + cur;
+}
 function renderEnfantsTab() {
   const c = document.getElementById('tab-enfants');
   if (!c) return;
@@ -6233,7 +6242,7 @@ function renderEnfantsTab() {
   }
 
   // ---- Indicateurs (uniquement ceux qui ont du sens pour une poche mono-ETF capitalisante) ----
-  const money = (v) => (v == null ? '–' : scrUsd(v));
+  const money = kidsMoney;   // devise de l'ETF (EUR pour VWCE.DE), surtout pas scrUsd
   const sign = (x) => (x >= 0 ? '+' : '');
   const tile = (label, main, sub, col, title) => scrEl('div', { attrs: title ? { title: title } : {},
     style: 'flex:1;min-width:150px;background:#fff;border:1px solid #e3e8ee;border-radius:12px;padding:11px 13px' + (title ? ';cursor:help' : ''), kids: [
