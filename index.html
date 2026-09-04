@@ -8105,7 +8105,8 @@ function screenerPositionsModule() {
       : 'Heure de collecte par le VPS. L’heure de marché n’est pas encore poussée pour ces lignes.';
     if (SCR_MKT_OLD && SCR_MKT_AT && SCR_MKT_OLD.ts < SCR_MKT_AT)
       tip += ' Ligne la plus ancienne : ' + SCR_MKT_OLD.ticker + ' à ' + hm(SCR_MKT_OLD.ts * 1000) + '.';
-    if (SCR_LIVE_AT && !isNaN(Date.parse(SCR_LIVE_AT))) tip += ' Collecte VPS : ' + hm(Date.parse(SCR_LIVE_AT)) + '.';
+    // la collecte n'est utile que si on affiche autre chose qu'elle (sinon on la repeterait)
+    if (SCR_MKT_AT && SCR_LIVE_AT && !isNaN(Date.parse(SCR_LIVE_AT))) tip += ' Collecte VPS : ' + hm(Date.parse(SCR_LIVE_AT)) + '.';
     liveBadge.setAttribute('title', tip);
   };
   const liveBadge = scrEl('span', { attrs: { title: 'Cours mis à jour automatiquement dès que le cron VPS pousse de nouveaux prix.' }, style: 'margin-left:auto;display:flex;align-items:center;gap:6px;font-size:0.74rem;color:#1d9e74;font-weight:700', kids: [
