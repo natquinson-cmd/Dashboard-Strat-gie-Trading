@@ -142,6 +142,9 @@ def main():
             item = {'ticker': t, 'price': q['price'], 'changePct': q.get('changePct'), 'exchange': q.get('exchange')}
             if q.get('quoteType'):
                 item['quoteType'] = q['quoteType']   # EQUITY/ETF... -> le dashboard etiquette les ETF
+            if q.get('ts'):
+                item['ts'] = q['ts']    # heure du DERNIER ECHANGE en bourse (epoch s), != heure de collecte :
+                                        # Yahoo diffuse XETRA/Amsterdam avec ~15 min de retard -> le badge le dit.
             prices.append(item)
             pmap[t] = (q['price'], q.get('exchange'))
         time.sleep(0.3)
@@ -193,9 +196,13 @@ def main():
         kt = (kcfg.get('ticker') or 'VWCE.DE').strip().upper()
         q = y.live_quote(kt)
         if q and q.get('price') is not None:
-            push(db, 'stocks/kidsPrice', {'price': q['price'], 'currency': q.get('currency') or 'EUR',
-                                          'ticker': kt, 'at': _now_iso()})
-            print(f'ETF enfants {kt} : {q["price"]} {q.get("currency") or "EUR"}')
+            kp = {'price': q['price'], 'currency': q.get('currency') or 'EUR',
+                  'ticker': kt, 'at': _now_iso()}
+            if q.get('ts'):   # heure reelle du cours sur la place de cotation (XETRA ~15 min de retard chez Yahoo)
+                kp['marketAt'] = datetime.fromtimestamp(q['ts'], timezone.utc).replace(microsecond=0).isoformat()
+            push(db, 'stocks/kidsPrice', kp)
+            print(f'ETF enfants {kt} : {q["price"]} {q.get("currency") or "EUR"}'
+                  + (f' (cours de {kp["marketAt"]})' if kp.get('marketAt') else ''))
         khist = y.index_history(kt, '1y')
         if khist:
             push(db, 'stocks/kidsHistory', khist)

@@ -6221,12 +6221,17 @@ function renderEnfantsTab() {
   const wrap = scrEl('div', { style: 'background:#fff;border:1px solid #e3e8ee;border-radius:14px;padding:14px;margin-bottom:14px' });
   // Horodatage du cours pousse par le VPS (meme badge que Mes positions)
   const kStamp = scrEl('span', { style: 'font-weight:600;color:#5b6b7d' });
-  if (SCR_KIDS_PRICE && SCR_KIDS_PRICE.at) {
-    const dd = new Date(SCR_KIDS_PRICE.at);
+  // marketAt = heure du dernier echange sur la place de cotation ; 'at' = simple heure de collecte.
+  const kMkt = (SCR_KIDS_PRICE && SCR_KIDS_PRICE.marketAt) || null;
+  if (SCR_KIDS_PRICE && (kMkt || SCR_KIDS_PRICE.at)) {
+    const dd = new Date(kMkt || SCR_KIDS_PRICE.at);
     if (!isNaN(dd)) kStamp.textContent = ' · ' + dd.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })
       + ' à ' + dd.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
   }
-  const kBadge = scrEl('span', { attrs: { title: 'Cours de l’ETF poussé automatiquement par le VPS.' }, style: 'margin-left:auto;display:flex;align-items:center;gap:6px;font-size:0.74rem;color:#1d9e74;font-weight:700', kids: [
+  const kTip = kMkt
+    ? 'Heure du dernier échange sur ' + ((SCR_KIDS_PRICE && SCR_KIDS_PRICE.ticker) || 'la place de cotation') + '. XETRA est diffusé par Yahoo avec environ 15 min de retard, donc le cours affiché peut avoir jusqu’à un quart d’heure.'
+    : 'Heure de collecte par le VPS (l’heure de marché n’est pas encore poussée).';
+  const kBadge = scrEl('span', { attrs: { title: kTip }, style: 'margin-left:auto;display:flex;align-items:center;gap:6px;font-size:0.74rem;color:#1d9e74;font-weight:700', kids: [
     scrEl('span', { style: 'width:8px;height:8px;border-radius:50%;background:#1d9e74;display:inline-block' }),
     scrEl('span', { text: 'en direct' }), kStamp] });
   wrap.appendChild(scrEl('div', { style: 'display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap', kids: [
@@ -6961,12 +6966,17 @@ function scrSavePositions(a) {
   SCR_POSITIONS = Array.isArray(a) ? a : [];
   try { if (typeof db !== 'undefined' && db) db.ref('stocks/screener/myPositions').set(SCR_POSITIONS.length ? SCR_POSITIONS : null); } catch (e) {}
 }
-let SCR_LIVE_AT = null;   // horodatage des cours "temps réel" (cron VPS live_prices.py)
+let SCR_LIVE_AT = null;   // horodatage de COLLECTE par le cron VPS (live_prices.py)
+// Heure du dernier echange EN BOURSE (epoch s), poussee par le VPS via Yahoo regularMarketTime.
+// Elle differe de la collecte : Yahoo diffuse XETRA et Amsterdam avec ~15 min de retard.
+let SCR_MKT_AT = null;    // la plus RECENTE parmi les lignes
+let SCR_MKT_OLD = null;   // la plus ANCIENNE : {ticker, ts}
 // Applique les cours "temps réel" (stocks/screener/livePrices) par-dessus le snapshot du screener.
 // Applique un instantané livePrices (cron VPS) par-dessus SCR_PRICE_MAP. true si des cours ont été appliqués.
 function scrApplyLpValue(lp) {
   if (!lp || !lp.prices) return false;
   SCR_LIVE_AT = lp.generatedAt || SCR_LIVE_AT;
+  SCR_MKT_AT = null; SCR_MKT_OLD = null;   // recalcules a chaque instantane recu
   const raw = lp.prices;
   // Nouveau format = liste [{ticker,price,...}] (le ticker peut contenir un '.', interdit en clé Firebase).
   // Ancien format = objet {TICKER:{price,...}} -> repli.
@@ -6981,6 +6991,11 @@ function scrApplyLpValue(lp) {
     if (q.exchange && !SCR_PRICE_MAP[k].exchange) SCR_PRICE_MAP[k].exchange = q.exchange;
     if (q.quoteType === 'ETF' && (!SCR_PRICE_MAP[k].sector || SCR_PRICE_MAP[k].sector === 'N/A')) SCR_PRICE_MAP[k].sector = 'ETF';   // ETF socle (méthode DK)
     SCR_PRICE_MAP[k].live = true;
+    if (q.ts) {                              // heure de l'echange en bourse pour CETTE ligne
+      SCR_PRICE_MAP[k].ts = q.ts;
+      if (!SCR_MKT_AT || q.ts > SCR_MKT_AT) SCR_MKT_AT = q.ts;
+      if (!SCR_MKT_OLD || q.ts < SCR_MKT_OLD.ts) SCR_MKT_OLD = { ticker: k, ts: q.ts };
+    }
   });
   return true;
 }
@@ -8076,13 +8091,24 @@ function screenerPositionsModule() {
   const wrap = scrEl('div', { style: 'background:#fff;border:1px solid #e3e8ee;border-radius:14px;padding:14px;margin-bottom:14px' });
   // Horodatage de la derniere mise a jour des cours, AFFICHE ICI (il etait dans la note sous le tableau).
   const liveStamp = scrEl('span', { style: 'font-weight:600;color:#5b6b7d' });
+  // On affiche l'heure du DERNIER ECHANGE EN BOURSE (et non l'heure de collecte du VPS),
+  // repli sur la collecte tant que le VPS ne pousse pas encore le champ ts.
   const refreshStamp = () => {
-    if (!SCR_LIVE_AT) { liveStamp.textContent = ''; return; }
-    const d = new Date(SCR_LIVE_AT);
+    const ms = SCR_MKT_AT ? (SCR_MKT_AT * 1000) : (SCR_LIVE_AT ? Date.parse(SCR_LIVE_AT) : NaN);
+    if (!ms || isNaN(ms)) { liveStamp.textContent = ''; return; }
+    const d = new Date(ms);
     liveStamp.textContent = ' · ' + d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })
       + ' à ' + d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+    const hm = (t) => new Date(t).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+    let tip = SCR_MKT_AT
+      ? 'Heure du DERNIER ÉCHANGE EN BOURSE, pas celle de la collecte. Yahoo diffuse XETRA et Amsterdam avec environ 15 min de retard, Copenhague en temps réel.'
+      : 'Heure de collecte par le VPS. L’heure de marché n’est pas encore poussée pour ces lignes.';
+    if (SCR_MKT_OLD && SCR_MKT_AT && SCR_MKT_OLD.ts < SCR_MKT_AT)
+      tip += ' Ligne la plus ancienne : ' + SCR_MKT_OLD.ticker + ' à ' + hm(SCR_MKT_OLD.ts * 1000) + '.';
+    if (SCR_LIVE_AT && !isNaN(Date.parse(SCR_LIVE_AT))) tip += ' Collecte VPS : ' + hm(Date.parse(SCR_LIVE_AT)) + '.';
+    liveBadge.setAttribute('title', tip);
   };
-  const liveBadge = scrEl('span', { attrs: { title: 'Cours mis à jour automatiquement dès que le cron VPS pousse de nouveaux prix. Plus besoin de rafraîchir.' }, style: 'margin-left:auto;display:flex;align-items:center;gap:6px;font-size:0.74rem;color:#1d9e74;font-weight:700', kids: [
+  const liveBadge = scrEl('span', { attrs: { title: 'Cours mis à jour automatiquement dès que le cron VPS pousse de nouveaux prix.' }, style: 'margin-left:auto;display:flex;align-items:center;gap:6px;font-size:0.74rem;color:#1d9e74;font-weight:700', kids: [
     scrEl('span', { style: 'width:8px;height:8px;border-radius:50%;background:#1d9e74;display:inline-block' }),
     scrEl('span', { text: 'en direct' }), liveStamp] });
   wrap.appendChild(scrEl('div', { style: 'display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap', kids: [
