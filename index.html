@@ -6392,7 +6392,7 @@ function renderEnfantsTab() {
     // Plus-value estimee = valeur projetee moins ce qui a ete REELLEMENT verse (pas moins la valeur du jour).
     // Le % est calcule sur la MEME base que le montant : ce qui a ete reellement verse.
     const gainOf = (v, base) => ({ col: v >= 0 ? '#1d9e74' : '#dd5f66',
-      txt: sign(v) + money(v) + ' de plus-value' + ((base > 0) ? ' (' + sign(v / base) + (v / base * 100).toFixed(1) + ' %)' : '') });
+      txt: sign(v) + money(v) + ((base > 0) ? ' (' + sign(v / base) + (v / base * 100).toFixed(1) + ' %)' : '') });
     prow.appendChild(tile('Valeur projetée', money(proj), 'sans nouveau versement', '#1d9e74',
       'Valeur actuelle capitalisée à ' + (r * 100).toFixed(1) + ' % par an pendant ' + y + ' ans, moins le total versé pour la plus-value. HYPOTHÈSE, pas une promesse : les marchés ne montent pas en ligne droite.',
       gainOf(proj - agg.invested, agg.invested)));
