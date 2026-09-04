@@ -5588,7 +5588,9 @@ function scrDcfCore(m, ov) {
   const scAnnual = (m.sharesChange != null) ? (Math.pow(1 + m.sharesChange, 1 / yrs) - 1) : 0;   // rachats annualises
   const dg = (m.divCagr != null) ? Math.max(-0.20, Math.min(0.20, m.divCagr)) : 0;
   const div0 = (m.dividendYield != null && m.dividendYield > 0) ? m.dividendYield * price : 0;
-  let eps = price / pe, cumDiv = 0;
+  // BPA FIGE au snapshot : un mouvement de cours doit se lire comme un mouvement de VALORISATION,
+  // jamais comme un mouvement de benefice. Repli sur price / pe si le figeage n'a pas eu lieu.
+  let eps = (m.eps > 0) ? m.eps : (price / pe), cumDiv = 0;
   for (let t = 1; t <= N; t++) {
     const frac = N > 1 ? (t - 1) / (N - 1) : 1;                                    // 0 en annee 1 -> 1 en annee N
     const gy = g0 + (gTerm - g0) * frac;                                          // fondu lineaire : croissance initiale -> terminale
@@ -6607,7 +6609,8 @@ async function renderScreenerTab() {
       const nodes = await Promise.all([db.ref('stocks/screener/quality').once('value')]);
       nodes.forEach((snap) => { const v = snap.val(); (v && v.top || []).forEach((t) => { const m = t.metrics || {}; if (t.symbol && m.price != null) SCR_PRICE_MAP[String(t.symbol).toUpperCase()] = Object.assign({}, m, { symbol: String(t.symbol).toUpperCase(), name: t.name, sector: t.sector, rating: t.rating, valuationScore: t.valuationScore }); }); });
     } catch (e) { /* ignore */ }
-    await scrMergePositionMeta(); await scrMergeMoat(); await scrMergeValuationOverrides(); await scrApplyLivePrices();   // cours temps réel (cron VPS) par-dessus le snapshot
+    await scrMergePositionMeta(); await scrMergeMoat(); await scrMergeValuationOverrides();
+    scrFreezeEps(); await scrApplyLivePrices();   // BPA fige, PUIS cours temps réel (cron VPS) par-dessus le snapshot
     // Positions "Mes positions" depuis Firebase (cross-device) + migration one-shot depuis localStorage.
     try {
       const mp = (await db.ref('stocks/screener/myPositions').once('value')).val();
@@ -7142,6 +7145,18 @@ let SCR_LIVE_AT = null;   // horodatage de COLLECTE par le cron VPS (live_prices
 let SCR_MKT_AT = null;    // la plus RECENTE parmi les lignes
 let SCR_MKT_OLD = null;   // la plus ANCIENNE : {ticker, ts}
 // Applique les cours "temps réel" (stocks/screener/livePrices) par-dessus le snapshot du screener.
+// Fige le BPA AVANT que les cours temps reel n'ecrasent le prix du snapshot du VPS.
+// Sans ca, scrDcfCore (eps = price / pe) lit une baisse de cours comme une baisse de benefice de
+// meme ampleur : la juste valeur baisse d'autant et le potentiel %/an ne bouge PAS d'un pouce
+// tant que le VPS n'a pas repasse un run. Le BPA, lui, ne change qu'aux publications trimestrielles.
+function scrFreezeEps() {
+  Object.keys(SCR_PRICE_MAP).forEach((k) => {
+    const m = SCR_PRICE_MAP[k];
+    if (!m || m.eps != null || m.live) return;        // deja fige, ou cours deja ecrase : on ne recalcule pas
+    const pe = m.trailingPE || m.forwardPE;           // meme priorite que scrDcfCore
+    if (pe > 0 && m.price > 0) m.eps = m.price / pe;
+  });
+}
 // Applique un instantané livePrices (cron VPS) par-dessus SCR_PRICE_MAP. true si des cours ont été appliqués.
 function scrApplyLpValue(lp) {
   if (!lp || !lp.prices) return false;
@@ -7239,7 +7254,7 @@ async function scrLoadPositionsAndPrices() {
     SCR_PRICE_MAP = {};
     nodes.forEach((snap) => { const v = snap.val(); (v && v.top || []).forEach((t) => { const m = t.metrics || {}; if (t.symbol && m.price != null) SCR_PRICE_MAP[String(t.symbol).toUpperCase()] = Object.assign({}, m, { name: t.name, sector: t.sector, rating: t.rating, valuationScore: t.valuationScore }); }); });
   } catch (e) {}
-  await scrMergePositionMeta(); await scrMergeMoat(); await scrApplyLivePrices();
+  await scrMergePositionMeta(); await scrMergeMoat(); scrFreezeEps(); await scrApplyLivePrices();
 }
 
 // Graphiques du portefeuille (barres par action, donut par secteur), construits en DOM/SVG.
