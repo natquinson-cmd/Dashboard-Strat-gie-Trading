@@ -6281,11 +6281,13 @@ function renderEnfantsTab() {
   // ---- Indicateurs (uniquement ceux qui ont du sens pour une poche mono-ETF capitalisante) ----
   const money = kidsMoney;   // devise de l'ETF (EUR pour VWCE.DE), surtout pas scrUsd
   const sign = (x) => (x >= 0 ? '+' : '');
-  const tile = (label, main, sub, col, title) => scrEl('div', { attrs: title ? { title: title } : {},
+  // gain (optionnel) = 4e ligne, en vert ou en rouge selon le sens.
+  const tile = (label, main, sub, col, title, gain) => scrEl('div', { attrs: title ? { title: title } : {},
     style: 'flex:1;min-width:150px;background:#fff;border:1px solid #e3e8ee;border-radius:12px;padding:11px 13px' + (title ? ';cursor:help' : ''), kids: [
       scrEl('div', { text: label, style: 'font-size:0.59rem;color:#9aa7b4;text-transform:uppercase;font-weight:800;letter-spacing:.05em' }),
       scrEl('div', { text: main, style: 'font-size:1.3rem;font-weight:800;line-height:1.15;margin-top:3px;color:' + (col || '#22303f') }),
-      scrEl('div', { text: sub || '', style: 'font-size:0.68rem;color:#5b6b7d;margin-top:1px' })] });
+      scrEl('div', { text: sub || '', style: 'font-size:0.68rem;color:#5b6b7d;margin-top:1px' })].concat(gain ? [
+      scrEl('div', { text: gain.txt, style: 'font-size:0.72rem;font-weight:800;margin-top:3px;color:' + gain.col })] : []) });
   const gainShare = (agg.value != null && agg.value > 0 && agg.pnl != null) ? (agg.pnl / agg.value) : null;
   wrap.appendChild(scrEl('div', { style: 'display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px', kids: [
     tile('Valeur de la poche', money(agg.value), agg.price != null ? (cfg.ticker + ' à ' + kidsMoney(agg.price, 2)) : 'cours indisponible', '#22303f',
@@ -6382,12 +6384,16 @@ function renderEnfantsTab() {
     const box = scrEl('div', { style: 'background:#fafbfc;border:1px solid #eef1f5;border-radius:12px;padding:12px 14px' });
     box.appendChild(scrEl('div', { text: 'Projection à ' + y + ' ans', style: 'font-size:0.7rem;text-transform:uppercase;letter-spacing:.03em;color:#5b6b7d;font-weight:700;margin-bottom:10px' }));
     const prow = scrEl('div', { style: 'display:flex;gap:10px;flex-wrap:wrap' });
+    // Plus-value estimee = valeur projetee moins ce qui a ete REELLEMENT verse (pas moins la valeur du jour).
+    const gainOf = (v) => ({ txt: sign(v) + money(v) + ' de plus-value', col: v >= 0 ? '#1d9e74' : '#dd5f66' });
     prow.appendChild(tile('Valeur projetée', money(proj), 'sans nouveau versement', '#1d9e74',
-      'Valeur actuelle capitalisée à ' + (r * 100).toFixed(1) + ' % par an pendant ' + y + ' ans. HYPOTHÈSE, pas une promesse : les marchés ne montent pas en ligne droite.'));
+      'Valeur actuelle capitalisée à ' + (r * 100).toFixed(1) + ' % par an pendant ' + y + ' ans, moins le total versé pour la plus-value. HYPOTHÈSE, pas une promesse : les marchés ne montent pas en ligne droite.',
+      gainOf(proj - agg.invested)));
     agg.kids.forEach((k, i) => {
       if (k.value == null) return;
       prow.appendChild(tile(k.child, money(k.value * f), 'aujourd’hui ' + money(k.value), KID_COLORS[i % KID_COLORS.length],
-        'Projection de la part de ' + k.child + ' au même rythme.'));
+        'Projection de la part de ' + k.child + ' au même rythme. La plus-value est calculée par rapport aux ' + money(k.invested) + ' réellement versés pour ' + k.child + '.',
+        gainOf(k.value * f - k.invested)));
     });
     box.appendChild(prow);
     box.appendChild(scrEl('div', { style: 'font-size:0.66rem;color:#9aa7b4;margin-top:9px;line-height:1.45',
