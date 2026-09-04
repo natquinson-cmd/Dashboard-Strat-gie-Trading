@@ -6179,10 +6179,11 @@ function kidsHistSeries() {
   return out;
 }
 
-function kidsMoney(v) {
+function kidsMoney(v, dec) {
   if (v == null || !isFinite(v)) return '–';
   const cur = (SCR_KIDS_PRICE && SCR_KIDS_PRICE.currency) || 'EUR';
-  const a = Math.abs(v).toLocaleString('fr-FR', { maximumFractionDigits: (Math.abs(v) < 10 ? 2 : 0) });
+  const d = (dec != null) ? dec : (Math.abs(v) < 10 ? 2 : 0);   // dec force : prix unitaire, on veut les centimes
+  const a = Math.abs(v).toLocaleString('fr-FR', { minimumFractionDigits: d, maximumFractionDigits: d });
   const neg = v < 0 ? '-' : '';
   if (cur === 'EUR') return neg + a + ' €';
   if (cur === 'USD') return neg + '$' + a;
@@ -6251,7 +6252,7 @@ function renderEnfantsTab() {
       scrEl('div', { text: sub || '', style: 'font-size:0.68rem;color:#5b6b7d;margin-top:1px' })] });
   const gainShare = (agg.value != null && agg.value > 0 && agg.pnl != null) ? (agg.pnl / agg.value) : null;
   wrap.appendChild(scrEl('div', { style: 'display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px', kids: [
-    tile('Valeur de la poche', money(agg.value), agg.price != null ? (cfg.ticker + ' à ' + money(agg.price)) : 'cours indisponible', '#22303f',
+    tile('Valeur de la poche', money(agg.value), agg.price != null ? (cfg.ticker + ' à ' + kidsMoney(agg.price, 2)) : 'cours indisponible', '#22303f',
       'Valeur de marché de toutes les parts détenues pour les enfants. Cette poche est exclue de ton capital personnel.'),
     tile('Total versé', money(agg.invested), String(+agg.units.toFixed(4)) + ' parts', '#3563e9',
       'Somme de tous tes versements. Le nombre de parts est la seule source de vérité de la répartition.'),
