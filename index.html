@@ -8710,7 +8710,9 @@ function screenerRenderQuality(c, data, config) {
           scrEl('div', { text: cd.name || '', style: 'color:#5b6b7d;font-size:0.72rem;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap' })] })] })] }),
       scrEl('td', { style: `padding:8px 10px;${bd}`, kids: [scrNoteChip(SCR_PRICE_MAP[String(cd.symbol || '').toUpperCase()] || { valuationScore: cd.valuationScore, rating: cd.rating })] }),
       oppC(SCR_PRICE_MAP[String(cd.symbol || '').toUpperCase()] || m, cd.sector),
-      scrCoursCell(m, bd),
+      // meme source que TOUTES les autres cellules de la ligne : sinon le cours reste fige au
+      // dernier run du VPS a cote d'un objectif et d'une zone calcules, eux, sur le cours du jour.
+      scrCoursCell(SCR_PRICE_MAP[String(cd.symbol || '').toUpperCase()] || m, bd),
       scrValGaugeCell(SCR_PRICE_MAP[String(cd.symbol || '').toUpperCase()] || m, cd.sector, bd),
       scrTargetCell(SCR_PRICE_MAP[String(cd.symbol || '').toUpperCase()] || Object.assign({ symbol: cd.symbol }, m), cd.sector, bd),
       scrEl('td', { text: cd.sector || '–', style: `padding:8px 10px;color:#5b6b7d;${bd}` }),
