@@ -6116,8 +6116,16 @@ function scrTableBox(table, opts) {
 let SCR_KIDS = null;         // { config:{ticker,horizonYears,annualReturn}, contributions:[{date,child,amount,units}] }
 let SCR_KIDS_PRICE = null;   // { price, at }        cours courant de l'ETF (pousse par le VPS)
 let SCR_KIDS_HIST = null;    // { 'YYYY-MM-DD': close }  historique de l'ETF (pousse par le VPS)
-// 6 teintes bien distinctes : avec 5 enfants une palette de 4 faisait retomber le 5e sur la couleur du 1er.
-const KID_COLORS = ['#3563e9', '#a855f7', '#1d9e74', '#f59e0b', '#ec4899', '#06b6d4'];
+// Couleur FIXE par enfant (choix user) : elle doit rester identique dans le camembert, le tableau
+// et les tuiles de projection, quel que soit l'ordre de tri (qui depend des montants et peut changer).
+const KID_COLOR_BY_NAME = { 'anaia': '#a855f7', 'robin': '#3563e9', 'lily rose': '#ec4899', 'noah': '#f59e0b', 'elie': '#1d9e74' };
+// Repli pour un prenom non prevu : 6 teintes distinctes (une palette de 4 faisait retomber le 5e enfant sur le 1er).
+const KID_COLORS = ['#06b6d4', '#f97316', '#8b5cf6', '#0ea5e9', '#84cc16', '#e11d48'];
+function kidKey(n) {   // 'Anaïa' -> 'anaia', 'Lily-Rose' -> 'lily rose' : la couleur suit l'enfant, pas l'orthographe
+  return String(n || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9 ]/g, ' ').replace(/s+/g, ' ').trim();
+}
+function kidColor(name, i) { return KID_COLOR_BY_NAME[kidKey(name)] || kidColor(k.child, i); }
 
 function kidsCfg() {
   const c = (SCR_KIDS && SCR_KIDS.config) || {};
@@ -6342,7 +6350,7 @@ function renderEnfantsTab() {
   }
 
   // ---- Repartition par enfant : camembert + tableau ----
-  const items = agg.kids.map((k, i) => ({ label: k.child, value: k.units, color: KID_COLORS[i % KID_COLORS.length],
+  const items = agg.kids.map((k, i) => ({ label: k.child, value: k.units, color: kidColor(k.child, i),
                                           pctTxt: (k.share * 100).toFixed(1) + '%' }));
   const bd = 'border-bottom:1px solid #eef1f5';
   const thead = scrEl('tr', { style: 'background:#f6f8fb;color:#5b6b7d' });
@@ -6353,7 +6361,7 @@ function renderEnfantsTab() {
     const col = k.pnl == null ? '#5b6b7d' : (k.pnl >= 0 ? '#1d9e74' : '#dd5f66');
     tbody.appendChild(scrEl('tr', { kids: [
       scrEl('td', { style: 'padding:6px 9px;' + bd, kids: [scrEl('div', { style: 'display:flex;align-items:center;gap:7px', kids: [
-        scrEl('span', { style: 'width:10px;height:10px;border-radius:3px;display:inline-block;background:' + KID_COLORS[i % KID_COLORS.length] }),
+        scrEl('span', { style: 'width:10px;height:10px;border-radius:3px;display:inline-block;background:' + kidColor(k.child, i) }),
         scrEl('b', { text: k.child, style: 'color:#22303f' }),
         scrEl('span', { text: k.n + ' versement' + (k.n > 1 ? 's' : ''), style: 'font-size:0.64rem;color:#9aa7b4' })] })] }),
       scrEl('td', { text: money(k.invested), style: 'padding:6px 9px;text-align:right;' + bd + ';color:#42546a' }),
@@ -6398,7 +6406,7 @@ function renderEnfantsTab() {
       gainOf(proj - agg.invested, agg.invested)));
     agg.kids.forEach((k, i) => {
       if (k.value == null) return;
-      prow.appendChild(tile(k.child, money(k.value * f), 'aujourd’hui ' + money(k.value), KID_COLORS[i % KID_COLORS.length],
+      prow.appendChild(tile(k.child, money(k.value * f), 'aujourd’hui ' + money(k.value), kidColor(k.child, i),
         'Projection de la part de ' + k.child + ' au même rythme. La plus-value est calculée par rapport aux ' + money(k.invested) + ' réellement versés pour ' + k.child + '.',
         gainOf(k.value * f - k.invested, k.invested)));
     });
