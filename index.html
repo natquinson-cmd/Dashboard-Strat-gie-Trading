@@ -6209,6 +6209,17 @@ function kidsJournal() {
   return rows;
 }
 
+// Dernier cours connu a cette date ou avant. null si l'historique ne remonte pas jusque-la :
+// c'est a l'appelant de decider du repli, pour ne jamais faire passer le cours du jour pour
+// un cours d'epoque. Pas de regex ici (un filtre de date mal echappe a deja casse ce calcul).
+function kidsPriceAt(date) {
+  const h = SCR_KIDS_HIST;
+  if (!h || !date) return null;
+  let best = null;
+  Object.keys(h).forEach((d) => { if (d.length === 10 && d <= date && (best === null || d > best)) best = d; });
+  return (best !== null && h[best] > 0) ? h[best] : null;
+}
+
 // RENDEMENT DU FONDS vs RENDEMENT DES VERSEMENTS.
 //  - fonds : performance de l'ETF depuis le PREMIER versement. Ne depend pas du tout de toi.
 //  - versements : ce que ton argent a reellement rapporte. Depend du MOMENT de chaque versement.
@@ -6219,11 +6230,7 @@ function kidsReturns() {
   const px = (SCR_KIDS_PRICE && SCR_KIDS_PRICE.price) || null;
   if (!contribs.length || px == null) return null;
   const start = contribs[0].date;
-  let p0 = null;
-  if (SCR_KIDS_HIST) {
-    const ks = Object.keys(SCR_KIDS_HIST).filter((d) => /^d{4}-d{2}-d{2}$/.test(d) && d <= start).sort();
-    if (ks.length) p0 = SCR_KIDS_HIST[ks[ks.length - 1]];
-  }
+  let p0 = kidsPriceAt(start);                                                           // cloture du jour du 1er versement
   if (!(p0 > 0) && contribs[0].units > 0) p0 = contribs[0].amount / contribs[0].units;   // repli : PRU du 1er versement
   const invested = contribs.reduce((a, c) => a + (+c.amount || 0), 0);
   const units = contribs.reduce((a, c) => a + (+c.units || 0), 0);
@@ -6321,14 +6328,35 @@ function renderEnfantsTab() {
     kIn.setAttribute('placeholder', lm ? 'Noah + Elie (auto)' : 'Enfant (ex Elie)');
     if (lm) kIn.value = '';
     const a = +aIn.value, u = +uIn.value;
-    lmHint.textContent = !lm ? ''
-      : ((a > 0 && u > 0)
-        ? ('Sera enregistré en 2 versements : ' + LM_SPLIT.map((sp) => sp.child + ' ' + money(a * sp.pct)
-            + ' (' + (u * sp.pct).toFixed(6) + ' parts)').join('  ·  '))
-        : 'Saisis le montant TOTAL reçu et le nombre TOTAL de parts achetées : le partage 52 / 48 est fait automatiquement.');
+    const bits = [];
+    let warn = false;
+    if (a > 0 && u > 0) {
+      // Le PRIX ne se saisit pas : il se DEDUIT (montant / parts). C'est le prix reellement paye,
+      // frais et spread compris, donc plus juste que le cours affiche par le courtier. On le montre
+      // quand meme, parce qu'un prix absurde revele immediatement une faute de frappe.
+      const pu = a / u;
+      let t = 'Prix déduit : ' + money(pu, 2) + ' la part';
+      const ref = kidsPriceAt(dIn.value) || (SCR_KIDS_PRICE && SCR_KIDS_PRICE.price) || null;
+      if (ref > 0) {
+        const ec = pu / ref - 1;
+        if (Math.abs(ec) > 0.1) {
+          warn = true;
+          t += ', soit ' + (ec >= 0 ? '+' : '') + (ec * 100).toFixed(0) + ' % par rapport au cours de cette date ('
+            + money(ref, 2) + '). Vérifie le montant et le nombre de parts';
+        }
+      }
+      bits.push(t);
+      if (lm) bits.push('2 versements : ' + LM_SPLIT.map((sp) => sp.child + ' ' + money(a * sp.pct)
+        + ' (' + (u * sp.pct).toFixed(6) + ' parts)').join('  ·  '));
+    } else if (lm) {
+      bits.push('Saisis le montant TOTAL reçu et le nombre TOTAL de parts achetées : le partage 52 / 48 est fait automatiquement.');
+    }
+    lmHint.textContent = bits.join('  ·  ');
+    lmHint.style.color = warn ? '#c0392b' : '#5b6b7d';
+    lmHint.style.fontWeight = warn ? '700' : '400';
   };
   srcIn.onchange = syncSrc;
-  [aIn, uIn].forEach((el) => { el.oninput = syncSrc; });
+  [aIn, uIn, dIn].forEach((el) => { el.oninput = syncSrc; el.onchange = syncSrc; });
   const addBtn = scrEl('button', { text: '+ Ajouter', style: 'padding:8px 15px;border:none;border-radius:9px;background:#3563e9;color:#fff;font-weight:700;cursor:pointer' });
   addBtn.onclick = () => {
     const lm = (srcIn.value === 'lendermarket');
@@ -6504,7 +6532,7 @@ function renderEnfantsTab() {
     const th = (t, al) => scrEl('th', { text: t, style: 'text-align:' + (al || 'left') + ';padding:5px 8px;font-size:0.64rem;text-transform:uppercase;letter-spacing:.04em;color:#9aa7b4;font-weight:800;border-bottom:1px solid #e3e8ee;white-space:nowrap' });
     const tbl = scrEl('table', { style: 'width:100%;border-collapse:collapse;font-size:0.78rem' });
     tbl.appendChild(scrEl('thead', { kids: [scrEl('tr', { kids: [
-      th('Date'), th('Origine'), th('Enfant'), th('Montant', 'right'), th('Parts', 'right'),
+      th('Date'), th('Origine'), th('Enfant'), th('Montant', 'right'), th('Prix payé', 'right'), th('Parts', 'right'),
       th('Parts cumulées', 'right'), th('Part du pot', 'right'), th('Effet', 'right')] })] }));
     const tb = scrEl('tbody');
     const bd = 'border-bottom:1px solid #f1f4f8';
@@ -6528,6 +6556,7 @@ function renderEnfantsTab() {
         td([badge]),
         td([dot, scrEl('b', { text: r.child, style: 'color:#22303f' })]),
         td(money(r.amount), 'right'),
+        td(r.units > 0 ? money(r.amount / r.units, 2) : '–', 'right', ';color:#5b6b7d'),   // deduit, jamais saisi
         td(r.units.toFixed(6), 'right', ';color:#5b6b7d;font-variant-numeric:tabular-nums'),
         td(r.cum.toFixed(6), 'right', ';color:#5b6b7d;font-variant-numeric:tabular-nums'),
         td((r.share * 100).toFixed(1) + ' %', 'right', ';font-weight:700'),
@@ -6541,6 +6570,8 @@ function renderEnfantsTab() {
     tbl.appendChild(scrEl('tfoot', { kids: [scrEl('tr', { style: 'font-weight:800;color:#22303f', kids: [
       scrEl('td', { attrs: { colspan: '3' }, style: 'padding:7px 8px', kids: [scrEl('span', { text: 'Total (' + jrn.length + ' lignes)' })] }),
       scrEl('td', { style: 'padding:7px 8px;text-align:right', kids: [scrEl('span', { text: money(agg.invested) })] }),
+      scrEl('td', { style: 'padding:7px 8px;text-align:right;color:#9aa7b4;font-weight:600',
+        kids: [scrEl('span', { text: tot > 0 ? money(agg.invested / tot, 2) : '–' })] }),   // prix de revient moyen du pot
       scrEl('td', { style: 'padding:7px 8px;text-align:right', kids: [scrEl('span', { text: tot.toFixed(6) })] }),
       scrEl('td', { attrs: { colspan: '3' } })] })] }));
     jb.appendChild(scrEl('div', { style: 'overflow-x:auto', kids: [tbl] }));
