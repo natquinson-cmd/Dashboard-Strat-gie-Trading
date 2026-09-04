@@ -6116,7 +6116,8 @@ function scrTableBox(table, opts) {
 let SCR_KIDS = null;         // { config:{ticker,horizonYears,annualReturn}, contributions:[{date,child,amount,units}] }
 let SCR_KIDS_PRICE = null;   // { price, at }        cours courant de l'ETF (pousse par le VPS)
 let SCR_KIDS_HIST = null;    // { 'YYYY-MM-DD': close }  historique de l'ETF (pousse par le VPS)
-const KID_COLORS = ['#3563e9', '#a855f7', '#1d9e74', '#f59e0b'];
+// 6 teintes bien distinctes : avec 5 enfants une palette de 4 faisait retomber le 5e sur la couleur du 1er.
+const KID_COLORS = ['#3563e9', '#a855f7', '#1d9e74', '#f59e0b', '#ec4899', '#06b6d4'];
 
 function kidsCfg() {
   const c = (SCR_KIDS && SCR_KIDS.config) || {};
@@ -6162,6 +6163,29 @@ function kidsCompute() {
            pnlPct: (value != null && invested > 0) ? (value - invested) / invested : null };
 }
 
+// RENDEMENT DU FONDS vs RENDEMENT DES VERSEMENTS.
+//  - fonds : performance de l'ETF depuis le PREMIER versement. Ne depend pas du tout de toi.
+//  - versements : ce que ton argent a reellement rapporte. Depend du MOMENT de chaque versement.
+// L'ecart entre les deux isole l'effet du TIMING, seule part qui releve de tes decisions.
+// Avec un versement unique les deux sont identiques : l'indicateur ne parle qu'a partir de plusieurs versements.
+function kidsReturns() {
+  const contribs = kidsContribs();
+  const px = (SCR_KIDS_PRICE && SCR_KIDS_PRICE.price) || null;
+  if (!contribs.length || px == null) return null;
+  const start = contribs[0].date;
+  let p0 = null;
+  if (SCR_KIDS_HIST) {
+    const ks = Object.keys(SCR_KIDS_HIST).filter((d) => /^d{4}-d{2}-d{2}$/.test(d) && d <= start).sort();
+    if (ks.length) p0 = SCR_KIDS_HIST[ks[ks.length - 1]];
+  }
+  if (!(p0 > 0) && contribs[0].units > 0) p0 = contribs[0].amount / contribs[0].units;   // repli : PRU du 1er versement
+  const invested = contribs.reduce((a, c) => a + (+c.amount || 0), 0);
+  const units = contribs.reduce((a, c) => a + (+c.units || 0), 0);
+  const fund = (p0 > 0) ? (px / p0 - 1) : null;
+  const mine = (invested > 0) ? ((units * px) / invested - 1) : null;
+  return { fund: fund, mine: mine, gap: (fund != null && mine != null) ? (mine - fund) : null,
+           since: start, n: contribs.length };
+}
 // Courbe : valeur de la poche jour par jour = parts detenues ce jour-la x cours du jour.
 function kidsHistSeries() {
   if (!SCR_KIDS_HIST) return [];
@@ -6273,6 +6297,26 @@ function renderEnfantsTab() {
       'Ce que le marché a ajouté à tes versements. C’est le gain réellement obtenu, pas une performance théorique.'),
     tile('Part des gains', gainShare == null ? '–' : (gainShare * 100).toFixed(1) + ' %', 'de la valeur vient du marché',
       '#a855f7', 'Part de la valeur actuelle qui provient des gains et non de tes versements. Sur 10 ans, cette part grossit fortement : c’est l’effet des intérêts composés.')] }));
+
+  // Rendement du FONDS vs rendement des VERSEMENTS : l'ecart mesure la qualite du TIMING.
+  const ret = kidsReturns();
+  if (ret && ret.fund != null && ret.mine != null) {
+    const pc = (x) => (x >= 0 ? '+' : '') + (x * 100).toFixed(2) + ' %';
+    const dep = new Date(ret.since + 'T00:00:00');
+    const depTxt = isNaN(dep) ? ret.since : (dep.getDate() + '/' + String(dep.getMonth() + 1).padStart(2, '0'));
+    const gapCol = ret.gap == null ? '#9aa7b4' : (ret.gap >= 0 ? '#1d9e74' : '#dd5f66');
+    const gapTxt = ret.n < 2 ? 'identique tant qu’il n’y a qu’un versement'
+      : ((ret.gap >= 0 ? '+' : '') + (ret.gap * 100).toFixed(2) + ' pt grâce au moment de tes versements');
+    wrap.appendChild(scrEl('div', { style: 'display:flex;gap:10px;flex-wrap:wrap;margin-bottom:6px', kids: [
+      tile('Rendement du fonds', pc(ret.fund), cfg.ticker + ' depuis le ' + depTxt, ret.fund >= 0 ? '#1d9e74' : '#dd5f66',
+        "Performance de l'ETF lui-même depuis ton premier versement. Elle ne dépend pas de toi : c'est ce que le marché a fait."),
+      tile('Rendement de tes versements', pc(ret.mine), gapTxt, ret.mine >= 0 ? '#1d9e74' : '#dd5f66',
+        "Ce que ton argent a réellement rapporté, compte tenu de la DATE de chaque versement. L'écart avec le rendement du fonds est la seule part qui relève de tes décisions : positif, tes versements sont tombés sur de bons points d'entrée.")] }));
+    wrap.appendChild(scrEl('div', { style: 'font-size:0.66rem;color:#9aa7b4;margin-bottom:14px;line-height:1.45',
+      text: ret.n < 2
+        ? 'Avec un seul versement, ces deux chiffres sont par construction identiques. Ils commenceront à diverger dès le deuxième versement : l’écart mesurera alors si tes points d’entrée successifs ont aidé ou pénalisé.'
+        : 'Le rendement du fonds ne dépend pas de toi. Celui de tes versements dépend du moment où tu as investi. L’écart entre les deux est la seule chose que tes décisions influencent.' }));
+  }
 
   // ---- Courbe d'evolution (reutilise le graphique du portefeuille, axes + survol) ----
   const serie = kidsHistSeries();
