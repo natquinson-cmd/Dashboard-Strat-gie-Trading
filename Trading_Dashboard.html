@@ -6385,15 +6385,17 @@ function renderEnfantsTab() {
     box.appendChild(scrEl('div', { text: 'Projection à ' + y + ' ans', style: 'font-size:0.7rem;text-transform:uppercase;letter-spacing:.03em;color:#5b6b7d;font-weight:700;margin-bottom:10px' }));
     const prow = scrEl('div', { style: 'display:flex;gap:10px;flex-wrap:wrap' });
     // Plus-value estimee = valeur projetee moins ce qui a ete REELLEMENT verse (pas moins la valeur du jour).
-    const gainOf = (v) => ({ txt: sign(v) + money(v) + ' de plus-value', col: v >= 0 ? '#1d9e74' : '#dd5f66' });
+    // Le % est calcule sur la MEME base que le montant : ce qui a ete reellement verse.
+    const gainOf = (v, base) => ({ col: v >= 0 ? '#1d9e74' : '#dd5f66',
+      txt: sign(v) + money(v) + ' de plus-value' + ((base > 0) ? ' (' + sign(v / base) + (v / base * 100).toFixed(1) + ' %)' : '') });
     prow.appendChild(tile('Valeur projetée', money(proj), 'sans nouveau versement', '#1d9e74',
       'Valeur actuelle capitalisée à ' + (r * 100).toFixed(1) + ' % par an pendant ' + y + ' ans, moins le total versé pour la plus-value. HYPOTHÈSE, pas une promesse : les marchés ne montent pas en ligne droite.',
-      gainOf(proj - agg.invested)));
+      gainOf(proj - agg.invested, agg.invested)));
     agg.kids.forEach((k, i) => {
       if (k.value == null) return;
       prow.appendChild(tile(k.child, money(k.value * f), 'aujourd’hui ' + money(k.value), KID_COLORS[i % KID_COLORS.length],
         'Projection de la part de ' + k.child + ' au même rythme. La plus-value est calculée par rapport aux ' + money(k.invested) + ' réellement versés pour ' + k.child + '.',
-        gainOf(k.value * f - k.invested)));
+        gainOf(k.value * f - k.invested, k.invested)));
     });
     box.appendChild(prow);
     box.appendChild(scrEl('div', { style: 'font-size:0.66rem;color:#9aa7b4;margin-top:9px;line-height:1.45',
