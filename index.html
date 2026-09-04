@@ -6121,11 +6121,19 @@ let SCR_KIDS_HIST = null;    // { 'YYYY-MM-DD': close }  historique de l'ETF (po
 const KID_COLOR_BY_NAME = { 'anaia': '#a855f7', 'robin': '#3563e9', 'lily rose': '#ec4899', 'noah': '#f59e0b', 'elie': '#1d9e74' };
 // Repli pour un prenom non prevu : 6 teintes distinctes (une palette de 4 faisait retomber le 5e enfant sur le 1er).
 const KID_COLORS = ['#06b6d4', '#f97316', '#8b5cf6', '#0ea5e9', '#84cc16', '#e11d48'];
-function kidKey(n) {   // 'Anaïa' -> 'anaia', 'Lily-Rose' -> 'lily rose' : la couleur suit l'enfant, pas l'orthographe
-  return String(n || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
-    .replace(/[^a-z0-9 ]/g, ' ').replace(/s+/g, ' ').trim();
+// 'Anaia' / 'Anaïa' / 'Lily-Rose' donnent la meme cle : la couleur suit l'enfant, pas l'orthographe.
+function kidKey(n) {
+  const t = String(n || '').toLowerCase().normalize('NFD');
+  let out = '';
+  for (let i = 0; i < t.length; i++) {
+    const c = t.charCodeAt(i);
+    if (c >= 0x300 && c <= 0x36f) continue;                       // accent combinant issu du NFD
+    const ch = t[i];
+    out += ((ch >= 'a' && ch <= 'z') || (ch >= '0' && ch <= '9')) ? ch : ' ';
+  }
+  return out.split(' ').filter(Boolean).join(' ');               // espaces multiples ecrases
 }
-function kidColor(name, i) { return KID_COLOR_BY_NAME[kidKey(name)] || kidColor(k.child, i); }
+function kidColor(name, i) { return KID_COLOR_BY_NAME[kidKey(name)] || KID_COLORS[i % KID_COLORS.length]; }
 
 function kidsCfg() {
   const c = (SCR_KIDS && SCR_KIDS.config) || {};
