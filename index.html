@@ -6194,9 +6194,20 @@ function renderEnfantsTab() {
   if (!c) return;
   const cfg = kidsCfg(), agg = kidsCompute();
   const wrap = scrEl('div', { style: 'background:#fff;border:1px solid #e3e8ee;border-radius:14px;padding:14px;margin-bottom:14px' });
+  // Horodatage du cours pousse par le VPS (meme badge que Mes positions)
+  const kStamp = scrEl('span', { style: 'font-weight:600;color:#5b6b7d' });
+  if (SCR_KIDS_PRICE && SCR_KIDS_PRICE.at) {
+    const dd = new Date(SCR_KIDS_PRICE.at);
+    if (!isNaN(dd)) kStamp.textContent = ' · ' + dd.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })
+      + ' à ' + dd.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  }
+  const kBadge = scrEl('span', { attrs: { title: 'Cours de l’ETF poussé automatiquement par le VPS.' }, style: 'margin-left:auto;display:flex;align-items:center;gap:6px;font-size:0.74rem;color:#1d9e74;font-weight:700', kids: [
+    scrEl('span', { style: 'width:8px;height:8px;border-radius:50%;background:#1d9e74;display:inline-block' }),
+    scrEl('span', { text: 'en direct' }), kStamp] });
   wrap.appendChild(scrEl('div', { style: 'display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap', kids: [
     scrEl('span', { text: 'Épargne des enfants', style: 'font-weight:800;color:#22303f;font-size:0.95rem' }),
-    scrEl('span', { text: 'poche séparée : elle n’entre PAS dans ton capital, ni dans ta performance, ni dans ta répartition', style: 'font-size:0.72rem;color:#5b6b7d' })] }));
+    scrEl('span', { text: 'poche séparée : elle n’entre PAS dans ton capital, ni dans ta performance, ni dans ta répartition', style: 'font-size:0.72rem;color:#5b6b7d' }),
+    kBadge] }));
 
   // ---- Reglages (ticker, horizon, rendement) ----
   const iSt = 'padding:7px 9px;border:1px solid #e3e8ee;border-radius:9px;font-size:0.84rem;color:#22303f';
@@ -6266,7 +6277,16 @@ function renderEnfantsTab() {
   // ---- Courbe d'evolution (reutilise le graphique du portefeuille, axes + survol) ----
   const serie = kidsHistSeries();
   if (serie.length >= 2) {
-    wrap.appendChild(scrEl('div', { style: 'background:#fff;border:1px solid #e3e8ee;border-radius:10px;padding:12px 14px;margin-bottom:14px', kids: [scrEquityCurve(serie)] }));
+    // Courbe d evolution A GAUCHE + performance A DROITE. Pas de Nasdaq ici : un indice 100 % tech US
+    // n a aucun sens face a un ETF monde. Le S&P 500 est fourni comme simple CONTEXTE.
+    wrap.appendChild(scrEl('div', { style: 'display:flex;gap:14px;flex-wrap:wrap;align-items:stretch;margin-bottom:6px', kids: [
+      scrEl('div', { style: 'flex:1.7;min-width:340px;background:#fff;border:1px solid #e3e8ee;border-radius:10px;padding:12px 14px', kids: [scrEquityCurve(serie)] }),
+      scrEl('div', { style: 'flex:1;min-width:290px;background:#fff;border:1px solid #e3e8ee;border-radius:10px;padding:12px 14px', kids: [scrPerfChart(serie, SCR_BENCH, null)] })] }));
+    wrap.appendChild(scrEl('div', { style: 'font-size:0.66rem;color:#9aa7b4;margin-bottom:14px;line-height:1.45',
+      text: 'Le S&P 500 n’est PAS un indice de référence pour cet ETF : il ne contient que 500 grandes valeurs américaines, quand VWCE en détient plus de 4 000 réparties sur plus de 45 pays, émergents compris. Il est affiché à titre de contexte, pour voir ce qu’aurait donné une concentration sur les États-Unis, pas pour juger la poche.' }));
+  } else {
+    wrap.appendChild(scrEl('div', { style: 'background:#fafbfc;border:1px solid #eef1f5;border-radius:10px;padding:12px 14px;margin-bottom:14px;font-size:0.78rem;color:#9aa7b4',
+      text: 'Les graphiques se tracent dès la deuxième journée suivie : la poche vient d’être créée, il n’y a encore qu’un seul point. Le VPS enregistre le cours chaque jour, la courbe se remplira toute seule.' }));
   }
 
   // ---- Repartition par enfant : camembert + tableau ----
@@ -7616,7 +7636,7 @@ function scrPerfChart(hist, bench, benchN) {
       return t;
     };
     ctrlBox.appendChild(mkTog('S&P 500', SP_COL, compareSP, (v) => { compareSP = v; }, lastSp));
-    ctrlBox.appendChild(mkTog('Nasdaq', NDX_COL, compareNdx, (v) => { compareNdx = v; }, lastNdx));
+    if (benchN) ctrlBox.appendChild(mkTog('Nasdaq', NDX_COL, compareNdx, (v) => { compareNdx = v; }, lastNdx));   // masque si non fourni
   };
   wrap.appendChild(bigBox); wrap.appendChild(chartBox); wrap.appendChild(ctrlBox);
   draw();
