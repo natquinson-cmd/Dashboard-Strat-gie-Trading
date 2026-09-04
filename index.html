@@ -6183,8 +6183,9 @@ function kidsReturns() {
   const units = contribs.reduce((a, c) => a + (+c.units || 0), 0);
   const fund = (p0 > 0) ? (px / p0 - 1) : null;
   const mine = (invested > 0) ? ((units * px) / invested - 1) : null;
+  const days = {}; contribs.forEach((c) => { days[c.date] = 1; });
   return { fund: fund, mine: mine, gap: (fund != null && mine != null) ? (mine - fund) : null,
-           since: start, n: contribs.length };
+           since: start, n: contribs.length, dates: Object.keys(days).length };
 }
 // Courbe : valeur de la poche jour par jour = parts detenues ce jour-la x cours du jour.
 function kidsHistSeries() {
@@ -6303,9 +6304,9 @@ function renderEnfantsTab() {
   if (ret && ret.fund != null && ret.mine != null) {
     const pc = (x) => (x >= 0 ? '+' : '') + (x * 100).toFixed(2) + ' %';
     const dep = new Date(ret.since + 'T00:00:00');
-    const depTxt = isNaN(dep) ? ret.since : (dep.getDate() + '/' + String(dep.getMonth() + 1).padStart(2, '0'));
+    const depTxt = isNaN(dep) ? ret.since : (String(dep.getDate()).padStart(2, '0') + '/' + String(dep.getMonth() + 1).padStart(2, '0'));
     const gapCol = ret.gap == null ? '#9aa7b4' : (ret.gap >= 0 ? '#1d9e74' : '#dd5f66');
-    const gapTxt = ret.n < 2 ? 'identique tant qu’il n’y a qu’un versement'
+    const gapTxt = ret.dates < 2 ? 'identique tant que tous tes versements datent du même jour'
       : ((ret.gap >= 0 ? '+' : '') + (ret.gap * 100).toFixed(2) + ' pt grâce au moment de tes versements');
     wrap.appendChild(scrEl('div', { style: 'display:flex;gap:10px;flex-wrap:wrap;margin-bottom:6px', kids: [
       tile('Rendement du fonds', pc(ret.fund), cfg.ticker + ' depuis le ' + depTxt, ret.fund >= 0 ? '#1d9e74' : '#dd5f66',
@@ -6313,8 +6314,8 @@ function renderEnfantsTab() {
       tile('Rendement de tes versements', pc(ret.mine), gapTxt, ret.mine >= 0 ? '#1d9e74' : '#dd5f66',
         "Ce que ton argent a réellement rapporté, compte tenu de la DATE de chaque versement. L'écart avec le rendement du fonds est la seule part qui relève de tes décisions : positif, tes versements sont tombés sur de bons points d'entrée.")] }));
     wrap.appendChild(scrEl('div', { style: 'font-size:0.66rem;color:#9aa7b4;margin-bottom:14px;line-height:1.45',
-      text: ret.n < 2
-        ? 'Avec un seul versement, ces deux chiffres sont par construction identiques. Ils commenceront à diverger dès le deuxième versement : l’écart mesurera alors si tes points d’entrée successifs ont aidé ou pénalisé.'
+      text: ret.dates < 2
+        ? 'Tes versements datent tous du même jour : ces deux chiffres sont donc identiques par construction. Ils divergeront dès le premier versement à une AUTRE date, par exemple quand le capital Lendermarket se libérera. L’écart mesurera alors si tes points d’entrée successifs ont aidé ou pénalisé.'
         : 'Le rendement du fonds ne dépend pas de toi. Celui de tes versements dépend du moment où tu as investi. L’écart entre les deux est la seule chose que tes décisions influencent.' }));
   }
 
