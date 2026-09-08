@@ -53,6 +53,17 @@ if exist ".venv\Scripts\python.exe" (
 set "RC=%ERRORLEVEL%"
 
 echo ===== FIN, code de retour %RC% =====>> "%LOG%"
-echo Journal : %LOG%
-if not "%RC%"=="0" echo ECHEC du screener, code %RC%. Ouvre le journal ci-dessus.
+
+REM Un lancement MANUEL n'affichait plus rien du tout, toute la sortie partant dans le journal.
+REM On rend donc la fin du journal a l'ecran. (PowerShell sert seulement a LIRE le fichier : on ne
+REM fait surtout pas passer la sortie de Python par un pipe PowerShell, qui en 5.1 transforme
+REM chaque ligne de stderr en erreur et fait passer un run reussi pour un echec.)
+echo.
+echo --- dernieres lignes du journal ---
+powershell -NoProfile -Command "Get-Content -LiteralPath '%LOG%' -Tail 25"
+echo -----------------------------------
+echo Journal complet : %LOG%
+echo Pour suivre un run EN DIRECT depuis une autre fenetre :
+echo   powershell -NoProfile -Command "Get-Content -LiteralPath '%LOG%' -Wait -Tail 30"
+if not "%RC%"=="0" echo ECHEC du screener, code de retour %RC%.
 exit /b %RC%
