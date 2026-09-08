@@ -290,6 +290,15 @@ def push_position_meta(y, db):
             ds = y.dividend_schedule(sym)
             if ds:
                 r['divSchedule'] = ds
+        # Mini-serie 3 mois. Les ETF detenus (VUAA.DE, VFEA.DE) ne sont dans AUCUN classement :
+        # positionMeta est leur seule source. Sans elle, la colonne Cours du dashboard retombe sur
+        # la variation du JOUR au lieu des 3 mois. Le dashboard ne comble que les champs absents,
+        # donc le sparkline du classement reste prioritaire pour les titres qui y figurent.
+        sp = y.spark(sym)
+        if sp:
+            r['spark'] = sp['closes']
+            if r.get('changePct') is None:
+                r['changePct'] = sp['changePct']
         r['symbol'] = sym
         out.append({k: v for k, v in r.items() if v is not None})   # pas de null
         time.sleep(y.pause)
