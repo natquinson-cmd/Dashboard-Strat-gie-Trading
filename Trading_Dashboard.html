@@ -7145,6 +7145,33 @@ let SCR_LIVE_AT = null;   // horodatage de COLLECTE par le cron VPS (live_prices
 let SCR_MKT_AT = null;    // la plus RECENTE parmi les lignes
 let SCR_MKT_OLD = null;   // la plus ANCIENNE : {ticker, ts}
 // Applique les cours "temps réel" (stocks/screener/livePrices) par-dessus le snapshot du screener.
+// FRAICHEUR DES DONNEES. Une donnee perimee ressemble exactement a une donnee fraiche : le screener
+// est reste fige 11 jours (fichier .bat vide sur le VPS, la tache planifiee renvoyait un faux succes)
+// et seule une date en gris discret le disait. On la rend donc impossible a rater.
+// Seuils en JOURS : le screener tourne chaque jour ouvre, un week-end ou un ferie explique 2 a 3 jours.
+const SCR_FRESH_WARN = 3, SCR_FRESH_BAD = 7;
+function scrFreshness(iso) {
+  const t = iso ? Date.parse(iso) : NaN;
+  if (isNaN(t)) return null;
+  const days = (Date.now() - t) / 86400000, j = Math.floor(days);
+  const age = (days < 1) ? "aujourd'hui" : (j === 1 ? 'hier' : 'il y a ' + j + ' jours');
+  if (days >= SCR_FRESH_BAD) return { days: days, age: age, level: 'bad', fg: '#c0392b', bg: '#fdeaea',
+    title: 'DONNÉES PÉRIMÉES (' + age + '). Le screener du VPS ne tourne plus. Vérifie la tâche planifiée '
+      + 'ScreenerGrowth et le journal dans Screener_Engine\\ibkr_vps\\logs\\. Tant qu’il est figé, les notes de '
+      + 'valorisation, les ratings et les graphiques 3 mois sont calculés sur des cours périmés.' };
+  if (days >= SCR_FRESH_WARN) return { days: days, age: age, level: 'warn', fg: '#8a6d1f', bg: '#fff2d9',
+    title: 'Données vieillissantes (' + age + '). Le screener devrait tourner chaque jour ouvré : un week-end '
+      + 'ou un jour férié explique 2 à 3 jours, au-delà il y a un problème sur le VPS.' };
+  return { days: days, age: age, level: 'ok', fg: '#1d9e74', bg: '#e5f4ee',
+    title: 'Données du screener à jour (' + age + ').' };
+}
+function scrFreshBadge(iso) {
+  const f = scrFreshness(iso);
+  if (!f) return scrEl('span');
+  return scrEl('span', { attrs: { title: f.title }, text: (f.level === 'bad' ? '⚠ ' : '') + f.age,
+    style: 'margin-left:8px;padding:1px 9px;border-radius:20px;font-size:0.7rem;font-weight:800;'
+      + 'cursor:help;white-space:nowrap;color:' + f.fg + ';background:' + f.bg });
+}
 // Fige le BPA AVANT que les cours temps reel n'ecrasent le prix du snapshot du VPS.
 // Sans ca, scrDcfCore (eps = price / pe) lit une baisse de cours comme une baisse de benefice de
 // meme ampleur : la juste valeur baisse d'autant et le potentiel %/an ne bouge PAS d'un pouce
@@ -8784,7 +8811,9 @@ function screenerRender(c, data, positions, config) {
     panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
   };
   frag.appendChild(scrEl('div', { style: 'display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px', kids: [
-    scrEl('div', { style: 'color:#5b6b7d;font-size:0.76rem', text: (data.generatedAt ? 'Généré le ' + new Date(data.generatedAt).toLocaleString('fr-FR') : '') + (enriched ? ' · enrichi IBKR' : ' · Yahoo') }),
+    scrEl('div', { style: 'color:#5b6b7d;font-size:0.76rem;display:flex;align-items:center;flex-wrap:wrap', kids: [
+      scrEl('span', { text: (data.generatedAt ? 'Généré le ' + new Date(data.generatedAt).toLocaleString('fr-FR') : '') + (enriched ? ' · enrichi IBKR' : ' · Yahoo') }),
+      scrFreshBadge(data.generatedAt)] }),
     scrEl('div', { style: 'display:flex;gap:8px', kids: [paramsBtn, refresh] })
   ]}));
   frag.appendChild(panel);
