@@ -8629,7 +8629,8 @@ function screenerRenderQuality(c, data, config) {
     scrEl('div', { style: 'display:flex;align-items:center;gap:8px;flex-wrap:wrap', kids: [
       scrEl('span', { style: 'color:#5b6b7d;font-size:0.76rem', text: 'Trier :' }), sortRow] }),
     scrEl('div', { style: 'display:flex;align-items:center;gap:10px', kids: [
-      scrEl('span', { style: 'color:#5b6b7d;font-size:0.76rem', text: (data.generatedAt ? 'Généré le ' + new Date(data.generatedAt).toLocaleString('fr-FR') : '') + ' · Yahoo' }), refresh] })]}));
+      scrEl('span', { style: 'color:#5b6b7d;font-size:0.76rem', text: (data.generatedAt ? 'Généré le ' + new Date(data.generatedAt).toLocaleString('fr-FR') : '') + ' · Yahoo' }),
+      scrFreshBadge(data.generatedAt), refresh] })]}));
 
   frag.appendChild(screenerQualityAllocPanel(top));
 
