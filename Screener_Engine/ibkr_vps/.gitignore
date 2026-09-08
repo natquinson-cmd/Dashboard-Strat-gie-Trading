@@ -5,3 +5,4 @@ __pycache__/
 
 # Identifiants IG (ne JAMAIS committer)
 ig_config.json
+Screener_Engine/ibkr_vps/logs/
