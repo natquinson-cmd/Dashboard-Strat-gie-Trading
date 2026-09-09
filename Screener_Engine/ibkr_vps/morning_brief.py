@@ -34,7 +34,12 @@ UA = ('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
       '(KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36')
 CNN_URL = 'https://production.dataviz.cnn.io/index/fearandgreed/graphdata'
 ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages'
-ANTHROPIC_MODEL = 'claude-haiku-4-5-20251001'
+# Modele par defaut : Opus 5 (choix utilisateur). Surchargeable sans toucher au code :
+#     setx ANTHROPIC_MODEL "claude-haiku-4-5-20251001"
+# Le NOMBRE de tokens ne depend pas du modele (memes titres en entree, meme brief en
+# sortie), c'est le PRIX du token qui change : Haiku coute une fraction d'Opus pour
+# une tache de resume de titres. A changer si la facture devient visible.
+ANTHROPIC_MODEL = os.environ.get('ANTHROPIC_MODEL', 'claude-opus-5')
 NEWS_MAX_AGE_H = 36          # au-dela, ce n'est plus "la nouvelle du matin"
 NEWS_PER_TICKER = 3
 

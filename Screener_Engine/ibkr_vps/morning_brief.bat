@@ -13,6 +13,10 @@ REM
 REM Puis FERME et rouvre l'invite (setx n'affecte que les nouveaux processus).
 REM Sans cette cle le script tourne quand meme : il pousse le Fear & Greed et les
 REM titres bruts, seule la synthese redigee manque.
+REM
+REM MODELE : Opus 5 par defaut. Pour en changer sans toucher au code :
+REM     setx ANTHROPIC_MODEL "claude-haiku-4-5-20251001"
+REM Le nombre de tokens est le meme quel que soit le modele, seul le prix du token change.
 
 cd /d "%~dp0"
 
