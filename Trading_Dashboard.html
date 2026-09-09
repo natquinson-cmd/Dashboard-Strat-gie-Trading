@@ -6811,7 +6811,7 @@ function scrMoatCell(m, pad, bd) {
 // m = objet metrics (SCR_PRICE_MAP pour les positions, t.metrics pour la répartition).
 const SCR_FUNDA_HEAD = [
   ['Note', 'left', "Note de valorisation du screener (Achat fort → Surévaluée) au sein des sociétés de qualité. Repérage, pas conseil."],
-  ['Potentiel/an', 'right', "Rendement ANNUEL attendu par le DCF (projection du bénéfice sur 5 ans, multiple de sortie = P/E moyen, dividendes) au cours actuel. Croissance des bénéfices plafonnée à 15 %/an. Vert = bat ton rendement visé (15 %/an), rouge = négatif. Clique pour le détail + la fourchette de prix d'achat."],
+  ['Potentiel/an', 'right', "Rendement ANNUEL attendu par le DCF (projection du bénéfice sur 5 ans, multiple de sortie = P/E moyen, dividendes) au cours actuel. Croissance non plafonnée : elle part de l'estimation analyste et fond vers la croissance terminale sur l'horizon. Vert = bat ton rendement visé (15 %/an), rouge = négatif. Clique pour le détail + la fourchette de prix d'achat."],
   ['Pays', 'left', "Pays du siège social de la société. ETF = exposition internationale."],
   ['Moat', 'left', "Analyse qualitative du moat (avantage concurrentiel durable) : Large / Étroit / Aucun + note /100, et exposition à l'IA (favorable / neutre / menacé). Opinion de Claude, pas une donnée mesurée ; survole pour la justification. Non auto-actualisée."],
   ['ROIC', 'right', "Rendement du capital investi (ratio n°1 Dividend King) = EBIT×(1−impôt)/capital investi. > 15 % = crée de la valeur. En petit : ROE. Banques (~) : regarde le ROE."],
@@ -7064,7 +7064,7 @@ function renderAllocTable(res, etfPct, etfAmount, mode) {
   if (!alloc.length && etfAmount <= 0) return scrEl('div', { text: 'Aucune candidate à répartir (que des Surévaluée ?).', style: 'color:#5b6b7d;font-size:0.8rem;padding:8px 0' });
   const bd = 'border-bottom:1px solid #eef1f5';
   const thead = scrEl('tr', { style: 'background:#f6f8fb;color:#5b6b7d' });
-  [['#', 'left'], ['Titre', 'left'], ['Cours 3 M', 'left'], ['Note', 'left'], [mode === 'arb' ? 'Mouvement' : 'À déployer', 'right'], ['Secteur', 'left'], ['Juste valeur', 'left'], ['Potentiel/an', 'right']].forEach(([t, al]) =>
+  [['#', 'left'], ['Titre', 'left'], ['Cours 3 M', 'left'], [mode === 'arb' ? 'Mouvement' : 'À déployer', 'right'], ['Secteur', 'left'], ['Juste valeur', 'left'], ['Potentiel/an', 'right']].forEach(([t, al]) =>
     thead.appendChild(scrEl('th', { text: t, style: `padding:8px 10px;text-align:${al};font-size:0.68rem;text-transform:uppercase;letter-spacing:.03em;border-bottom:1px solid #e3e8ee;white-space:nowrap` })));
   scrFundaHeadCells(2).forEach((th) => thead.appendChild(th));   // infos screener : Pays, Moat, ROIC, Croiss CA, PEG, Marge, Rendement, Payout, Div crois, FCF yield
   [['Poids visé', 'right']].forEach(([t, al]) =>
@@ -7076,7 +7076,6 @@ function renderAllocTable(res, etfPct, etfAmount, mode) {
       scrEl('td', { text: '—', style: `padding:6px 10px;color:#9aa7b4;${bd}` }),
       scrEl('td', { style: `padding:6px 10px;${bd}`, kids: [scrEl('div', { kids: [scrEl('b', { text: 'ETF socle', style: 'color:#22303f' }), scrEl('div', { text: 'S&P 500 / MSCI World', style: 'color:#5b6b7d;font-size:0.7rem' })] })] }),
       scrEl('td', { text: '', style: `padding:6px 10px;${bd}` }),
-      scrEl('td', { style: `padding:6px 10px;${bd}`, kids: [scrEl('span', { text: 'Socle', style: 'background:#eef2f8;color:#5b6b7d;border-radius:20px;padding:2px 9px;font-size:0.68rem;font-weight:700' })] }),
       scrEl('td', { text: scrUsd(etfAmount), style: `padding:6px 10px;text-align:right;font-weight:800;color:#22303f;${bd}` }),
       scrEl('td', { text: 'Diversifié', style: `padding:6px 10px;color:#5b6b7d;font-size:0.78rem;${bd}` }),
       scrEl('td', { text: '', style: `padding:6px 10px;${bd}` }),
@@ -7098,11 +7097,16 @@ function renderAllocTable(res, etfPct, etfAmount, mode) {
     const zStripe2 = zBand2 ? (SCR_ZONE[zBand2.zone] || {}).bar : null;   // bandeau gauche = zone d'achat
     // SORTIE : ligne detenue que l'arbitrage ramene a zero -> fond rouge clair pour la reperer d'un coup d'oeil
     const isExit = (mode === 'arb') && a.resultingWeight <= 0 && a.current > 0;
-    tbody.appendChild(scrEl('tr', { style: isExit ? 'background:#fdeaea' : '', attrs: isExit ? { title: 'Ligne à SORTIR : la cible de répartition la ramène à zéro.' } : {}, kids: [
+    // NOUVELLE ligne : pas encore detenue et l'allocation lui donne du poids -> fond vert tres clair,
+    // symetrique du rouge des sorties, pour voir d'un coup d'oeil ce qui s'ouvre vs ce qui se ferme.
+    const isNew = !isExit && !(a.current > 0) && a.resultingWeight > 0 && a.add > 0.5;
+    const rowBg = isExit ? 'background:#fdeaea' : (isNew ? 'background:#e9f7f0' : '');
+    const rowTip = isExit ? { title: 'Ligne à SORTIR : la cible de répartition la ramène à zéro.' }
+                 : (isNew ? { title: 'NOUVELLE ligne : tu ne la détiens pas encore, la cible de répartition lui donne du poids.' } : {});
+    tbody.appendChild(scrEl('tr', { style: rowBg, attrs: rowTip, kids: [
       scrEl('td', { text: String(i + 1), attrs: zStripe2 ? { title: "Zone d'achat : " + SCR_ZONE[zBand2.zone].label + " (vert = décoté, rouge = cher)" } : {}, style: `padding:6px 10px;color:#9aa7b4;${bd}${zStripe2 ? ';box-shadow:inset 4px 0 0 0 ' + zStripe2 : ''}` }),
       idcell,
       scrCoursCell(SCR_PRICE_MAP[String(t.symbol || '').toUpperCase()] || m, bd),
-      scrEl('td', { style: `padding:6px 10px;${bd}`, kids: [scrNoteChip(SCR_PRICE_MAP[String(t.symbol || '').toUpperCase()] || { valuationScore: t.valuationScore, rating: t.rating })] }),
       moveCell,
       scrEl('td', { text: t.sector || '–', style: `padding:6px 10px;color:#5b6b7d;font-size:0.78rem;${bd}` }),
       scrValGaugeCell(SCR_PRICE_MAP[String(t.symbol || '').toUpperCase()] || m, t.sector, bd),
@@ -7119,7 +7123,6 @@ function renderAllocTable(res, etfPct, etfAmount, mode) {
       scrEl('td', { text: '', style: `padding:6px 10px;${bd}` }),
       scrEl('td', { style: `padding:6px 10px;${bd}`, kids: [scrEl('span', { text: 'Liquidités', style: 'font-weight:700;color:#42546a' }), scrEl('div', { text: 'surplus non réparti (limite de diversification)', style: 'color:#9aa7b4;font-size:0.7rem' })] }),
       scrEl('td', { text: '', style: `${bd}` }),
-      scrEl('td', { text: '', style: `${bd}` }),
       scrEl('td', { text: scrUsd(cash), style: `padding:6px 10px;text-align:right;font-weight:700;color:#9aa7b4;${bd}` }),
       scrEl('td', { text: '', style: `${bd}` }),
       scrEl('td', { text: '', style: `${bd}` }),
@@ -7131,7 +7134,6 @@ function renderAllocTable(res, etfPct, etfAmount, mode) {
   tbody.appendChild(scrEl('tr', { style: 'background:#fafbfc', kids: [
     scrEl('td', { text: '', style: 'padding:7px 10px' }),
     scrEl('td', { text: (mode === 'arb' ? (alloc.filter((a) => a.resultingWeight > 0).length + ' lignes gardées · ' + alloc.filter((a) => a.resultingWeight <= 0 && a.current > 0).length + ' sorties · capital constant') : (etfPct > 0.0001 ? alloc.length + ' actions + ETF' : alloc.length + ' lignes')), style: 'padding:7px 10px;font-weight:700;color:#5b6b7d' }),
-    scrEl('td', { text: '' }),
     scrEl('td', { text: '' }),
     scrEl('td', { text: scrUsd(grand), style: 'padding:7px 10px;text-align:right;font-weight:800;color:#22303f' }),
     scrEl('td', { text: '' }), scrEl('td', { text: '' }), scrEl('td', { text: '' }),
@@ -8723,7 +8725,6 @@ function screenerRenderQuality(c, data, config) {
   const cols = [
     ['#', 'left', ''],
     ['Ticker', 'left', 'Symbole boursier. Clique pour ouvrir le graphique TradingView (passable en ordre via IBKR).'],
-    ['Note', 'left', "Note GLOBALE = 70 % valorisation + 30 % moat (avec malus si l'IA menace le modèle ou si le moat s'érode). Achat fort = solide, décotée ET moat large ; Surévaluée = chère même après crédit du moat. Repérage, pas un conseil."],
     ['Opportunité', 'right', "Score « qualité EN SOLDE » (0-100) = moyenne géométrique de la Note (qualité) et de la cheapness du moment (décote vs l'Objectif DCF + PEG bas). Élevé = bon business dont le prix est bas MAINTENANT vs sa juste valeur. Exige les DEUX : ni un bon business au prix fort, ni une décote sur du médiocre ne suffisent. Trie dessus pour faire remonter les vraies opportunités. Repérage, pas un conseil."],
     ['Cours 3 M', 'left', "Dernier cours et variation sur ~3 mois (période du mini-graphique). Vert = hausse, rouge = baisse."],
     ['Juste valeur', 'left', "Juste valeur DCF + jauge de la zone d'achat (Idéal / Achat / Cher) et écart au cours. Clique pour la fiche complète (hypothèses, valeur manuelle)."],
@@ -8822,7 +8823,6 @@ function screenerRenderQuality(c, data, config) {
         scrEl('div', { kids: [
           scrEl('div', { style: 'display:flex;align-items:center;gap:5px', kids: m.buyback ? [link, scrEl('span', { text: '↺', attrs: { title: "Rachats d'actions réguliers : le nombre d'actions diminue (" + (m.sharesChange != null ? (m.sharesChange * 100).toFixed(0) + ' % sur ~4 ans' : 'baisse') + '). Critère Dividend King.' }, style: 'color:#1d9e74;font-weight:800;cursor:help;font-size:0.85rem' })] : [link] }),
           scrEl('div', { text: cd.name || '', style: 'color:#5b6b7d;font-size:0.72rem;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap' })] })] })] }),
-      scrEl('td', { style: `padding:8px 10px;${bd}`, kids: [scrNoteChip(SCR_PRICE_MAP[String(cd.symbol || '').toUpperCase()] || { valuationScore: cd.valuationScore, rating: cd.rating })] }),
       oppC(SCR_PRICE_MAP[String(cd.symbol || '').toUpperCase()] || m, cd.sector),
       // meme source que TOUTES les autres cellules de la ligne : sinon le cours reste fige au
       // dernier run du VPS a cote d'un objectif et d'une zone calcules, eux, sur le cours du jour.
