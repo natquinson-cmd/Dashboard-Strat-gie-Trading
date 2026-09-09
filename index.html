@@ -3463,6 +3463,34 @@ function ttlEquitySeries() {
   });
   return { months, ig: igArr, stk: stkArr, dwx: dwxArr };
 }
+// Plus-haut du patrimoine sur une serie JOURNALIERE.
+// L'ancien calcul prenait le max de la serie MENSUELLE, dont le dernier point est par
+// construction la valeur du jour : le dashboard annoncait donc "au plus haut historique"
+// en permanence, et tout pic atteint en cours de mois passe etait perdu.
+function ttlAthDaily() {
+  const fx = ttlEurPerUsd();
+  const igEv = [];
+  (typeof realDeposits !== 'undefined' ? realDeposits : []).forEach(d => igEv.push([d.date || '', d.amount || 0]));
+  (typeof realTrades !== 'undefined' ? realTrades : []).forEach(t => igEv.push([t[0] || '', t[2] || 0]));
+  (typeof realDividends !== 'undefined' ? realDividends : []).forEach(d => igEv.push([d.date || '', d.amount || 0]));
+  (typeof realFees !== 'undefined' ? realFees : []).forEach(f => igEv.push([f.date || '', f.amount || 0]));
+  igEv.sort((a, b) => String(a[0]).localeCompare(String(b[0])));
+  const sh = ttlStockHist(), dwK = ttlDwxDates();
+  const jours = new Set();
+  igEv.forEach(e => { if (e[0]) jours.add(String(e[0]).slice(0, 10)); });
+  sh.forEach(h => jours.add(h.date));
+  dwK.forEach(k => jours.add(k));
+  const liste = Array.from(jours).sort();
+  let ath = 0, athDate = null, ig = 0, stk = null, dwx = null, iEv = 0, iSh = 0, iDw = 0;
+  liste.forEach(d => {
+    while (iEv < igEv.length && igEv[iEv][0] && String(igEv[iEv][0]).slice(0, 10) <= d) { ig += igEv[iEv][1]; iEv++; }
+    while (iSh < sh.length && sh[iSh].date <= d) { stk = sh[iSh].value; iSh++; }
+    while (iDw < dwK.length && dwK[iDw] <= d) { dwx = darwinexDaily[dwK[iDw]].value; iDw++; }
+    const tot = ig + (stk != null ? stk * fx : 0) + (dwx != null ? dwx : 0);
+    if (tot > ath) { ath = tot; athDate = d; }
+  });
+  return { ath: ath, athDate: athDate, jours: liste.length };
+}
 function ttlEquityAtMonthStart(y, m) {
   const target = y + '-' + String(m+1).padStart(2,'0');
   const months = ttlEqMonths.months, total = ttlEqMonths.total;
@@ -3496,7 +3524,11 @@ function renderTotalTab() {
   ttlMonthPnl = {};
   Object.keys(ttlDayData).forEach(d => { const ym = d.slice(0,7); const o = ttlMonthPnl[ym] || (ttlMonthPnl[ym] = { ig:0, stk:0, dwx:0, total:0 }); o.ig += ttlDayData[d].ig; o.stk += ttlDayData[d].stk; o.dwx += ttlDayData[d].dwx; o.total += ttlDayData[d].total; });
 
-  let ath = 0; ttlEqMonths.total.forEach(v => { if (v > ath) ath = v; });
+  // Le jour même compte aussi : si le patrimoine actuel dépasse tous les points passés,
+  // c'est un vrai plus-haut. Ce qui changeait, c'est que les pics intra-mois étaient perdus.
+  const athJ = ttlAthDaily();
+  const ath = Math.max(athJ.ath, capTotal);
+  const athQuand = (athJ.ath >= capTotal && athJ.athDate) ? athJ.athDate : null;
   const ddPct = ath > 0 ? (capTotal - ath)/ath*100 : 0;
   const isATH = capTotal > 0 && capTotal >= ath - 0.5;
   const now = new Date();
@@ -3532,7 +3564,7 @@ function renderTotalTab() {
     card(pnlMonth>=0?'kpi-green':'kpi-neg', 'P&L du mois', sgn(pnlMonth), monthNamesFull[now.getMonth()]+' '+now.getFullYear()) +
     card(pnlToday ? (pnlToday>=0?'kpi-green':'kpi-neg') : '', 'P&L du jour', pnlToday ? sgn(pnlToday) : '—', pnlToday ? curDay : 'Pas de mouvement aujourd\'hui') +
     card('', 'Investi total', fmt(Math.round(invTotal))+' €', 'Apports nets cumulés (3 sources)') +
-    card(isATH?'kpi-green':'', 'Plus haut patrimoine', fmt(Math.round(ath))+' €', isATH ? 'Au plus haut historique' : ('Actuel '+ddPct.toFixed(1)+'% sous le pic')) +
+    card(isATH?'kpi-green':'', 'Plus haut patrimoine', fmt(Math.round(ath))+' €', isATH ? 'Au plus haut historique' : ('Actuel '+ddPct.toFixed(1)+'% sous le pic'+(athQuand?' du '+athQuand.split('-').reverse().join('/'):''))) +
     card('', 'Sources agrégées', '3', 'IG · Actions · Darwinex');
 
   if (ttlCalY === null) {
@@ -4054,9 +4086,46 @@ function showFgDetail() {
     let d = '';
     hist.forEach((p, i) => { d += (i ? 'L' : 'M') + x(i).toFixed(1) + ' ' + y(p.v).toFixed(1) + ' '; });
     svg.appendChild(mk('path', { d: d.trim(), fill: 'none', stroke: '#9184ea', 'stroke-width': 1.8 }));
+    // ---- Survol : réticule, point et bulle (date, score, libellé de bande) ----
+    const trait = mk('line', { y1: 0, y2: H - padB, stroke: '#22314f', 'stroke-width': 1, 'stroke-dasharray': '3 3', opacity: 0 });
+    const point = mk('circle', { r: 4, fill: '#9184ea', stroke: '#fff', 'stroke-width': 2, opacity: 0 });
+    svg.appendChild(trait); svg.appendChild(point);
     box.appendChild(scrEl('div', { style: 'margin-bottom:6px;font-size:0.7rem;font-weight:800;color:#22314f;text-transform:uppercase;letter-spacing:.04em',
       text: 'Historique 1 an · ' + hist.length + ' jours' }));
-    box.appendChild(svg);
+    // conteneur relatif : la bulle se place par rapport à lui, pas à la page
+    const wrap = scrEl('div', { style: 'position:relative' });
+    const bulle = scrEl('div', { style: 'position:absolute;pointer-events:none;opacity:0;transition:opacity .12s;'
+      + 'background:#22314f;color:#fff;border-radius:8px;padding:6px 9px;font-size:0.7rem;line-height:1.35;'
+      + 'white-space:nowrap;box-shadow:0 6px 18px rgba(20,30,45,.3);z-index:2' });
+    wrap.appendChild(svg); wrap.appendChild(bulle);
+    const MOIS_FG = ['janv', 'févr', 'mars', 'avr', 'mai', 'juin', 'juil', 'août', 'sept', 'oct', 'nov', 'déc'];
+    const jolieDate = (iso) => { const p = String(iso).split('-');
+      return p.length === 3 ? (Number(p[2]) + ' ' + MOIS_FG[Number(p[1]) - 1] + ' ' + p[0]) : String(iso); };
+    const bouge = (ev) => {
+      const r = svg.getBoundingClientRect();
+      if (!r.width) return;
+      const vx = (ev.clientX - r.left) * (W / r.width);        // écran -> repère du viewBox
+      let i = Math.round((vx - padL) / ((W - padL - 6) / (hist.length - 1)));
+      i = Math.max(0, Math.min(hist.length - 1, i));
+      const p = hist[i], b = fgBand(p.v);
+      trait.setAttribute('x1', x(i).toFixed(1)); trait.setAttribute('x2', x(i).toFixed(1)); trait.setAttribute('opacity', 1);
+      point.setAttribute('cx', x(i).toFixed(1)); point.setAttribute('cy', y(p.v).toFixed(1));
+      point.setAttribute('fill', b.color); point.setAttribute('opacity', 1);
+      bulle.replaceChildren(
+        scrEl('div', { text: jolieDate(p.d), style: 'opacity:.75;font-size:0.64rem' }),
+        scrEl('div', { kids: [ scrEl('b', { text: String(p.v), style: 'font-size:0.9rem' }),
+          scrEl('span', { text: ' · ' + b.label, style: 'color:' + b.color + ';font-weight:700' })] }));
+      bulle.style.opacity = '1';
+      const px = (x(i) / W) * r.width, py = (y(p.v) / H) * r.height;
+      const large = bulle.offsetWidth || 110;
+      bulle.style.left = Math.max(0, Math.min(r.width - large, px - large / 2)) + 'px';
+      bulle.style.top = Math.max(0, py - (bulle.offsetHeight || 40) - 10) + 'px';
+    };
+    svg.addEventListener('mousemove', bouge);
+    svg.addEventListener('mouseleave', () => { bulle.style.opacity = '0';
+      trait.setAttribute('opacity', 0); point.setAttribute('opacity', 0); });
+    svg.style.cursor = 'crosshair';
+    box.appendChild(wrap);
     box.appendChild(scrEl('div', { style: 'display:flex;justify-content:space-between;font-size:0.62rem;color:#94a0b4;margin-bottom:18px', kids: [
       scrEl('span', { text: hist[0].d }), scrEl('span', { text: hist[hist.length - 1].d })] }));
   }
