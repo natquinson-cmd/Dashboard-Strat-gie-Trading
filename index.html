@@ -6293,21 +6293,11 @@ function renderEnfantsTab() {
   if (!c) return;
   const cfg = kidsCfg(), agg = kidsCompute();
   const wrap = scrEl('div', { style: 'background:#fff;border:1px solid #e3e8ee;border-radius:14px;padding:14px;margin-bottom:14px' });
-  // Horodatage du cours pousse par le VPS (meme badge que Mes positions)
-  const kStamp = scrEl('span', { style: 'font-weight:600;color:#5b6b7d' });
-  // marketAt = heure du dernier echange sur la place de cotation ; 'at' = simple heure de collecte.
-  const kMkt = (SCR_KIDS_PRICE && SCR_KIDS_PRICE.marketAt) || null;
-  if (SCR_KIDS_PRICE && (kMkt || SCR_KIDS_PRICE.at)) {
-    const dd = new Date(kMkt || SCR_KIDS_PRICE.at);
-    if (!isNaN(dd)) kStamp.textContent = ' · ' + dd.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })
-      + ' à ' + dd.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-  }
-  const kTip = kMkt
-    ? 'Heure du dernier échange sur ' + ((SCR_KIDS_PRICE && SCR_KIDS_PRICE.ticker) || 'la place de cotation') + '. XETRA est diffusé par Yahoo avec environ 15 min de retard, donc le cours affiché peut avoir jusqu’à un quart d’heure.'
-    : 'Heure de collecte par le VPS (l’heure de marché n’est pas encore poussée).';
-  const kBadge = scrEl('span', { attrs: { title: kTip }, style: 'margin-left:auto;display:flex;align-items:center;gap:6px;font-size:0.74rem;color:#1d9e74;font-weight:700', kids: [
-    scrEl('span', { style: 'width:8px;height:8px;border-radius:50%;background:#1d9e74;display:inline-block' }),
-    scrEl('span', { text: 'en direct' }), kStamp] });
+  // Pastille de fraicheur (meme correctif que le screener) : la couleur juge l'age de la COLLECTE,
+  // et le libelle cesse de dire "en direct" des que les cours vieillissent.
+  const kMktMs = (SCR_KIDS_PRICE && SCR_KIDS_PRICE.marketAt) ? Date.parse(SCR_KIDS_PRICE.marketAt) : NaN;
+  const kBadge = scrLiveBadge((SCR_KIDS_PRICE && SCR_KIDS_PRICE.at) || null, kMktMs,
+    'Ticker suivi : ' + ((SCR_KIDS_PRICE && SCR_KIDS_PRICE.ticker) || '—') + '. XETRA est diffusé par Yahoo avec environ 15 min de retard.');
   wrap.appendChild(scrEl('div', { style: 'display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap', kids: [
     scrEl('span', { text: 'Épargne des enfants', style: 'font-weight:800;color:#22303f;font-size:0.95rem' }),
     scrEl('span', { text: 'poche séparée : elle n’entre PAS dans ton capital, ni dans ta performance, ni dans ta répartition', style: 'font-size:0.72rem;color:#5b6b7d' }),
@@ -7190,6 +7180,64 @@ function scrFreshBadge(iso) {
   return scrEl('span', { attrs: { title: f.title }, text: (f.level === 'bad' ? '⚠ ' : '') + f.age,
     style: 'margin-left:8px;padding:1px 9px;border-radius:20px;font-size:0.7rem;font-weight:800;'
       + 'cursor:help;white-space:nowrap;color:' + f.fg + ';background:' + f.bg });
+}
+
+// FRAICHEUR DU COLLECTEUR DE COURS. Meme piege que le screener ci-dessus : la pastille "en direct"
+// etait codee en dur en vert, elle aurait affiche exactement la meme chose avec un collecteur mort
+// depuis trois semaines. On juge l'age de la COLLECTE (le champ 'at'), surtout PAS l'heure de marche :
+// avant l'ouverture, le dernier echange date forcement de la veille, et c'est parfaitement normal.
+// Seuils en HEURES : le cron pousse des prix chaque jour ouvre, un week-end explique jusqu'a ~65 h.
+const SCR_LIVE_WARN_H = 24, SCR_LIVE_BAD_H = 72;
+function scrLiveFreshness(atIso) {
+  const t = atIso ? Date.parse(atIso) : NaN;
+  if (isNaN(t)) return null;
+  const h = (Date.now() - t) / 3600000;
+  const ago = h < 1 ? 'il y a ' + Math.max(1, Math.round(h * 60)) + ' min'
+            : (h < 24 ? 'il y a ' + Math.round(h) + ' h' : 'il y a ' + Math.floor(h / 24) + ' j');
+  if (h >= SCR_LIVE_BAD_H) return { h: h, ago: ago, level: 'bad', label: '⚠ cours figés', fg: '#c0392b',
+    title: 'COURS PÉRIMÉS : dernière collecte ' + ago + '. Le cron du VPS ne pousse plus de prix. '
+      + 'Vérifie la tâche planifiée des cours sur le VPS et son journal. Tant qu’il est figé, les valeurs, '
+      + 'plus-values et rendements affichés reposent sur des cours périmés.' };
+  if (h >= SCR_LIVE_WARN_H) return { h: h, ago: ago, level: 'warn', label: 'cours différés', fg: '#8a6d1f',
+    title: 'Dernière collecte ' + ago + '. Le cron devrait pousser des prix chaque jour ouvré : un week-end '
+      + 'ou un jour férié l’explique, au-delà il y a un problème sur le VPS.' };
+  return { h: h, ago: ago, level: 'ok', label: 'en direct', fg: '#1d9e74',
+    title: 'Cours à jour, dernière collecte ' + ago + '.' };
+}
+// Remplit un badge de fraicheur : pastille coloree + libelle + LES DEUX horodatages en clair.
+// "cours" = dernier echange en bourse, "collecte" = dernier passage du cron. Les afficher tous les
+// deux leve l'ambiguite du matin (cours de la veille alors que la collecte vient d'avoir lieu).
+function scrLiveBadgeUpdate(el, atIso, marketMs, extraTip) {
+  const f = scrLiveFreshness(atIso);
+  const fg = f ? f.fg : '#9aa7b4';
+  const hm = (ms) => new Date(ms).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  const dm = (ms) => new Date(ms).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' });
+  const parts = [];
+  if (marketMs && !isNaN(marketMs)) {
+    const sameDay = new Date(marketMs).toDateString() === new Date().toDateString();
+    parts.push('cours ' + (sameDay ? '' : dm(marketMs) + ' ') + hm(marketMs));
+  }
+  const atMs = atIso ? Date.parse(atIso) : NaN;
+  if (!isNaN(atMs)) {
+    const sameDayAt = new Date(atMs).toDateString() === new Date().toDateString();
+    parts.push('collecté ' + (sameDayAt ? '' : dm(atMs) + ' ') + hm(atMs));   // la date, sinon une collecte vieille de 8 j ressemble a ce matin
+  }
+  let tip = f ? f.title : 'Fraîcheur des cours inconnue (aucun horodatage de collecte).';
+  if (marketMs && !isNaN(marketMs))
+    tip += ' « cours » = heure du dernier échange en bourse : avant l’ouverture c’est forcément la veille, '
+        +  'c’est normal. « collecté » = dernier passage du cron VPS, c’est LUI qui dit si le pont est vivant.';
+  if (extraTip) tip += ' ' + extraTip;
+  el.setAttribute('title', tip);
+  el.style.color = fg;
+  el.replaceChildren(
+    scrEl('span', { style: 'width:8px;height:8px;border-radius:50%;display:inline-block;background:' + fg }),
+    scrEl('span', { text: f ? f.label : 'cours' }),
+    scrEl('span', { style: 'font-weight:600;color:#5b6b7d', text: parts.length ? ' · ' + parts.join(' · ') : '' }));
+  return el;
+}
+function scrLiveBadge(atIso, marketMs, extraTip) {
+  return scrLiveBadgeUpdate(scrEl('span', { style: 'margin-left:auto;display:flex;align-items:center;gap:6px;font-size:0.74rem;font-weight:700' }),
+    atIso, marketMs, extraTip);
 }
 // Fige le BPA AVANT que les cours temps reel n'ecrasent le prix du snapshot du VPS.
 // Sans ca, scrDcfCore (eps = price / pe) lit une baisse de cours comme une baisse de benefice de
@@ -8320,29 +8368,17 @@ function scrDividendCard(pos) {
 // Module "Mes positions" en haut du screener : saisie manuelle (Revolut), P&L via les cours du screener.
 function screenerPositionsModule() {
   const wrap = scrEl('div', { style: 'background:#fff;border:1px solid #e3e8ee;border-radius:14px;padding:14px;margin-bottom:14px' });
-  // Horodatage de la derniere mise a jour des cours, AFFICHE ICI (il etait dans la note sous le tableau).
-  const liveStamp = scrEl('span', { style: 'font-weight:600;color:#5b6b7d' });
-  // On affiche l'heure du DERNIER ECHANGE EN BOURSE (et non l'heure de collecte du VPS),
-  // repli sur la collecte tant que le VPS ne pousse pas encore le champ ts.
+  // Pastille de fraicheur (cf scrLiveFreshness) : couleur selon l'age de la COLLECTE et les deux
+  // horodatages en clair. Avant, le badge etait vert "en direct" en dur, collecteur mort ou pas.
+  const liveBadge = scrEl('span', { style: 'margin-left:auto;display:flex;align-items:center;gap:6px;font-size:0.74rem;font-weight:700' });
   const refreshStamp = () => {
-    const ms = SCR_MKT_AT ? (SCR_MKT_AT * 1000) : (SCR_LIVE_AT ? Date.parse(SCR_LIVE_AT) : NaN);
-    if (!ms || isNaN(ms)) { liveStamp.textContent = ''; return; }
-    const d = new Date(ms);
-    liveStamp.textContent = ' · ' + d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })
-      + ' à ' + d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
     const hm = (t) => new Date(t).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-    let tip = SCR_MKT_AT
-      ? 'Heure du DERNIER ÉCHANGE EN BOURSE, pas celle de la collecte. Yahoo diffuse XETRA et Amsterdam avec environ 15 min de retard, Copenhague en temps réel.'
-      : 'Heure de collecte par le VPS. L’heure de marché n’est pas encore poussée pour ces lignes.';
+    let extra = '';
     if (SCR_MKT_OLD && SCR_MKT_AT && SCR_MKT_OLD.ts < SCR_MKT_AT)
-      tip += ' Ligne la plus ancienne : ' + SCR_MKT_OLD.ticker + ' à ' + hm(SCR_MKT_OLD.ts * 1000) + '.';
-    // la collecte n'est utile que si on affiche autre chose qu'elle (sinon on la repeterait)
-    if (SCR_MKT_AT && SCR_LIVE_AT && !isNaN(Date.parse(SCR_LIVE_AT))) tip += ' Collecte VPS : ' + hm(Date.parse(SCR_LIVE_AT)) + '.';
-    liveBadge.setAttribute('title', tip);
+      extra = 'Ligne la plus ancienne : ' + SCR_MKT_OLD.ticker + ' à ' + hm(SCR_MKT_OLD.ts * 1000) + '.';
+    scrLiveBadgeUpdate(liveBadge, SCR_LIVE_AT, SCR_MKT_AT ? SCR_MKT_AT * 1000 : NaN, extra);
   };
-  const liveBadge = scrEl('span', { attrs: { title: 'Cours mis à jour automatiquement dès que le cron VPS pousse de nouveaux prix.' }, style: 'margin-left:auto;display:flex;align-items:center;gap:6px;font-size:0.74rem;color:#1d9e74;font-weight:700', kids: [
-    scrEl('span', { style: 'width:8px;height:8px;border-radius:50%;background:#1d9e74;display:inline-block' }),
-    scrEl('span', { text: 'en direct' }), liveStamp] });
+  refreshStamp();
   wrap.appendChild(scrEl('div', { style: 'display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap', kids: [
     scrEl('span', { text: 'Mes positions', style: 'font-weight:800;color:#22303f;font-size:0.95rem' }),
     scrEl('span', { text: 'saisie manuelle (Revolut), synchronisées sur tous tes appareils', style: 'font-size:0.72rem;color:#5b6b7d' }),
