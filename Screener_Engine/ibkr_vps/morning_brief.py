@@ -34,12 +34,11 @@ UA = ('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
       '(KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36')
 CNN_URL = 'https://production.dataviz.cnn.io/index/fearandgreed/graphdata'
 ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages'
-# Modele par defaut : Opus 5 (choix utilisateur). Surchargeable sans toucher au code :
-#     setx ANTHROPIC_MODEL "claude-haiku-4-5-20251001"
-# Le NOMBRE de tokens ne depend pas du modele (memes titres en entree, meme brief en
-# sortie), c'est le PRIX du token qui change : Haiku coute une fraction d'Opus pour
-# une tache de resume de titres. A changer si la facture devient visible.
-ANTHROPIC_MODEL = os.environ.get('ANTHROPIC_MODEL', 'claude-opus-5')
+# Modele par defaut : Haiku 4.5. Resumer une vingtaine de titres en un paragraphe est
+# une tache ou il fait aussi bien qu'un gros modele, pour une fraction du prix.
+# Surchargeable sans toucher au code :
+#     setx ANTHROPIC_MODEL "claude-opus-5"
+ANTHROPIC_MODEL = os.environ.get('ANTHROPIC_MODEL', 'claude-haiku-4-5-20251001')
 NEWS_MAX_AGE_H = 36          # au-dela, ce n'est plus "la nouvelle du matin"
 NEWS_PER_TICKER = 3
 
@@ -199,9 +198,9 @@ def anthropic_brief(api_key, fg, per_ticker, market):
     for n in market:
         lignes.append(f"- [{n.get('p')}] {n['t']}")
     lignes.append('\nACTUALITÉS DES LIGNES DÉTENUES :')
-    for tk, items in per_ticker.items():
-        for n in items:
-            lignes.append(f"- {tk} [{n.get('p')}] {n['t']}")
+    for grp in per_ticker:
+        for n in grp['items']:
+            lignes.append(f"- {grp['ticker']} [{n.get('p')}] {n['t']}")
     body = {
         'model': ANTHROPIC_MODEL,
         'max_tokens': 1500,
@@ -224,6 +223,33 @@ def anthropic_brief(api_key, fg, per_ticker, market):
     return None
 
 
+def normalize_brief(b):
+    """Impose la forme stricte {market, positions[], watch[]}.
+
+    Un modele reste un modele : il peut rendre `positions` en LISTE ou en OBJET
+    indexe par ticker. Or Firebase refuse les cles contenant . $ # [ ] / et un
+    ticker comme VUAA.DE en contient un : l ecriture repartait en HTTP 400 et le
+    script mourait sur une trace brute. On ne fait donc JAMAIS confiance a la forme."""
+    if not isinstance(b, dict):
+        return None
+    out = {'market': str(b.get('market') or '')[:1200], 'positions': [], 'watch': []}
+    pos = b.get('positions')
+    if isinstance(pos, dict):                       # {"META": "..."} -> liste
+        pos = [{'ticker': k, 'text': v} for k, v in pos.items()]
+    if isinstance(pos, list):
+        for p in pos:
+            tk, tx = (p.get('ticker'), p.get('text')) if isinstance(p, dict) else (None, p)
+            if not tx:
+                continue
+            out['positions'].append({'ticker': str(tk or '')[:12], 'text': str(tx)[:400]})
+    w = b.get('watch')
+    if isinstance(w, dict):
+        w = list(w.values())
+    if isinstance(w, list):
+        out['watch'] = [str(x)[:250] for x in w if x][:6]
+    return out if (out['market'] or out['positions'] or out['watch']) else None
+
+
 # ── Orchestration ────────────────────────────────────────────────────────────
 def main():
     db = os.environ.get('FIREBASE_DB_URL')
@@ -242,11 +268,12 @@ def main():
         meta = list(meta.values())
     lignes = [(m.get('symbol'), m.get('name') or '') for m in meta if isinstance(m, dict) and m.get('symbol')]
 
-    per_ticker, total = {}, 0
+    # LISTE et non dict : un ticker comme VUAA.DE ferait une cle Firebase invalide.
+    per_ticker, total = [], 0
     for sym, name in sorted(lignes):
         items = fetch_news(sym, name)
         if items:
-            per_ticker[sym] = items
+            per_ticker.append({'ticker': sym, 'items': items})
             total += len(items)
         time.sleep(0.3)
     market = fetch_market_news()
@@ -257,14 +284,24 @@ def main():
     if not key:
         print('ANTHROPIC_API_KEY absente : pas de synthese, on pousse les titres bruts.')
     elif fg:
-        brief = anthropic_brief(key, fg, per_ticker, market)
+        brief = normalize_brief(anthropic_brief(key, fg, per_ticker, market))
         print('Synthese : ' + ('OK' if brief else 'ECHEC (titres bruts conserves)'))
 
     payload = {'at': _now_iso(), 'fearGreed': fg, 'news': per_ticker,
                'marketNews': market, 'brief': brief,
                'ok': bool(fg), 'model': ANTHROPIC_MODEL if brief else None}
-    push(db, 'dashboard/morningBrief', payload)
-    print('Brief pousse dans dashboard/morningBrief')
+    # push() ne rattrape pas ses erreurs : sans ce garde, un refus de Firebase sortait
+    # en trace brute illisible au lieu de dire ce qui n allait pas.
+    try:
+        push(db, 'dashboard/morningBrief', payload)
+        print('Brief pousse dans dashboard/morningBrief')
+    except urllib.error.HTTPError as e:
+        detail = e.read().decode('utf-8', 'replace')[:300]
+        print(f'ECHEC ecriture Firebase : HTTP {e.code} {detail}')
+        sys.exit(1)
+    except Exception as e:
+        print(f'ECHEC ecriture Firebase : {e}')
+        sys.exit(1)
 
 
 if __name__ == '__main__':
