@@ -3972,6 +3972,7 @@ const FG_COMPONENTS = [
   ['safe_haven_demand', 'Demande valeurs refuges', 'Actions vs obligations Treasury 20 ans'],
   ['junk_bond_demand', 'Demande obligations à risque', 'Spread high-yield vs Treasury']];
 let SCR_BRIEF = null;
+let SCR_BRIEF_REQ = null;   // instant (ms) de la dernière demande de rafraîchissement
 
 function fgBand(v) { return FG_BANDS.find((b) => v < b.max) || FG_BANDS[FG_BANDS.length - 1]; }
 
@@ -4094,7 +4095,8 @@ function renderMorningBrief() {
     })() }),
     scrFreshBadge(b.at, 'Brief produit chaque matin à 07h45 par le VPS.'),
     scrEl('span', { style: 'margin-left:auto;font-size:0.68rem;color:var(--text-muted)',
-      text: br ? 'Synthèse automatique, repérage et non conseil' : 'Titres bruts (synthèse indisponible)' })] }));
+      text: br ? 'Synthèse automatique, repérage et non conseil' : 'Titres bruts (synthèse indisponible)' }),
+    scrBriefRefreshBtn(b)] }));
   const row = scrEl('div', { style: 'display:flex;gap:22px;flex-wrap:wrap;align-items:flex-start' });
   // baromètre cliquable
   if (fg) {
@@ -4154,9 +4156,43 @@ function renderMorningBrief() {
   card.appendChild(row);
   c.replaceChildren(card);
 }
+// Le navigateur ne peut PAS produire le brief lui-même : CNN bloque les appels croisés
+// et la clé Anthropic n'a rien à faire dans une page publique. Le bouton écrit donc une
+// DEMANDE, qu'une tâche VPS lancée chaque minute vient servir.
+function scrBriefRefreshBtn(b) {
+  const briefMs = (b && b.at) ? Date.parse(b.at) : 0;
+  // la demande est honorée dès que le brief devient plus récent qu'elle
+  if (SCR_BRIEF_REQ && briefMs && briefMs >= SCR_BRIEF_REQ) SCR_BRIEF_REQ = null;
+  const btn = scrEl('button', { style: 'border:1px solid var(--border-strong);background:var(--bg-card);color:var(--text-secondary);border-radius:8px;padding:4px 10px;font-size:0.7rem;font-weight:700;cursor:pointer;white-space:nowrap' });
+  const attente = SCR_BRIEF_REQ ? Math.round((Date.now() - SCR_BRIEF_REQ) / 60000) : 0;
+  if (SCR_BRIEF_REQ) {
+    btn.disabled = true;
+    btn.style.cursor = 'progress';
+    btn.style.opacity = '0.7';
+    btn.textContent = attente >= 4 ? '⏳ toujours en attente (' + attente + ' min)' : '⏳ demandé, ~1 min';
+    btn.title = attente >= 4
+      ? 'La demande date de ' + attente + ' min. La tâche MorningBriefOnDemand du VPS ne tourne peut-être pas : vérifie schtasks /Query /TN MorningBriefOnDemand.'
+      : 'Demande envoyée. Le VPS la sert dans la minute, le bloc se mettra à jour tout seul.';
+  } else {
+    btn.textContent = '↻ Rafraîchir';
+    btn.title = 'Demande au VPS de régénérer le brief maintenant. Il vérifie chaque minute, '
+      + 'donc comptez environ une minute. Le bloc se met à jour tout seul.';
+    btn.onclick = () => {
+      if (typeof db === 'undefined' || !db) return;
+      const at = new Date().toISOString();
+      SCR_BRIEF_REQ = Date.parse(at);
+      try { db.ref('dashboard/morningBriefRequest').set({ at: at }); }
+      catch (e) { SCR_BRIEF_REQ = null; console.warn('Demande de rafraîchissement non envoyée', e); }
+      renderMorningBrief();
+    };
+  }
+  return btn;
+}
 function loadMorningBrief() {
   if (typeof db === 'undefined' || !db) return Promise.resolve();
   try { db.ref('dashboard/morningBrief').on('value', (s) => { SCR_BRIEF = s.val(); renderMorningBrief(); }); } catch (e) {}
+  // fait vieillir le compteur d'attente du bouton même sans nouvel événement
+  setInterval(() => { if (SCR_BRIEF_REQ) renderMorningBrief(); }, 30000);
   return Promise.resolve();
 }
 

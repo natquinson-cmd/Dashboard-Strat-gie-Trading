@@ -251,10 +251,37 @@ def normalize_brief(b):
 
 
 # ── Orchestration ────────────────────────────────────────────────────────────
+def _parse_iso(v):
+    """Le dashboard envoie du '...Z', le script du '...+00:00' : on compare des instants,
+    jamais des chaines, sinon la comparaison lexicographique ment."""
+    try:
+        return datetime.fromisoformat(str(v).replace('Z', '+00:00'))
+    except Exception:
+        return None
+
+
+def demande_en_attente(db):
+    """True si une demande de rafraichissement est plus recente que le brief actuel."""
+    req = _parse_iso((get(db, 'dashboard/morningBriefRequest') or {}).get('at'))
+    if req is None:
+        print('Aucune demande de rafraichissement.')
+        return False
+    cur = _parse_iso((get(db, 'dashboard/morningBrief') or {}).get('at'))
+    if cur is not None and cur >= req:
+        print('Demande deja servie (brief plus recent qu elle).')
+        return False
+    print(f'Demande de rafraichissement du {req.isoformat()} : on relance.')
+    return True
+
+
 def main():
     db = os.environ.get('FIREBASE_DB_URL')
     if not db:
         print('FIREBASE_DB_URL manquant'); sys.exit(1)
+
+    # Mode sentinelle : lance toutes les 5 min par une tache, ne fait rien sans demande.
+    if '--if-requested' in sys.argv and not demande_en_attente(db):
+        return
 
     try:
         fg = fetch_fear_greed()

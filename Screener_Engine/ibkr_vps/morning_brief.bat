@@ -35,9 +35,9 @@ echo ===== DEMARRAGE %DATE% %TIME% =====>> "%LOG%"
 if not defined ANTHROPIC_API_KEY echo [!] ANTHROPIC_API_KEY absente : pas de synthese redigee.>> "%LOG%"
 
 if exist ".venv\Scripts\python.exe" (
-  ".venv\Scripts\python.exe" morning_brief.py 1>> "%LOG%" 2>&1
+  ".venv\Scripts\python.exe" morning_brief.py %* 1>> "%LOG%" 2>&1
 ) else (
-  python morning_brief.py 1>> "%LOG%" 2>&1
+  python morning_brief.py %* 1>> "%LOG%" 2>&1
 )
 set "RC=%ERRORLEVEL%"
 echo ===== FIN, code de retour %RC% =====>> "%LOG%"
