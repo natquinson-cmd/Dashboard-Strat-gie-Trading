@@ -3973,6 +3973,9 @@ const FG_COMPONENTS = [
   ['junk_bond_demand', 'Demande obligations à risque', 'Spread high-yield vs Treasury']];
 let SCR_BRIEF = null;
 let SCR_BRIEF_REQ = null;   // instant (ms) de la dernière demande de rafraîchissement
+// Actualités par ligne détenue, rafraîchies en séance par le VPS. Sert la fiche société :
+// un titre décroche, on clique son logo, on voit tout de suite ce qui s'est publié.
+let SCR_POS_NEWS = null;
 
 function fgBand(v) { return FG_BANDS.find((b) => v < b.max) || FG_BANDS[FG_BANDS.length - 1]; }
 
@@ -4191,6 +4194,7 @@ function scrBriefRefreshBtn(b) {
 function loadMorningBrief() {
   if (typeof db === 'undefined' || !db) return Promise.resolve();
   try { db.ref('dashboard/morningBrief').on('value', (s) => { SCR_BRIEF = s.val(); renderMorningBrief(); }); } catch (e) {}
+  try { db.ref('dashboard/positionNews').on('value', (s) => { SCR_POS_NEWS = s.val(); }); } catch (e) {}
   // fait vieillir le compteur d'attente du bouton même sans nouvel événement
   setInterval(() => { if (SCR_BRIEF_REQ) renderMorningBrief(); }, 30000);
   return Promise.resolve();
@@ -6401,6 +6405,29 @@ function scrShowCompanyCard(symbol) {
       scrEl('ul', { style: 'margin:0;padding-left:18px;font-size:0.78rem;line-height:1.5;color:#42546a', kids: (items || []).map((it) => scrEl('li', { text: it, style: 'margin-bottom:5px' })) })] });
     card.appendChild(scrEl('div', { style: 'display:flex;gap:18px;flex-wrap:wrap;border-top:1px solid #eef1f5;padding-top:12px', kids: [
       colList('POINTS FORTS', '🚀', prof.strengths), colList('POINTS FAIBLES', '⚠️', prof.weaknesses)] }));
+  }
+  // ---- Actualités récentes : la réponse à « pourquoi ce titre plonge-t-il ? » ----
+  const grp = ((SCR_POS_NEWS && SCR_POS_NEWS.groups) || []).find((g) => g && String(g.ticker).toUpperCase() === ticker);
+  const arts = (grp && grp.items) || [];
+  if (arts.length) {
+    const box = scrEl('div', { style: 'border-top:1px solid #eef1f5;padding-top:12px;margin-top:12px' });
+    const collecte = (SCR_POS_NEWS && SCR_POS_NEWS.at) ? new Date(SCR_POS_NEWS.at) : null;
+    box.appendChild(scrEl('div', { style: 'display:flex;align-items:center;gap:8px;margin-bottom:8px', kids: [
+      scrEl('span', { text: '📰 ACTUALITÉS RÉCENTES', style: 'font-weight:800;font-size:0.72rem;letter-spacing:.04em;color:#22303f' }),
+      scrEl('span', { style: 'margin-left:auto;font-size:0.64rem;color:#9aa7b4',
+        text: (collecte && !isNaN(collecte)) ? ('relevé ' + collecte.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })) : '' })] }));
+    arts.forEach((n) => {
+      const d = n.ts ? new Date(n.ts * 1000) : null;
+      const quand = (d && !isNaN(d))
+        ? (d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' }) + ' '
+           + d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })) : '';
+      const a = scrEl('a', { attrs: { href: n.u || '#', target: '_blank', rel: 'noopener' },
+        style: 'display:block;text-decoration:none;color:#42546a;padding:5px 0;border-bottom:1px solid #f6f8fb', kids: [
+        scrEl('div', { text: n.t || '', style: 'font-size:0.78rem;line-height:1.4' }),
+        scrEl('div', { text: [n.p, quand].filter(Boolean).join(' · '), style: 'font-size:0.64rem;color:#9aa7b4;margin-top:2px' })] });
+      box.appendChild(a);
+    });
+    card.appendChild(box);
   }
   const upd = (prof && prof.updatedAt) ? ('Profil qualitatif mis à jour le ' + prof.updatedAt + ' · révision semestrielle') : 'Quantitatif en direct · profil qualitatif à générer';
   card.appendChild(scrEl('div', { style: 'font-size:0.62rem;color:#c3ccd6;margin-top:12px;border-top:1px solid #eef1f5;padding-top:8px', text: upd + '. Repérage / information, pas un conseil.' }));

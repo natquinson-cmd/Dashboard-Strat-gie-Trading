@@ -210,6 +210,39 @@ def main():
     except Exception as e:
         print('ETF enfants err', e)
 
+    # --- Actualites des lignes detenues (fiche societe : comprendre un decrochage) ---
+    # Rafraichies ICI et non dans le brief matinal : quand un titre plonge a 15h, des titres
+    # publies le matin n'expliquent rien. Garde de 20 min pour ne pas marteler Yahoo, ce script
+    # pouvant tourner toutes les 15 min. Le filtre anti-bruit est celui du brief, deja teste.
+    try:
+        from morning_brief import fetch_news
+        prev = get(db, 'dashboard/positionNews') or {}
+        age = None
+        if prev.get('at'):
+            try:
+                vu = datetime.fromisoformat(str(prev['at']).replace('Z', '+00:00'))
+                age = (datetime.now(timezone.utc) - vu).total_seconds()
+            except Exception:
+                age = None
+        if age is not None and age < 20 * 60:
+            print(f'Actualites : deja fraiches ({age / 60:.0f} min), on ne rappelle pas Yahoo')
+        else:
+            noms = {}
+            for rec in (get(db, 'stocks/screener/positionMeta') or []):
+                if isinstance(rec, dict) and rec.get('symbol'):
+                    noms[str(rec['symbol']).upper()] = rec.get('name') or ''
+            groupes, tot = [], 0
+            for t in tickers:
+                items = fetch_news(t, noms.get(t, ''))
+                if items:
+                    groupes.append({'ticker': t, 'items': items})
+                    tot += len(items)
+                time.sleep(0.3)
+            push(db, 'dashboard/positionNews', {'at': _now_iso(), 'groups': groupes})
+            print(f'Actualites : {tot} titres sur {len(groupes)} lignes')
+    except Exception as e:
+        print('Actualites err', e)
+
 
 if __name__ == '__main__':
     main()
