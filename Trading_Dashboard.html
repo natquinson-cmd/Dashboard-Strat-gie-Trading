@@ -4129,17 +4129,19 @@ function renderMorningBrief() {
       // Le ticker etait deja en bleu : il RESSEMBLAIT a un lien sans en etre un. On le rend cliquable
       // vers l'article qui a produit cette ligne (celui dont l'horodatage correspond, sinon le plus
       // recent du titre), pour ne plus avoir a ouvrir la fiche societe et scroller jusqu'en bas.
+      // Le ticker ouvre le POP-UP des actualites resumees en francais, au lieu d'envoyer sur Yahoo :
+      // on lit la synthese dans le dashboard, le lien vers l'original reste dans le pop-up.
       const sym = String(p.ticker || '').toUpperCase();
-      const grpN = ((SCR_POS_NEWS && SCR_POS_NEWS.groups) || []).find((g) => g && String(g.ticker).toUpperCase() === sym);
-      const artsN = (grpN && grpN.items) || [];
-      let artN = p.ts ? artsN.find((a) => a && a.ts === p.ts) : null;
-      if (!artN && artsN.length) artN = artsN.slice().sort((a, b) => (b.ts || 0) - (a.ts || 0))[0];
-      const tickEl = (artN && artN.u)
-        ? scrEl('a', { text: p.ticker || '', attrs: { href: artN.u, target: '_blank', rel: 'noopener',
-            title: "Ouvrir l'article : " + (artN.t || '') + (artN.p ? ' (' + artN.p + ')' : '') },
-            style: 'color:#3563e9;font-size:0.76rem;font-weight:700;min-width:52px;text-decoration:underline dotted;text-underline-offset:3px' })
-        : scrEl('b', { text: p.ticker || '', attrs: { title: "Aucun article rattache a cette ligne : le collecteur n'en a pas trouve pour ce titre." },
-            style: 'color:#3563e9;font-size:0.76rem;min-width:52px' });
+      const artsN = scrNewsFor(sym);
+      let tickEl;
+      if (artsN.length) {
+        tickEl = scrEl('span', { text: p.ticker || '', attrs: { title: artsN.length + (artsN.length > 1 ? ' articles résumés' : ' article résumé') + " en français. Cliquer pour les lire ici." },
+          style: 'color:#3563e9;font-size:0.76rem;font-weight:700;min-width:52px;cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px' });
+        tickEl.onclick = () => scrShowNewsModal(sym);
+      } else {
+        tickEl = scrEl('b', { text: p.ticker || '', attrs: { title: "Aucun article rattaché à cette ligne : le collecteur n'en a pas trouvé pour ce titre." },
+          style: 'color:#3563e9;font-size:0.76rem;min-width:52px' });
+      }
       ul.appendChild(scrEl('div', { style: 'display:flex;gap:8px;align-items:baseline', kids: [
         tickEl,
         scrEl('span', { style: 'font-size:0.8rem;color:var(--text-secondary)', kids: [
@@ -6361,6 +6363,65 @@ function scrMoatBlock(m) {
   box.appendChild(scrEl('div', { text: has ? ((m.moatSource ? 'Source : ' + m.moatSource + ' · ' : '') + 'Analyse qualitative curée, pas une donnée mesurée.' + (m.moatUpdatedAt ? ' Révisée le ' + new Date(m.moatUpdatedAt).toLocaleDateString('fr-FR') + ', cycle semestriel.' : ' Aucune date de révision enregistrée.')) : "Moat pas encore analysé pour ce titre (analyse qualitative curée, non auto-actualisée).", style: 'font-size:0.63rem;color:#9aa7b4;margin-top:7px' }));
   return box;
 }
+// ── Pop-up ACTUALITES d'une ligne : les articles RESUMES EN FRANCAIS par le job VPS.
+// On affiche le titre traduit (ft) et le resume (fr) produits par live_prices.py. Le texte
+// d'origine n'est jamais stocke, seul le resume l'est : c'est une synthese, pas une copie.
+// Le lien vers l'article complet reste disponible en bas de chaque bloc.
+let SCR_NEWS_MODAL = null;
+function scrNewsEsc(e) { if (e.key === 'Escape') scrCloseNewsModal(); }
+function scrCloseNewsModal() {
+  if (SCR_NEWS_MODAL) { SCR_NEWS_MODAL.remove(); SCR_NEWS_MODAL = null; document.removeEventListener('keydown', scrNewsEsc, true); }
+}
+function scrNewsFor(symbol) {
+  const t = String(symbol || '').toUpperCase();
+  const g = ((SCR_POS_NEWS && SCR_POS_NEWS.groups) || []).find((x) => x && String(x.ticker).toUpperCase() === t);
+  return (g && g.items) || [];
+}
+function scrShowNewsModal(symbol) {
+  const ticker = String(symbol || '').toUpperCase();
+  const arts = scrNewsFor(ticker);
+  scrCloseNewsModal();
+  const backdrop = scrEl('div', { style: 'position:fixed;inset:0;z-index:10001;background:rgba(20,30,45,0.45);display:flex;align-items:flex-start;justify-content:center;padding:30px 12px;overflow:auto' });
+  backdrop.onclick = (e) => { if (e.target === backdrop) scrCloseNewsModal(); };
+  const card = scrEl('div', { style: 'background:#fff;border-radius:16px;max-width:680px;width:100%;padding:20px 24px;box-shadow:0 24px 60px rgba(20,30,45,0.28)' });
+  const collecte = (SCR_POS_NEWS && SCR_POS_NEWS.at) ? new Date(SCR_POS_NEWS.at) : null;
+  const close = scrEl('span', { text: '✕', attrs: { title: 'Fermer (Echap)' }, style: 'margin-left:auto;cursor:pointer;color:#9aa7b4;font-size:1.15rem;line-height:1' });
+  close.onclick = scrCloseNewsModal;
+  const nom = (SCR_PRICE_MAP[ticker] && SCR_PRICE_MAP[ticker].name) || '';
+  card.appendChild(scrEl('div', { style: 'display:flex;align-items:center;gap:10px;margin-bottom:3px', kids: [
+    scrEl('span', { text: '📰 ' + ticker, style: 'font-weight:800;font-size:1.02rem;color:#22303f' }),
+    scrEl('span', { text: nom, style: 'font-size:0.74rem;color:#5b6b7d;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:230px' }),
+    scrEl('span', { text: (collecte && !isNaN(collecte)) ? ('relevé ' + collecte.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })) : '',
+      style: 'font-size:0.66rem;color:#9aa7b4;white-space:nowrap' }), close] }));
+  card.appendChild(scrEl('div', { text: "Résumés en français produits automatiquement. Le texte d'origine n'est pas conservé, le lien renvoie à l'article complet.",
+    style: 'font-size:0.65rem;color:#9aa7b4;margin-bottom:10px;line-height:1.4' }));
+  if (!arts.length) {
+    card.appendChild(scrEl('div', { text: "Aucun article récent rattaché à cette ligne.", style: 'color:#5b6b7d;font-size:0.85rem;padding:12px 0' }));
+  }
+  arts.forEach((n) => {
+    const d = n.ts ? new Date(n.ts * 1000) : null;
+    const quand = (d && !isNaN(d))
+      ? (d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' }) + ' ' + d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })) : '';
+    const bloc = scrEl('div', { style: 'border-top:1px solid #eef1f5;padding:12px 0' });
+    bloc.appendChild(scrEl('div', { text: n.ft || n.t || '', style: 'font-weight:700;font-size:0.88rem;color:#22303f;line-height:1.35' }));
+    if (n.ft && n.t && n.ft !== n.t) {
+      bloc.appendChild(scrEl('div', { text: n.t, style: 'font-size:0.68rem;color:#c3ccd6;line-height:1.3;margin-top:2px' }));
+    }
+    bloc.appendChild(scrEl('div', { text: [n.p, quand].filter(Boolean).join(' · '), style: 'font-size:0.66rem;color:#9aa7b4;margin:4px 0 7px' }));
+    bloc.appendChild(n.fr
+      ? scrEl('div', { text: n.fr, style: 'font-size:0.83rem;line-height:1.55;color:#42546a' })
+      : scrEl('div', { text: "Résumé français pas encore produit pour cet article. Le job VPS le génère à sa prochaine collecte ; en attendant, le lien ci-dessous mène à l'original.",
+          style: 'font-size:0.75rem;line-height:1.5;color:#8a6d1f;background:#fff2d9;border-radius:8px;padding:7px 9px' }));
+    if (n.u) bloc.appendChild(scrEl('a', { text: "Lire l'article d'origine ↗", attrs: { href: n.u, target: '_blank', rel: 'noopener' },
+      style: 'display:inline-block;margin-top:8px;font-size:0.72rem;color:#3563e9;text-decoration:none;font-weight:600' }));
+    card.appendChild(bloc);
+  });
+  backdrop.appendChild(card);
+  document.body.appendChild(backdrop);
+  SCR_NEWS_MODAL = backdrop;
+  document.addEventListener('keydown', scrNewsEsc, true);
+}
+
 function scrShowCompanyCard(symbol) {
   const ticker = String(symbol || '').toUpperCase();
   const m = SCR_PRICE_MAP[ticker] || {};
@@ -6440,7 +6501,7 @@ function scrShowCompanyCard(symbol) {
            + d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })) : '';
       const a = scrEl('a', { attrs: { href: n.u || '#', target: '_blank', rel: 'noopener' },
         style: 'display:block;text-decoration:none;color:#42546a;padding:5px 0;border-bottom:1px solid #f6f8fb', kids: [
-        scrEl('div', { text: n.t || '', style: 'font-size:0.78rem;line-height:1.4' }),
+        scrEl('div', { text: n.ft || n.t || '', style: 'font-size:0.78rem;line-height:1.4' }),
         scrEl('div', { text: [n.p, quand].filter(Boolean).join(' · '), style: 'font-size:0.64rem;color:#9aa7b4;margin-top:2px' })] });
       box.appendChild(a);
     });

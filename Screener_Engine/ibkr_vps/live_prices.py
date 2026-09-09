@@ -238,6 +238,14 @@ def main():
                     groupes.append({'ticker': t, 'items': items})
                     tot += len(items)
                 time.sleep(0.3)
+            # Resumes FRANCAIS (news_fr) : synthese de 3 a 5 phrases + titre traduit, avec cache
+            # par URL sur le releve precedent. Le texte d'origine n'est jamais stocke. Si la cle
+            # API manque ou que l'appel echoue, on pousse quand meme les titres bruts.
+            try:
+                from news_fr import resumer_groupes
+                groupes = resumer_groupes(groupes, prev)
+            except Exception as e:
+                print('  resumes fr err', e)
             push(db, 'dashboard/positionNews', {'at': _now_iso(), 'groups': groupes})
             print(f'Actualites : {tot} titres sur {len(groupes)} lignes')
     except Exception as e:
