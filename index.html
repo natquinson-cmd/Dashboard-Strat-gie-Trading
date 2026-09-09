@@ -3467,6 +3467,28 @@ function ttlEquitySeries() {
 // L'ancien calcul prenait le max de la serie MENSUELLE, dont le dernier point est par
 // construction la valeur du jour : le dashboard annoncait donc "au plus haut historique"
 // en permanence, et tout pic atteint en cours de mois passe etait perdu.
+// Apport NET du mois, les 3 sources confondues. Trois origines distinctes :
+//   IG  -> realDeposits (dépôts datés)
+//   Darwinex -> darwinexDaily[jour].deposit
+//   Actions -> les TOPUP/WITHDRAWAL du journal Revolut (les BUY/SELL ne sont que des
+//              réallocations internes, ils ne font pas entrer d'argent)
+function ttlApportMois(ym) {
+  let s = 0;
+  (typeof realDeposits !== 'undefined' ? realDeposits : []).forEach((d) => {
+    if (d && String(d.date || '').startsWith(ym)) s += (d.amount || 0);
+  });
+  const dw = (typeof darwinexDaily !== 'undefined' && darwinexDaily) ? darwinexDaily : {};
+  Object.keys(dw).forEach((k) => { if (k.indexOf(ym) === 0 && dw[k] && dw[k].deposit) s += dw[k].deposit; });
+  const brut = (typeof SCR_TX !== 'undefined' && SCR_TX) ? SCR_TX : null;
+  const tx = Array.isArray(brut) ? brut : (brut && typeof brut === 'object' ? Object.values(brut) : []);
+  tx.forEach((t) => {
+    if (!t || String(t.date || '').indexOf(ym) !== 0) return;
+    if (t.type !== 'TOPUP' && t.type !== 'WITHDRAWAL') return;
+    const eur = (t.ccy === 'EUR') ? (t.total || 0) : ((t.total || 0) / (t.fx || 1));
+    s += (t.type === 'TOPUP' ? eur : -eur);
+  });
+  return s;
+}
 function ttlAthDaily() {
   const fx = ttlEurPerUsd();
   const igEv = [];
@@ -3526,6 +3548,7 @@ function renderTotalTab() {
 
   // Le jour même compte aussi : si le patrimoine actuel dépasse tous les points passés,
   // c'est un vrai plus-haut. Ce qui changeait, c'est que les pics intra-mois étaient perdus.
+  const apportMois = ttlApportMois(curYM);
   const athJ = ttlAthDaily();
   const ath = Math.max(athJ.ath, capTotal);
   const athQuand = (athJ.ath >= capTotal && athJ.athDate) ? athJ.athDate : null;
@@ -3563,8 +3586,20 @@ function renderTotalTab() {
     card(pnlTotal>=0?'kpi-green':'kpi-neg', 'P&L cumulé total', sgn(pnlTotal), (pnlPct>=0?'+':'')+pnlPct.toFixed(2)+'% sur '+fmt(Math.round(invTotal))+' € investis') +
     card(pnlMonth>=0?'kpi-green':'kpi-neg', 'P&L du mois', sgn(pnlMonth), monthNamesFull[now.getMonth()]+' '+now.getFullYear()) +
     card(pnlToday ? (pnlToday>=0?'kpi-green':'kpi-neg') : '', 'P&L du jour', pnlToday ? sgn(pnlToday) : '—', pnlToday ? curDay : 'Pas de mouvement aujourd\'hui') +
-    card('', 'Investi total', fmt(Math.round(invTotal))+' €', 'Apports nets cumulés (3 sources)') +
-    card(isATH?'kpi-green':'', 'Plus haut patrimoine', fmt(Math.round(ath))+' €', isATH ? 'Au plus haut historique' : ('Actuel '+ddPct.toFixed(1)+'% sous le pic'+(athQuand?' du '+athQuand.split('-').reverse().join('/'):''))) +
+    // apport du mois mis en avant : sinon rien ne distingue un capital qui monte par
+    // performance d'un capital qui monte parce qu'on a remis de l'argent dedans.
+    card('', 'Investi total', fmt(Math.round(invTotal))+' €',
+      'Apports nets cumulés (3 sources)' + (Math.abs(apportMois) >= 1
+        ? ' · <span style="color:' + (apportMois >= 0 ? 'var(--positive)' : 'var(--negative)') + ';font-weight:700">'
+          + (apportMois >= 0 ? '+' : '') + fmt(Math.round(apportMois)) + ' €</span> ce mois'
+        : ' · aucun apport ce mois')) +
+    // l'écart au pic en ROUGE, avec le montant entre parenthèses : un pourcentage seul
+    // ne dit pas combien d'euros séparent du plus-haut.
+    card(isATH?'kpi-green':'', 'Plus haut patrimoine', fmt(Math.round(ath))+' €',
+      isATH ? 'Au plus haut historique'
+            : ('Actuel <span style="color:var(--negative);font-weight:700">' + ddPct.toFixed(1) + ' %'
+               + ' (' + fmt(Math.round(capTotal - ath)) + ' €)</span> sous le pic'
+               + (athQuand ? ' du ' + athQuand.split('-').reverse().join('/') : ''))) +
     card('', 'Sources agrégées', '3', 'IG · Actions · Darwinex');
 
   if (ttlCalY === null) {
@@ -12760,6 +12795,11 @@ Promise.all([
   loadIgSyncStatus(),
   loadPontStatus(),
   loadMorningBrief(),
+  // SCR_TX n'était chargé que par l'onglet Portefeuille : sans ça, l'apport du mois
+  // ignorait les versements Revolut tant qu'on n'avait pas ouvert cet onglet.
+  (typeof db !== 'undefined' && db
+    ? db.ref('stocks/screener/transactions').once('value').then((s) => { if (!SCR_TX) SCR_TX = s.val() || null; }).catch(() => {})
+    : Promise.resolve()),
   loadKidsFromFirebase(),
   loadTradesFromFirebase(),
   loadDividendsFromFirebase(),

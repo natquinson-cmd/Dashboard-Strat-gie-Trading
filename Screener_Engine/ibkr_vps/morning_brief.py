@@ -167,6 +167,43 @@ def fetch_market_news(limit=12):
     return out[:limit]
 
 
+# ── 2 bis. Calendrier economique americain (Nasdaq, sans cle) ────────────────
+# Nasdaq publie 25 a 70 evenements par jour, en majorite du bruit (demandes de credit
+# immobilier, indices hebdo...). On ne garde que ce qui deplace reellement les indices.
+ECON_CLES = re.compile(
+    r'\b(CPI|PPI|PCE|Nonfarm|Non-Farm|Payroll|Unemployment Rate|FOMC|Interest Rate Decision'
+    r'|Fed Interest Rate|GDP|Retail Sales|ISM|Consumer Confidence|Michigan|Durable Goods'
+    r'|Initial Jobless Claims|Beige Book|Powell)\b', re.I)
+
+
+def fetch_econ_calendar(days=7):
+    """Evenements macro US des `days` prochains jours, dates FIABLES (contrairement aux
+    articles de presse, qui evoquent les rendez-vous sans toujours les dater)."""
+    out, vus = [], set()
+    for k in range(days):
+        jour = (datetime.now() + timedelta(days=k)).strftime('%Y-%m-%d')
+        try:
+            j = _get_json('https://api.nasdaq.com/api/calendar/economicevents?date=' + jour)
+        except Exception as e:
+            print(f'  calendrier {jour} : {e}')
+            continue
+        for r in ((j.get('data') or {}).get('rows') or []):
+            if 'united states' not in str(r.get('country') or '').lower():
+                continue
+            nom = re.sub(r'<[^>]*>', '', str(r.get('eventName') or '')).strip()
+            if not nom or not ECON_CLES.search(nom):
+                continue
+            cle = (jour, nom, str(r.get('consensus') or ''))
+            if cle in vus:
+                continue
+            vus.add(cle)
+            out.append({'date': jour, 'heure': str(r.get('gmt') or '').strip(),
+                        'nom': nom[:90], 'consensus': str(r.get('consensus') or '').strip(),
+                        'precedent': str(r.get('previous') or '').strip()})
+        time.sleep(0.3)
+    return out
+
+
 # ── 3. Synthese Anthropic ────────────────────────────────────────────────────
 PROMPT = """Tu rédiges le brief matinal du tableau de bord d'investissement d'un particulier français.
 
@@ -177,9 +214,11 @@ RÈGLES ABSOLUES :
 - Sois bref. Le lecteur lit ça en deux minutes avant l'ouverture.
 
 RÈGLE SUR LES DATES, LA PLUS IMPORTANTE :
-- Tu ne cites une échéance QUE si elle apparaît explicitement dans les données ci-dessous.
-- Tu n'écris JAMAIS une date de mémoire (CPI, FOMC, emploi, résultats...). Si les articles
-  mentionnent un rendez-vous sans le dater, dis "prochainement" plutôt que d'inventer un jour.
+- Le CALENDRIER ÉCONOMIQUE ci-dessous est une source FIABLE : cite ses dates, ses heures et
+  ses consensus sans hésiter, ce sont les échéances qui comptent pour la semaine.
+- Pour tout le reste, tu ne cites une échéance QUE si elle apparaît dans les données fournies.
+- Tu n'écris JAMAIS une date de mémoire. Si un article mentionne un rendez-vous sans le dater,
+  dis "prochainement" plutôt que d'inventer un jour.
 
 STRUCTURE ATTENDUE, en JSON strict et rien d'autre :
 {"market": "un paragraphe de 2 à 4 phrases sur le climat général : indices, taux, macro, et ce que dit l'indice Fear & Greed",
@@ -192,7 +231,7 @@ DONNÉES DU JOUR :
 """
 
 
-def anthropic_brief(api_key, fg, per_ticker, market):
+def anthropic_brief(api_key, fg, per_ticker, market, econ=None):
     """Retourne le dict {market, positions, watch} ou None. Ne leve jamais."""
     lignes = []
     JOURS = ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche']
@@ -206,6 +245,16 @@ def anthropic_brief(api_key, fg, per_ticker, market):
     comp = ', '.join(f"{k} {v['score']} ({v['rating']})" for k, v in (fg.get('components') or {}).items())
     if comp:
         lignes.append('Sous-indicateurs : ' + comp)
+    if econ:
+        lignes.append('\nCALENDRIER ÉCONOMIQUE AMÉRICAIN (dates fiables, heures de New York) :')
+        for e in econ:
+            det = []
+            if e.get('consensus'):
+                det.append('consensus ' + e['consensus'])
+            if e.get('precedent'):
+                det.append('précédent ' + e['precedent'])
+            lignes.append(f"- {e['date']} {e.get('heure', '')} {e['nom']}"
+                          + (' (' + ', '.join(det) + ')' if det else ''))
     lignes.append('\nACTUALITÉS DE MARCHÉ :')
     for n in market:
         lignes.append(f"- [{n.get('p')}] {n['t']}")
@@ -329,6 +378,8 @@ def main():
             total += len(items)
         time.sleep(0.3)
     market = fetch_market_news()
+    econ = fetch_econ_calendar()
+    print(f'Calendrier economique : {len(econ)} evenements US retenus sur 7 jours')
     print(f'Actualites : {total} sur {len(per_ticker)} lignes, {len(market)} de marche')
 
     brief = None
@@ -336,7 +387,7 @@ def main():
     if not key:
         print('ANTHROPIC_API_KEY absente : pas de synthese, on pousse les titres bruts.')
     elif fg:
-        brief = normalize_brief(anthropic_brief(key, fg, per_ticker, market))
+        brief = normalize_brief(anthropic_brief(key, fg, per_ticker, market, econ))
         if brief:
             # Horodatage de l'actualite la PLUS RECENTE de chaque ligne : le modele redige,
             # il n'invente pas de date. Le dashboard l'affiche entre parentheses.
@@ -360,7 +411,7 @@ def main():
     except Exception as e:
         print(f'  resumes fr err : {e}')
 
-    payload = {'at': _now_iso(), 'fearGreed': fg, 'news': per_ticker,
+    payload = {'at': _now_iso(), 'fearGreed': fg, 'news': per_ticker, 'econ': econ,
                'marketNews': market, 'brief': brief,
                'ok': bool(fg), 'model': ANTHROPIC_MODEL if brief else None}
     # push() ne rattrape pas ses erreurs : sans ce garde, un refus de Firebase sortait
