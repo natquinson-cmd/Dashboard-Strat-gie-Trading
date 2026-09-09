@@ -5557,8 +5557,10 @@ function scrRerenderQuality() {
   try { screenerRenderQuality(SCR_LAST_Q.c, SCR_LAST_Q.data, SCR_LAST_Q.config); } catch (e) {}
 }
 // Critere de tri du tableau screener : 'note' (qualite), 'opp' (opportunite = qualite decotee), 'pot' (potentiel/an)
-let SCR_SORT = 'valpot';   // défaut : juste valeur + potentiel/an
-try { const _s = localStorage.getItem('scrSortV2'); if (_s === 'opp' || _s === 'pot' || _s === 'note' || _s === 'valpot') SCR_SORT = _s; } catch (e) {}
+// Classement FIGE sur juste valeur + potentiel/an : le selecteur de tri a ete retire (09/09/2026).
+// On ne relit plus scrSortV2 : un ancien choix ('note', 'opp'...) resterait colle sans aucun moyen
+// d'en sortir, les boutons n'existant plus. const pour garantir qu'il ne derive pas.
+const SCR_SORT = 'valpot';
 function scrDcf(m, sector) {
   m = m || {};
   // Override de valorisation PAR TITRE (fiche fair value) : hypotheses propres a ce titre ou valeur manuelle.
@@ -8677,7 +8679,7 @@ function screenerRenderQuality(c, data, config) {
   const scrRowOpp = (cd) => { const o = scrOppScore(scrRowMetrics(cd), cd.sector); return (o != null) ? o : -1; };
   const scrRowPot = (cd) => { const d = scrDcf(scrRowMetrics(cd), cd.sector); return d ? d.cagr : -Infinity; };
   const scrRowValPot = (cd) => scrValPotScore(scrRowMetrics(cd), cd.sector);   // juste valeur + potentiel/an
-  const sortFn = SCR_SORT === 'opp' ? scrRowOpp : (SCR_SORT === 'pot' ? scrRowPot : (SCR_SORT === 'valpot' ? scrRowValPot : scrRowNote));
+  const sortFn = scrRowValPot;   // tri fige : juste valeur + potentiel/an (plus de selecteur)
   const top = [...(data.top || [])].sort((a, b) => sortFn(b) - sortFn(a));
   const frag = document.createDocumentFragment();
   frag.appendChild(screenerPositionsModule());
@@ -8701,21 +8703,11 @@ function screenerRenderQuality(c, data, config) {
 
   const refresh = scrEl('button', { text: 'Rafraîchir', style: 'padding:7px 13px;border:1px solid #e3e8ee;border-radius:9px;background:#fff;font-weight:600;cursor:pointer' });
   refresh.onclick = () => renderScreenerTab();
-  // Selecteur de tri : Note (qualite) / Opportunite (qualite decotee) / Potentiel/an
-  const sortRow = scrEl('div', { style: 'display:inline-flex;border:1px solid #e3e8ee;border-radius:9px;overflow:hidden' });
-  [['valpot', 'Juste valeur + Pot.', 'Classement par défaut : combinaison de la juste valeur (décote vs juste valeur DCF) ET du potentiel annuel. Fait remonter les titres à la fois décotés et à fort rendement attendu.'],
-   ['note', 'Note', 'Trier par la note globale (qualité + moat).'],
-   ['opp', 'Opportunité', 'Trier par le score Opportunité = qualité EN SOLDE (bonne note ET prix bas vs sa juste valeur / PEG). Fait remonter les vraies opportunités actuelles.'],
-   ['pot', 'Potentiel/an', 'Trier par le rendement annuel attendu (DCF).']
-  ].forEach(([v, label, tip]) => {
-    const on = SCR_SORT === v;
-    const b = scrEl('button', { text: label, attrs: { title: tip }, style: `padding:7px 12px;border:none;cursor:pointer;font-size:0.78rem;font-weight:700;${on ? 'background:#3563e9;color:#fff' : 'background:#fff;color:#5b6b7d'}` });
-    b.onclick = () => { if (SCR_SORT === v) return; SCR_SORT = v; try { localStorage.setItem('scrSortV2', v); } catch (e) {} scrRerenderQuality(); };
-    sortRow.appendChild(b);
-  });
+  // Selecteur de tri RETIRE : le classement ne se choisit plus, il est fige sur juste valeur + potentiel/an.
+  // On garde le critere affiche en clair, pour qu'un tableau non triable ne soit pas un tableau opaque.
   frag.appendChild(scrEl('div', { style: 'display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px', kids: [
-    scrEl('div', { style: 'display:flex;align-items:center;gap:8px;flex-wrap:wrap', kids: [
-      scrEl('span', { style: 'color:#5b6b7d;font-size:0.76rem', text: 'Trier :' }), sortRow] }),
+    scrEl('span', { attrs: { title: "Classement figé : combinaison de la décote vs juste valeur DCF et du potentiel annuel attendu. Il n'y a plus d'autre tri." },
+      style: 'color:#5b6b7d;font-size:0.76rem;cursor:help', text: 'Classé par juste valeur + potentiel/an' }),
     scrEl('div', { style: 'display:flex;align-items:center;gap:10px', kids: [
       scrEl('span', { style: 'color:#5b6b7d;font-size:0.76rem', text: (data.generatedAt ? 'Généré le ' + new Date(data.generatedAt).toLocaleString('fr-FR') : '') + ' · Yahoo' }),
       scrFreshBadge(data.generatedAt), refresh] })]}));
