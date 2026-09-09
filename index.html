@@ -4079,6 +4079,12 @@ function renderMorningBrief() {
   const card = scrEl('div', { style: 'background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:20px 22px;margin-bottom:26px;box-shadow:0 8px 22px rgba(34,49,77,0.08)' });
   card.appendChild(scrEl('div', { style: 'display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px', kids: [
     scrEl('span', { text: '☕ Le brief du matin', style: 'font-weight:700;color:var(--text-primary);font-size:0.98rem' }),
+    // date ET heure en clair : la pastille dit « aujourd'hui », elle ne dit pas à quelle heure.
+    scrEl('span', { style: 'font-size:0.72rem;color:var(--text-secondary)', text: (() => {
+      const d = b.at ? new Date(b.at) : null;
+      return (d && !isNaN(d)) ? ('Mis à jour le ' + d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })
+        + ' à ' + d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })) : '';
+    })() }),
     scrFreshBadge(b.at, 'Brief produit chaque matin à 07h45 par le VPS.'),
     scrEl('span', { style: 'margin-left:auto;font-size:0.68rem;color:var(--text-muted)',
       text: br ? 'Synthèse automatique, repérage et non conseil' : 'Titres bruts (synthèse indisponible)' })] }));
@@ -4103,9 +4109,16 @@ function renderMorningBrief() {
     const ul = scrEl('div', { style: 'display:flex;flex-direction:column;gap:6px;margin-bottom:12px' });
     lignes.forEach((p) => {
       if (!p || !p.text) return;
+      // date de l'actualité la plus récente de cette ligne, pour juger de sa fraîcheur
+      const quand = p.ts ? new Date(p.ts * 1000) : null;
+      const dTxt = (quand && !isNaN(quand))
+        ? ' (' + quand.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })
+          + ' ' + quand.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) + ')' : '';
       ul.appendChild(scrEl('div', { style: 'display:flex;gap:8px;align-items:baseline', kids: [
         scrEl('b', { text: p.ticker || '', style: 'color:#3563e9;font-size:0.76rem;min-width:52px' }),
-        scrEl('span', { text: p.text, style: 'font-size:0.8rem;color:var(--text-secondary)' })] }));
+        scrEl('span', { style: 'font-size:0.8rem;color:var(--text-secondary)', kids: [
+          scrEl('span', { text: p.text }),
+          scrEl('span', { text: dTxt, style: 'color:var(--text-muted);white-space:nowrap' })] })] }));
     });
     txt.appendChild(ul);
   }

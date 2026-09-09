@@ -285,6 +285,15 @@ def main():
         print('ANTHROPIC_API_KEY absente : pas de synthese, on pousse les titres bruts.')
     elif fg:
         brief = normalize_brief(anthropic_brief(key, fg, per_ticker, market))
+        if brief:
+            # Horodatage de l'actualite la PLUS RECENTE de chaque ligne : le modele redige,
+            # il n'invente pas de date. Le dashboard l'affiche entre parentheses.
+            by_tk = {g['ticker']: g['items'] for g in per_ticker}
+            for p in brief['positions']:
+                items = by_tk.get(p.get('ticker')) or []
+                ts = max((i.get('ts') or 0) for i in items) if items else 0
+                if ts:
+                    p['ts'] = int(ts)
         print('Synthese : ' + ('OK' if brief else 'ECHEC (titres bruts conserves)'))
 
     payload = {'at': _now_iso(), 'fearGreed': fg, 'news': per_ticker,
