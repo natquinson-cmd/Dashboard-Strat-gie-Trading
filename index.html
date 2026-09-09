@@ -4008,6 +4008,7 @@ let SCR_BRIEF_REQ = null;   // instant (ms) de la dernière demande de rafraîch
 // Actualités par ligne détenue, rafraîchies en séance par le VPS. Sert la fiche société :
 // un titre décroche, on clique son logo, on voit tout de suite ce qui s'est publié.
 let SCR_POS_NEWS = null;
+let SCR_FG_MODAL = null;   // modale Fear & Greed ouverte, pour ne pas en empiler deux
 
 function fgBand(v) { return FG_BANDS.find((b) => v < b.max) || FG_BANDS[FG_BANDS.length - 1]; }
 
@@ -4043,12 +4044,15 @@ function fgGauge(score, w) {
 function showFgDetail() {
   const fg = SCR_BRIEF && SCR_BRIEF.fearGreed;
   if (!fg) return;
+  // Deux clics successifs empilaient deux modales : on ferme celle qui traine avant d en ouvrir une.
+  if (SCR_FG_MODAL) { SCR_FG_MODAL.remove(); SCR_FG_MODAL = null; }
   const backdrop = scrEl('div', { style: 'position:fixed;inset:0;z-index:10000;background:rgba(20,30,45,0.45);display:flex;align-items:flex-start;justify-content:center;padding:30px 12px;overflow:auto' });
-  backdrop.onclick = (e) => { if (e.target === backdrop) backdrop.remove(); };
+  backdrop.onclick = (e) => { if (e.target === backdrop) { backdrop.remove(); SCR_FG_MODAL = null; } };
+  SCR_FG_MODAL = backdrop;
   const box = scrEl('div', { style: 'background:#fff;border-radius:16px;max-width:900px;width:100%;padding:22px 24px;box-shadow:0 20px 60px rgba(20,30,45,0.35)' });
   const band = fgBand(fg.score);
   const close = scrEl('button', { text: '×', style: 'margin-left:auto;border:none;background:none;font-size:1.6rem;line-height:1;color:#94a0b4;cursor:pointer' });
-  close.onclick = () => backdrop.remove();
+  close.onclick = () => { backdrop.remove(); SCR_FG_MODAL = null; };
   box.appendChild(scrEl('div', { style: 'display:flex;align-items:center;gap:12px;margin-bottom:4px', kids: [
     scrEl('span', { text: 'Fear & Greed Index', style: 'font-weight:800;color:#22314f;font-size:1.05rem' }),
     scrEl('span', { text: fg.score + ' · ' + band.label, style: 'font-weight:800;color:' + band.color }), close] }));
@@ -4094,7 +4098,7 @@ function showFgDetail() {
       text: 'Historique 1 an · ' + hist.length + ' jours' }));
     // conteneur relatif : la bulle se place par rapport à lui, pas à la page
     const wrap = scrEl('div', { style: 'position:relative' });
-    const bulle = scrEl('div', { style: 'position:absolute;pointer-events:none;opacity:0;transition:opacity .12s;'
+    const bulle = scrEl('div', { style: 'position:absolute;pointer-events:none;opacity:0;'
       + 'background:#22314f;color:#fff;border-radius:8px;padding:6px 9px;font-size:0.7rem;line-height:1.35;'
       + 'white-space:nowrap;box-shadow:0 6px 18px rgba(20,30,45,.3);z-index:2' });
     wrap.appendChild(svg); wrap.appendChild(bulle);
