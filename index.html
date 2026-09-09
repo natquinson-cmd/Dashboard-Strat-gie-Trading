@@ -4208,7 +4208,10 @@ function scrBriefRefreshBtn(b) {
 function loadMorningBrief() {
   if (typeof db === 'undefined' || !db) return Promise.resolve();
   try { db.ref('dashboard/morningBrief').on('value', (s) => { SCR_BRIEF = s.val(); renderMorningBrief(); }); } catch (e) {}
-  try { db.ref('dashboard/positionNews').on('value', (s) => { SCR_POS_NEWS = s.val(); }); } catch (e) {}
+  // Les actus alimentent les LIENS du brief : sans re-rendu ici, le brief dessine des l arrivee de
+  // morningBrief restait sans lien si positionNews arrivait apres (course des deux listeners), et
+  // plus rien ne le redessinait. Couvre aussi les rafraichissements d actus en seance (20 min).
+  try { db.ref('dashboard/positionNews').on('value', (s) => { SCR_POS_NEWS = s.val(); renderMorningBrief(); }); } catch (e) {}
   // fait vieillir le compteur d'attente du bouton même sans nouvel événement
   setInterval(() => { if (SCR_BRIEF_REQ) renderMorningBrief(); }, 30000);
   return Promise.resolve();
