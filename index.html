@@ -7600,11 +7600,22 @@ async function scrMergeMoat() {
 // Overrides de VALORISATION par titre (fiche fair value facon Simply Wall St) : hypotheses DCF propres a chaque
 // titre et/ou juste valeur manuelle, stockees dans Firebase (cross-device). { TICKER: {ret,growth,n,gterm,exitPe,fairManual,updatedAt} }
 let SCR_VAL_OVERRIDES = {};
+// Un POINT est interdit dans une clé Firebase. Or NOVO-B.CO, RMS.PA et SAF.PA en ont un :
+// db.ref('.../NOVO-B.CO').set() levait une exception, avalée par un catch vide, donc la
+// sauvegarde échouait EN SILENCE et l'override repartait à sa valeur automatique au
+// rechargement. On assainit donc la CLÉ, et on garde le ticker réel DANS l'objet pour
+// pouvoir revenir en arrière à la lecture (les entrées historiques n'ont pas ce champ,
+// leur clé fait alors foi).
+function scrOvKey(t) { return String(t || '').toUpperCase().replace(/[.#$\[\]\/]/g, '_'); }
 async function scrMergeValuationOverrides() {
   if (typeof db === 'undefined' || !db) return;
   try {
     const ov = (await db.ref('stocks/screener/valuationOverrides').once('value')).val();
-    SCR_VAL_OVERRIDES = (ov && typeof ov === 'object') ? ov : {};
+    SCR_VAL_OVERRIDES = {};
+    Object.keys((ov && typeof ov === 'object') ? ov : {}).forEach((k) => {
+      const v = ov[k];
+      if (v && typeof v === 'object') SCR_VAL_OVERRIDES[String(v.symbol || k).toUpperCase()] = v;
+    });
   } catch (e) { SCR_VAL_OVERRIDES = {}; }
 }
 function scrSaveValuationOverride(ticker, ov) {
@@ -7613,13 +7624,16 @@ function scrSaveValuationOverride(ticker, ov) {
   const clean = {}; ['ret', 'growth', 'n', 'gterm', 'exitPe', 'fairManual'].forEach((f) => { if (ov[f] != null && isFinite(ov[f])) clean[f] = ov[f]; });
   if (!Object.keys(clean).length) { scrClearValuationOverride(k); return; }
   clean.updatedAt = new Date().toISOString();
+  clean.symbol = k;                       // ticker RÉEL : la clé Firebase, elle, peut être assainie
   SCR_VAL_OVERRIDES[k] = clean;
-  try { if (typeof db !== 'undefined' && db) db.ref('stocks/screener/valuationOverrides/' + k).set(clean); } catch (e) {}
+  try { if (typeof db !== 'undefined' && db) db.ref('stocks/screener/valuationOverrides/' + scrOvKey(k)).set(clean); }
+  catch (e) { console.warn('Override non enregistré pour ' + k, e); }   // ne plus échouer en silence
 }
 function scrClearValuationOverride(ticker) {
   const k = String(ticker || '').toUpperCase(); if (!k) return;
   delete SCR_VAL_OVERRIDES[k];
-  try { if (typeof db !== 'undefined' && db) db.ref('stocks/screener/valuationOverrides/' + k).remove(); } catch (e) {}
+  try { if (typeof db !== 'undefined' && db) db.ref('stocks/screener/valuationOverrides/' + scrOvKey(k)).remove(); }
+  catch (e) { console.warn('Override non supprimé pour ' + k, e); }
 }
 // Fondamentaux des tickers DÉTENUS hors univers screener (ex SNDK, GS rejetés par le gate) : comble les trous de SCR_PRICE_MAP.
 async function scrMergePositionMeta() {
