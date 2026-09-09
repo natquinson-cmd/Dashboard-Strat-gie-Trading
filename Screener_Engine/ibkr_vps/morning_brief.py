@@ -323,6 +323,18 @@ def main():
                     p['ts'] = int(ts)
         print('Synthese : ' + ('OK' if brief else 'ECHEC (titres bruts conserves)'))
 
+    # Resumes FRANCAIS des actualites : produits ICI et nulle part ailleurs, donc une fois par
+    # jour a 07h45 et a la demande via le bouton Rafraichir (--if-requested). live_prices.py, qui
+    # tourne toutes les 15 min, se borne a les recopier : la depense API reste quotidienne.
+    try:
+        from news_fr import resumer_groupes
+        prev_news = get(db, 'dashboard/positionNews') or {}
+        per_ticker = resumer_groupes(per_ticker, prev_news, api_key=key, autoriser_appel=True)
+        push(db, 'dashboard/positionNews', {'at': _now_iso(), 'groups': per_ticker})
+        print('Actualites resumees poussees dans dashboard/positionNews')
+    except Exception as e:
+        print(f'  resumes fr err : {e}')
+
     payload = {'at': _now_iso(), 'fearGreed': fg, 'news': per_ticker,
                'marketNews': market, 'brief': brief,
                'ok': bool(fg), 'model': ANTHROPIC_MODEL if brief else None}

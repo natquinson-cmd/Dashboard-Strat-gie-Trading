@@ -103,7 +103,7 @@ def _appel(api_key, lots):
     return []
 
 
-def resumer_groupes(groupes, prev=None, api_key=None):
+def resumer_groupes(groupes, prev=None, api_key=None, autoriser_appel=True):
     """Ajoute ft (titre francais) et fr (resume) a chaque article.
 
     groupes : [{'ticker': 'META', 'items': [{'t','u','p','ts'}, ...]}, ...]
@@ -113,11 +113,9 @@ def resumer_groupes(groupes, prev=None, api_key=None):
     api_key = api_key or os.environ.get('ANTHROPIC_API_KEY')
     if not groupes:
         return groupes
-    if not api_key:
-        print('  ANTHROPIC_API_KEY absente : pas de resumes francais, on garde les titres bruts.')
-        return groupes
-
     # --- cache : ce qui a deja ete resume pour la meme URL ---
+    # Applique AVANT toute sortie anticipee : un passage sans cle API, ou en mode recopie,
+    # ne doit jamais effacer des resumes deja payes en les omettant du push suivant.
     cache = {}
     for g in ((prev or {}).get('groups') or []):
         for it in (g.get('items') or []):
@@ -138,6 +136,15 @@ def resumer_groupes(groupes, prev=None, api_key=None):
 
     if not a_faire:
         print(f'  resumes : {len(cache)} en cache, aucun nouvel article a traduire')
+        return groupes
+    if not autoriser_appel:
+        # Mode RECOPIE : on conserve les resumes deja payes, on n'en produit aucun. C'est le
+        # mode de live_prices.py, qui tourne toutes les 15 min : sans cela chaque passage
+        # aurait facture des appels API. La production a lieu une fois par jour dans le brief.
+        print(f'  resumes : {len(cache)} recopies, {len(a_faire)} sans resume (production reservee au brief)')
+        return groupes
+    if not api_key:
+        print(f'  ANTHROPIC_API_KEY absente : {len(cache)} resume(s) conserve(s), aucun nouveau produit.')
         return groupes
     print(f'  resumes : {len(a_faire)} nouvel(s) article(s), {len(cache)} repris du cache')
 
