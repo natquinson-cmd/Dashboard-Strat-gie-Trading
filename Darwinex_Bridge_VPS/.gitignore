@@ -7,3 +7,8 @@ pw_profile/
 chrome_profile/
 *.log
 __pycache__/
+# Le pont a son PROPRE depot : github.com/natquinson-cmd/darwinex-bridge
+# Deux copies suivies dans deux depots finiraient par diverger, et update.bat
+# telecharge depuis darwinex-bridge, pas depuis ici.
+bridge_ig_mt5.py
+bridge_ig_metaapi.py
