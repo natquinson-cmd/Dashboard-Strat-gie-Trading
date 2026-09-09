@@ -1099,6 +1099,7 @@
         <button class="csv-btn" onclick="syncFromIG()" id="btnIgSync" style="background:linear-gradient(135deg,rgba(29,158,116,0.15),rgba(46,181,160,0.15));border-color:rgba(29,158,116,0.3);">Synchroniser IG</button>
         <button class="csv-btn" onclick="syncFromIG(true)" id="btnIgFull" title="Recharger tout l'historique depuis IG" style="font-size:0.7rem;padding:6px 10px;opacity:0.7;">Historique complet</button>
         <span id="igSyncStatus" style="font-size:0.72rem;font-weight:700;padding:5px 10px;border-radius:8px;white-space:nowrap;cursor:help"></span>
+        <span id="pontStatus" style="font-size:0.72rem;font-weight:700;padding:5px 10px;border-radius:8px;white-space:nowrap;cursor:help"></span>
       </div>
     </div>
     <div class="hero-kpi" id="heroReal"></div>
@@ -3940,6 +3941,56 @@ function renderIgSyncStatus(st) {
   } else {
     set('✓ Synchro auto ' + quand, 'rgba(29,158,116,0.16)', '#127a54', st.message || '');
   }
+}
+// PASTILLE DU PONT IG -> DARWINEX. Le pont ecrit un battement de coeur chaque minute
+// dans dashboard/pontIG. Sans lui, un pont MORT est indiscernable d'un pont qui n'a
+// simplement rien a repliquer : le 09/09/2026 un redemarrage Windows l'a arrete et deux
+// trades DAX sont passes a la trappe sans la moindre alerte, un processus mort n'alertant pas.
+// Seuils en MINUTES (le pont bat chaque minute), pas en heures comme la collecte des cours.
+const PONT_WARN_MIN = 5, PONT_BAD_MIN = 30;
+let SCR_PONT_HB = null;
+
+function pontFreshness(hb) {
+  const det = !hb ? '' : ((hb.lastEvent ? ' Dernier événement : ' + hb.lastEvent + '.' : '')
+    + (hb.mirrors != null ? ' Miroirs ouverts sur MT5 : ' + hb.mirrors + '.' : ''));
+  const t = (hb && hb.at) ? Date.parse(hb.at) : NaN;
+  if (isNaN(t)) return { level: 'bad', bg: 'rgba(221,95,102,0.18)', fg: '#c0392b', txt: '⚠ Pont : aucun signal',
+    tip: "Aucun battement de cœur du pont IG. Soit il n'a jamais tourné avec cette version, soit il est arrêté depuis longtemps. Lance start_pont.bat sur le VPS." };
+  const min = (Date.now() - t) / 60000;
+  const quand = min < 1 ? "à l'instant" : (min < 60 ? 'il y a ' + Math.round(min) + ' min'
+    : (min < 1440 ? 'il y a ' + Math.round(min / 60) + ' h' : 'il y a ' + Math.floor(min / 1440) + ' j'));
+  if (min >= PONT_BAD_MIN) return { level: 'bad', bg: 'rgba(221,95,102,0.18)', fg: '#c0392b',
+    txt: '⚠ Pont arrêté ' + quand,
+    tip: 'PONT ARRÊTÉ : dernier signe de vie ' + quand + '. Tes trades IG ne sont PLUS répliqués sur Darwinex. '
+      + 'Relance start_pont.bat sur le VPS.' + det };
+  if (!hb.ok) return { level: 'bad', bg: 'rgba(221,95,102,0.18)', fg: '#c0392b', txt: '⚠ Pont en erreur',
+    tip: 'Le pont bat encore (' + quand + ') mais signale une erreur.' + det };
+  if (hb.mt5Connected === false) return { level: 'warn', bg: 'rgba(240,182,77,0.22)', fg: '#8a6d1f',
+    txt: '⚠ Pont : MT5 déconnecté',
+    tip: 'Le pont tourne (' + quand + ') mais MetaTrader 5 ne répond pas : rien ne peut être répliqué.' + det };
+  if (hb.dryRun) return { level: 'warn', bg: 'rgba(240,182,77,0.22)', fg: '#8a6d1f', txt: '⚠ Pont en simulation',
+    tip: 'dry_run est actif : le pont journalise les ordres mais n\'en envoie AUCUN à Darwinex.' + det };
+  if (min >= PONT_WARN_MIN) return { level: 'warn', bg: 'rgba(240,182,77,0.22)', fg: '#8a6d1f',
+    txt: 'Pont muet ' + quand,
+    tip: 'Le pont bat normalement chaque minute, or son dernier signe de vie date ' + quand + '.' + det };
+  return { level: 'ok', bg: 'rgba(29,158,116,0.16)', fg: '#127a54', txt: '✓ Pont actif ' + quand,
+    tip: 'Pont IG vers Darwinex actif, dernier battement ' + quand + '.' + det };
+}
+function renderPontStatus() {
+  const el = document.getElementById('pontStatus');
+  if (!el) return;
+  const f = pontFreshness(SCR_PONT_HB);
+  el.textContent = f.txt; el.style.background = f.bg; el.style.color = f.fg; el.title = f.tip;
+}
+function loadPontStatus() {
+  if (typeof db === 'undefined' || !db) return Promise.resolve();
+  try {
+    // abonnement TEMPS REEL : la pastille passe au rouge sans recharger la page
+    db.ref('dashboard/pontIG').on('value', (s) => { SCR_PONT_HB = s.val(); renderPontStatus(); });
+    // et on re-rend chaque minute pour que l'age vieillisse meme sans nouvel evenement
+    setInterval(renderPontStatus, 60000);
+  } catch (e) {}
+  return Promise.resolve();
 }
 function loadKidsFromFirebase() {
   if (typeof db === 'undefined' || !db) return Promise.resolve();
@@ -12237,6 +12288,7 @@ function loadDataTimestamp() {
 // ── INIT ──
 Promise.all([
   loadIgSyncStatus(),
+  loadPontStatus(),
   loadKidsFromFirebase(),
   loadTradesFromFirebase(),
   loadDividendsFromFirebase(),
