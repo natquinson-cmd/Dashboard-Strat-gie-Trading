@@ -3548,7 +3548,6 @@ function renderTotalTab() {
 
   // Le jour même compte aussi : si le patrimoine actuel dépasse tous les points passés,
   // c'est un vrai plus-haut. Ce qui changeait, c'est que les pics intra-mois étaient perdus.
-  const apportMois = ttlApportMois(curYM);
   const athJ = ttlAthDaily();
   const ath = Math.max(athJ.ath, capTotal);
   const athQuand = (athJ.ath >= capTotal && athJ.athDate) ? athJ.athDate : null;
@@ -3557,6 +3556,7 @@ function renderTotalTab() {
   const now = new Date();
   const curYM = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0');
   const curDay = curYM + '-' + String(now.getDate()).padStart(2,'0');
+  const apportMois = ttlApportMois(curYM);   // apres curYM : `const` est en zone morte avant sa declaration
   const pnlMonth = (ttlMonthPnl[curYM] || {}).total || 0;
   const pnlToday = (ttlDayData[curDay] || {}).total || 0;
 
