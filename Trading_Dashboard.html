@@ -8676,7 +8676,6 @@ function screenerRenderQuality(c, data, config) {
   // (repli valuationScore si le moat n'est pas encore fusionné), pour que l'ordre colle à la colonne Note.
   const scrRowNote = (cd) => { const d = SCR_PRICE_MAP[String(cd.symbol || '').toUpperCase()]; const g = d ? scrGlobalNote(d) : null; return (g != null) ? g : (cd.valuationScore != null ? cd.valuationScore : -1); };
   const scrRowMetrics = (cd) => SCR_PRICE_MAP[String(cd.symbol || '').toUpperCase()] || cd.metrics || {};
-  const scrRowOpp = (cd) => { const o = scrOppScore(scrRowMetrics(cd), cd.sector); return (o != null) ? o : -1; };
   const scrRowPot = (cd) => { const d = scrDcf(scrRowMetrics(cd), cd.sector); return d ? d.cagr : -Infinity; };
   const scrRowValPot = (cd) => scrValPotScore(scrRowMetrics(cd), cd.sector);   // juste valeur + potentiel/an
   const sortFn = scrRowValPot;   // tri fige : juste valeur + potentiel/an (plus de selecteur)
@@ -8717,7 +8716,6 @@ function screenerRenderQuality(c, data, config) {
   const cols = [
     ['#', 'left', ''],
     ['Ticker', 'left', 'Symbole boursier. Clique pour ouvrir le graphique TradingView (passable en ordre via IBKR).'],
-    ['Opportunité', 'right', "Score « qualité EN SOLDE » (0-100) = moyenne géométrique de la Note (qualité) et de la cheapness du moment (décote vs l'Objectif DCF + PEG bas). Élevé = bon business dont le prix est bas MAINTENANT vs sa juste valeur. Exige les DEUX : ni un bon business au prix fort, ni une décote sur du médiocre ne suffisent. Trie dessus pour faire remonter les vraies opportunités. Repérage, pas un conseil."],
     ['Cours 3 M', 'left', "Dernier cours et variation sur ~3 mois (période du mini-graphique). Vert = hausse, rouge = baisse."],
     ['Juste valeur', 'left', "Juste valeur DCF + jauge de la zone d'achat (Idéal / Achat / Cher) et écart au cours. Clique pour la fiche complète (hypothèses, valeur manuelle)."],
     ['Potentiel/an', 'left', "Rendement ANNUEL attendu par un DCF « rendement attendu » façon Stock Unlock : on projette le bénéfice sur 5 ans (sa croissance PLAFONNÉE à 15 %/an fondant ensuite vers 4 %), on applique le P/E moyen historique comme multiple de sortie (non plafonné), on ajoute les dividendes, et on regarde le rendement annualisé au cours actuel. Vert = bat ton rendement visé (15 %/an), rouge = négatif. Clique pour le détail (croissance retenue, multiple) + la fourchette de prix d'achat. Repérage mécanique, pas un conseil."],
@@ -8791,14 +8789,6 @@ function screenerRenderQuality(c, data, config) {
     return scrEl('td', { attrs: { title: tip }, style: `padding:8px 8px;text-align:right;white-space:nowrap;${bd}`, kids: [scrEl('div', { style: 'display:flex;flex-direction:column;align-items:flex-end;gap:1px', kids: kids })] });
   };
   // Score OPPORTUNITE : qualite EN SOLDE (note x cheapness), badge colore 0-100 (vert = forte opportunite)
-  const oppC = (dm, sector) => {
-    const o = scrOppScore(dm, sector);
-    if (o == null) return scrEl('td', { text: '–', style: `padding:8px 10px;text-align:right;color:#c3ccd6;${bd}` });
-    const col = o >= 68 ? '#0f8f63' : (o >= 55 ? '#42546a' : '#9aa7b4');
-    const bg = o >= 68 ? '#e7f7f0' : 'transparent';
-    return scrEl('td', { style: `padding:8px 10px;text-align:right;${bd}`, kids: [
-      scrEl('span', { text: String(o), style: `display:inline-block;min-width:26px;text-align:center;font-weight:800;font-size:0.86rem;color:${col};background:${bg};border-radius:8px;padding:2px 7px` })] });
-  };
 
   if (!top.length) {
     tbody.appendChild(scrEl('tr', { kids: [scrEl('td', { attrs: { colspan: '21' }, text: 'Aucune candidate.', style: 'padding:22px;color:#5b6b7d' })] }));
@@ -8815,7 +8805,6 @@ function screenerRenderQuality(c, data, config) {
         scrEl('div', { kids: [
           scrEl('div', { style: 'display:flex;align-items:center;gap:5px', kids: m.buyback ? [link, scrEl('span', { text: '↺', attrs: { title: "Rachats d'actions réguliers : le nombre d'actions diminue (" + (m.sharesChange != null ? (m.sharesChange * 100).toFixed(0) + ' % sur ~4 ans' : 'baisse') + '). Critère Dividend King.' }, style: 'color:#1d9e74;font-weight:800;cursor:help;font-size:0.85rem' })] : [link] }),
           scrEl('div', { text: cd.name || '', style: 'color:#5b6b7d;font-size:0.72rem;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap' })] })] })] }),
-      oppC(SCR_PRICE_MAP[String(cd.symbol || '').toUpperCase()] || m, cd.sector),
       // meme source que TOUTES les autres cellules de la ligne : sinon le cours reste fige au
       // dernier run du VPS a cote d'un objectif et d'une zone calcules, eux, sur le cours du jour.
       scrCoursCell(SCR_PRICE_MAP[String(cd.symbol || '').toUpperCase()] || m, bd),
