@@ -1029,6 +1029,7 @@
       <div class="hero-kpi" id="ttlHero"></div>
       <div class="kpi-grid" id="ttlKpi"></div>
     </div>
+    <div id="ttlBrief"></div>
     <div class="chart-full"><div class="chart-card">
       <h3>Évolution du patrimoine (composition)</h3>
       <canvas id="ttlStackChart"></canvas>
@@ -3942,6 +3943,203 @@ function renderIgSyncStatus(st) {
     set('✓ Synchro auto ' + quand, 'rgba(29,158,116,0.16)', '#127a54', st.message || '');
   }
 }
+// ══════════════════════════════════════════════════════════════════════════
+// BRIEF DU MATIN : Fear & Greed + actualites, ecrits par morning_brief.py a 07h45.
+// Le navigateur ne peut PAS appeler CNN directement (politique CORS), la collecte
+// se fait donc sur le VPS, ce qui tombe bien puisque le brief doit etre pret a 8h30.
+// ══════════════════════════════════════════════════════════════════════════
+const FG_BANDS = [
+  { max: 25, label: 'Peur extrême', color: '#dd5f66' },
+  { max: 45, label: 'Peur', color: '#f0873d' },
+  { max: 55, label: 'Neutre', color: '#9aa7b4' },
+  { max: 75, label: 'Cupidité', color: '#7fd35a' },
+  { max: 101, label: 'Cupidité extrême', color: '#1d9e74' }];
+// CNN renvoie 9 series, dont deux doublons (momentum sp500 et vix_50) : on affiche
+// les 7 que CNN publie lui-meme, avec leur libelle francais et ce qu'ils mesurent.
+const FG_COMPONENTS = [
+  ['market_momentum_sp125', 'Momentum de marché', 'S&P 500 vs sa moyenne mobile 125 j'],
+  ['stock_price_breadth', 'Largeur de marché', 'Volume acheteur vs vendeur'],
+  ['stock_price_strength', 'Force des cours', 'Plus-hauts vs plus-bas 52 semaines'],
+  ['put_call_options', 'Options Put / Call', 'Ratio options baissières / haussières'],
+  ['market_volatility_vix', 'Volatilité (VIX)', 'Indice de la peur, CBOE'],
+  ['safe_haven_demand', 'Demande valeurs refuges', 'Actions vs obligations Treasury 20 ans'],
+  ['junk_bond_demand', 'Demande obligations à risque', 'Spread high-yield vs Treasury']];
+let SCR_BRIEF = null;
+
+function fgBand(v) { return FG_BANDS.find((b) => v < b.max) || FG_BANDS[FG_BANDS.length - 1]; }
+
+// Jauge demi-cercle : 5 arcs colorés + aiguille. SVG pur, aucune dépendance.
+function fgGauge(score, w) {
+  const h = Math.round(w * 0.60), cx = w / 2, cy = h - 4, r = w * 0.38, th = Math.max(7, w * 0.085);
+  const NS = 'http://www.w3.org/2000/svg';
+  const mk = (t, a) => { const e = document.createElementNS(NS, t); Object.keys(a).forEach((k) => e.setAttribute(k, a[k])); return e; };
+  const pt = (pct, rad) => { const ang = Math.PI * (1 - Math.max(0, Math.min(100, pct)) / 100);
+    return [cx + rad * Math.cos(ang), cy - rad * Math.sin(ang)]; };
+  const svg = mk('svg', { viewBox: '0 0 ' + w + ' ' + h, width: '100%', style: 'display:block;overflow:visible' });
+  let from = 0;
+  FG_BANDS.forEach((b) => {
+    const to = Math.min(b.max, 100);
+    const a = pt(from, r), z = pt(to, r);
+    svg.appendChild(mk('path', { d: 'M' + a[0].toFixed(1) + ' ' + a[1].toFixed(1) + ' A' + r.toFixed(1) + ' ' + r.toFixed(1)
+      + ' 0 0 1 ' + z[0].toFixed(1) + ' ' + z[1].toFixed(1), fill: 'none', stroke: b.color, 'stroke-width': th }));
+    from = to;
+  });
+  [0, 25, 50, 75, 100].forEach((v) => {
+    const p = pt(v, r + th * 0.95);
+    svg.appendChild(mk('text', { x: p[0].toFixed(1), y: p[1].toFixed(1), 'text-anchor': v === 0 ? 'end' : (v === 100 ? 'start' : 'middle'),
+      'dominant-baseline': v === 50 ? 'auto' : 'middle', fill: '#94a0b4', 'font-size': Math.max(9, w * 0.055) })).textContent = String(v);
+  });
+  const tip = pt(score, r * 0.90);
+  svg.appendChild(mk('line', { x1: cx, y1: cy, x2: tip[0].toFixed(1), y2: tip[1].toFixed(1),
+    stroke: '#22314f', 'stroke-width': Math.max(2, w * 0.018), 'stroke-linecap': 'round' }));
+  svg.appendChild(mk('circle', { cx: cx, cy: cy, r: Math.max(4, w * 0.035), fill: '#22314f' }));
+  return svg;
+}
+
+// Détail au clic : historique 1 an sur fond de bandes, comparaisons, et les 7 indicateurs.
+function showFgDetail() {
+  const fg = SCR_BRIEF && SCR_BRIEF.fearGreed;
+  if (!fg) return;
+  const backdrop = scrEl('div', { style: 'position:fixed;inset:0;z-index:10000;background:rgba(20,30,45,0.45);display:flex;align-items:flex-start;justify-content:center;padding:30px 12px;overflow:auto' });
+  backdrop.onclick = (e) => { if (e.target === backdrop) backdrop.remove(); };
+  const box = scrEl('div', { style: 'background:#fff;border-radius:16px;max-width:900px;width:100%;padding:22px 24px;box-shadow:0 20px 60px rgba(20,30,45,0.35)' });
+  const band = fgBand(fg.score);
+  const close = scrEl('button', { text: '×', style: 'margin-left:auto;border:none;background:none;font-size:1.6rem;line-height:1;color:#94a0b4;cursor:pointer' });
+  close.onclick = () => backdrop.remove();
+  box.appendChild(scrEl('div', { style: 'display:flex;align-items:center;gap:12px;margin-bottom:4px', kids: [
+    scrEl('span', { text: 'Fear & Greed Index', style: 'font-weight:800;color:#22314f;font-size:1.05rem' }),
+    scrEl('span', { text: fg.score + ' · ' + band.label, style: 'font-weight:800;color:' + band.color }), close] }));
+  box.appendChild(scrEl('div', { style: 'font-size:0.76rem;color:#64748f;margin-bottom:16px;line-height:1.5',
+    text: 'Mesure le sentiment des investisseurs de 0 (peur extrême) à 100 (cupidité extrême). Un score bas signale un marché craintif, un score haut un excès d’optimisme. Source CNN, relevé du ' + (fg.at || '').slice(0, 10) + '.' }));
+  // comparaisons
+  const cmp = scrEl('div', { style: 'display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px' });
+  [['Hier', fg.prev && fg.prev.close], ['Il y a 1 semaine', fg.prev && fg.prev.week],
+   ['Il y a 1 mois', fg.prev && fg.prev.month], ['Il y a 1 an', fg.prev && fg.prev.year]].forEach(([lib, v]) => {
+    if (v == null) return;
+    const d = fg.score - v, col = d >= 0 ? '#1d9e74' : '#dd5f66';
+    cmp.appendChild(scrEl('div', { style: 'flex:1;min-width:110px;background:#f6f8fb;border-radius:12px;padding:10px 12px', kids: [
+      scrEl('div', { text: lib, style: 'font-size:0.58rem;text-transform:uppercase;letter-spacing:.05em;color:#94a0b4;font-weight:800' }),
+      scrEl('div', { text: String(v), style: 'font-size:1.25rem;font-weight:800;color:' + fgBand(v).color }),
+      scrEl('div', { text: (d >= 0 ? '▲ +' : '▼ ') + Math.abs(d).toFixed(1) + ' pt', style: 'font-size:0.66rem;font-weight:700;color:' + col })] }));
+  });
+  box.appendChild(cmp);
+  // historique 1 an, bandes en fond
+  const hist = (fg.history || []).filter((p) => p && p.v != null);
+  if (hist.length > 2) {
+    const W = 860, H = 220, padL = 34, padB = 20;
+    const NS = 'http://www.w3.org/2000/svg';
+    const mk = (t, a) => { const e = document.createElementNS(NS, t); Object.keys(a).forEach((k) => e.setAttribute(k, a[k])); return e; };
+    const svg = mk('svg', { viewBox: '0 0 ' + W + ' ' + H, width: '100%', style: 'display:block' });
+    const y = (v) => (H - padB) - (v / 100) * (H - padB - 6);
+    const x = (i) => padL + i * ((W - padL - 6) / (hist.length - 1));
+    let lo = 0;
+    FG_BANDS.forEach((b) => { const hi = Math.min(b.max, 100);
+      svg.appendChild(mk('rect', { x: padL, y: y(hi).toFixed(1), width: W - padL - 6, height: (y(lo) - y(hi)).toFixed(1),
+        fill: b.color, opacity: 0.10 })); lo = hi; });
+    [0, 25, 50, 75, 100].forEach((v) => {
+      svg.appendChild(mk('text', { x: padL - 6, y: y(v).toFixed(1), 'text-anchor': 'end', 'dominant-baseline': 'middle',
+        fill: '#94a0b4', 'font-size': 10 })).textContent = String(v);
+    });
+    let d = '';
+    hist.forEach((p, i) => { d += (i ? 'L' : 'M') + x(i).toFixed(1) + ' ' + y(p.v).toFixed(1) + ' '; });
+    svg.appendChild(mk('path', { d: d.trim(), fill: 'none', stroke: '#9184ea', 'stroke-width': 1.8 }));
+    box.appendChild(scrEl('div', { style: 'margin-bottom:6px;font-size:0.7rem;font-weight:800;color:#22314f;text-transform:uppercase;letter-spacing:.04em',
+      text: 'Historique 1 an · ' + hist.length + ' jours' }));
+    box.appendChild(svg);
+    box.appendChild(scrEl('div', { style: 'display:flex;justify-content:space-between;font-size:0.62rem;color:#94a0b4;margin-bottom:18px', kids: [
+      scrEl('span', { text: hist[0].d }), scrEl('span', { text: hist[hist.length - 1].d })] }));
+  }
+  // les 7 indicateurs
+  const comps = fg.components || {};
+  const grid = scrEl('div', { style: 'display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px' });
+  FG_COMPONENTS.forEach(([k, lib, sous]) => {
+    const c = comps[k];
+    if (!c) return;
+    const b = fgBand(c.score);
+    grid.appendChild(scrEl('div', { style: 'background:#f6f8fb;border-radius:12px;padding:11px 13px', kids: [
+      scrEl('div', { style: 'display:flex;align-items:baseline;gap:8px', kids: [
+        scrEl('span', { text: lib, style: 'font-weight:700;color:#22314f;font-size:0.82rem' }),
+        scrEl('span', { text: String(c.score), style: 'margin-left:auto;font-weight:800;color:' + b.color })] }),
+      scrEl('div', { text: sous, style: 'font-size:0.66rem;color:#94a0b4;margin:3px 0 6px' }),
+      scrEl('div', { style: 'height:4px;border-radius:3px;background:#e3e8ee;overflow:hidden', kids: [
+        scrEl('div', { style: 'height:100%;width:' + Math.max(0, Math.min(100, c.score)) + '%;background:' + b.color })] }),
+      scrEl('div', { text: b.label, style: 'font-size:0.6rem;font-weight:800;text-transform:uppercase;color:' + b.color + ';margin-top:5px' })] }));
+  });
+  box.appendChild(grid);
+  backdrop.appendChild(box);
+  document.body.appendChild(backdrop);
+}
+
+function renderMorningBrief() {
+  const c = document.getElementById('ttlBrief');
+  if (!c) return;
+  const b = SCR_BRIEF;
+  if (!b) { c.replaceChildren(); return; }
+  const fg = b.fearGreed, br = b.brief;
+  const card = scrEl('div', { style: 'background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:20px 22px;margin-bottom:26px;box-shadow:0 8px 22px rgba(34,49,77,0.08)' });
+  card.appendChild(scrEl('div', { style: 'display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px', kids: [
+    scrEl('span', { text: '☕ Le brief du matin', style: 'font-weight:700;color:var(--text-primary);font-size:0.98rem' }),
+    scrFreshBadge(b.at, 'Brief produit chaque matin à 07h45 par le VPS.'),
+    scrEl('span', { style: 'margin-left:auto;font-size:0.68rem;color:var(--text-muted)',
+      text: br ? 'Synthèse automatique, repérage et non conseil' : 'Titres bruts (synthèse indisponible)' })] }));
+  const row = scrEl('div', { style: 'display:flex;gap:22px;flex-wrap:wrap;align-items:flex-start' });
+  // baromètre cliquable
+  if (fg) {
+    const band = fgBand(fg.score);
+    const g = scrEl('div', { attrs: { title: 'Cliquer pour le détail : historique 1 an et les 7 indicateurs CNN.' },
+      style: 'flex:0 0 190px;cursor:pointer;text-align:center' });
+    g.appendChild(fgGauge(fg.score, 190));
+    g.appendChild(scrEl('div', { text: String(fg.score), style: 'font-size:1.6rem;font-weight:800;line-height:1.1;color:' + band.color }));
+    g.appendChild(scrEl('div', { text: band.label.toUpperCase(), style: 'font-size:0.66rem;font-weight:800;letter-spacing:.06em;color:' + band.color }));
+    g.appendChild(scrEl('div', { text: 'Fear & Greed · voir le détail', style: 'font-size:0.62rem;color:var(--text-muted);margin-top:4px;text-decoration:underline' }));
+    g.onclick = showFgDetail;
+    row.appendChild(g);
+  }
+  // synthèse
+  const txt = scrEl('div', { style: 'flex:1;min-width:280px;font-size:0.84rem;color:var(--text-primary);line-height:1.55' });
+  if (br && br.market) txt.appendChild(scrEl('div', { text: br.market, style: 'margin-bottom:12px' }));
+  const lignes = (br && Array.isArray(br.positions)) ? br.positions : [];
+  if (lignes.length) {
+    const ul = scrEl('div', { style: 'display:flex;flex-direction:column;gap:6px;margin-bottom:12px' });
+    lignes.forEach((p) => {
+      if (!p || !p.text) return;
+      ul.appendChild(scrEl('div', { style: 'display:flex;gap:8px;align-items:baseline', kids: [
+        scrEl('b', { text: p.ticker || '', style: 'color:#3563e9;font-size:0.76rem;min-width:52px' }),
+        scrEl('span', { text: p.text, style: 'font-size:0.8rem;color:var(--text-secondary)' })] }));
+    });
+    txt.appendChild(ul);
+  }
+  const watch = (br && Array.isArray(br.watch)) ? br.watch : [];
+  if (watch.length) {
+    txt.appendChild(scrEl('div', { text: 'À surveiller aujourd’hui', style: 'font-size:0.62rem;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--text-muted);margin-bottom:5px' }));
+    const ul = scrEl('div', { style: 'display:flex;flex-direction:column;gap:4px' });
+    watch.forEach((w) => ul.appendChild(scrEl('div', { text: '• ' + w, style: 'font-size:0.78rem;color:var(--text-secondary)' })));
+    txt.appendChild(ul);
+  }
+  // repli : pas de synthèse -> on montre les titres bruts, le bloc reste utile
+  if (!br) {
+    const news = b.marketNews || [];
+    if (news.length) {
+      txt.appendChild(scrEl('div', { text: 'Actualités de marché', style: 'font-size:0.62rem;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--text-muted);margin-bottom:5px' }));
+      news.slice(0, 6).forEach((n) => {
+        const a = scrEl('a', { text: n.t, attrs: { href: n.u, target: '_blank', rel: 'noopener' },
+          style: 'display:block;font-size:0.78rem;color:var(--text-secondary);text-decoration:none;margin-bottom:3px' });
+        txt.appendChild(a);
+      });
+    } else {
+      txt.appendChild(scrEl('div', { text: 'Aucune synthèse pour l’instant. Le VPS produit le brief chaque matin à 07h45.', style: 'color:var(--text-muted)' }));
+    }
+  }
+  row.appendChild(txt);
+  card.appendChild(row);
+  c.replaceChildren(card);
+}
+function loadMorningBrief() {
+  if (typeof db === 'undefined' || !db) return Promise.resolve();
+  try { db.ref('dashboard/morningBrief').on('value', (s) => { SCR_BRIEF = s.val(); renderMorningBrief(); }); } catch (e) {}
+  return Promise.resolve();
+}
+
 // PASTILLE DU PONT IG -> DARWINEX. Le pont ecrit un battement de coeur chaque minute
 // dans dashboard/pontIG. Sans lui, un pont MORT est indiscernable d'un pont qui n'a
 // simplement rien a repliquer : le 09/09/2026 un redemarrage Windows l'a arrete et deux
@@ -7237,10 +7435,12 @@ function scrFreshness(iso) {
   return { days: days, age: age, level: 'ok', fg: '#1d9e74', bg: '#e5f4ee',
     title: 'Données du screener à jour (' + age + ').' };
 }
-function scrFreshBadge(iso) {
+// titreCtx : meme logique de seuils et memes couleurs, mais un libelle adapte au sujet
+// (le brief matinal n'est pas le screener : reutiliser le texte tel quel induirait en erreur).
+function scrFreshBadge(iso, titreCtx) {
   const f = scrFreshness(iso);
   if (!f) return scrEl('span');
-  return scrEl('span', { attrs: { title: f.title }, text: (f.level === 'bad' ? '⚠ ' : '') + f.age,
+  return scrEl('span', { attrs: { title: titreCtx ? (titreCtx + ' Dernière mise à jour ' + f.age + '.') : f.title }, text: (f.level === 'bad' ? '⚠ ' : '') + f.age,
     style: 'margin-left:8px;padding:1px 9px;border-radius:20px;font-size:0.7rem;font-weight:800;'
       + 'cursor:help;white-space:nowrap;color:' + f.fg + ';background:' + f.bg });
 }
@@ -12289,6 +12489,7 @@ function loadDataTimestamp() {
 Promise.all([
   loadIgSyncStatus(),
   loadPontStatus(),
+  loadMorningBrief(),
   loadKidsFromFirebase(),
   loadTradesFromFirebase(),
   loadDividendsFromFirebase(),
