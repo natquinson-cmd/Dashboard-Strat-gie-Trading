@@ -9616,6 +9616,9 @@ function renderPortfolioTab(tab) {
     const sign = pos ? '+' : '−';
     return `<div style="font-size:0.72rem;font-weight:600;color:${color};margin-top:2px;letter-spacing:0.2px">${arrow} ${sign}${absDiff.toLocaleString('fr-FR')} €</div>`;
   }
+  // Onglet Darwinex : il vit dans le groupe TRADING. Les KPI portefeuille (capital brut des
+  // 6 plateformes, emprunts, revenu net/mois) n'ont rien a y faire et repetent le bandeau.
+  if (tab !== 'darwinex') {
   h += '<div class="inv-grid-kpi">';
   const kpis = [
     { l: "Capital Brut", v: invFmt(Math.round(t.tp)), i: "💰", c: "#6366f1", c2: "#818cf8", s: portfolioData.platforms.filter(p => (portfolioData.principal[p] || [])[li] > 0).length + " plateformes", d: invDeltaHtml(t.tp, t.tp_prev) },
@@ -9633,6 +9636,7 @@ function renderPortfolioTab(tab) {
     h += `</div>`;
   });
   h += '</div>';
+  }
 
   // Sync indicator
 
@@ -10495,34 +10499,37 @@ function invRenderDarwinex() {
     }
   }
 
-  // ── HERO ──
-  h += `<div class="inv-card" style="background:linear-gradient(135deg, rgba(95,139,242,0.08), rgba(29,158,116,0.04));border:1px solid rgba(95,139,242,0.18);padding:24px 28px;margin-bottom:20px">`;
-  h += `<div class="inv-flex inv-jcsb" style="flex-wrap:wrap;gap:24px;align-items:flex-start">`;
-  h += `<div><div style="font-size:0.7rem;letter-spacing:1px;color:var(--text-secondary);text-transform:uppercase;font-weight:700">Darwinex Classic · compte investisseur</div>`;
-  h += `<div style="font-size:0.78rem;color:var(--text-secondary);margin-top:4px">${freshness}</div></div>`;
-  h += `<div style="text-align:right"><div style="font-size:0.7rem;color:var(--text-secondary);text-transform:uppercase;letter-spacing:1px;font-weight:700">Valeur actuelle</div>`;
-  h += `<div style="font-size:1.8rem;font-weight:700;color:${pnl>=0?'#1d9e74':'#dd5f66'};line-height:1.1">${fmtE(d.currentValue||0)}</div>`;
-  h += `<div style="font-size:0.85rem;font-weight:600;color:${pnl>=0?'#1d9e74':'#dd5f66'}">${pnl>=0?'+':''}${fmtE(pnl)} (${pnlPct>=0?'+':''}${pnlPct.toFixed(2)}%)</div></div>`;
+  // ── BANDEAU UNIFIE ──
+  // Un seul bloc : chaque chiffre n'apparait QU'UNE fois (avant, plus-value / performance /
+  // frais figuraient a la fois ici ET dans 4 cards en dessous), et la ligne de metriques
+  // occupe toute la largeur au lieu de laisser un trou au milieu.
+  const dwxFees  = d.feesTotal || 0;
+  const dwxGross = pnl + dwxFees;
+  const dwxCol   = pnl >= 0 ? '#1d9e74' : '#dd5f66';
+  const dwxNb    = (function(){ const dts=(typeof dwxDarwinDates==='function')?dwxDarwinDates():[]; return dts.length ? String(Object.keys(darwinexDaily[dts[dts.length-1]].darwins||{}).length) : ((d.positions&&d.positions.length)?String(d.positions.length):'—'); })();
+  const dwxCell = (label, value, sub, color, lead) =>
+      `<div style="flex:${lead?'1.5 1 210px':'1 1 130px'};min-width:${lead?'200px':'125px'};padding:${lead?'0 22px 0 0':'0 18px'};${lead?'':'border-left:1px solid rgba(34,49,77,0.10)'}">`
+    + `<div style="font-size:0.65rem;letter-spacing:0.07em;color:var(--text-secondary);font-weight:700;text-transform:uppercase">${label}</div>`
+    + `<div style="font-size:${lead?'1.9rem':'1.25rem'};font-weight:800;line-height:1.15;margin-top:5px;color:${color||'var(--text-primary)'}">${value}</div>`
+    + (sub ? `<div style="font-size:0.68rem;color:var(--text-secondary);margin-top:4px;line-height:1.35">${sub}</div>` : '')
+    + `</div>`;
+
+  h += `<div class="inv-card" style="background:linear-gradient(135deg, rgba(95,139,242,0.08), rgba(29,158,116,0.04));border:1px solid rgba(95,139,242,0.18);padding:18px 24px;margin-bottom:20px">`;
+  h += `<div style="display:flex;justify-content:space-between;align-items:baseline;gap:14px;flex-wrap:wrap;margin-bottom:16px">`;
+  h += `<div style="font-size:0.7rem;letter-spacing:1px;color:var(--text-secondary);text-transform:uppercase;font-weight:700">Darwinex Classic · compte investisseur</div>`;
+  h += `<div style="font-size:0.74rem;color:var(--text-secondary)">${freshness}</div>`;
   h += `</div>`;
-  h += `<div class="inv-grid" style="grid-template-columns:repeat(3,1fr);gap:18px;margin-top:18px">`;
-  h += `<div><div style="font-size:0.7rem;color:var(--text-secondary);font-weight:600;text-transform:uppercase">Investi</div><div style="font-size:1.3rem;font-weight:700;color:var(--text-primary)">${fmtE(d.invested||0)}</div></div>`;
-  h += `<div><div style="font-size:0.7rem;color:var(--text-secondary);font-weight:600;text-transform:uppercase">Frais cumulés</div><div style="font-size:1.3rem;font-weight:700;color:var(--negative)">${fmtE(d.feesTotal||0)}</div><div style="font-size:0.62rem;color:var(--text-secondary);margin-top:2px">déjà déduits de la valeur</div></div>`;
-  h += `<div><div style="font-size:0.7rem;color:var(--text-secondary);font-weight:600;text-transform:uppercase">Plus-value nette</div><div style="font-size:1.3rem;font-weight:700;color:${pnl>=0?'#1d9e74':'#dd5f66'}">${pnl>=0?'+':''}${fmtE(pnl)}</div><div style="font-size:0.62rem;color:var(--text-secondary);margin-top:2px">brute ${(pnl+(d.feesTotal||0))>=0?'+':''}${fmtE(pnl+(d.feesTotal||0))} − frais ${fmtE(d.feesTotal||0)}</div></div>`;
+  h += `<div style="display:flex;flex-wrap:wrap;align-items:flex-start;row-gap:18px">`;
+  h += dwxCell('Valeur actuelle', fmtE(d.currentValue||0),
+        `<span style="color:${dwxCol};font-weight:700">${pnl>=0?'▲ +':'▼ '}${fmtE(pnl)} (${pnlPct>=0?'+':''}${pnlPct.toFixed(2)} %)</span> net de frais`,
+        dwxCol, true);
+  h += dwxCell('Investi', fmtE(d.invested||0), 'capital versé', null, false);
+  h += dwxCell('Plus-value brute', `${dwxGross>=0?'+':''}${fmtE(dwxGross)}`, 'avant frais', dwxGross>=0?'#1d9e74':'#dd5f66', false);
+  h += dwxCell('Frais cumulés', fmtE(dwxFees), d.invested>0 ? `${(dwxFees/d.invested*100).toFixed(1)} % de l'investi` : 'gestion + performance', '#f59e0b', false);
+  h += dwxCell('DARWINs', dwxNb, 'DARWINs détenus', '#6366f1', false);
   h += `</div></div>`;
 
   if (hasData) {
-    h += `<div class="inv-grid-kpi" style="grid-template-columns:repeat(4,1fr);margin-bottom:24px">`;
-    const kpis = [
-      { l:'Plus-value nette', v:(pnl>=0?'+':'')+fmtE(pnl), s:'frais déjà déduits (net Darwinex)', c: pnl>=0?'#1d9e74':'#dd5f66' },
-      { l:'Performance', v:(pnlPct>=0?'+':'')+pnlPct.toFixed(2)+'%', s:'Sur le capital investi', c: pnlPct>=0?'#1d9e74':'#dd5f66' },
-      { l:'Frais cumulés', v:fmtE(d.feesTotal||0), s: d.invested>0 ? (d.feesTotal/d.invested*100).toFixed(1)+"% de l'investi" : 'gestion + performance', c:'#f59e0b' },
-      { l:'DARWINs', v:(function(){ const dts=(typeof dwxDarwinDates==='function')?dwxDarwinDates():[]; return dts.length ? String(Object.keys(darwinexDaily[dts[dts.length-1]].darwins||{}).length) : ((d.positions&&d.positions.length)?String(d.positions.length):'—'); })(), s:'DARWINs détenus', c:'#6366f1' }
-    ];
-    for (const k of kpis) {
-      h += `<div class="kpi-card"><div class="stripe" style="background:linear-gradient(90deg,${k.c},${k.c})"></div><div class="label">${k.l}</div><div class="value" style="color:${k.c};font-size:1.35rem">${k.v}</div><div class="sub">${k.s}</div></div>`;
-    }
-    h += `</div>`;
-
     if (d.history && d.history.length > 0) {
       h += `<div class="inv-chart-card"><h3>Évolution valeur vs investi</h3><div class="inv-canvas-wrap" style="height:280px"><canvas id="dwx-ch"></canvas></div></div>`;
     }
