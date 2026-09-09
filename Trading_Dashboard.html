@@ -5539,11 +5539,17 @@ function scrFairPricePeg(m, sector) {
   return price * (1 + pot);
 }
 // DCF « rendement attendu » (facon Stock Unlock). Parametrage GLOBAL fige (choix, AUCUN curseur).
-// Croissance des benefices PLAFONNEE a 15 %/an (demande user, esprit DK : une croissance recente extreme
-// type NVDA +200 % ne dure pas), qui fond ensuite vers une croissance terminale mature sur l'horizon.
+// Croissance des benefices NON PLAFONNEE (cap 15 %/an retire le 09/09/2026, demande user) : la croissance de
+// depart fond DEJA lineairement vers la croissance terminale sur l'horizon, ce fondu EST le garde-fou. Le cap
+// faisait doublon avec lui, et il creait surtout DEUX REGIMES de calcul (les titres avec override y echappaient,
+// les autres non) : le classement comparait des titres evalues avec des hypotheses differentes selon qu'on avait
+// ouvert leur fiche ou non.
 // Le MULTIPLE de sortie reste NON plafonne (= P/E moyen historique). On garde les benefices (pas le FCF) comme
 // moteur : le FCF recent est fausse par les capex IA (MSFT/GOOGL/Visa) et n'existe pas pour les banques.
-const SCR_DCF_RET = 0.15, SCR_DCF_N = 5, SCR_DCF_GTERM = 0.04, SCR_DCF_GCAP = 0.15;   // rendement visé par défaut 15 %/an (titres sans override)
+// SCR_FCF_GCAP ne vaut QUE pour la lentille FCF plus bas : sa croissance vient du CAGR du FCF HISTORIQUE, qui
+// explose quand le FCF de depart frole zero (mesure du 09/09 : SPOT 415 %/an, NVDA 194 %, PLTR 125 %). Sans
+// plafond LA, on obtiendrait des justes valeurs absurdes : ce garde-fou repond a un risque different.
+const SCR_DCF_RET = 0.15, SCR_DCF_N = 5, SCR_DCF_GTERM = 0.04, SCR_FCF_GCAP = 0.15;   // rendement visé par défaut 15 %/an (titres sans override)
 // Cache du dernier rendu qualite pour re-render sans re-fetch (le DCF pilote le potentiel de TOUT le tableau).
 let SCR_LAST_Q = null;
 function scrRerenderQuality() {
@@ -5577,8 +5583,9 @@ function scrDcfCore(m, ov) {
   let g = (m.analystGrowth != null) ? m.analystGrowth : ((m.earningsCAGR != null) ? m.earningsCAGR : (m.earningsGrowthYoY != null ? m.earningsGrowthYoY : null));
   if (ov.growth != null) g = ov.growth;
   if (g == null) return null;
-  // croissance : imposee par titre (non plafonnee) OU auto plafonnee a 15 %/an (global)
-  const g0 = (ov.growth != null) ? Math.max(-0.95, ov.growth) : Math.max(-0.95, Math.min(SCR_DCF_GCAP, g));
+  // croissance : override par titre sinon estimation analyste, NON plafonnee dans les deux cas (le fondu vers
+  // la croissance terminale joue ce role). Plancher -95 % pour eviter un BPA qui s'annule.
+  const g0 = Math.max(-0.95, (ov.growth != null) ? ov.growth : g);
   const gTerm = Math.min((ov.gterm != null) ? ov.gterm : SCR_DCF_GTERM, g0);
   // Multiple de sortie = override par titre, sinon P/E moyen historique s'il est PLAUSIBLE (garde anti-bug de
   // DEVISE : benefice ADR en monnaie locale / cours USD -> P/E aberrant < 3), sinon P/E actuel.
@@ -5612,7 +5619,7 @@ function scrDcfFcf(m, sector) {
   let g = (m.fcfCagr != null) ? m.fcfCagr : ((m.analystGrowth != null) ? m.analystGrowth : m.earningsCAGR);
   if (g == null) return null;
   const RET = SCR_DCF_RET, N = SCR_DCF_N;
-  const g0 = Math.max(-0.95, Math.min(SCR_DCF_GCAP, g));
+  const g0 = Math.max(-0.95, Math.min(SCR_FCF_GCAP, g));   // plafond MAINTENU ici : CAGR de FCF historique tres volatil
   const gTerm = Math.min(SCR_DCF_GTERM, g0);
   const exitPfcf = Math.max(8, Math.min(30, 1 / fy));   // P/FCF de sortie borné 8..30 (anti multiple de bulle)
   let fcf = fy * price;                                  // FCF par action aujourd'hui (fcfYield = FCF/capi = FCF-par-action/cours)
@@ -5803,7 +5810,7 @@ function scrShowValuationCard(m0, sector) {
     (m.analystGrowth != null
       ? 'Croissance pré-remplie = estimation ANALYSTE du chiffre d\'affaires (+1 an, ' + (m.analystGrowth >= 0 ? '+' : '') + (m.analystGrowth * 100).toFixed(0) + ' %/an). '
       : 'Croissance pré-remplie = croissance historique (estimation analyste pas encore en base). ')
-    + 'Le tableau la plafonne à ' + Math.round(SCR_DCF_GCAP * 100) + ' %/an ; ici tu gardes la valeur complète pour CE titre. Multiple = P/E moyen historique.' }));
+    + 'Elle n\'est plus plafonnée : le tableau applique exactement la même croissance que cette fiche, et elle fond vers la croissance finale sur l\'horizon. Multiple = P/E moyen historique.' }));
   card.appendChild(scrEl('div', { style: 'margin-top:10px;border-top:1px solid #eef1f5;padding-top:10px', kids: [
     field('OU juste valeur manuelle', manualIn, scrDispSym()),
     scrEl('div', { text: 'Si tu remplis la valeur manuelle, elle prime sur le modèle (comme un objectif Simply Wall St importé).', style: 'font-size:0.66rem;color:#c3ccd6;margin-top:4px' })] }));
