@@ -6023,13 +6023,14 @@ function scrMoatBlock(m) {
     chips.appendChild(scrEl('span', { text: 'IA ' + ai, style: `background:${aiCol[0]};color:${aiCol[1]};border-radius:20px;padding:3px 9px;font-size:0.66rem;font-weight:700` }));
   }
   if (m.moatTrend) chips.appendChild(scrEl('span', { text: 'Tendance : ' + m.moatTrend, style: 'background:#eef2f8;color:#5b6b7d;border-radius:20px;padding:3px 9px;font-size:0.66rem;font-weight:700' }));
+  if (has) chips.appendChild(scrMoatFreshBadge(m.moatUpdatedAt));
   const bar = scrEl('div', { style: 'height:7px;border-radius:5px;background:#e8edf3;overflow:hidden;margin-top:8px', kids: [
     scrEl('div', { style: `height:100%;width:${pct}%;background:${has ? col[1] : '#c3ccd6'};border-radius:5px` })] });
   box.appendChild(scrEl('div', { style: 'display:flex;align-items:center;gap:16px;flex-wrap:wrap', kids: [
     scrEl('div', { kids: [scrEl('div', { text: 'AVANTAGE CONCURRENTIEL', style: 'font-size:0.58rem;font-weight:800;color:#9aa7b4;letter-spacing:.06em;margin-bottom:3px' }), big] }),
     scrEl('div', { style: 'flex:1;min-width:200px', kids: [chips, bar] })] }));
   if (m.moatRationale) box.appendChild(scrEl('div', { text: m.moatRationale, style: 'font-size:0.75rem;line-height:1.45;color:#42546a;margin-top:9px;border-top:1px solid rgba(0,0,0,.07);padding-top:8px' }));
-  box.appendChild(scrEl('div', { text: has ? ((m.moatSource ? 'Source : ' + m.moatSource + ' · ' : '') + 'Analyse qualitative curée, pas une donnée mesurée.') : "Moat pas encore analysé pour ce titre (analyse qualitative curée, non auto-actualisée).", style: 'font-size:0.63rem;color:#9aa7b4;margin-top:7px' }));
+  box.appendChild(scrEl('div', { text: has ? ((m.moatSource ? 'Source : ' + m.moatSource + ' · ' : '') + 'Analyse qualitative curée, pas une donnée mesurée.' + (m.moatUpdatedAt ? ' Révisée le ' + new Date(m.moatUpdatedAt).toLocaleDateString('fr-FR') + ', cycle semestriel.' : ' Aucune date de révision enregistrée.')) : "Moat pas encore analysé pour ce titre (analyse qualitative curée, non auto-actualisée).", style: 'font-size:0.63rem;color:#9aa7b4;margin-top:7px' }));
   return box;
 }
 function scrShowCompanyCard(symbol) {
@@ -7189,6 +7190,28 @@ function scrFreshBadge(iso) {
       + 'cursor:help;white-space:nowrap;color:' + f.fg + ';background:' + f.bg });
 }
 
+// FRAICHEUR DU MOAT (analyse curee a la main, revision SEMESTRIELLE). Sans date affichee, un moat fige
+// depuis des mois ressemble trait pour trait a un moat revu hier. Cas vecu le 09/09/2026 : FICO portait
+// "Large / Stable / 88" avec un rationale parlant d'une "menace reelle mais LENTE", alors que la FHFA avait
+// deja ouvert le credit immobilier a VantageScore pour tous les preteurs, et que le profil qualitatif du
+// MEME titre, lui, avait integre la decision. Deux noeuds Firebase, un seul regenere, rien pour le signaler.
+const SCR_MOAT_WARN_D = 180, SCR_MOAT_BAD_D = 270;
+function scrMoatFreshBadge(iso) {
+  const pill = 'border-radius:20px;padding:3px 9px;font-size:0.66rem;font-weight:700;cursor:help;';
+  const t = iso ? Date.parse(iso) : NaN;
+  if (isNaN(t)) return scrEl('span', { attrs: { title: "Aucune date de revision sur cette analyse de moat : impossible de savoir si elle tient compte de l'actualite recente. A regenerer." },
+    text: 'moat : date inconnue', style: pill + 'background:#fff2d9;color:#8a6d1f' });
+  const days = Math.floor((Date.now() - t) / 86400000);
+  const age = days < 1 ? "aujourd'hui" : (days === 1 ? 'hier' : 'il y a ' + days + ' j');
+  const bad = days >= SCR_MOAT_BAD_D, warn = days >= SCR_MOAT_WARN_D;
+  const fg = bad ? '#c0392b' : (warn ? '#8a6d1f' : '#127a54');
+  const bg = bad ? '#fdeaea' : (warn ? '#fff2d9' : '#d1f0e3');
+  const title = bad ? ("Moat revu " + age + " : bien au-dela du cycle semestriel. Une decision reglementaire ou un mouvement concurrentiel a pu le perimer sans que rien ne le signale.")
+              : (warn ? ("Moat revu " + age + " : la revision semestrielle est due.")
+                      : ("Moat revu " + age + " (cycle semestriel)."));
+  return scrEl('span', { attrs: { title: title }, text: (bad ? '⚠ ' : '') + 'moat ' + age, style: pill + 'background:' + bg + ';color:' + fg });
+}
+
 // FRAICHEUR DU COLLECTEUR DE COURS. Meme piege que le screener ci-dessus : la pastille "en direct"
 // etait codee en dur en vert, elle aurait affiche exactement la meme chose avec un collecteur mort
 // depuis trois semaines. On juge l'age de la COLLECTE (le champ 'at'), surtout PAS l'heure de marche :
@@ -7302,6 +7325,7 @@ async function scrMergeMoat() {
       SCR_PRICE_MAP[k].symbol = SCR_PRICE_MAP[k].symbol || k;
       SCR_PRICE_MAP[k].moat = m.moat; SCR_PRICE_MAP[k].moatScore = m.score; SCR_PRICE_MAP[k].aiExposure = m.aiExposure;
       SCR_PRICE_MAP[k].moatSource = m.source; SCR_PRICE_MAP[k].moatTrend = m.trend; SCR_PRICE_MAP[k].moatRationale = m.rationale;
+      SCR_PRICE_MAP[k].moatUpdatedAt = m.updatedAt || null;   // date de revision -> pastille de fraicheur
     });
   } catch (e) {}
 }
