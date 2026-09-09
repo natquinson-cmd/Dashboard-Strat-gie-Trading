@@ -403,16 +403,21 @@
   .kpi-card.kpi-dax    { background: var(--gradient-dax);    border-color: transparent; }
   .kpi-card.kpi-nas    { background: var(--gradient-nas);    border-color: transparent; }
   .kpi-card.kpi-merged { background: var(--gradient-merged); border-color: transparent; }
-  .kpi-card.kpi-green  { background: var(--gradient-green);  border-color: transparent; }
-  .kpi-card.kpi-neg    { background: var(--gradient-red);    border-color: transparent; }
+  /* P&L : plus d'aplat saturé. Carte BLANCHE, seul le CHIFFRE porte la couleur, exactement
+     comme la bande du Portefeuille d'actions que le user trouve plus professionnelle. Une
+     rangée de six cartes pleines criardes lisait comme un jouet ; ici l'oeil va au nombre.
+     (kpi-green/kpi-neg ne servent QUE dans Trading total : aucun autre onglet touché.) */
+  .kpi-card.kpi-green, .kpi-card.kpi-neg { background: var(--bg-card); border-color: var(--border); }
+  .kpi-card.kpi-green .value { color: var(--positive); }
+  .kpi-card.kpi-neg   .value { color: var(--negative); }
   /* Base (cards BLANCHES, ex: KPI Portfolio) : texte aux couleurs du thème.
      Le blanc n'est appliqué QUE sur les variantes colorées ci-dessous. */
   .kpi-card .label { font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-secondary); margin-bottom: 12px; }
   .kpi-card .value { font-size: 1.7rem; font-weight: 800; letter-spacing: -0.02em; color: var(--text-primary); font-variant-numeric: tabular-nums; }
   .kpi-card .sub { font-size: 0.74rem; color: var(--text-secondary); margin-top: 5px; font-weight: 500; }
-  .kpi-card.kpi-dax .label, .kpi-card.kpi-nas .label, .kpi-card.kpi-merged .label, .kpi-card.kpi-green .label, .kpi-card.kpi-neg .label { color: rgba(255,255,255,0.82); }
-  .kpi-card.kpi-dax .value, .kpi-card.kpi-nas .value, .kpi-card.kpi-merged .value, .kpi-card.kpi-green .value, .kpi-card.kpi-neg .value { color: #fff; }
-  .kpi-card.kpi-dax .sub, .kpi-card.kpi-nas .sub, .kpi-card.kpi-merged .sub, .kpi-card.kpi-green .sub, .kpi-card.kpi-neg .sub { color: rgba(255,255,255,0.74); }
+  .kpi-card.kpi-dax .label, .kpi-card.kpi-nas .label, .kpi-card.kpi-merged .label { color: rgba(255,255,255,0.82); }
+  .kpi-card.kpi-dax .value, .kpi-card.kpi-nas .value, .kpi-card.kpi-merged .value { color: #fff; }
+  .kpi-card.kpi-dax .sub, .kpi-card.kpi-nas .sub, .kpi-card.kpi-merged .sub { color: rgba(255,255,255,0.74); }
   /* Darwinex : lime Darwin Zero, texte sombre pour le contraste */
   .kpi-card.kpi-dwx { background: var(--gradient-dwx); border-color: transparent; }
   .kpi-card.kpi-dwx .label { color: rgba(12,26,0,0.72); }
@@ -1034,26 +1039,6 @@
       <h3>Évolution du patrimoine (composition)</h3>
       <canvas id="ttlStackChart"></canvas>
     </div></div>
-    <div class="chart-row">
-      <div class="chart-card"><h3>Répartition du capital</h3><canvas id="ttlAllocChart"></canvas></div>
-      <div class="chart-card"><h3 title="P&L cumulé net des apports, par source">Contribution au P&amp;L</h3><canvas id="ttlContribChart"></canvas></div>
-    </div>
-    <div class="chart-full"><div class="chart-card">
-      <h3>Performance mensuelle comparée</h3>
-      <canvas id="ttlMonthlyChart"></canvas>
-    </div></div>
-    <div class="chart-full"><div class="chart-card">
-      <h3 title="Valeur nette du patrimoine dans le temps, et son recul depuis le plus haut (zone rouge)">Courbe de patrimoine &amp; drawdown</h3>
-      <canvas id="ttlEquityDDChart"></canvas>
-    </div></div>
-    <div class="chart-row">
-      <div class="chart-card"><h3 title="Rendement pondéré dans le temps (dépôts neutralisés), par source">Rendement par source (TWR)</h3><canvas id="ttlTwrChart"></canvas></div>
-      <div class="chart-card"><h3 title="Rendement, drawdown maximal et ratio Rdt/DD par source">Risque / rendement par source</h3><div id="ttlRiskReturn" style="margin-top:6px"></div></div>
-    </div>
-    <div class="chart-full"><div class="chart-card">
-      <h3 title="Un carré par jour, coloré selon le P&amp;L total du jour (12 derniers mois)">Régularité des gains (heatmap annuelle)</h3>
-      <div id="ttlYearHeat" style="overflow-x:auto"></div>
-    </div></div>
     <div class="chart-full"><div class="chart-card">
       <h3 style="justify-content:space-between;flex-wrap:wrap;">
         <span style="display:flex;align-items:center;gap:8px;">Calendrier Journalier — patrimoine total</span>
@@ -1087,6 +1072,22 @@
       <div class="day-detail-panel" id="ttlMonthDetail"></div>
       <div class="stats-bar" id="ttlMonthStats"></div>
     </div></div>
+    <div class="chart-row">
+      <div class="chart-card"><h3>Répartition du capital</h3><canvas id="ttlAllocChart"></canvas></div>
+      <div class="chart-card"><h3 title="P&L cumulé net des apports, par source">Contribution au P&amp;L</h3><canvas id="ttlContribChart"></canvas></div>
+    </div>
+    <div class="chart-full"><div class="chart-card">
+      <h3>Performance mensuelle comparée</h3>
+      <canvas id="ttlMonthlyChart"></canvas>
+    </div></div>
+    <div class="chart-full"><div class="chart-card">
+      <h3 title="Valeur nette du patrimoine dans le temps, et son recul depuis le plus haut (zone rouge)">Courbe de patrimoine &amp; drawdown</h3>
+      <canvas id="ttlEquityDDChart"></canvas>
+    </div></div>
+    <div class="chart-row">
+      <div class="chart-card"><h3 title="Rendement pondéré dans le temps (dépôts neutralisés), par source">Rendement par source (TWR)</h3><canvas id="ttlTwrChart"></canvas></div>
+      <div class="chart-card"><h3 title="Rendement, drawdown maximal et ratio Rdt/DD par source">Risque / rendement par source</h3><div id="ttlRiskReturn" style="margin-top:6px"></div></div>
+    </div>
   </div>
 
   <div id="tab-real" class="tab-content">
@@ -3392,7 +3393,10 @@ let ttlDayData = {};
 let ttlSeries = { months: [], ig: [], stk: [], dwx: [] };
 let ttlEqMonths = { months: [], total: [] };
 let ttlMonthPnl = {};
-const TTL_COL = { ig: '#e0342e', stk: '#2563eb', dwx: '#dcee00' };  // Trading Auto=rouge, Actions=bleu, Darwinex=jaune fluo
+// Teintes SOURDES : mêmes familles de couleur qu'avant (brique, bleu, olive) mais
+// désaturées. Les valeurs vives d'origine (#e0342e, #2563eb et surtout le jaune fluo
+// #dcee00) donnaient un rendu criard sur la page d'accueil.
+const TTL_COL = { ig: '#b5564e', stk: '#4a72b8', dwx: '#a9b545' };  // Trading Auto=brique, Actions=bleu ardoise, Darwinex=olive
 const TTL_LABEL = { ig: 'Trading Auto', stk: "Portefeuille d'actions", dwx: 'Darwinex' };
 
 function ttlEurPerUsd() {
@@ -3502,12 +3506,15 @@ function renderTotalTab() {
   const pnlToday = (ttlDayData[curDay] || {}).total || 0;
 
   const dot = k => '<span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:' + TTL_COL[k] + ';margin-right:6px;vertical-align:-1px"></span>';
-  const athBadge = isATH ? ' <span style="display:inline-flex;align-items:center;background:linear-gradient(135deg,#f59e0b,#fbbf24);color:#000;font-size:0.8rem;font-weight:700;padding:3px 11px;border-radius:20px;vertical-align:middle;margin-left:8px;letter-spacing:0.5px;">ATH</span>' : '';
+  // Pastille discrète (contour) plutôt qu'une gélule jaune pleine : c'est une mention, pas une médaille.
+  const athBadge = isATH ? ' <span title="Le patrimoine est à son plus haut historique" style="display:inline-flex;align-items:center;border:1px solid rgba(217,119,6,0.45);color:#b45309;background:rgba(245,158,11,0.10);font-size:0.62rem;font-weight:800;padding:2px 8px;border-radius:5px;vertical-align:middle;margin-left:9px;letter-spacing:0.08em;">PLUS HAUT</span>' : '';
   document.getElementById('ttlHero').innerHTML =
     '<div class="hero-card capital" style="position:relative;flex:1;">' +
       '<div class="hero-label">Capital total' + athBadge + '</div>' +
       '<div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;">' +
-        '<div class="hero-value" style="background:linear-gradient(135deg,' + (pnlTotal>=0?'#1d9e74,#34d399':'#dd5f66,#f87171') + ');-webkit-background-clip:text;-webkit-text-fill-color:transparent;">' + fmt(Math.round(capTotal)) + ' €</div>' +
+        // Chiffre en encre pleine : le dégradé découpé dans le texte faisait décoratif et
+        // dégradait la lisibilité. La couleur reste sur le badge de performance, à côté.
+        '<div class="hero-value">' + fmt(Math.round(capTotal)) + ' €</div>' +
         '<span class="hero-badge ' + (pnlPct>=0?'pos':'neg') + '" style="font-size:0.95rem;padding:5px 14px;" title="Rendement sur les apports nets cumulés">' + (pnlPct>=0?'+':'') + pnlPct.toFixed(2) + '%</span>' +
       '</div>' +
       '<div style="font-size:0.9rem;color:var(--text-secondary);margin-top:8px;">Investi : ' + fmt(Math.round(invTotal)) + ' € · P&L cumulé : <span style="color:' + (pnlTotal>=0?'var(--positive)':'var(--negative)') + ';font-weight:700">' + (pnlTotal>=0?'+':'') + fmt(Math.round(pnlTotal)) + ' €</span></div>' +
@@ -5546,7 +5553,7 @@ const LOGO_REVOLUT = '<svg fill="currentColor" width="14" height="14" viewBox="0
 const LOGO_LENDERMARKET = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAMAAACdt4HsAAAATlBMVEVHcEyHXvSDW/mCW/mCW/r8txj/ugj/ugiCW/r/ugiCW/n/uweCW/n/vAb/ugiDW/n/ugiCW/n/uwiCW/n/ugf/vgB6VP/ho2PGjpmhcs/tDTrnAAAAE3RSTlMAHKdu0vbWSkhzhRzpmK80NlgNYefPBAAAAW5JREFUWIXtlsmSgzAMRMMOYQmJjCH//6NjMlSwFjM2Pk0VfRX9SqUoct9uly4h3TuALk2OP2r7QqmyESpP2JQe+Xu1qaKVDHbdXfZK7SKEBJCekv1VKlstKuYYAPmD+RuFNaAqMJFpjoWisssPDsCjGJhdqdGq1xIAIHN0z8foAEBXm2Jbin4vgJlm0st2XwDAoqYogNZ6mUSEbweGAbOE8AeYLt4zJwQAPoiCIoIAK4NOMxRgRoGnGQxYZY/iFEC/pzgAwE44CTBrFQcAiAXoORowRQKWWEB0B5E/474IZ/cgchP1HLWJ6CqEAzT6M4YfFHpcwwCaHaTAm8hPYtBVlo6yP8DxLHgDXA+TLyB1PY1+gDyRw4Un4BMPxHjjB8i+dTGi2IBEsKPA+RJSCsp53E4jb0X9BSpn2N7xmGjF3F+RvNzZfjGokrRV0upOcEZle5jMb9K+MDuuQex/U51l9bF9VdU0499fXfpf+gEgVqRKELKBWwAAAABJRU5ErkJggg==';
 function tabImg(src, alt) { return '<img src="' + src + '" width="15" height="15" alt="' + alt + '" style="vertical-align:-3px;margin-right:5px;border-radius:3px">'; }
 // Logo "Trading total" : donut a 3 segments aux couleurs des 3 sources agregees (IG rouge, Actions bleu, Darwinex jaune)
-const LOGO_TOTAL = '<svg width="15" height="15" viewBox="0 0 24 24" style="vertical-align:-3px;margin-right:5px" xmlns="http://www.w3.org/2000/svg"><g fill="none" stroke-width="5"><circle cx="12" cy="12" r="8.5" stroke="#e0342e" stroke-dasharray="17.8 35.6"/><circle cx="12" cy="12" r="8.5" stroke="#2563eb" stroke-dasharray="17.8 35.6" stroke-dashoffset="-17.8"/><circle cx="12" cy="12" r="8.5" stroke="#dcee00" stroke-dasharray="17.8 35.6" stroke-dashoffset="-35.6"/></g></svg>';
+const LOGO_TOTAL = '<svg width="15" height="15" viewBox="0 0 24 24" style="vertical-align:-3px;margin-right:5px" xmlns="http://www.w3.org/2000/svg"><g fill="none" stroke-width="5"><circle cx="12" cy="12" r="8.5" stroke="#b5564e" stroke-dasharray="17.8 35.6"/><circle cx="12" cy="12" r="8.5" stroke="#4a72b8" stroke-dasharray="17.8 35.6" stroke-dashoffset="-17.8"/><circle cx="12" cy="12" r="8.5" stroke="#a9b545" stroke-dasharray="17.8 35.6" stroke-dashoffset="-35.6"/></g></svg>';
 
 const GROUP_TABS = {
   trading: [
