@@ -4126,8 +4126,22 @@ function renderMorningBrief() {
       const dTxt = (quand && !isNaN(quand))
         ? ' (' + quand.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })
           + ' ' + quand.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) + ')' : '';
+      // Le ticker etait deja en bleu : il RESSEMBLAIT a un lien sans en etre un. On le rend cliquable
+      // vers l'article qui a produit cette ligne (celui dont l'horodatage correspond, sinon le plus
+      // recent du titre), pour ne plus avoir a ouvrir la fiche societe et scroller jusqu'en bas.
+      const sym = String(p.ticker || '').toUpperCase();
+      const grpN = ((SCR_POS_NEWS && SCR_POS_NEWS.groups) || []).find((g) => g && String(g.ticker).toUpperCase() === sym);
+      const artsN = (grpN && grpN.items) || [];
+      let artN = p.ts ? artsN.find((a) => a && a.ts === p.ts) : null;
+      if (!artN && artsN.length) artN = artsN.slice().sort((a, b) => (b.ts || 0) - (a.ts || 0))[0];
+      const tickEl = (artN && artN.u)
+        ? scrEl('a', { text: p.ticker || '', attrs: { href: artN.u, target: '_blank', rel: 'noopener',
+            title: "Ouvrir l'article : " + (artN.t || '') + (artN.p ? ' (' + artN.p + ')' : '') },
+            style: 'color:#3563e9;font-size:0.76rem;font-weight:700;min-width:52px;text-decoration:underline dotted;text-underline-offset:3px' })
+        : scrEl('b', { text: p.ticker || '', attrs: { title: "Aucun article rattache a cette ligne : le collecteur n'en a pas trouve pour ce titre." },
+            style: 'color:#3563e9;font-size:0.76rem;min-width:52px' });
       ul.appendChild(scrEl('div', { style: 'display:flex;gap:8px;align-items:baseline', kids: [
-        scrEl('b', { text: p.ticker || '', style: 'color:#3563e9;font-size:0.76rem;min-width:52px' }),
+        tickEl,
         scrEl('span', { style: 'font-size:0.8rem;color:var(--text-secondary)', kids: [
           scrEl('span', { text: p.text }),
           scrEl('span', { text: dTxt, style: 'color:var(--text-muted);white-space:nowrap' })] })] }));
