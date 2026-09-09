@@ -144,7 +144,7 @@ def fetch_news(ticker, name, limit=NEWS_PER_TICKER):
     return out
 
 
-def fetch_market_news(limit=6):
+def fetch_market_news(limit=12):
     """Actualites de marche : on interroge les grands indices, sans filtre de nom."""
     seen, out = set(), []
     cutoff = time.time() - NEWS_MAX_AGE_H * 3600
@@ -176,8 +176,15 @@ RÈGLES ABSOLUES :
 - Si une ligne n'a pas d'actualité notable, tu ne l'inventes pas et tu ne la mentionnes pas.
 - Sois bref. Le lecteur lit ça en deux minutes avant l'ouverture.
 
+RÈGLE SUR LES DATES, LA PLUS IMPORTANTE :
+- Tu ne cites une échéance QUE si elle apparaît explicitement dans les données ci-dessous.
+- Tu n'écris JAMAIS une date de mémoire (CPI, FOMC, emploi, résultats...). Si les articles
+  mentionnent un rendez-vous sans le dater, dis "prochainement" plutôt que d'inventer un jour.
+
 STRUCTURE ATTENDUE, en JSON strict et rien d'autre :
 {"market": "un paragraphe de 2 à 4 phrases sur le climat général : indices, taux, macro, et ce que dit l'indice Fear & Greed",
+ "attentisme": "1 à 3 phrases expliquant ce qui peut retenir le marché aujourd'hui : rendez-vous macro ou résultats attendus, incertitude, sous-indicateurs du Fear & Greed qui divergent. Chaîne de causalité explicite. Si rien ne le justifie dans les données, dis-le franchement.",
+ "semaine": [{"quand": "le repère temporel TEL QU'IL APPARAÎT dans les données (ex : jeudi, cette semaine, prochainement)", "quoi": "l'échéance", "pourquoi": "en quoi elle compte pour un portefeuille d'actions américaines"}],
  "positions": [{"ticker": "XXXX", "text": "1 à 2 phrases factuelles sur ce qui concerne cette ligne"}],
  "watch": ["2 à 4 faits ou échéances à surveiller aujourd'hui"]}
 
@@ -188,6 +195,11 @@ DONNÉES DU JOUR :
 def anthropic_brief(api_key, fg, per_ticker, market):
     """Retourne le dict {market, positions, watch} ou None. Ne leve jamais."""
     lignes = []
+    JOURS = ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche']
+    MOIS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août',
+            'septembre', 'octobre', 'novembre', 'décembre']
+    d = datetime.now()
+    lignes.append(f"Nous sommes le {JOURS[d.weekday()]} {d.day} {MOIS[d.month - 1]} {d.year}.")
     lignes.append(f"Fear & Greed CNN : {fg['score']} ({fg['rating']}). "
                   f"Hier {fg['prev']['close']}, il y a une semaine {fg['prev']['week']}, "
                   f"un mois {fg['prev']['month']}, un an {fg['prev']['year']}.")
@@ -232,7 +244,20 @@ def normalize_brief(b):
     script mourait sur une trace brute. On ne fait donc JAMAIS confiance a la forme."""
     if not isinstance(b, dict):
         return None
-    out = {'market': str(b.get('market') or '')[:1200], 'positions': [], 'watch': []}
+    out = {'market': str(b.get('market') or '')[:1200],
+           'attentisme': str(b.get('attentisme') or '')[:900],
+           'semaine': [], 'positions': [], 'watch': []}
+    sem = b.get('semaine')
+    if isinstance(sem, dict):
+        sem = list(sem.values())
+    if isinstance(sem, list):
+        for e in sem[:6]:
+            if isinstance(e, dict) and (e.get('quoi') or e.get('what')):
+                out['semaine'].append({'quand': str(e.get('quand') or '')[:60],
+                                       'quoi': str(e.get('quoi') or '')[:180],
+                                       'pourquoi': str(e.get('pourquoi') or '')[:220]})
+            elif isinstance(e, str) and e.strip():
+                out['semaine'].append({'quand': '', 'quoi': e[:180], 'pourquoi': ''})
     pos = b.get('positions')
     if isinstance(pos, dict):                       # {"META": "..."} -> liste
         pos = [{'ticker': k, 'text': v} for k, v in pos.items()]
@@ -247,7 +272,7 @@ def normalize_brief(b):
         w = list(w.values())
     if isinstance(w, list):
         out['watch'] = [str(x)[:250] for x in w if x][:6]
-    return out if (out['market'] or out['positions'] or out['watch']) else None
+    return out if (out['market'] or out['positions'] or out['watch'] or out['semaine']) else None
 
 
 # ── Orchestration ────────────────────────────────────────────────────────────
