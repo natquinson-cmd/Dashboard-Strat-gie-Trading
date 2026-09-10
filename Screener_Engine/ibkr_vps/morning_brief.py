@@ -266,6 +266,14 @@ RÈGLES ABSOLUES :
 - Si une ligne n'a pas d'actualité notable, tu ne l'inventes pas et tu ne la mentionnes pas.
 - Sois bref. Le lecteur lit ça en deux minutes avant l'ouverture.
 
+RÈGLE SUR LE SENS DES OPÉRATIONS, AUSSI IMPORTANTE QUE LES DATES :
+- Un titre d'article ne dit presque jamais QUI achète et QUI vend. "X Vs Y: rotation de 56 M$"
+  ne dit pas le sens. Quand une ligne "RÉSUMÉ DE L'ARTICLE" suit un titre, c'est ELLE qui fait
+  foi, elle est tirée du corps de l'article.
+- Sans résumé, tu ne DÉDUIS JAMAIS le sens d'une opération, d'une hausse ou d'une baisse à
+  partir d'un titre ambigu. Tu écris ce que le titre dit, pas plus. Se tromper de sens, c'est
+  dire l'exact contraire de la réalité au lecteur.
+
 RÈGLE SUR LES DATES, LA PLUS IMPORTANTE :
 - Le CALENDRIER ÉCONOMIQUE ci-dessous est une source FIABLE : cite ses dates, ses heures et
   ses consensus sans hésiter, ce sont les échéances qui comptent pour la semaine.
@@ -386,6 +394,11 @@ def anthropic_brief(api_key, fg, per_ticker, market, econ=None):
     for grp in per_ticker:
         for n in grp['items']:
             lignes.append(f"- {grp['ticker']} [{n.get('p')}] {n['t']}")
+            # Le resume est lu dans le CORPS de l'article : c'est lui qui porte le sens de
+            # l'operation, la que le titre reste souvent ambigu.
+            resume = str(n.get('fr') or '').strip()
+            if resume:
+                lignes.append(f"    RESUME DE L'ARTICLE : {resume[:500]}")
     body = {
         'model': ANTHROPIC_MODEL,
         # 4000 et non 1500. Depuis l'ajout de l'attentisme, des echeances de la semaine et du
@@ -517,10 +530,29 @@ def main():
     print(f'Calendrier economique : {len(econ)} evenements US retenus sur 7 jours')
     print(f'Actualites : {total} sur {len(per_ticker)} lignes, {len(market)} de marche')
 
+    key = os.environ.get('ANTHROPIC_API_KEY')
+
+    # Resumes FRANCAIS des actualites : produits ICI et nulle part ailleurs, donc une fois par
+    # jour a 07h45 et a la demande via le bouton Rafraichir (--if-requested). live_prices.py, qui
+    # tourne toutes les 15 min, se borne a les recopier : la depense API reste quotidienne.
+    #
+    # Et AVANT la synthese, non apres. Le brief ne voyait que les TITRES, qui ne disent pas
+    # toujours le sens d'une operation : le 10/09/2026, "META Vs GOOGL: Cathie Wood's ARK Makes
+    # A Nearly $56M Mega-Cap Tech Rotation" ne dit pas qui est achete, et le modele a ecrit
+    # « ARK vend Meta au profit de Google » alors qu'ARK ACHETAIT Meta et VENDAIT Alphabet. Le
+    # resume francais, lui, lit le corps de l'article et avait juste. On le lui donne donc.
+    try:
+        from news_fr import resumer_groupes
+        prev_news = get(db, 'dashboard/positionNews') or {}
+        per_ticker = resumer_groupes(per_ticker, prev_news, api_key=key, autoriser_appel=True)
+        push(db, 'dashboard/positionNews', {'at': _now_iso(), 'groups': per_ticker})
+        print('Actualites resumees poussees dans dashboard/positionNews')
+    except Exception as e:
+        print(f'  resumes fr err : {e}')
+
     # brief_err voyage jusqu'au dashboard : un echec muet de la synthese s'y lisait
     # « synthese indisponible », ce qui ne dit rien et oblige a fouiller les logs du VPS.
     brief, brief_err = None, None
-    key = os.environ.get('ANTHROPIC_API_KEY')
     if not key:
         brief_err = 'ANTHROPIC_API_KEY absente sur le VPS'
         print('ANTHROPIC_API_KEY absente : pas de synthese, on pousse les titres bruts.')
@@ -542,18 +574,6 @@ def main():
                     p['ts'] = int(ts)
         print('Synthese : ' + ('OK' if brief else 'ECHEC (titres bruts conserves)')
               + (' - ' + brief_err if brief_err else ''))
-
-    # Resumes FRANCAIS des actualites : produits ICI et nulle part ailleurs, donc une fois par
-    # jour a 07h45 et a la demande via le bouton Rafraichir (--if-requested). live_prices.py, qui
-    # tourne toutes les 15 min, se borne a les recopier : la depense API reste quotidienne.
-    try:
-        from news_fr import resumer_groupes
-        prev_news = get(db, 'dashboard/positionNews') or {}
-        per_ticker = resumer_groupes(per_ticker, prev_news, api_key=key, autoriser_appel=True)
-        push(db, 'dashboard/positionNews', {'at': _now_iso(), 'groups': per_ticker})
-        print('Actualites resumees poussees dans dashboard/positionNews')
-    except Exception as e:
-        print(f'  resumes fr err : {e}')
 
     payload = {'at': _now_iso(), 'fearGreed': fg, 'news': per_ticker, 'econ': econ,
                'marketNews': market, 'brief': brief, 'briefError': brief_err,
