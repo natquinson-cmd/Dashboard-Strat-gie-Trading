@@ -3477,30 +3477,6 @@ function ttlEquitySeries() {
 //               car stkInv vaut « valeur - P&L cumulé », donc le prix de revient des lignes.
 //               Le journal Revolut ne pouvait pas convenir : il n'enregistre que les virements
 //               ARRIVÉS sur le compte, pas le capital effectivement déployé en titres.
-// Flux du mois de la poche actions, SEPARE en achats et ventes. scrNetFlow ne rend que le net,
-// or un mois peut sembler neutre tout en ayant vu 4 500 € d'achats et presque autant de ventes :
-// c'est exactement ce que le net cachait en septembre 2026. Meme convention que scrNetFlow, dont
-// ce calcul est le dedoublement : renforcement au prix d'achat, allegement au prorata du marche.
-function ttlFluxActionsMois(ym) {
-  const sh = ttlStockHist();
-  let achats = 0, ventes = 0, net = 0;
-  for (let i = 1; i < sh.length; i++) {
-    const prev = sh[i - 1], cur = sh[i];
-    if (String(cur.date || '').indexOf(ym) !== 0) continue;
-    net += scrFlowBetween(prev, cur);
-    if (!Array.isArray(prev.lines) || !Array.isArray(cur.lines) || !prev.lines.length || !cur.lines.length) continue;
-    const a = scrLinesMap(prev), b = scrLinesMap(cur);
-    Object.keys(a).forEach((k) => {
-      const pl = a[k], cl = b[k];
-      if (!cl) { ventes += pl.v; return; }                                  // ligne soldée
-      const di = cl.i - pl.i;
-      if (di > 0) achats += di;
-      else if (di < 0) ventes += -di * (pl.i > 0 ? (pl.v / pl.i) : 1);
-    });
-    Object.keys(b).forEach((k) => { if (!a[k]) achats += b[k].i; });        // ligne ouverte
-  }
-  return { net: net, achats: achats, ventes: ventes };
-}
 function ttlApportMois(ym) {
   let s = 0;
   (typeof realDeposits !== 'undefined' ? realDeposits : []).forEach((d) => {
@@ -3508,9 +3484,13 @@ function ttlApportMois(ym) {
   });
   const dw = (typeof darwinexDaily !== 'undefined' && darwinexDaily) ? darwinexDaily : {};
   Object.keys(dw).forEach((k) => { if (k.indexOf(ym) === 0 && dw[k] && dw[k].deposit) s += dw[k].deposit; });
-  // le flux du 1er du mois se mesure depuis le dernier instantané du mois précédent
-  const f = ttlFluxActionsMois(ym), fx = ttlEurPerUsd();
-  return { total: s + f.net * fx, achats: f.achats * fx, ventes: f.ventes * fx };
+  const sh = ttlStockHist(), fx = ttlEurPerUsd();
+  let flux = 0;
+  for (let i = 1; i < sh.length; i++) {
+    // le flux du 1er du mois se mesure depuis le dernier instantané du mois précédent
+    if (String(sh[i].date || '').indexOf(ym) === 0) flux += scrFlowBetween(sh[i - 1], sh[i]);
+  }
+  return s + flux * fx;
 }
 function ttlAthDaily() {
   const fx = ttlEurPerUsd();
@@ -3612,16 +3592,10 @@ function renderTotalTab() {
     // apport du mois mis en avant : sinon rien ne distingue un capital qui monte par
     // performance d'un capital qui monte parce qu'on a remis de l'argent dedans.
     card('', 'Investi total', fmt(Math.round(invTotal))+' €',
-      'Apports nets cumulés (3 sources)' + (Math.abs(apportMois.total) >= 1
-        ? ' · <span style="color:' + (apportMois.total >= 0 ? 'var(--positive)' : 'var(--negative)') + ';font-weight:700">'
-          + (apportMois.total >= 0 ? '+' : '') + fmt(Math.round(apportMois.total)) + ' €</span> ce mois'
-        : ' · aucun apport ce mois')
-      // le net seul est trompeur : un mois d'arbitrages affiche presque zéro alors qu'on a
-      // acheté pour plusieurs milliers d'euros. On montre donc le brut juste en dessous.
-      + (apportMois.achats >= 1
-        ? '<br><span style="opacity:.75">' + fmt(Math.round(apportMois.achats)) + ' € achetés'
-          + (apportMois.ventes >= 1 ? ', ' + fmt(Math.round(apportMois.ventes)) + ' € cédés' : '') + '</span>'
-        : '')) +
+      'Apports nets cumulés (3 sources)' + (Math.abs(apportMois) >= 1
+        ? ' · <span style="color:' + (apportMois >= 0 ? 'var(--positive)' : 'var(--negative)') + ';font-weight:700">'
+          + (apportMois >= 0 ? '+' : '') + fmt(Math.round(apportMois)) + ' €</span> ce mois'
+        : ' · aucun apport ce mois')) +
     // l'écart au pic en ROUGE, avec le montant entre parenthèses : un pourcentage seul
     // ne dit pas combien d'euros séparent du plus-haut.
     card(isATH?'kpi-green':'', 'Plus haut patrimoine', fmt(Math.round(ath))+' €',
