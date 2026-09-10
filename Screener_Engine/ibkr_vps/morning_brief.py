@@ -319,10 +319,17 @@ RÈGLES ABSOLUES :
 - Tu rapportes des FAITS. Tu ne donnes JAMAIS de recommandation d'achat, de vente ou de conservation, ni d'objectif de cours. Ce n'est pas un conseil en investissement.
 - Français naturel, sans tiret cadratin. Utilise des virgules.
 - Si une ligne n'a pas d'actualité notable, tu ne l'inventes pas et tu ne la mentionnes pas.
-- Sois BREF, c'est la qualité principale attendue. Le lecteur parcourt ça en une minute avant
-  l'ouverture. Le détail complet de chaque ligne est à un clic sur le nom de l'action : tu n'as
-  donc pas à tout dire, seulement l'essentiel. Aucune phrase de remplissage, aucune reformulation
-  de ce que le chiffre dit déjà.
+- Pas de phrase de remplissage, pas de reformulation de ce que le chiffre dit déjà.
+
+STYLE, RÈGLE STRICTE :
+- Tu écris des PHRASES COMPLÈTES, en français correct : articles, verbes conjugués, liaisons
+  logiques. Le style télégraphique est INTERDIT. "Q3 revenus record accélérateurs IA
+  personnalisés" ne veut rien dire ; écris "Broadcom a publié un chiffre d'affaires trimestriel
+  record, tiré par ses accélérateurs d'IA personnalisés."
+- Tu peux être dense, jamais elliptique. Le lecteur doit comprendre du premier coup, sans
+  reconstituer mentalement les mots manquants.
+- Tu relies les faits entre eux quand ils s'expliquent : "les rendements montent, DONC les
+  valeurs de croissance reculent" vaut mieux que deux constats côte à côte.
 
 MISE EN GRAS :
 - Encadre de **doubles astérisques** les deux ou trois éléments qui portent le sens dans chaque
@@ -353,11 +360,11 @@ RÈGLE SUR LES DATES, LA PLUS IMPORTANTE :
   dis "prochainement" plutôt que d'inventer un jour.
 
 STRUCTURE ATTENDUE, en JSON strict et rien d'autre :
-{"market": "2 phrases MAXIMUM sur le climat général : indices, taux, macro, et ce que dit l'indice Fear & Greed",
- "attentisme": "1 à 2 phrases sur ce qui peut retenir le marché aujourd'hui : rendez-vous macro ou résultats attendus, sous-indicateurs du Fear & Greed qui divergent. Chaîne de causalité explicite. Si rien ne le justifie dans les données, dis-le en une phrase.",
- "semaine": [{"quand": "le libellé du calendrier RECOPIÉ tel quel, court, ex : jeudi 10 septembre. Rien d'autre, ni heure ni fuseau", "quoi": "l'échéance, son heure de Paris et son consensus s'il existe. 12 mots maximum", "pourquoi": "en quoi elle compte, 12 mots maximum"}],
- "positions": [{"ticker": "XXXX", "text": "UNE phrase factuelle, 25 mots maximum. Le fait, rien de plus"}],
- "watch": ["2 à 4 faits à surveiller aujourd'hui, 15 mots maximum chacun"]}
+{"market": "un VRAI paragraphe d'analyse de 5 à 7 phrases, la pièce maîtresse du brief. Tu n'énumères pas, tu EXPLIQUES : ce qui bouge et par quel mécanisme, ce que les rendements obligataires et les matières premières font aux actions et pourquoi, ce que disent les sous-indicateurs du Fear & Greed et surtout ceux qui se CONTREDISENT entre eux, ce que cela révèle du positionnement des investisseurs, et ce qui distingue aujourd'hui des séances précédentes. Chaque affirmation est reliée à sa cause.",
+ "attentisme": "2 à 4 phrases complètes sur ce qui peut retenir le marché aujourd'hui : rendez-vous macro ou résultats attendus, sous-indicateurs du Fear & Greed qui divergent. Chaîne de causalité explicite, avec les deux branches, ce qui se passe si le chiffre surprend à la hausse et à la baisse. Si rien ne le justifie dans les données, dis-le franchement.",
+ "semaine": [{"quand": "le libellé du calendrier RECOPIÉ tel quel, court, ex : jeudi 10 septembre. Rien d'autre, ni heure ni fuseau", "quoi": "une phrase complète : l'échéance, son heure de Paris, son consensus et son précédent s'ils existent", "pourquoi": "une phrase complète expliquant en quoi elle compte pour un portefeuille d'actions américaines"}],
+ "positions": [{"ticker": "XXXX", "text": "1 à 2 phrases complètes et factuelles sur ce qui concerne cette ligne, et si l'article le dit, pourquoi cela compte"}],
+ "watch": ["2 à 4 points à surveiller aujourd'hui, une phrase complète chacun"]}
 
 DONNÉES DU JOUR :
 """
@@ -468,11 +475,12 @@ def anthropic_brief(api_key, fg, per_ticker, market, econ=None):
                 lignes.append(f"    RESUME DE L'ARTICLE : {resume[:500]}")
     body = {
         'model': ANTHROPIC_MODEL,
-        # 4000 et non 1500. Depuis l'ajout de l'attentisme, des echeances de la semaine et du
-        # calendrier economique, une reponse complete demande environ 2100 jetons : a 1500 elle
-        # etait coupee net, le JSON devenait illisible et le brief tombait en silence sur les
-        # titres bruts. C'est un plafond, pas une depense, on ne paie que ce qui est ecrit.
-        'max_tokens': 4000,
+        # 6000. La reponse complete demandait deja 2100 jetons avec l'attentisme, la semaine et
+        # le calendrier ; le retour aux phrases completes et au paragraphe d'analyse en demande
+        # nettement plus. A 1500, elle etait coupee net, le JSON devenait illisible et le brief
+        # tombait en silence sur les titres bruts. C'est un plafond, pas une depense : on ne paie
+        # que ce qui est reellement ecrit.
+        'max_tokens': 6000,
         'messages': [{'role': 'user', 'content': PROMPT + '\n'.join(lignes)}],
     }
     try:
@@ -508,8 +516,11 @@ def normalize_brief(b):
     script mourait sur une trace brute. On ne fait donc JAMAIS confiance a la forme."""
     if not isinstance(b, dict):
         return None
-    out = {'market': str(b.get('market') or '')[:1200],
-           'attentisme': str(b.get('attentisme') or '')[:900],
+    # Plafonds larges et non serres : ils ne sont la que comme garde-fou contre un modele qui
+    # part en boucle, pas pour raccourcir. Un plafond atteint couperait en plein milieu d'une
+    # phrase, ce qui serait la enieme degradation silencieuse.
+    out = {'market': str(b.get('market') or '')[:2200],
+           'attentisme': str(b.get('attentisme') or '')[:1400],
            'semaine': [], 'positions': [], 'watch': []}
     sem = b.get('semaine')
     if isinstance(sem, dict):
@@ -518,10 +529,10 @@ def normalize_brief(b):
         for e in sem[:6]:
             if isinstance(e, dict) and (e.get('quoi') or e.get('what')):
                 out['semaine'].append({'quand': str(e.get('quand') or '')[:60],
-                                       'quoi': str(e.get('quoi') or '')[:180],
-                                       'pourquoi': str(e.get('pourquoi') or '')[:220]})
+                                       'quoi': str(e.get('quoi') or '')[:320],
+                                       'pourquoi': str(e.get('pourquoi') or '')[:340]})
             elif isinstance(e, str) and e.strip():
-                out['semaine'].append({'quand': '', 'quoi': e[:180], 'pourquoi': ''})
+                out['semaine'].append({'quand': '', 'quoi': e[:320], 'pourquoi': ''})
     pos = b.get('positions')
     if isinstance(pos, dict):                       # {"META": "..."} -> liste
         pos = [{'ticker': k, 'text': v} for k, v in pos.items()]
@@ -530,12 +541,12 @@ def normalize_brief(b):
             tk, tx = (p.get('ticker'), p.get('text')) if isinstance(p, dict) else (None, p)
             if not tx:
                 continue
-            out['positions'].append({'ticker': str(tk or '')[:12], 'text': str(tx)[:400]})
+            out['positions'].append({'ticker': str(tk or '')[:12], 'text': str(tx)[:520]})
     w = b.get('watch')
     if isinstance(w, dict):
         w = list(w.values())
     if isinstance(w, list):
-        out['watch'] = [str(x)[:250] for x in w if x][:6]
+        out['watch'] = [str(x)[:320] for x in w if x][:6]
     return out if (out['market'] or out['positions'] or out['watch'] or out['semaine']) else None
 
 
