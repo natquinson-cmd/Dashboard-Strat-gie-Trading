@@ -231,8 +231,78 @@ DONNÉES DU JOUR :
 """
 
 
+def _referme(frag):
+    """Referme les niveaux restes ouverts dans un fragment JSON coupe."""
+    pile, chaine, echap = [], False, False
+    for c in frag:
+        if echap:
+            echap = False
+        elif c == '\\':
+            echap = True
+        elif c == '"':
+            chaine = not chaine
+        elif not chaine:
+            if c in '{[':
+                pile.append(c)
+            elif c in '}]' and pile:
+                pile.pop()
+    out = frag + ('"' if chaine else '')
+    for c in reversed(pile):
+        out += '}' if c == '{' else ']'
+    return out
+
+
+def _points_de_coupe(brut):
+    """Endroits ou amputer un JSON tronque sans casser un element : juste apres un } ou un ],
+    ou juste avant une virgule. Rendus du plus tardif au plus tot, pour garder le maximum."""
+    pts, chaine, echap = [], False, False
+    for k, c in enumerate(brut):
+        if echap:
+            echap = False
+        elif c == '\\':
+            echap = True
+        elif c == '"':
+            chaine = not chaine
+        elif not chaine:
+            if c in '}]':
+                pts.append(k + 1)
+            elif c == ',':
+                pts.append(k)
+    pts.reverse()
+    return pts[:60]
+
+
+def _extraire_json(txt):
+    """Isole l'objet JSON de la reponse. Retourne (objet, souci) : souci vaut None quand
+    tout va bien, sinon il dit ce qui a manque.
+
+    Deux pieges, les deux vus en production :
+    - le modele encadre parfois son JSON de texte ou de balises ```json ;
+    - surtout, la reponse peut etre COUPEE NET quand elle bute sur max_tokens. L'ancienne
+      extraction (une regex gloutonne du premier { au dernier }) rendait alors un fragment
+      invalide, json.loads levait, et TOUT le brief partait a la poubelle au profit des
+      titres bruts. On repare desormais : on ampute le dernier element incomplet et on
+      referme les niveaux ouverts. Un brief a onze positions sur douze vaut mieux que rien."""
+    i = txt.find('{')
+    if i < 0:
+        return None, 'aucun objet JSON dans la reponse du modele'
+    brut = txt[i:]
+    j = brut.rfind('}')
+    while j > 0:
+        try:
+            return json.loads(brut[:j + 1]), None
+        except Exception:
+            j = brut.rfind('}', 0, j)
+    for fin in _points_de_coupe(brut):
+        try:
+            return json.loads(_referme(brut[:fin])), 'reponse tronquee, brief reconstitue en partie'
+        except Exception:
+            continue
+    return None, 'reponse tronquee et irrecuperable'
+
+
 def anthropic_brief(api_key, fg, per_ticker, market, econ=None):
-    """Retourne le dict {market, positions, watch} ou None. Ne leve jamais."""
+    """Retourne (dict {market, ...} ou None, souci ou None). Ne leve jamais."""
     lignes = []
     JOURS = ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche']
     MOIS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août',
@@ -264,7 +334,11 @@ def anthropic_brief(api_key, fg, per_ticker, market, econ=None):
             lignes.append(f"- {grp['ticker']} [{n.get('p')}] {n['t']}")
     body = {
         'model': ANTHROPIC_MODEL,
-        'max_tokens': 1500,
+        # 4000 et non 1500. Depuis l'ajout de l'attentisme, des echeances de la semaine et du
+        # calendrier economique, une reponse complete demande environ 2100 jetons : a 1500 elle
+        # etait coupee net, le JSON devenait illisible et le brief tombait en silence sur les
+        # titres bruts. C'est un plafond, pas une depense, on ne paie que ce qui est ecrit.
+        'max_tokens': 4000,
         'messages': [{'role': 'user', 'content': PROMPT + '\n'.join(lignes)}],
     }
     try:
@@ -275,13 +349,20 @@ def anthropic_brief(api_key, fg, per_ticker, market, econ=None):
         with urllib.request.urlopen(req, timeout=90) as r:
             j = json.loads(r.read().decode('utf-8', 'replace'))
         txt = ''.join(b.get('text', '') for b in (j.get('content') or []) if b.get('type') == 'text')
-        m = re.search(r'\{.*\}', txt, re.S)          # le modele peut encadrer le JSON
-        return json.loads(m.group(0)) if m else None
+        u = j.get('usage') or {}
+        print(f"  Anthropic : {u.get('input_tokens')} jetons en entree, {u.get('output_tokens')} "
+              f"en sortie, arret sur {j.get('stop_reason')}")
+        data, souci = _extraire_json(txt)
+        if j.get('stop_reason') == 'max_tokens':
+            souci = (souci + ', ' if souci else '') + 'butee sur max_tokens'
+        return data, souci
     except urllib.error.HTTPError as e:
-        print(f'  Anthropic HTTP {e.code} : {e.read().decode("utf-8", "replace")[:200]}')
+        detail = e.read().decode('utf-8', 'replace')[:200]
+        print(f'  Anthropic HTTP {e.code} : {detail}')
+        return None, f'HTTP {e.code} : {detail[:130]}'
     except Exception as e:
         print(f'  Anthropic : {e}')
-    return None
+        return None, f'{type(e).__name__} : {str(e)[:130]}'
 
 
 def normalize_brief(b):
@@ -382,12 +463,20 @@ def main():
     print(f'Calendrier economique : {len(econ)} evenements US retenus sur 7 jours')
     print(f'Actualites : {total} sur {len(per_ticker)} lignes, {len(market)} de marche')
 
-    brief = None
+    # brief_err voyage jusqu'au dashboard : un echec muet de la synthese s'y lisait
+    # « synthese indisponible », ce qui ne dit rien et oblige a fouiller les logs du VPS.
+    brief, brief_err = None, None
     key = os.environ.get('ANTHROPIC_API_KEY')
     if not key:
+        brief_err = 'ANTHROPIC_API_KEY absente sur le VPS'
         print('ANTHROPIC_API_KEY absente : pas de synthese, on pousse les titres bruts.')
-    elif fg:
-        brief = normalize_brief(anthropic_brief(key, fg, per_ticker, market, econ))
+    elif not fg:
+        brief_err = 'Fear & Greed indisponible, synthese non tentee'
+    else:
+        brut, brief_err = anthropic_brief(key, fg, per_ticker, market, econ)
+        brief = normalize_brief(brut)
+        if brut is not None and brief is None:
+            brief_err = brief_err or 'reponse du modele inexploitable'
         if brief:
             # Horodatage de l'actualite la PLUS RECENTE de chaque ligne : le modele redige,
             # il n'invente pas de date. Le dashboard l'affiche entre parentheses.
@@ -397,7 +486,8 @@ def main():
                 ts = max((i.get('ts') or 0) for i in items) if items else 0
                 if ts:
                     p['ts'] = int(ts)
-        print('Synthese : ' + ('OK' if brief else 'ECHEC (titres bruts conserves)'))
+        print('Synthese : ' + ('OK' if brief else 'ECHEC (titres bruts conserves)')
+              + (' - ' + brief_err if brief_err else ''))
 
     # Resumes FRANCAIS des actualites : produits ICI et nulle part ailleurs, donc une fois par
     # jour a 07h45 et a la demande via le bouton Rafraichir (--if-requested). live_prices.py, qui
@@ -412,7 +502,7 @@ def main():
         print(f'  resumes fr err : {e}')
 
     payload = {'at': _now_iso(), 'fearGreed': fg, 'news': per_ticker, 'econ': econ,
-               'marketNews': market, 'brief': brief,
+               'marketNews': market, 'brief': brief, 'briefError': brief_err,
                'ok': bool(fg), 'model': ANTHROPIC_MODEL if brief else None}
     # push() ne rattrape pas ses erreurs : sans ce garde, un refus de Firebase sortait
     # en trace brute illisible au lieu de dire ce qui n allait pas.

@@ -4205,8 +4205,7 @@ function renderMorningBrief() {
         + ' à ' + d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })) : '';
     })() }),
     scrFreshBadge(b.at, 'Brief produit chaque matin à 07h45 par le VPS.'),
-    scrEl('span', { style: 'margin-left:auto;font-size:0.68rem;color:var(--text-muted)',
-      text: br ? 'Synthèse automatique, repérage et non conseil' : 'Titres bruts (synthèse indisponible)' }),
+    scrBriefEtat(b, br),
     scrBriefRefreshBtn(b)] }));
   const row = scrEl('div', { style: 'display:flex;gap:22px;flex-wrap:wrap;align-items:flex-start' });
   // baromètre cliquable
@@ -4305,6 +4304,31 @@ function renderMorningBrief() {
   card.appendChild(row);
   c.replaceChildren(card);
 }
+// Pourquoi la synthèse manque, quand elle manque. Avant, le bloc affichait « synthèse
+// indisponible » et rien d'autre : impossible de savoir si la clé était absente, si l'API
+// avait refusé ou si la réponse avait été coupée, il fallait aller lire les logs du VPS.
+// Le script pousse désormais la raison dans briefError, on la montre telle quelle.
+function scrBriefEtat(b, br) {
+  const err = b ? b.briefError : null;
+  const sp = scrEl('span', { style: 'margin-left:auto;font-size:0.68rem;color:var(--text-muted)' });
+  if (br && !err) {
+    sp.textContent = 'Synthèse automatique, repérage et non conseil';
+    return sp;
+  }
+  if (br && err) {
+    sp.style.color = '#b8860b';
+    sp.textContent = 'Synthèse partielle, ' + err;
+    sp.title = 'Le brief a été reconstitué à partir d\'une réponse incomplète : ' + err;
+    return sp;
+  }
+  sp.style.color = 'var(--negative)';
+  sp.style.fontWeight = '700';
+  sp.textContent = 'Titres bruts, synthèse en échec : ' + (err || 'raison inconnue');
+  sp.title = err
+    ? ('Raison remontée par le VPS : ' + err + '\nLe détail complet est dans le log de morning_brief.bat.')
+    : 'Le VPS n\'a pas indiqué de raison. Relance morning_brief.bat et regarde la ligne « Synthese : ».';
+  return sp;
+}
 // Le navigateur ne peut PAS produire le brief lui-même : CNN bloque les appels croisés
 // et la clé Anthropic n'a rien à faire dans une page publique. Le bouton écrit donc une
 // DEMANDE, qu'une tâche VPS lancée chaque minute vient servir.
@@ -4314,7 +4338,11 @@ function scrBriefRefreshBtn(b) {
   if (SCR_BRIEF_REQ && briefMs && briefMs >= SCR_BRIEF_REQ) SCR_BRIEF_REQ = null;
   const btn = scrEl('button', { style: 'border:1px solid var(--border-strong);background:var(--bg-card);color:var(--text-secondary);border-radius:8px;padding:4px 10px;font-size:0.7rem;font-weight:700;cursor:pointer;white-space:nowrap' });
   const attente = SCR_BRIEF_REQ ? Math.round((Date.now() - SCR_BRIEF_REQ) / 60000) : 0;
-  if (SCR_BRIEF_REQ) {
+  // Au-delà de 10 minutes ce n'est plus de l'attente, c'est une panne : la tâche
+  // MorningBriefOnDemand n'est pas installée sur le VPS, ou ne tourne plus. On le dit, et on
+  // redonne la main pour pouvoir réessayer une fois la tâche en place, au lieu de laisser un
+  // bouton grisé qui tourne dans le vide.
+  if (SCR_BRIEF_REQ && attente < 10) {
     btn.disabled = true;
     btn.style.cursor = 'progress';
     btn.style.opacity = '0.7';
@@ -4323,9 +4351,19 @@ function scrBriefRefreshBtn(b) {
       ? 'La demande date de ' + attente + ' min. La tâche MorningBriefOnDemand du VPS ne tourne peut-être pas : vérifie schtasks /Query /TN MorningBriefOnDemand.'
       : 'Demande envoyée. Le VPS la sert dans la minute, le bloc se mettra à jour tout seul.';
   } else {
-    btn.textContent = '↻ Rafraîchir';
-    btn.title = 'Demande au VPS de régénérer le brief maintenant. Il vérifie chaque minute, '
-      + 'donc comptez environ une minute. Le bloc se met à jour tout seul.';
+    const enPanne = !!SCR_BRIEF_REQ;
+    if (enPanne) {
+      btn.textContent = '⚠ non servi, réessayer';
+      btn.style.borderColor = 'var(--negative)';
+      btn.style.color = 'var(--negative)';
+      btn.title = 'La demande date de ' + attente + ' min et personne ne l\'a servie. La tâche '
+        + 'MorningBriefOnDemand n\'est probablement pas installée sur le VPS : lance une fois '
+        + 'Screener_Engine\\ibkr_vps\\morning_brief_install_ondemand.bat en administrateur, puis reclique ici.';
+    } else {
+      btn.textContent = '↻ Rafraîchir';
+      btn.title = 'Demande au VPS de régénérer le brief maintenant. Il vérifie chaque minute, '
+        + 'donc comptez environ une minute. Le bloc se met à jour tout seul.';
+    }
     btn.onclick = () => {
       if (typeof db === 'undefined' || !db) return;
       const at = new Date().toISOString();
@@ -4344,6 +4382,17 @@ function loadMorningBrief() {
   // morningBrief restait sans lien si positionNews arrivait apres (course des deux listeners), et
   // plus rien ne le redessinait. Couvre aussi les rafraichissements d actus en seance (20 min).
   try { db.ref('dashboard/positionNews').on('value', (s) => { SCR_POS_NEWS = s.val(); renderMorningBrief(); }); } catch (e) {}
+  // La demande en cours est relue depuis Firebase, et pas seulement gardée en mémoire de l'onglet.
+  // Sinon un simple rechargement de page effaçait l'attente, et une demande jamais servie (tâche
+  // MorningBriefOnDemand absente du VPS) redevenait invisible : le bouton reprenait son air normal.
+  try {
+    db.ref('dashboard/morningBriefRequest').on('value', (s) => {
+      const at = (s.val() || {}).at;
+      const ms = at ? Date.parse(at) : 0;
+      if (ms) SCR_BRIEF_REQ = ms;
+      renderMorningBrief();
+    });
+  } catch (e) {}
   // fait vieillir le compteur d'attente du bouton même sans nouvel événement
   setInterval(() => { if (SCR_BRIEF_REQ) renderMorningBrief(); }, 30000);
   return Promise.resolve();
