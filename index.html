@@ -4056,6 +4056,7 @@ let SCR_POS_NEWS = null;
 let SCR_FG_MODAL = null;   // modale Fear & Greed ouverte, pour ne pas en empiler deux
 
 function fgBand(v) { return FG_BANDS.find((b) => v < b.max) || FG_BANDS[FG_BANDS.length - 1]; }
+const NLB = '\n';   // saut de ligne dans les infobulles
 
 // Majuscule sur la PREMIÈRE lettre seulement, à la française. (scrCap est déjà pris, c'est le
 // formateur de capitalisation boursière.)
@@ -4238,14 +4239,19 @@ function showFgDetail() {
     // compte desormais les releves consecutifs ou le score reste colle a 50 alors que la
     // donnee brute bouge. Deux de suite, soit une demi-heure, et ce n'est plus un hasard.
     const fige = ((c.stale || 0) >= 2);
-    const b = fgBand(c.score);
-    const teinte = fige ? '#94a0b4' : b.color;
+    // Quand CNN ne calcule plus, on affiche NOTRE reconstruction plutôt qu'un tiret : un
+    // avertissement n'est pas un indicateur, et c'est bien ce chiffre-là qu'on veut voir bouger.
+    const recalc = fige && (c.scoreCalc != null);
+    const valeur = recalc ? c.scoreCalc : c.score;
+    const b = fgBand(valeur);
+    const teinte = (fige && !recalc) ? '#94a0b4' : b.color;
     // valeur brute, et pour le VIX sa moyenne 50 jours, qui dit à elle seule le sens
     const nb = (x) => String(x).replace('.', ',');
     let brut = (c.raw != null) ? nb(c.raw) : '';
     const ma = comps['market_volatility_vix_50'], sp = comps['market_momentum_sp500'];
     if (k === 'market_volatility_vix' && brut && ma && ma.raw != null) {
-      brut = 'VIX ' + brut + ' · moyenne 50 j ' + nb(ma.raw);
+      brut = 'VIX ' + brut + ' · moyenne 50 j ' + nb(ma.raw)
+        + (c.ecartPct != null ? ' · écart ' + (c.ecartPct > 0 ? '+' : '') + nb(c.ecartPct) + ' %' : '');
     }
     // le brut du momentum est la MOYENNE 125 j, l'indice lui-même vit dans l'autre clé :
     // seuls les deux ensemble disent de quel côté de la moyenne on se trouve
@@ -4256,14 +4262,19 @@ function showFgDetail() {
       style: 'background:#f6f8fb;border-radius:12px;padding:11px 13px;cursor:help', kids: [
       scrEl('div', { style: 'display:flex;align-items:baseline;gap:8px', kids: [
         scrEl('span', { text: lib, style: 'font-weight:700;color:#22314f;font-size:0.82rem' }),
-        scrEl('span', { text: fige ? '—' : String(c.score),
-          attrs: fige ? { title: 'CNN renvoie 50 et « neutre » pour ce sous-indicateur alors que sa donnée brute évolue : le score n’est pas calculé en ce moment. La valeur brute ci-dessous, elle, est bien à jour.' } : {},
+        scrEl('span', { text: (fige && !recalc) ? '—' : String(valeur),
+          attrs: fige ? { title: recalc
+            ? ('CNN ne calcule plus ce score, il renvoie 50 et « neutre » alors que sa donnée brute évolue.'
+               + NLB + 'Ce chiffre est donc reconstruit par le dashboard : écart du VIX à sa moyenne 50 jours, '
+               + 'situé en percentile sur l’année écoulée, puis inversé. Un écart élevé vaut de la tension, donc un score bas.'
+               + NLB + 'Ce n’est pas le barème de CNN, qui n’est pas public.')
+            : 'CNN renvoie 50 et « neutre » pour ce sous-indicateur alors que sa donnée brute évolue : le score n’est pas calculé en ce moment. La valeur brute ci-dessous, elle, est bien à jour.' } : {},
           style: 'margin-left:auto;font-weight:800;color:' + teinte })] }),
       scrEl('div', { text: sous, style: 'font-size:0.66rem;color:#94a0b4;margin:3px 0 6px' }),
       scrEl('div', { style: 'height:4px;border-radius:3px;background:#e3e8ee;overflow:hidden', kids: [
-        scrEl('div', { style: 'height:100%;width:' + (fige ? 0 : Math.max(0, Math.min(100, c.score))) + '%;background:' + teinte })] }),
+        scrEl('div', { style: 'height:100%;width:' + ((fige && !recalc) ? 0 : Math.max(0, Math.min(100, valeur))) + '%;background:' + teinte })] }),
       scrEl('div', { style: 'display:flex;align-items:baseline;gap:8px;margin-top:5px', kids: [
-        scrEl('span', { text: fige ? 'SCORE NON CALCULÉ PAR CNN' : b.label,
+        scrEl('span', { text: recalc ? (b.label + ' · recalculé') : (fige ? 'SCORE NON CALCULÉ PAR CNN' : b.label),
           style: 'font-size:0.6rem;font-weight:800;text-transform:uppercase;color:' + teinte }),
         scrEl('span', { text: brut, style: 'margin-left:auto;font-size:0.62rem;color:#94a0b4' })] })] }));
   });

@@ -56,6 +56,47 @@ def _get_json(url, headers=None, timeout=20):
         return json.loads(r.read().decode('utf-8', 'replace'))
 
 
+def _serie_cnn(j, cle):
+    """Serie (horodatage, valeur) d'un sous-indicateur, dedoublonnee."""
+    out, vus = [], set()
+    for p in ((j.get(cle) or {}).get('data') or []):
+        try:
+            x, y = int(p['x']), float(p['y'])
+        except Exception:
+            continue
+        if x in vus:
+            continue
+        vus.add(x)
+        out.append((x, y))
+    return out
+
+
+def _score_volatilite(j):
+    """Score 0-100 de la volatilite, reconstruit par nos soins.
+
+    CNN sert 50 et « neutre » pour ce sous-indicateur alors qu'il publie toujours les deux
+    series qui servent a le calculer. On le refait donc : ecart du VIX a sa moyenne 50 jours,
+    situe en percentile sur l'annee ecoulee, puis inverse pour suivre la convention de l'indice,
+    un ecart eleve valant de la tension donc un score bas.
+
+    Ce n'est PAS le bareme de CNN, qui n'est pas documente et que j'ai essaye sans succes de
+    retrouver : percentile et min-max s'ecartent de 10 a 16 points sur les composants dont le
+    score fonctionne. C'est donc une mesure A NOUS, definie et reproductible, stockee dans un
+    champ separe et jamais melangee au score de CNN."""
+    vix = _serie_cnn(j, 'market_volatility_vix')
+    moy = dict(_serie_cnn(j, 'market_volatility_vix_50'))
+    ecarts = [(v - moy[x]) / moy[x] for x, v in vix if moy.get(x)]
+    if len(ecarts) < 60:
+        return None
+    v, hist = ecarts[-1], ecarts[:-1][-250:]
+    if not hist:
+        return None
+    dessous = sum(1 for e in hist if e < v)
+    egaux = sum(1 for e in hist if e == v)
+    perc = 100.0 * (dessous + egaux / 2.0) / len(hist)
+    return {'score': round(100.0 - perc, 1), 'ecart': round(v * 100, 1)}
+
+
 # ── 1. Fear & Greed (CNN) ────────────────────────────────────────────────────
 def fetch_fear_greed(prev=None):
     """Payload compact : score, rating, comparaisons, historique 1 an, indicateurs.
@@ -117,6 +158,12 @@ def fetch_fear_greed(prev=None):
             calc_ms = max(calc_ms, int(float(v.get('timestamp') or 0)))
         except Exception:
             pass
+    # Score de volatilite reconstruit, dans un champ a part : CNN ne le calcule plus mais
+    # publie toujours de quoi le faire. Le dashboard ne s'en sert que si celui de CNN est fige.
+    vol = _score_volatilite(j)
+    if vol and 'market_volatility_vix' in comps:
+        comps['market_volatility_vix']['scoreCalc'] = vol['score']
+        comps['market_volatility_vix']['ecartPct'] = vol['ecart']
     return {
         'score': round(float(f.get('score') or 0), 1),
         'rating': f.get('rating'),
