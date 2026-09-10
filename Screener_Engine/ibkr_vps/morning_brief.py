@@ -57,9 +57,12 @@ def _get_json(url, headers=None, timeout=20):
 
 
 # ── 1. Fear & Greed (CNN) ────────────────────────────────────────────────────
-def fetch_fear_greed():
+def fetch_fear_greed(prev=None):
     """Payload compact : score, rating, comparaisons, historique 1 an, indicateurs.
-    CNN bloque les User-Agent non navigateur, d'ou les en-tetes Referer/Origin."""
+    CNN bloque les User-Agent non navigateur, d'ou les en-tetes Referer/Origin.
+
+    `prev` est le precedent payload stocke, il sert a reperer un sous-indicateur que CNN ne
+    calcule plus (voir le compteur `stale` plus bas)."""
     j = _get_json(CNN_URL, {'Referer': 'https://edition.cnn.com/',
                             'Origin': 'https://edition.cnn.com'})
     f = j.get('fear_and_greed') or {}
@@ -75,6 +78,7 @@ def fetch_fear_greed():
         except Exception:
             continue
     series = [{'d': d, 'v': par_jour[d]} for d in sorted(par_jour)]
+    anciens = (prev or {}).get('components') or {}
     comps, calc_ms = {}, 0
     for k, v in j.items():
         if k in ('fear_and_greed', 'fear_and_greed_historical') or not isinstance(v, dict):
@@ -99,6 +103,16 @@ def fetch_fear_greed():
             comps[k]['raw'] = ys[-1]
             if len(ys) > 1:
                 comps[k]['rawPrev'] = ys[-2]
+        # Compteur d'immobilite. 50 est la valeur de repli de CNN quand il n'a pas le calcul,
+        # mais un score PEUT passer par 50 legitimement : le put/call l'a fait le 10/09/2026 en
+        # descendant de 60,4 a 48,6 puis 50,0, et une premiere version de ce garde-fou l'avait
+        # marque a tort comme non calcule. On ne conclut donc qu'apres PLUSIEURS releves ou le
+        # score reste colle a 50,0 alors que la donnee brute, elle, continue de bouger.
+        a = anciens.get(k) or {}
+        colle = (comps[k]['score'] == 50.0 and a.get('score') == 50.0
+                 and comps[k].get('raw') is not None and a.get('raw') is not None
+                 and comps[k]['raw'] != a['raw'])
+        comps[k]['stale'] = (int(a.get('stale') or 0) + 1) if colle else 0
         try:
             calc_ms = max(calc_ms, int(float(v.get('timestamp') or 0)))
         except Exception:
@@ -624,7 +638,7 @@ def main():
         return
 
     try:
-        fg = fetch_fear_greed()
+        fg = fetch_fear_greed(get(db, 'dashboard/morningBrief/fearGreed'))
         print(f'Fear & Greed : {fg["score"]} ({fg["rating"]}), {len(fg["history"])} jours d historique')
     except Exception as e:
         print(f'Fear & Greed indisponible : {e}')

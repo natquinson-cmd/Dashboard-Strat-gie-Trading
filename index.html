@@ -4233,7 +4233,11 @@ function showFgDetail() {
     // bougé et que le score reste pile 50, il ne mesure rien. Le 10/09/2026, le VIX affichait
     // 17,9 au-dessus de sa moyenne 50 jours à 16,2, donc de la peur, pendant que le score
     // annonçait 50 neutre depuis le matin, seul immobile des sept.
-    const fige = (c.score === 50 && c.raw != null && c.rawPrev != null && c.raw !== c.rawPrev);
+    // On ne se fie plus au seul « score pile a 50 » : le put/call est passe par 50,0
+    // legitimement le 10/09/2026 et se retrouvait marque a tort comme non calcule. Le VPS
+    // compte desormais les releves consecutifs ou le score reste colle a 50 alors que la
+    // donnee brute bouge. Deux de suite, soit une demi-heure, et ce n'est plus un hasard.
+    const fige = ((c.stale || 0) >= 2);
     const b = fgBand(c.score);
     const teinte = fige ? '#94a0b4' : b.color;
     // valeur brute, et pour le VIX sa moyenne 50 jours, qui dit à elle seule le sens

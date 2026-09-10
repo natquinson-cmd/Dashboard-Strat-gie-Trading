@@ -232,7 +232,8 @@ def main():
     # aucune depense d API. Ecriture ciblee sur le sous-noeud : le reste du brief n'y touche pas.
     try:
         from morning_brief import fetch_fear_greed
-        fg = fetch_fear_greed()
+        # on passe le releve precedent : il porte le compteur d'immobilite des sous-indicateurs
+        fg = fetch_fear_greed(get(db, 'dashboard/morningBrief/fearGreed'))
         if fg and fg.get('score'):
             push(db, 'dashboard/morningBrief/fearGreed', fg)
             print(f'Fear & Greed : {fg["score"]} ({fg["rating"]}), calcule le {fg.get("calcAt")}')
