@@ -3467,11 +3467,16 @@ function ttlEquitySeries() {
 // L'ancien calcul prenait le max de la serie MENSUELLE, dont le dernier point est par
 // construction la valeur du jour : le dashboard annoncait donc "au plus haut historique"
 // en permanence, et tout pic atteint en cours de mois passe etait perdu.
-// Apport NET du mois, les 3 sources confondues. Trois origines distinctes :
-//   IG  -> realDeposits (dépôts datés)
-//   Darwinex -> darwinexDaily[jour].deposit
-//   Actions -> les TOPUP/WITHDRAWAL du journal Revolut (les BUY/SELL ne sont que des
-//              réallocations internes, ils ne font pas entrer d'argent)
+// Apport NET du mois, avec EXACTEMENT la définition d'« Investi total » juste au-dessus.
+// C'est le point important : les deux chiffres doivent venir de la même source, sinon ils se
+// contredisent. Ils l'ont fait, le mois de septembre 2026 s'affichait à +20 € alors que le
+// prix de revient des lignes avait progressé de 771 €.
+//   IG       -> les dépôts datés (realDeposits), qui sont bien igDep
+//   Darwinex -> les dépôts du jour, qui sont bien dwxInv
+//   Actions  -> le FLUX de l'instantané de positions, celui-là même qui sert au P&L et au TWR,
+//               car stkInv vaut « valeur - P&L cumulé », donc le prix de revient des lignes.
+//               Le journal Revolut ne pouvait pas convenir : il n'enregistre que les virements
+//               ARRIVÉS sur le compte, pas le capital effectivement déployé en titres.
 function ttlApportMois(ym) {
   let s = 0;
   (typeof realDeposits !== 'undefined' ? realDeposits : []).forEach((d) => {
@@ -3479,15 +3484,13 @@ function ttlApportMois(ym) {
   });
   const dw = (typeof darwinexDaily !== 'undefined' && darwinexDaily) ? darwinexDaily : {};
   Object.keys(dw).forEach((k) => { if (k.indexOf(ym) === 0 && dw[k] && dw[k].deposit) s += dw[k].deposit; });
-  const brut = (typeof SCR_TX !== 'undefined' && SCR_TX) ? SCR_TX : null;
-  const tx = Array.isArray(brut) ? brut : (brut && typeof brut === 'object' ? Object.values(brut) : []);
-  tx.forEach((t) => {
-    if (!t || String(t.date || '').indexOf(ym) !== 0) return;
-    if (t.type !== 'TOPUP' && t.type !== 'WITHDRAWAL') return;
-    const eur = (t.ccy === 'EUR') ? (t.total || 0) : ((t.total || 0) / (t.fx || 1));
-    s += (t.type === 'TOPUP' ? eur : -eur);
-  });
-  return s;
+  const sh = ttlStockHist();
+  let fluxUsd = 0;
+  for (let i = 1; i < sh.length; i++) {
+    // le flux du 1er du mois se mesure depuis le dernier instantané du mois précédent
+    if (String(sh[i].date || '').indexOf(ym) === 0) fluxUsd += scrFlowBetween(sh[i - 1], sh[i]);
+  }
+  return s + fluxUsd * ttlEurPerUsd();
 }
 function ttlAthDaily() {
   const fx = ttlEurPerUsd();
@@ -12893,11 +12896,6 @@ Promise.all([
   loadIgSyncStatus(),
   loadPontStatus(),
   loadMorningBrief(),
-  // SCR_TX n'était chargé que par l'onglet Portefeuille : sans ça, l'apport du mois
-  // ignorait les versements Revolut tant qu'on n'avait pas ouvert cet onglet.
-  (typeof db !== 'undefined' && db
-    ? db.ref('stocks/screener/transactions').once('value').then((s) => { if (!SCR_TX) SCR_TX = s.val() || null; }).catch(() => {})
-    : Promise.resolve()),
   loadKidsFromFirebase(),
   loadTradesFromFirebase(),
   loadDividendsFromFirebase(),
