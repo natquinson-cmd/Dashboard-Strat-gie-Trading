@@ -65,24 +65,38 @@ def fetch_fear_greed():
     f = j.get('fear_and_greed') or {}
     hist = ((j.get('fear_and_greed_historical') or {}).get('data') or [])
     # On garde 1 point par jour, en millisecondes -> date ISO courte, valeur arrondie.
-    series = []
+    # Un point par jour, VRAIMENT : CNN renvoie deux fois le point du jour en cours. Sans
+    # dedoublonnage la courbe portait un noeud double et le compteur de jours mentait.
+    par_jour = {}
     for p in hist:
         try:
             d = datetime.fromtimestamp(p['x'] / 1000, timezone.utc).strftime('%Y-%m-%d')
-            series.append({'d': d, 'v': round(float(p['y']), 1)})
+            par_jour[d] = round(float(p['y']), 1)
         except Exception:
             continue
-    comps = {}
+    series = [{'d': d, 'v': par_jour[d]} for d in sorted(par_jour)]
+    comps, calc_ms = {}, 0
     for k, v in j.items():
         if k in ('fear_and_greed', 'fear_and_greed_historical') or not isinstance(v, dict):
             continue
         if v.get('score') is None:
             continue
         comps[k] = {'score': round(float(v['score']), 1), 'rating': v.get('rating')}
+        try:
+            calc_ms = max(calc_ms, int(float(v.get('timestamp') or 0)))
+        except Exception:
+            pass
     return {
         'score': round(float(f.get('score') or 0), 1),
         'rating': f.get('rating'),
         'at': f.get('timestamp'),
+        # Vrai instant de CALCUL, et non la date de seance. `at` vaut deja aujourd'hui a 8 h du
+        # matin alors que l'indice n'a pas bouge depuis la cloture de la veille : l'afficher
+        # laissait croire a une valeur du jour. Les sous-indicateurs, eux, portent l'heure a
+        # laquelle ils ont ete calcules, c'est la seule fraicheur honnete.
+        'calcAt': (datetime.fromtimestamp(calc_ms / 1000, timezone.utc)
+                   .replace(microsecond=0).isoformat() if calc_ms else None),
+        'fetchedAt': _now_iso(),
         'prev': {
             'close': round(float(f.get('previous_close') or 0), 1),
             'week': round(float(f.get('previous_1_week') or 0), 1),
@@ -176,14 +190,49 @@ ECON_CLES = re.compile(
     r'|Initial Jobless Claims|Beige Book|Powell)\b', re.I)
 
 
+NASDAQ_ECON = 'https://api.nasdaq.com/api/calendar/economicevents?date='
+JOURS_FR = ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche']
+MOIS_FR = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août',
+           'septembre', 'octobre', 'novembre', 'décembre']
+
+
+def _decalage_nasdaq():
+    """Nombre de jours a AJOUTER a la date voulue pour l'obtenir de Nasdaq.
+
+    Nasdaq rend, pour date=J, les evenements de J-1. Constate le 10/09/2026 : la requete du
+    vendredi 11 renvoyait les inscriptions au chomage, publiees TOUS les jeudis, et celle du
+    samedi 12 l'enquete Michigan, publiee TOUS les vendredis. Resultat, le brief annoncait le
+    CPI un samedi, jour ou aucune statistique ne sort.
+
+    On ne code pas ce decalage en dur : on le MESURE a chaque execution sur un ancrage
+    hebdomadaire infaillible. Si Nasdaq corrige son API un jour, on suivra sans rien casser ;
+    en le figeant on se serait remis a mentir en silence."""
+    d = datetime.now()
+    jeudi = d + timedelta(days=(3 - d.weekday()) % 7)      # prochain jeudi, aujourd'hui si jeudi
+    for off in (1, 0):
+        try:
+            j = _get_json(NASDAQ_ECON + (jeudi + timedelta(days=off)).strftime('%Y-%m-%d'))
+        except Exception:
+            continue
+        noms = ' | '.join(str(r.get('eventName') or '')
+                          for r in ((j.get('data') or {}).get('rows') or []))
+        if 'Initial Jobless Claims' in noms:
+            print(f'  calendrier Nasdaq : decalage mesure = {off} jour(s)')
+            return off
+    print('  calendrier Nasdaq : decalage non mesurable, on garde 1 (comportement constate)')
+    return 1
+
+
 def fetch_econ_calendar(days=7):
     """Evenements macro US des `days` prochains jours, dates FIABLES (contrairement aux
     articles de presse, qui evoquent les rendez-vous sans toujours les dater)."""
+    off = _decalage_nasdaq()
     out, vus = [], set()
     for k in range(days):
-        jour = (datetime.now() + timedelta(days=k)).strftime('%Y-%m-%d')
+        cible = datetime.now() + timedelta(days=k)
+        jour = cible.strftime('%Y-%m-%d')
         try:
-            j = _get_json('https://api.nasdaq.com/api/calendar/economicevents?date=' + jour)
+            j = _get_json(NASDAQ_ECON + (cible + timedelta(days=off)).strftime('%Y-%m-%d'))
         except Exception as e:
             print(f'  calendrier {jour} : {e}')
             continue
@@ -197,7 +246,11 @@ def fetch_econ_calendar(days=7):
             if cle in vus:
                 continue
             vus.add(cle)
+            # `libelle` est fourni tout fait au modele : lui laisser deduire le jour de la
+            # semaine a partir d'une date ISO, c'est une occasion de plus de se tromper.
             out.append({'date': jour, 'heure': str(r.get('gmt') or '').strip(),
+                        'jour': JOURS_FR[cible.weekday()],
+                        'libelle': f'{JOURS_FR[cible.weekday()]} {cible.day} {MOIS_FR[cible.month - 1]}',
                         'nom': nom[:90], 'consensus': str(r.get('consensus') or '').strip(),
                         'precedent': str(r.get('previous') or '').strip()})
         time.sleep(0.3)
@@ -216,6 +269,10 @@ RÈGLES ABSOLUES :
 RÈGLE SUR LES DATES, LA PLUS IMPORTANTE :
 - Le CALENDRIER ÉCONOMIQUE ci-dessous est une source FIABLE : cite ses dates, ses heures et
   ses consensus sans hésiter, ce sont les échéances qui comptent pour la semaine.
+- Chaque ligne du calendrier commence par un libellé du type "jeudi 10 septembre". RECOPIE-LE
+  TEL QUEL. Tu ne recalcules JAMAIS un jour de la semaine à partir d'une date, tu ne décales
+  jamais d'un jour. Aucune statistique américaine ne sort un samedi ni un dimanche : si tu
+  t'apprêtes à écrire un tel jour, c'est que tu t'es trompé.
 - Pour tout le reste, tu ne cites une échéance QUE si elle apparaît dans les données fournies.
 - Tu n'écris JAMAIS une date de mémoire. Si un article mentionne un rendez-vous sans le dater,
   dis "prochainement" plutôt que d'inventer un jour.
@@ -223,7 +280,7 @@ RÈGLE SUR LES DATES, LA PLUS IMPORTANTE :
 STRUCTURE ATTENDUE, en JSON strict et rien d'autre :
 {"market": "un paragraphe de 2 à 4 phrases sur le climat général : indices, taux, macro, et ce que dit l'indice Fear & Greed",
  "attentisme": "1 à 3 phrases expliquant ce qui peut retenir le marché aujourd'hui : rendez-vous macro ou résultats attendus, incertitude, sous-indicateurs du Fear & Greed qui divergent. Chaîne de causalité explicite. Si rien ne le justifie dans les données, dis-le franchement.",
- "semaine": [{"quand": "le repère temporel TEL QU'IL APPARAÎT dans les données (ex : jeudi, cette semaine, prochainement)", "quoi": "l'échéance", "pourquoi": "en quoi elle compte pour un portefeuille d'actions américaines"}],
+ "semaine": [{"quand": "le libellé du calendrier RECOPIÉ tel quel, court, ex : jeudi 10 septembre. Rien d'autre, ni heure ni fuseau", "quoi": "l'échéance, avec son heure de New York et son consensus s'il existe", "pourquoi": "en quoi elle compte pour un portefeuille d'actions américaines"}],
  "positions": [{"ticker": "XXXX", "text": "1 à 2 phrases factuelles sur ce qui concerne cette ligne"}],
  "watch": ["2 à 4 faits ou échéances à surveiller aujourd'hui"]}
 
@@ -304,11 +361,8 @@ def _extraire_json(txt):
 def anthropic_brief(api_key, fg, per_ticker, market, econ=None):
     """Retourne (dict {market, ...} ou None, souci ou None). Ne leve jamais."""
     lignes = []
-    JOURS = ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche']
-    MOIS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août',
-            'septembre', 'octobre', 'novembre', 'décembre']
     d = datetime.now()
-    lignes.append(f"Nous sommes le {JOURS[d.weekday()]} {d.day} {MOIS[d.month - 1]} {d.year}.")
+    lignes.append(f"Nous sommes le {JOURS_FR[d.weekday()]} {d.day} {MOIS_FR[d.month - 1]} {d.year}.")
     lignes.append(f"Fear & Greed CNN : {fg['score']} ({fg['rating']}). "
                   f"Hier {fg['prev']['close']}, il y a une semaine {fg['prev']['week']}, "
                   f"un mois {fg['prev']['month']}, un an {fg['prev']['year']}.")
@@ -323,7 +377,7 @@ def anthropic_brief(api_key, fg, per_ticker, market, econ=None):
                 det.append('consensus ' + e['consensus'])
             if e.get('precedent'):
                 det.append('précédent ' + e['precedent'])
-            lignes.append(f"- {e['date']} {e.get('heure', '')} {e['nom']}"
+            lignes.append(f"- {e.get('libelle') or e['date']} a {e.get('heure', '')} : {e['nom']}"
                           + (' (' + ', '.join(det) + ')' if det else ''))
     lignes.append('\nACTUALITÉS DE MARCHÉ :')
     for n in market:

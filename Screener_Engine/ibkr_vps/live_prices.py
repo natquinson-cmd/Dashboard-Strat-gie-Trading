@@ -210,6 +210,21 @@ def main():
     except Exception as e:
         print('ETF enfants err', e)
 
+    # --- Barometre Fear & Greed ---
+    # Il ne bouge QUE pendant la seance americaine, de 15h30 a 22h heure de Paris. Preleve une
+    # seule fois a 07h45 par le brief matinal, il restait fige sur la cloture de la veille toute
+    # la journee : deux matins de suite affichaient la meme valeur et cela ressemblait a une
+    # panne de collecte. On le rafraichit donc a chaque passage, un appel HTTP et rien de plus,
+    # aucune depense d API. Ecriture ciblee sur le sous-noeud : le reste du brief n'y touche pas.
+    try:
+        from morning_brief import fetch_fear_greed
+        fg = fetch_fear_greed()
+        if fg and fg.get('score'):
+            push(db, 'dashboard/morningBrief/fearGreed', fg)
+            print(f'Fear & Greed : {fg["score"]} ({fg["rating"]}), calcule le {fg.get("calcAt")}')
+    except Exception as e:
+        print('Fear & Greed err', e)
+
     # --- Actualites des lignes detenues (fiche societe : comprendre un decrochage) ---
     # Rafraichies ICI et non dans le brief matinal : quand un titre plonge a 15h, des titres
     # publies le matin n'expliquent rien. Garde de 20 min pour ne pas marteler Yahoo, ce script
