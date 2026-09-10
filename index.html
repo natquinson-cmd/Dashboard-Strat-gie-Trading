@@ -4307,6 +4307,15 @@ function renderMorningBrief() {
     });
     txt.appendChild(ul);
   }
+  // Le brief ne retient que les lignes dont l'actualité change quelque chose. On dit combien
+  // ont été écartées, sinon un tri éditorial ressemble à une panne de collecte, piège déjà
+  // rencontré trois fois sur ce dashboard.
+  const suivies = Array.isArray(b.news) ? b.news.length : 0;
+  if (br && suivies) {
+    txt.appendChild(scrEl('div', { style: 'font-size:0.68rem;color:var(--text-muted);margin:-6px 0 12px',
+      text: lignes.length + (lignes.length > 1 ? ' lignes retenues' : ' ligne retenue') + ' sur '
+        + suivies + ' suivies, les autres n’ont rien de marquant ce matin' }));
+  }
   // Ce qui peut faire bouger la séance, dans un sens comme dans l'autre : c'est la partie qui
   // donne du sens au reste, elle passe donc juste après le climat général.
   // La clé Firebase reste `attentisme` pour rester compatible avec les briefs déjà stockés,

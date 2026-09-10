@@ -319,6 +319,25 @@ RÈGLES ABSOLUES :
 - Tu rapportes des FAITS. Tu ne donnes JAMAIS de recommandation d'achat, de vente ou de conservation, ni d'objectif de cours. Ce n'est pas un conseil en investissement.
 - Français naturel, sans tiret cadratin. Utilise des virgules.
 - Si une ligne n'a pas d'actualité notable, tu ne l'inventes pas et tu ne la mentionnes pas.
+
+TRI DES LIGNES DÉTENUES, RÈGLE DÉCISIVE :
+- Tu ne commentes PAS chaque ligne. Tu n'en retiens QUE celles dont l'actualité mérite qu'on
+  s'y arrête, CINQ AU MAXIMUM, classées de la plus importante à la moins importante. Deux ou
+  trois lignes valent mieux que neuf. Si aucune ne passe le test, tu rends une liste vide.
+- Une ligne mérite d'être citée si, et seulement si, l'un de ces cas est vérifié :
+  le titre a nettement bougé (environ 3 % ou plus) et l'article dit pourquoi ; des résultats,
+  une prévision ou un chiffre d'activité viennent d'être publiés ; une décision de justice,
+  de régulateur ou d'autorité de concurrence tombe ; une acquisition, une cession ou une
+  fusion est annoncée, bloquée ou abandonnée ; un dirigeant change ; un contrat, une commande
+  ou un investissement chiffré et significatif est signé ; le dividende ou un rachat d'actions
+  évolue.
+- Tu ÉCARTES sans hésiter : les annonces de partenariat sans montant, les lancements de
+  produit sans effet chiffré, les initiatives éducatives ou caritatives, les articles
+  sectoriels où la société n'est qu'un exemple parmi d'autres, les rétrospectives du genre
+  « 10 000 dollars investis il y a dix ans », les avis d'analystes qui n'apportent aucun fait
+  nouveau, et tout ce qui aurait pu être écrit la semaine dernière.
+- Le test, en une phrase : est-ce que cela change quelque chose à la façon dont le lecteur
+  regarde sa ligne ce matin ? Si la réponse est non, tu l'omets.
 - Pas de phrase de remplissage, pas de reformulation de ce que le chiffre dit déjà.
 
 STYLE, RÈGLE STRICTE :
@@ -360,10 +379,10 @@ RÈGLE SUR LES DATES, LA PLUS IMPORTANTE :
   dis "prochainement" plutôt que d'inventer un jour.
 
 STRUCTURE ATTENDUE, en JSON strict et rien d'autre :
-{"market": "un VRAI paragraphe d'analyse de 5 à 7 phrases, la pièce maîtresse du brief. Tu n'énumères pas, tu EXPLIQUES : ce qui bouge et par quel mécanisme, ce que les rendements obligataires et les matières premières font aux actions et pourquoi, ce que disent les sous-indicateurs du Fear & Greed et surtout ceux qui se CONTREDISENT entre eux, ce que cela révèle du positionnement des investisseurs, et ce qui distingue aujourd'hui des séances précédentes. Chaque affirmation est reliée à sa cause.",
+{"market": "un paragraphe d'analyse de 4 à 5 phrases, la pièce maîtresse du brief. Dense mais pas bavard : chaque phrase apporte un fait ou un lien de cause, aucune ne reformule la précédente. Tu n'énumères pas, tu EXPLIQUES : ce qui bouge et par quel mécanisme, ce que les rendements obligataires et les matières premières font aux actions et pourquoi, ce que disent les sous-indicateurs du Fear & Greed et surtout ceux qui se CONTREDISENT entre eux, ce que cela révèle du positionnement des investisseurs, et ce qui distingue aujourd'hui des séances précédentes. Chaque affirmation est reliée à sa cause.",
  "attentisme": "2 à 4 phrases complètes sur ce qui peut faire bouger la séance AUJOURD'HUI, DANS UN SENS COMME DANS L'AUTRE. Ce champ n'est pas orienté à la baisse : si les données pointent vers un rebond, un catalyseur favorable ou une simple absence d'enjeu, tu l'écris aussi franchement que tu écrirais une menace. Rendez-vous macro ou résultats attendus, sous-indicateurs du Fear & Greed qui divergent. Chaîne de causalité explicite avec les deux branches, ce qui se passe si le chiffre surprend à la hausse et à la baisse. Si rien de notable ne ressort des données, dis-le.",
  "semaine": [{"quand": "le libellé du calendrier RECOPIÉ tel quel, court, ex : jeudi 10 septembre. Rien d'autre, ni heure ni fuseau", "quoi": "une phrase complète : l'échéance, son heure de Paris, son consensus et son précédent s'ils existent", "pourquoi": "une phrase complète expliquant en quoi elle compte pour un portefeuille d'actions américaines"}],
- "positions": [{"ticker": "XXXX", "text": "1 à 2 phrases complètes et factuelles sur ce qui concerne cette ligne, et si l'article le dit, pourquoi cela compte"}],
+ "positions": [{"ticker": "XXXX", "text": "1 à 2 phrases complètes et factuelles : le fait, et pourquoi il compte si l'article le dit. Au plus 5 entrées dans cette liste, uniquement celles qui passent le test de matérialité ci-dessus, les plus importantes d'abord"}],
  "watch": ["2 à 4 points à surveiller aujourd'hui, une phrase complète chacun"]}
 
 DONNÉES DU JOUR :
@@ -542,6 +561,10 @@ def normalize_brief(b):
             if not tx:
                 continue
             out['positions'].append({'ticker': str(tk or '')[:12], 'text': str(tx)[:520]})
+        # Le plafond de 5 est aussi impose ICI et pas seulement demande dans le prompt : une
+        # consigne de tri est ce qu'un modele oublie en premier quand il a neuf articles sous
+        # les yeux. Le modele classe du plus important au moins important, on tronque la queue.
+        out['positions'] = out['positions'][:5]
     w = b.get('watch')
     if isinstance(w, dict):
         w = list(w.values())
