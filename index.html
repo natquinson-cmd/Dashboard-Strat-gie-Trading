@@ -4034,13 +4034,20 @@ const FG_BANDS = [
 // CNN renvoie 9 series, dont deux doublons (momentum sp500 et vix_50) : on affiche
 // les 7 que CNN publie lui-meme, avec leur libelle francais et ce qu'ils mesurent.
 const FG_COMPONENTS = [
-  ['market_momentum_sp125', 'Momentum de marché', 'S&P 500 vs sa moyenne mobile 125 j'],
-  ['stock_price_breadth', 'Largeur de marché', 'Volume acheteur vs vendeur'],
-  ['stock_price_strength', 'Force des cours', 'Plus-hauts vs plus-bas 52 semaines'],
-  ['put_call_options', 'Options Put / Call', 'Ratio options baissières / haussières'],
-  ['market_volatility_vix', 'Volatilité (VIX)', 'Indice de la peur, CBOE'],
-  ['safe_haven_demand', 'Demande valeurs refuges', 'Actions vs obligations Treasury 20 ans'],
-  ['junk_bond_demand', 'Demande obligations à risque', 'Spread high-yield vs Treasury']];
+  ['market_momentum_sp125', 'Momentum de marché', 'S&P 500 vs sa moyenne mobile 125 j',
+   'Compare le S&P 500 à sa moyenne des 125 dernières séances.\nAu-dessus de sa moyenne, les investisseurs achètent la tendance, c’est de la cupidité. En dessous, ils la vendent, c’est de la peur. Plus l’écart est grand, plus le score s’éloigne de 50.'],
+  ['stock_price_breadth', 'Largeur de marché', 'Volume acheteur vs vendeur',
+   'Volume échangé sur les titres en hausse au NYSE, comparé à celui des titres en baisse (indicateur McClellan).\nUne progression portée par quelques valeurs seulement donne une largeur faible : l’indice monte, mais le marché ne suit pas. C’est un signe de fragilité.'],
+  ['stock_price_strength', 'Force des cours', 'Plus-hauts vs plus-bas 52 semaines',
+   'Nombre de titres du NYSE au plus haut de 52 semaines, moins ceux au plus bas.\nUne valeur négative signifie que plus d’actions touchent leur plancher annuel que leur plafond, même si l’indice, lui, tient encore.'],
+  ['put_call_options', 'Options Put / Call', 'Ratio options baissières / haussières',
+   'Volume des options de VENTE rapporté à celui des options d’ACHAT, sur 5 séances.\nAu-dessus de 1, les investisseurs paient pour se protéger d’une baisse, c’est de la peur. En dessous, ils parient sur la hausse, c’est de la cupidité.'],
+  ['market_volatility_vix', 'Volatilité (VIX)', 'Indice de la peur, CBOE',
+   'Compare le VIX, la volatilité attendue du S&P 500 sur 30 jours, à sa moyenne des 50 dernières séances.\nAu-dessus de sa moyenne, se couvrir coûte cher et la nervosité domine. En dessous, le marché est serein.'],
+  ['safe_haven_demand', 'Demande valeurs refuges', 'Actions vs obligations Treasury 20 ans',
+   'Écart de performance sur 20 séances entre les actions et les obligations d’État américaines à 20 ans.\nQuand les obligations font mieux, l’argent quitte le risque pour le refuge, c’est de la peur. Quand les actions dominent, c’est de l’appétit pour le risque.'],
+  ['junk_bond_demand', 'Demande obligations à risque', 'Spread high-yield vs Treasury',
+   'Écart de rendement entre les obligations d’entreprises mal notées et les emprunts d’État.\nUn écart FAIBLE veut dire que les investisseurs se contentent d’une petite prime pour prêter à des emprunteurs fragiles, donc de la cupidité. Un écart qui s’élargit trahit la méfiance.']];
 let SCR_BRIEF = null;
 let SCR_BRIEF_REQ = null;   // instant (ms) de la dernière demande de rafraîchissement
 // Actualités par ligne détenue, rafraîchies en séance par le VPS. Sert la fiche société :
@@ -4218,7 +4225,7 @@ function showFgDetail() {
   // les 7 indicateurs
   const comps = fg.components || {};
   const grid = scrEl('div', { style: 'display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px' });
-  FG_COMPONENTS.forEach(([k, lib, sous]) => {
+  FG_COMPONENTS.forEach(([k, lib, sous, explication]) => {
     const c = comps[k];
     if (!c) return;
     // CNN sert 50 et « neutre » quand il n'a pas calculé un sous-indicateur, et 50 ressemble
@@ -4230,12 +4237,19 @@ function showFgDetail() {
     const b = fgBand(c.score);
     const teinte = fige ? '#94a0b4' : b.color;
     // valeur brute, et pour le VIX sa moyenne 50 jours, qui dit à elle seule le sens
-    let brut = (c.raw != null) ? String(c.raw).replace('.', ',') : '';
-    const ma = comps['market_volatility_vix_50'];
+    const nb = (x) => String(x).replace('.', ',');
+    let brut = (c.raw != null) ? nb(c.raw) : '';
+    const ma = comps['market_volatility_vix_50'], sp = comps['market_momentum_sp500'];
     if (k === 'market_volatility_vix' && brut && ma && ma.raw != null) {
-      brut += ' · moyenne 50 j ' + String(ma.raw).replace('.', ',');
+      brut = 'VIX ' + brut + ' · moyenne 50 j ' + nb(ma.raw);
     }
-    grid.appendChild(scrEl('div', { style: 'background:#f6f8fb;border-radius:12px;padding:11px 13px', kids: [
+    // le brut du momentum est la MOYENNE 125 j, l'indice lui-même vit dans l'autre clé :
+    // seuls les deux ensemble disent de quel côté de la moyenne on se trouve
+    if (k === 'market_momentum_sp125' && brut && sp && sp.raw != null) {
+      brut = 'S&P ' + nb(sp.raw) + ' · moyenne 125 j ' + brut;
+    }
+    grid.appendChild(scrEl('div', { attrs: { title: explication || '' },
+      style: 'background:#f6f8fb;border-radius:12px;padding:11px 13px;cursor:help', kids: [
       scrEl('div', { style: 'display:flex;align-items:baseline;gap:8px', kids: [
         scrEl('span', { text: lib, style: 'font-weight:700;color:#22314f;font-size:0.82rem' }),
         scrEl('span', { text: fige ? '—' : String(c.score),
