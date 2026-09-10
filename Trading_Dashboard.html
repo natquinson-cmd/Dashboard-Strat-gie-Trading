@@ -4238,10 +4238,17 @@ function showFgDetail() {
     // legitimement le 10/09/2026 et se retrouvait marque a tort comme non calcule. Le VPS
     // compte desormais les releves consecutifs ou le score reste colle a 50 alors que la
     // donnee brute bouge. Deux de suite, soit une demi-heure, et ce n'est plus un hasard.
+    // Deux signaux, volontairement independants l'un de l'autre.
+    // `fige` est un heuristique : le score reste colle a 50 sur plusieurs relevés alors que la
+    // donnee brute bouge. Il sert d'avertissement generique, mais il peut rester bloque, et il
+    // met une demi-heure a se declencher.
+    // `recalc` ne depend pas de lui : quand nous avons NOTRE propre mesure et qu'elle s'ecarte
+    // nettement du 50,0 annonce par CNN, l'ecart tranche a lui seul, immediatement. Faire
+    // dependre l'affichage du seul compteur, c'etait accepter qu'une panne du compteur laisse
+    // le lecteur devant un 50 qui ne veut rien dire.
     const fige = ((c.stale || 0) >= 2);
-    // Quand CNN ne calcule plus, on affiche NOTRE reconstruction plutôt qu'un tiret : un
-    // avertissement n'est pas un indicateur, et c'est bien ce chiffre-là qu'on veut voir bouger.
-    const recalc = fige && (c.scoreCalc != null);
+    const recalc = (c.scoreCalc != null)
+      && (fige || (c.score === 50 && Math.abs(c.scoreCalc - 50) >= 10));
     const valeur = recalc ? c.scoreCalc : c.score;
     const b = fgBand(valeur);
     const teinte = (fige && !recalc) ? '#94a0b4' : b.color;
@@ -4263,7 +4270,7 @@ function showFgDetail() {
       scrEl('div', { style: 'display:flex;align-items:baseline;gap:8px', kids: [
         scrEl('span', { text: lib, style: 'font-weight:700;color:#22314f;font-size:0.82rem' }),
         scrEl('span', { text: (fige && !recalc) ? '—' : String(valeur),
-          attrs: fige ? { title: recalc
+          attrs: (fige || recalc) ? { title: recalc
             ? ('CNN ne calcule plus ce score, il renvoie 50 et « neutre » alors que sa donnée brute évolue.'
                + NLB + 'Ce chiffre est donc reconstruit par le dashboard : écart du VIX à sa moyenne 50 jours, '
                + 'situé en percentile sur l’année écoulée, puis inversé. Un écart élevé vaut de la tension, donc un score bas.'
