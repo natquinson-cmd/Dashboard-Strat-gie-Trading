@@ -164,6 +164,10 @@ def fetch_fear_greed(prev=None):
     if vol and 'market_volatility_vix' in comps:
         comps['market_volatility_vix']['scoreCalc'] = vol['score']
         comps['market_volatility_vix']['ecartPct'] = vol['ecart']
+        # 65 seances, soit environ 3 mois : de quoi tracer une courbe lisible sous la
+        # jauge sans alourdir le payload (65 nombres).
+        comps['market_volatility_vix']['spark'] = [round(y, 2)
+                                                   for _, y in _serie_cnn(j, 'market_volatility_vix')[-65:]]
     return {
         'score': round(float(f.get('score') or 0), 1),
         'rating': f.get('rating'),

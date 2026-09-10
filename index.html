@@ -4078,6 +4078,101 @@ function scrGras(txt) {
 // `calcAt` vient des sous-indicateurs CNN, seuls porteurs d'une vraie heure de calcul. Le champ
 // `at` de CNN, lui, porte la date de SÉANCE : dès minuit il annonce le jour en cours, alors que
 // la valeur est encore celle de la veille.
+// Barometre VIX. Le Fear & Greed dit le SENTIMENT, le VIX dit le PRIX que le marché paie pour
+// se protéger sur les 30 prochains jours : ce n'est pas la même information, et l'espace sous
+// la jauge était vide. Les bandes sont les repères conventionnels du marché, pas une invention.
+const VIX_BANDS = [
+  { max: 12, label: 'Très calme', color: '#1d9e74' },
+  { max: 20, label: 'Normal', color: '#7f8da3' },
+  { max: 30, label: 'Tension', color: '#e0922c' },
+  { max: 45, label: 'Stress', color: '#dd5f66' },
+  { max: 9999, label: 'Panique', color: '#a02b34' }];
+const VIX_ECHELLE = 45;    // au-delà, le curseur colle à droite : au-dessus de 45 le détail importe peu
+function vixBande(v) { return VIX_BANDS.find((b) => v < b.max) || VIX_BANDS[VIX_BANDS.length - 1]; }
+
+function fgVixBar(fg) {
+  const comps = fg.components || {};
+  const c = comps['market_volatility_vix'] || {}, m = comps['market_volatility_vix_50'] || {};
+  const v = c.raw;
+  if (v == null) return null;
+  const b = vixBande(v), moy = m.raw;
+  const pos = (x) => Math.max(0, Math.min(100, (x / VIX_ECHELLE) * 100));
+  const nb = (x) => String(x).replace('.', ',');
+  const box = scrEl('div', { attrs: { title:
+      'Le VIX mesure la volatilité que le marché ANTICIPE sur le S&P 500 pour les 30 prochains jours, '
+    + 'déduite du prix des options. On l\'appelle indice de la peur parce qu\'il monte quand se couvrir devient cher.'
+    + NLB + 'Sous 12 le marché est très calme, 12 à 20 est la zone normale, 20 à 30 marque la tension, '
+    + '30 à 45 le stress, au-delà la panique.'
+    + NLB + 'Le trait sombre sur la barre est la moyenne des 50 dernières séances : au-dessus, la nervosité '
+    + 'grimpe par rapport à l\'habitude récente ; en dessous, elle retombe.' },
+    style: 'text-align:center;cursor:help' });
+  box.appendChild(scrEl('div', { text: 'VOLATILITÉ VIX',
+    style: 'font-size:0.58rem;font-weight:800;letter-spacing:.05em;color:var(--text-muted);margin-bottom:2px' }));
+  box.appendChild(scrEl('div', { style: 'display:flex;align-items:baseline;justify-content:center;gap:6px', kids: [
+    scrEl('span', { text: nb(v), style: 'font-size:1.25rem;font-weight:800;line-height:1.1;color:' + b.color }),
+    scrEl('span', { text: b.label.toUpperCase(),
+      style: 'font-size:0.58rem;font-weight:800;letter-spacing:.04em;color:' + b.color })] }));
+
+  // courbe 3 mois
+  const sp = Array.isArray(c.spark) ? c.spark.filter((x) => typeof x === 'number') : [];
+  if (sp.length > 5) {
+    const W = 190, H = 26, lo = Math.min.apply(null, sp), hi = Math.max.apply(null, sp);
+    const ec = (hi - lo) || 1;
+    const NS = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(NS, 'svg');
+    svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
+    svg.setAttribute('width', '100%');
+    svg.setAttribute('height', String(H));
+    svg.style.display = 'block';
+    svg.style.margin = '4px 0 2px';
+    let d = '';
+    sp.forEach((y, i) => {
+      const X = (i / (sp.length - 1)) * W, Y = H - 2 - ((y - lo) / ec) * (H - 4);
+      d += (i ? ' L' : 'M') + X.toFixed(1) + ' ' + Y.toFixed(1);
+    });
+    const path = document.createElementNS(NS, 'path');
+    path.setAttribute('d', d);
+    path.setAttribute('fill', 'none');
+    path.setAttribute('stroke', b.color);
+    path.setAttribute('stroke-width', '1.6');
+    svg.appendChild(path);
+    box.appendChild(svg);
+    box.appendChild(scrEl('div', { text: '3 mois · de ' + nb(lo) + ' à ' + nb(hi),
+      style: 'font-size:0.56rem;color:var(--text-muted);margin-bottom:4px' }));
+  }
+
+  // barre des bandes, curseur du jour, repère de la moyenne 50 jours
+  const wrap = scrEl('div', { style: 'position:relative;margin-top:3px' });
+  const barre = scrEl('div', { style: 'display:flex;height:6px;border-radius:3px;overflow:hidden' });
+  let bas = 0;
+  VIX_BANDS.forEach((bd) => {
+    if (bas >= VIX_ECHELLE) return;
+    const haut = Math.min(bd.max, VIX_ECHELLE);
+    barre.appendChild(scrEl('div', { style: 'width:' + ((haut - bas) / VIX_ECHELLE * 100) + '%;background:' + bd.color + ';opacity:.35' }));
+    bas = haut;
+  });
+  wrap.appendChild(barre);
+  if (moy != null) {
+    wrap.appendChild(scrEl('div', { attrs: { title: 'Moyenne des 50 dernières séances : ' + nb(moy) },
+      style: 'position:absolute;top:-2px;height:10px;width:2px;background:#22314f;left:' + pos(moy) + '%' }));
+  }
+  wrap.appendChild(scrEl('div', { style: 'position:absolute;top:-4px;width:0;height:0;margin-left:-4px;'
+    + 'border-left:4px solid transparent;border-right:4px solid transparent;border-top:6px solid ' + b.color
+    + ';left:' + pos(v) + '%' }));
+  box.appendChild(wrap);
+  box.appendChild(scrEl('div', { style: 'display:flex;justify-content:space-between;font-size:0.55rem;color:var(--text-muted);margin-top:2px', kids: [
+    scrEl('span', { text: '0' }), scrEl('span', { text: '12' }), scrEl('span', { text: '20' }),
+    scrEl('span', { text: '30' }), scrEl('span', { text: '45+' })] }));
+  if (moy != null) {
+    const ec = c.ecartPct;
+    box.appendChild(scrEl('div', { style: 'font-size:0.6rem;color:var(--text-muted);margin-top:4px', kids: [
+      scrEl('span', { text: 'moyenne 50 j ' + nb(moy) + ' · ' }),
+      scrEl('b', { text: (ec != null ? ((ec > 0 ? '+' : '') + nb(ec) + ' %') : ''),
+        style: 'color:' + ((ec || 0) > 0 ? 'var(--negative)' : 'var(--positive)') })] }));
+  }
+  return box;
+}
+
 function fgFraicheur(fg) {
   const box = scrEl('div', { style: 'margin-top:5px;font-size:0.62rem;color:var(--text-muted);line-height:1.4' });
   const veille = (fg.prev && typeof fg.prev.close === 'number') ? fg.prev.close : null;
@@ -4315,14 +4410,21 @@ function renderMorningBrief() {
     const g = scrEl('div', { attrs: { title: 'Cliquer pour le détail : historique 1 an et les 7 indicateurs CNN.\n'
         + 'L\'indice n\'est recalculé que pendant la séance américaine, de 15h30 à 22h heure de Paris. '
         + 'Le matin, il affiche donc encore la valeur de la clôture précédente.' },
-      style: 'flex:0 0 190px;cursor:pointer;text-align:center' });
+      style: 'cursor:pointer;text-align:center' });
     g.appendChild(fgGauge(fg.score, 190));
     g.appendChild(scrEl('div', { text: String(fg.score), style: 'font-size:1.6rem;font-weight:800;line-height:1.1;color:' + band.color }));
     g.appendChild(scrEl('div', { text: band.label.toUpperCase(), style: 'font-size:0.66rem;font-weight:800;letter-spacing:.06em;color:' + band.color }));
     g.appendChild(fgFraicheur(fg));
     g.appendChild(scrEl('div', { text: 'Fear & Greed · voir le détail', style: 'font-size:0.62rem;color:var(--text-muted);margin-top:4px;text-decoration:underline' }));
     g.onclick = showFgDetail;
-    row.appendChild(g);
+    // colonne de gauche : la jauge de sentiment, puis le baromètre de volatilité en dessous.
+    // Deux mesures différentes, l'une dit ce que les investisseurs ressentent, l'autre ce
+    // qu'ils paient pour se protéger.
+    const colG = scrEl('div', { style: 'flex:0 0 190px;display:flex;flex-direction:column;gap:12px' });
+    colG.appendChild(g);
+    const vixBar = fgVixBar(fg);
+    if (vixBar) colG.appendChild(vixBar);
+    row.appendChild(colG);
   }
   // synthèse
   const txt = scrEl('div', { style: 'flex:1;min-width:280px;font-size:0.84rem;color:var(--text-primary);line-height:1.55' });
