@@ -195,6 +195,7 @@ def main():
         kcfg = get(db, 'stocks/kids/config') or {}
         kt = (kcfg.get('ticker') or 'VWCE.DE').strip().upper()
         q = y.live_quote(kt)
+        kp = {}          # sert plus bas pour reboucher l'historique : jamais laisse indefini
         if q and q.get('price') is not None:
             kp = {'price': q['price'], 'currency': q.get('currency') or 'EUR',
                   'ticker': kt, 'at': _now_iso()}
@@ -205,8 +206,21 @@ def main():
                   + (f' (cours de {kp["marketAt"]})' if kp.get('marketAt') else ''))
         khist = y.index_history(kt, '1y')
         if khist:
-            push(db, 'stocks/kidsHistory', khist)
-            print(f'Historique ETF enfants : {len(khist)} jours (dernier {sorted(khist)[-1]})')
+            # Yahoo laisse des TROUS. Le 09/09/2026 la barre quotidienne de VWCE.DE existait
+            # avec un cours et un volume nuls, alors que la seance avait bien eu lieu. Un push
+            # brut remplacait tout l'historique par la version trouee : une seance deja
+            # collectee etait perdue pour de bon. On FUSIONNE donc, la valeur neuve gagne
+            # quand elle existe, l'ancienne reste quand Yahoo n'a rien a dire.
+            fusion = dict(get(db, 'stocks/kidsHistory') or {})
+            avant = len(fusion)
+            fusion.update(khist)
+            # Le cours du jour rebouche le trou : meme source, autre point d'entree. Il porte
+            # l'heure reelle de la derniere transaction, donc la bonne date de seance.
+            if q and q.get('price') is not None and kp.get('marketAt'):
+                fusion[kp['marketAt'][:10]] = round(float(q['price']), 2)
+            push(db, 'stocks/kidsHistory', fusion)
+            print(f'Historique ETF enfants : {len(fusion)} jours (dernier {sorted(fusion)[-1]})'
+                  + (f', {len(fusion) - avant} ajoute(s)' if len(fusion) > avant else ''))
     except Exception as e:
         print('ETF enfants err', e)
 

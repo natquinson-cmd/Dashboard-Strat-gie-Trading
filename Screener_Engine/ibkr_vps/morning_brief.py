@@ -26,7 +26,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone, timedelta, date, time as dtime
 
 from firebase_push import push, get
 
@@ -196,6 +196,49 @@ MOIS_FR = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'ao
            'septembre', 'octobre', 'novembre', 'décembre']
 
 
+def _nieme_dimanche(an, mois, n):
+    """Date du n-ieme dimanche du mois. n = -1 pour le dernier."""
+    d = date(an, mois, 1)
+    premier = d + timedelta(days=(6 - d.weekday()) % 7)
+    if n > 0:
+        return premier + timedelta(days=7 * (n - 1))
+    dernier = premier
+    while (dernier + timedelta(days=7)).month == mois:
+        dernier += timedelta(days=7)
+    return dernier
+
+
+def ny_vers_paris(d_ny):
+    """datetime NAIF en heure de New York -> datetime NAIF en heure de Paris.
+
+    L'ecart n'est pas constant : il vaut 6 h la majeure partie de l'annee, mais 5 h entre la
+    fin de l'heure d'ete europeenne (dernier dimanche d'octobre) et celle des Etats-Unis
+    (premier dimanche de novembre). Le coder en dur ferait mentir le calendrier deux semaines
+    par an, precisement autour d'une reunion de la Fed.
+
+    zoneinfo fait le travail proprement, mais sous Windows il exige le paquet tzdata, qui peut
+    manquer sur le VPS. On retombe alors sur les regles officielles, inchangees depuis 2007
+    cote americain et depuis 2002 cote europeen."""
+    try:
+        from zoneinfo import ZoneInfo
+        return (d_ny.replace(tzinfo=ZoneInfo('America/New_York'))
+                    .astimezone(ZoneInfo('Europe/Paris')).replace(tzinfo=None))
+    except Exception:
+        return _ny_vers_paris_regles(d_ny)
+
+
+def _ny_vers_paris_regles(d_ny):
+    """Secours sans tzdata : les regles officielles appliquees a la main."""
+    # 3 h et non 2 h au printemps : entre 02h00 et 03h00 l'heure locale n'existe pas ce jour-la
+    # (la pendule saute), et zoneinfo la rattache a l'heure d'hiver. On fait pareil.
+    deb = datetime.combine(_nieme_dimanche(d_ny.year, 3, 2), dtime(3, 0))
+    fin = datetime.combine(_nieme_dimanche(d_ny.year, 11, 1), dtime(2, 0))
+    u = d_ny + timedelta(hours=(4 if deb <= d_ny < fin else 5))          # -> UTC
+    deb_eu = datetime.combine(_nieme_dimanche(u.year, 3, -1), dtime(1, 0))
+    fin_eu = datetime.combine(_nieme_dimanche(u.year, 10, -1), dtime(1, 0))
+    return u + timedelta(hours=(2 if deb_eu <= u < fin_eu else 1))       # -> Paris
+
+
 def _decalage_nasdaq():
     """Nombre de jours a AJOUTER a la date voulue pour l'obtenir de Nasdaq.
 
@@ -242,15 +285,27 @@ def fetch_econ_calendar(days=7):
             nom = re.sub(r'<[^>]*>', '', str(r.get('eventName') or '')).strip()
             if not nom or not ECON_CLES.search(nom):
                 continue
-            cle = (jour, nom, str(r.get('consensus') or ''))
+            # Nasdaq nomme son champ `gmt`, mais il contient l'heure de NEW YORK. Verifie deux
+            # fois : le CPI y est a 08:30, l'heure de publication du BLS, et le CPI allemand a
+            # 02:00, soit 08:00 a Berlin. On passe a l'heure de Paris, la seule qui serve ici,
+            # en convertissant la DATE AUSSI : une intervention a 21:15 a New York tombe le
+            # lendemain a Paris, et l'annoncer le bon jour importe autant que la bonne heure.
+            quand, heure = cible, ''
+            m = re.match(r'^(\d{1,2}):(\d{2})$', str(r.get('gmt') or '').strip())
+            if m:
+                quand = ny_vers_paris(datetime(cible.year, cible.month, cible.day,
+                                               int(m.group(1)), int(m.group(2))))
+                heure = quand.strftime('%Hh%M')
+            jour_pa = quand.strftime('%Y-%m-%d')
+            cle = (jour_pa, nom, str(r.get('consensus') or ''))
             if cle in vus:
                 continue
             vus.add(cle)
             # `libelle` est fourni tout fait au modele : lui laisser deduire le jour de la
             # semaine a partir d'une date ISO, c'est une occasion de plus de se tromper.
-            out.append({'date': jour, 'heure': str(r.get('gmt') or '').strip(),
-                        'jour': JOURS_FR[cible.weekday()],
-                        'libelle': f'{JOURS_FR[cible.weekday()]} {cible.day} {MOIS_FR[cible.month - 1]}',
+            out.append({'date': jour_pa, 'heure': heure,
+                        'jour': JOURS_FR[quand.weekday()],
+                        'libelle': f'{JOURS_FR[quand.weekday()]} {quand.day} {MOIS_FR[quand.month - 1]}',
                         'nom': nom[:90], 'consensus': str(r.get('consensus') or '').strip(),
                         'precedent': str(r.get('previous') or '').strip()})
         time.sleep(0.3)
@@ -264,7 +319,19 @@ RÈGLES ABSOLUES :
 - Tu rapportes des FAITS. Tu ne donnes JAMAIS de recommandation d'achat, de vente ou de conservation, ni d'objectif de cours. Ce n'est pas un conseil en investissement.
 - Français naturel, sans tiret cadratin. Utilise des virgules.
 - Si une ligne n'a pas d'actualité notable, tu ne l'inventes pas et tu ne la mentionnes pas.
-- Sois bref. Le lecteur lit ça en deux minutes avant l'ouverture.
+- Sois BREF, c'est la qualité principale attendue. Le lecteur parcourt ça en une minute avant
+  l'ouverture. Le détail complet de chaque ligne est à un clic sur le nom de l'action : tu n'as
+  donc pas à tout dire, seulement l'essentiel. Aucune phrase de remplissage, aucune reformulation
+  de ce que le chiffre dit déjà.
+
+MISE EN GRAS :
+- Encadre de **doubles astérisques** les deux ou trois éléments qui portent le sens dans chaque
+  texte : un chiffre, un nom d'entreprise, une date, le mot décisif. Jamais plus de trois par
+  champ, sinon plus rien ne ressort.
+
+HEURES :
+- Les heures du calendrier sont DÉJÀ en heure de Paris. Tu les recopies telles quelles et tu ne
+  convertis rien. Tu n'écris jamais "heure de New York".
 
 RÈGLE SUR LE SENS DES OPÉRATIONS, AUSSI IMPORTANTE QUE LES DATES :
 - Un titre d'article ne dit presque jamais QUI achète et QUI vend. "X Vs Y: rotation de 56 M$"
@@ -286,11 +353,11 @@ RÈGLE SUR LES DATES, LA PLUS IMPORTANTE :
   dis "prochainement" plutôt que d'inventer un jour.
 
 STRUCTURE ATTENDUE, en JSON strict et rien d'autre :
-{"market": "un paragraphe de 2 à 4 phrases sur le climat général : indices, taux, macro, et ce que dit l'indice Fear & Greed",
- "attentisme": "1 à 3 phrases expliquant ce qui peut retenir le marché aujourd'hui : rendez-vous macro ou résultats attendus, incertitude, sous-indicateurs du Fear & Greed qui divergent. Chaîne de causalité explicite. Si rien ne le justifie dans les données, dis-le franchement.",
- "semaine": [{"quand": "le libellé du calendrier RECOPIÉ tel quel, court, ex : jeudi 10 septembre. Rien d'autre, ni heure ni fuseau", "quoi": "l'échéance, avec son heure de New York et son consensus s'il existe", "pourquoi": "en quoi elle compte pour un portefeuille d'actions américaines"}],
- "positions": [{"ticker": "XXXX", "text": "1 à 2 phrases factuelles sur ce qui concerne cette ligne"}],
- "watch": ["2 à 4 faits ou échéances à surveiller aujourd'hui"]}
+{"market": "2 phrases MAXIMUM sur le climat général : indices, taux, macro, et ce que dit l'indice Fear & Greed",
+ "attentisme": "1 à 2 phrases sur ce qui peut retenir le marché aujourd'hui : rendez-vous macro ou résultats attendus, sous-indicateurs du Fear & Greed qui divergent. Chaîne de causalité explicite. Si rien ne le justifie dans les données, dis-le en une phrase.",
+ "semaine": [{"quand": "le libellé du calendrier RECOPIÉ tel quel, court, ex : jeudi 10 septembre. Rien d'autre, ni heure ni fuseau", "quoi": "l'échéance, son heure de Paris et son consensus s'il existe. 12 mots maximum", "pourquoi": "en quoi elle compte, 12 mots maximum"}],
+ "positions": [{"ticker": "XXXX", "text": "UNE phrase factuelle, 25 mots maximum. Le fait, rien de plus"}],
+ "watch": ["2 à 4 faits à surveiller aujourd'hui, 15 mots maximum chacun"]}
 
 DONNÉES DU JOUR :
 """
@@ -378,7 +445,7 @@ def anthropic_brief(api_key, fg, per_ticker, market, econ=None):
     if comp:
         lignes.append('Sous-indicateurs : ' + comp)
     if econ:
-        lignes.append('\nCALENDRIER ÉCONOMIQUE AMÉRICAIN (dates fiables, heures de New York) :')
+        lignes.append('\nCALENDRIER ÉCONOMIQUE AMÉRICAIN (dates fiables, DÉJÀ converties en heure de Paris) :')
         for e in econ:
             det = []
             if e.get('consensus'):

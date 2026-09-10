@@ -4051,6 +4051,16 @@ function fgBand(v) { return FG_BANDS.find((b) => v < b.max) || FG_BANDS[FG_BANDS
 // formateur de capitalisation boursière.)
 function scrMaj(s) { s = String(s || ''); return s ? (s.charAt(0).toUpperCase() + s.slice(1)) : s; }
 
+// Le brief marque en **gras** les deux ou trois éléments qui portent le sens, pour qu'on
+// balaie le bloc en quelques secondes. On découpe nous-mêmes sur les doubles astérisques et on
+// fabrique des nœuds : jamais d'innerHTML, ce texte sort d'un modèle et n'a rien à faire dans
+// l'analyseur HTML du navigateur.
+function scrGras(txt) {
+  return String(txt == null ? '' : txt).split('**').map((m, i) => (i % 2 === 1)
+    ? scrEl('b', { text: m, style: 'color:var(--text-primary);font-weight:700' })
+    : scrEl('span', { text: m })).filter((n) => n.textContent !== '');
+}
+
 // L'indice n'est recalculé que pendant la séance américaine. Sans repère, deux matins de suite
 // affichent le même chiffre et cela ressemble à une panne de collecte : on dit donc de quand
 // date le calcul, et de combien l'indice a bougé depuis la clôture précédente.
@@ -4069,10 +4079,10 @@ function fgFraicheur(fg) {
   }
   const d = fg.calcAt ? new Date(fg.calcAt) : null;
   if (d && !isNaN(d)) {
-    const NY = { timeZone: 'America/New_York' };
-    const jour = d.toLocaleDateString('fr-FR', Object.assign({ day: '2-digit', month: '2-digit' }, NY));
-    const heure = d.toLocaleTimeString('fr-FR', Object.assign({ hour: '2-digit', minute: '2-digit' }, NY));
-    box.appendChild(scrEl('div', { text: 'dernier calcul ' + jour + ' à ' + heure + ' à New York' }));
+    const PA = { timeZone: 'Europe/Paris' };
+    const jour = d.toLocaleDateString('fr-FR', Object.assign({ day: '2-digit', month: '2-digit' }, PA));
+    const heure = d.toLocaleTimeString('fr-FR', Object.assign({ hour: '2-digit', minute: '2-digit' }, PA));
+    box.appendChild(scrEl('div', { text: 'dernier calcul ' + jour + ' à ' + heure } ));
   }
   return box;
 }
@@ -4125,8 +4135,8 @@ function showFgDetail() {
     text: 'Mesure le sentiment des investisseurs de 0 (peur extrême) à 100 (cupidité extrême). Un score bas signale un marché craintif, un score haut un excès d’optimisme. '
       + 'Source CNN. L’indice n’est recalculé que pendant la séance américaine, de 15h30 à 22h heure de Paris : le matin, il affiche encore la clôture de la veille.'
       + (fg.calcAt ? (' Dernier calcul le ' + new Date(fg.calcAt).toLocaleString('fr-FR',
-          { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', timeZone: 'America/New_York' })
-          + ' à New York.') : '') }));
+          { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' })
+          + ', heure de Paris.') : '') }));
   // comparaisons
   const cmp = scrEl('div', { style: 'display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px' });
   [['Hier', fg.prev && fg.prev.close], ['Il y a 1 semaine', fg.prev && fg.prev.week],
@@ -4259,7 +4269,7 @@ function renderMorningBrief() {
   }
   // synthèse
   const txt = scrEl('div', { style: 'flex:1;min-width:280px;font-size:0.84rem;color:var(--text-primary);line-height:1.55' });
-  if (br && br.market) txt.appendChild(scrEl('div', { text: br.market, style: 'margin-bottom:12px' }));
+  if (br && br.market) txt.appendChild(scrEl('div', { kids: scrGras(br.market), style: 'margin-bottom:12px' }));
   const lignes = (br && Array.isArray(br.positions)) ? br.positions : [];
   if (lignes.length) {
     const ul = scrEl('div', { style: 'display:flex;flex-direction:column;gap:6px;margin-bottom:12px' });
@@ -4289,7 +4299,7 @@ function renderMorningBrief() {
       ul.appendChild(scrEl('div', { style: 'display:flex;gap:8px;align-items:baseline', kids: [
         tickEl,
         scrEl('span', { style: 'font-size:0.8rem;color:var(--text-secondary)', kids: [
-          scrEl('span', { text: p.text }),
+          scrEl('span', { kids: scrGras(p.text) }),
           scrEl('span', { text: dTxt, style: 'color:var(--text-muted);white-space:nowrap' })] })] }));
     });
     txt.appendChild(ul);
@@ -4300,7 +4310,7 @@ function renderMorningBrief() {
     txt.appendChild(scrEl('div', { style: 'background:#f6f8fb;border-left:3px solid #9184ea;border-radius:0 8px 8px 0;'
       + 'padding:8px 11px;margin-bottom:12px;font-size:0.8rem;color:var(--text-secondary);line-height:1.5', kids: [
       scrEl('div', { text: 'CE QUI PEUT RETENIR LE MARCHÉ', style: 'font-size:0.58rem;font-weight:800;letter-spacing:.05em;color:#9184ea;margin-bottom:3px' }),
-      scrEl('div', { text: br.attentisme })] }));
+      scrEl('div', { kids: scrGras(br.attentisme) })] }));
   }
   const semaine = (br && Array.isArray(br.semaine)) ? br.semaine : [];
   if (semaine.length) {
@@ -4313,8 +4323,8 @@ function renderMorningBrief() {
         // ("Vendredi 11 Septembre"), ce qui n'est pas le français. Seule la première.
         scrEl('b', { text: scrMaj(e.quand || '·'), style: 'color:#9184ea;font-size:0.72rem;min-width:118px;flex:0 0 118px' }),
         scrEl('span', { style: 'font-size:0.79rem;color:var(--text-secondary)', kids: [
-          scrEl('span', { text: e.quoi }),
-          scrEl('span', { text: e.pourquoi ? (' — ' + e.pourquoi) : '', style: 'color:var(--text-muted)' })] })] }));
+          scrEl('span', { kids: scrGras(e.quoi) }),
+          scrEl('span', { kids: e.pourquoi ? scrGras(', ' + e.pourquoi) : [], style: 'color:var(--text-muted)' })] })] }));
     });
     txt.appendChild(ul);
   }
@@ -4322,7 +4332,7 @@ function renderMorningBrief() {
   if (watch.length) {
     txt.appendChild(scrEl('div', { text: 'À surveiller aujourd’hui', style: 'font-size:0.62rem;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--text-muted);margin-bottom:5px' }));
     const ul = scrEl('div', { style: 'display:flex;flex-direction:column;gap:4px' });
-    watch.forEach((w) => ul.appendChild(scrEl('div', { text: '• ' + w, style: 'font-size:0.78rem;color:var(--text-secondary)' })));
+    watch.forEach((w) => ul.appendChild(scrEl('div', { kids: [scrEl('span', { text: '• ' })].concat(scrGras(w)), style: 'font-size:0.78rem;color:var(--text-secondary)' })));
     txt.appendChild(ul);
   }
   // repli : pas de synthèse -> on montre les titres bruts, le bloc reste utile
