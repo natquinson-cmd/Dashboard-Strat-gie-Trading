@@ -82,6 +82,23 @@ def fetch_fear_greed():
         if v.get('score') is None:
             continue
         comps[k] = {'score': round(float(v['score']), 1), 'rating': v.get('rating')}
+        # Valeur BRUTE du sous-indicateur, prise dans son propre historique : le VIX y vaut
+        # 17,9 quand le score normalise affiche 50. Sans elle on ne peut pas distinguer un
+        # score reellement calcule d'une valeur de repli, or CNN sert 50/neutral quand il
+        # n'a pas le calcul, et 50 ressemble a une mesure. On garde aussi la valeur brute
+        # precedente DIFFERENTE : si la brute bouge et que le score reste fige, il ment.
+        ys = []
+        for pt in (v.get('data') or []):
+            try:
+                y = round(float(pt['y']), 2)
+            except Exception:
+                continue
+            if not ys or ys[-1] != y:
+                ys.append(y)
+        if ys:
+            comps[k]['raw'] = ys[-1]
+            if len(ys) > 1:
+                comps[k]['rawPrev'] = ys[-2]
         try:
             calc_ms = max(calc_ms, int(float(v.get('timestamp') or 0)))
         except Exception:
