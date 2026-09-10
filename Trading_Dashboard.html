@@ -4307,12 +4307,14 @@ function renderMorningBrief() {
     });
     txt.appendChild(ul);
   }
-  // Pourquoi le marché peut rester attentiste aujourd'hui : c'est la partie qui donne du sens
-  // au reste, elle passe donc juste après le climat général.
+  // Ce qui peut faire bouger la séance, dans un sens comme dans l'autre : c'est la partie qui
+  // donne du sens au reste, elle passe donc juste après le climat général.
+  // La clé Firebase reste `attentisme` pour rester compatible avec les briefs déjà stockés,
+  // mais le contenu n'est plus orienté à la baisse, et le titre ne le présuppose plus.
   if (br && br.attentisme) {
     txt.appendChild(scrEl('div', { style: 'background:#f6f8fb;border-left:3px solid #9184ea;border-radius:0 8px 8px 0;'
       + 'padding:8px 11px;margin-bottom:12px;font-size:0.8rem;color:var(--text-secondary);line-height:1.5', kids: [
-      scrEl('div', { text: 'CE QUI PEUT RETENIR LE MARCHÉ', style: 'font-size:0.58rem;font-weight:800;letter-spacing:.05em;color:#9184ea;margin-bottom:3px' }),
+      scrEl('div', { text: 'POINTS DE VIGILANCE', style: 'font-size:0.58rem;font-weight:800;letter-spacing:.05em;color:#9184ea;margin-bottom:3px' }),
       scrEl('div', { kids: scrGras(br.attentisme) })] }));
   }
   const semaine = (br && Array.isArray(br.semaine)) ? br.semaine : [];
