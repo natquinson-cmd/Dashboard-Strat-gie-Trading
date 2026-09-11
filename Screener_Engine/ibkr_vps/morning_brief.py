@@ -321,47 +321,74 @@ def _ny_vers_paris_regles(d_ny):
     return u + timedelta(hours=(2 if deb_eu <= u < fin_eu else 1))       # -> Paris
 
 
-def _decalage_nasdaq():
-    """Nombre de jours a AJOUTER a la date voulue pour l'obtenir de Nasdaq.
+# Publications AMERICAINES a jour fixe : leur presence date la reponse sans ambiguite.
+ANCRES_JOUR = (
+    ('Initial Jobless Claims', 3),          # tous les jeudis
+    ('Continuing Jobless Claims', 3),
+    ('MBA Mortgage Applications', 2),       # tous les mercredis
+    ('MBA 30-Year Mortgage Rate', 2),
+    ('Michigan Consumer Sentiment', 4),     # enquete preliminaire, tous les vendredis
+    ('Redbook', 1),                         # tous les mardis
+    ('API Weekly Crude Oil Stock', 1),
+)
 
-    Nasdaq rend, pour date=J, les evenements de J-1. Constate le 10/09/2026 : la requete du
-    vendredi 11 renvoyait les inscriptions au chomage, publiees TOUS les jeudis, et celle du
-    samedi 12 l'enquete Michigan, publiee TOUS les vendredis. Resultat, le brief annoncait le
-    CPI un samedi, jour ou aucune statistique ne sort.
 
-    On ne code pas ce decalage en dur : on le MESURE a chaque execution sur un ancrage
-    hebdomadaire infaillible. Si Nasdaq corrige son API un jour, on suivra sans rien casser ;
-    en le figeant on se serait remis a mentir en silence."""
-    d = datetime.now()
-    jeudi = d + timedelta(days=(3 - d.weekday()) % 7)      # prochain jeudi, aujourd'hui si jeudi
-    for off in (1, 0):
-        try:
-            j = _get_json(NASDAQ_ECON + (jeudi + timedelta(days=off)).strftime('%Y-%m-%d'))
-        except Exception:
-            continue
-        noms = ' | '.join(str(r.get('eventName') or '')
-                          for r in ((j.get('data') or {}).get('rows') or []))
-        if 'Initial Jobless Claims' in noms:
-            print(f'  calendrier Nasdaq : decalage mesure = {off} jour(s)')
-            return off
-    print('  calendrier Nasdaq : decalage non mesurable, on garde 1 (comportement constate)')
-    return 1
+def _jour_rendu(noms, demande):
+    """Date REELLEMENT rendue par Nasdaq pour une date demandee, deduite des publications
+    hebdomadaires presentes dans la reponse. None si aucune ancre n'apparait."""
+    for motif, wd in ANCRES_JOUR:
+        if motif in noms:
+            for delta in (0, -1, 1, -2, 2):
+                d = demande + timedelta(days=delta)
+                if d.weekday() == wd:
+                    return d
+            return None
+    return None
 
 
 def fetch_econ_calendar(days=7):
-    """Evenements macro US des `days` prochains jours, dates FIABLES (contrairement aux
-    articles de presse, qui evoquent les rendez-vous sans toujours les dater)."""
-    off = _decalage_nasdaq()
-    out, vus = [], set()
-    for k in range(days):
-        cible = datetime.now() + timedelta(days=k)
-        jour = cible.strftime('%Y-%m-%d')
+    """Evenements macro US des `days` prochains jours, dates VERIFIEES une par une.
+
+    L'API Nasdaq ne tient pas une correspondance stable entre la date demandee et les
+    evenements rendus, et son comportement change dans la journee. On ne lui fait donc pas
+    confiance sur ce point : chaque reponse est datee par ses propres publications
+    hebdomadaires, et ce qui reste indatable est ecarte."""
+    aujourdhui = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    brut = {}
+    for k in range(-1, days + 3):
+        dem = aujourdhui + timedelta(days=k)
         try:
-            j = _get_json(NASDAQ_ECON + (cible + timedelta(days=off)).strftime('%Y-%m-%d'))
+            j = _get_json(NASDAQ_ECON + dem.strftime('%Y-%m-%d'))
         except Exception as e:
-            print(f'  calendrier {jour} : {e}')
+            print(f"  calendrier {dem.strftime('%Y-%m-%d')} : {e}")
             continue
-        for r in ((j.get('data') or {}).get('rows') or []):
+        brut[dem] = ((j.get('data') or {}).get('rows') or [])
+        time.sleep(0.3)
+
+    # 1. dater les reponses qui portent une ancre
+    decal = {}
+    for dem, rows in brut.items():
+        noms = ' | '.join(re.sub(r'<[^>]*>', '', str(r.get('eventName') or '')) for r in rows)
+        d = _jour_rendu(noms, dem)
+        if d is not None:
+            decal[dem] = (d - dem).days
+    if not decal:
+        print('  calendrier : aucune reponse datable, on n\'affiche rien plutot que de mal dater')
+        return []
+    # 2. les autres heritent du decalage de la reponse datee la plus proche
+    for dem in brut:
+        if dem not in decal:
+            proche = min(decal, key=lambda x: abs((x - dem).days))
+            decal[dem] = decal[proche]
+    print('  calendrier Nasdaq : decalages par date = '
+          + ', '.join('%s:%+d' % (d.strftime('%d/%m'), v) for d, v in sorted(decal.items())))
+
+    # 3. repartir les evenements sur leur vraie date, en heure de Paris
+    out, vus = [], set()
+    fin = aujourdhui + timedelta(days=days)
+    for dem, rows in sorted(brut.items()):
+        jour = dem + timedelta(days=decal[dem])
+        for r in rows:
             if 'united states' not in str(r.get('country') or '').lower():
                 continue
             nom = re.sub(r'<[^>]*>', '', str(r.get('eventName') or '')).strip()
@@ -369,28 +396,28 @@ def fetch_econ_calendar(days=7):
                 continue
             # Nasdaq nomme son champ `gmt`, mais il contient l'heure de NEW YORK. Verifie deux
             # fois : le CPI y est a 08:30, l'heure de publication du BLS, et le CPI allemand a
-            # 02:00, soit 08:00 a Berlin. On passe a l'heure de Paris, la seule qui serve ici,
-            # en convertissant la DATE AUSSI : une intervention a 21:15 a New York tombe le
-            # lendemain a Paris, et l'annoncer le bon jour importe autant que la bonne heure.
-            quand, heure = cible, ''
+            # 02:00, soit 08:00 a Berlin. On passe a l'heure de Paris, la DATE COMPRISE : une
+            # intervention a 21h15 a New York tombe le lendemain a Paris.
+            quand, heure = jour, ''
             m = re.match(r'^(\d{1,2}):(\d{2})$', str(r.get('gmt') or '').strip())
             if m:
-                quand = ny_vers_paris(datetime(cible.year, cible.month, cible.day,
+                quand = ny_vers_paris(datetime(jour.year, jour.month, jour.day,
                                                int(m.group(1)), int(m.group(2))))
                 heure = quand.strftime('%Hh%M')
-            jour_pa = quand.strftime('%Y-%m-%d')
-            cle = (jour_pa, nom, str(r.get('consensus') or ''))
+            if not (aujourdhui <= quand <= fin + timedelta(days=1)):
+                continue
+            cle = (quand.strftime('%Y-%m-%d'), nom, str(r.get('consensus') or ''))
             if cle in vus:
                 continue
             vus.add(cle)
             # `libelle` est fourni tout fait au modele : lui laisser deduire le jour de la
             # semaine a partir d'une date ISO, c'est une occasion de plus de se tromper.
-            out.append({'date': jour_pa, 'heure': heure,
+            out.append({'date': quand.strftime('%Y-%m-%d'), 'heure': heure,
                         'jour': JOURS_FR[quand.weekday()],
                         'libelle': f'{JOURS_FR[quand.weekday()]} {quand.day} {MOIS_FR[quand.month - 1]}',
                         'nom': nom[:90], 'consensus': str(r.get('consensus') or '').strip(),
                         'precedent': str(r.get('previous') or '').strip()})
-        time.sleep(0.3)
+    out.sort(key=lambda e: (e['date'], e['heure']))
     return out
 
 
