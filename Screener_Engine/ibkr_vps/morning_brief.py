@@ -471,6 +471,19 @@ HEURES :
 - Les heures du calendrier sont DÉJÀ en heure de Paris. Tu les recopies telles quelles et tu ne
   convertis rien. Tu n'écris jamais "heure de New York".
 
+FAITS ET INTERPRÉTATIONS, À NE JAMAIS CONFONDRE :
+- Un fait se constate : « le spread high-yield est à 1,22 point, étroit ». Une interprétation se
+  propose : « ce qui PEUT indiquer que le crédit anticipe une baisse des taux ». Tu marques
+  toujours la seconde comme telle : « peut indiquer », « une lecture possible », « parmi les
+  explications ». Tu n'écris JAMAIS « les investisseurs anticipent » ou « le marché parie » comme
+  si tu lisais dans leur tête : tu ne vois que des prix.
+- Quand un fait admet plusieurs causes, tu en donnes au moins deux ou tu n'en donnes aucune. Un
+  spread étroit peut venir d'une anticipation de baisse des taux, de bilans solides, d'un excès de
+  liquidités en quête de rendement, ou d'un simple retard du crédit sur les actions.
+- Les mots des bandes (peur, cupidité, neutre) qualifient le SENTIMENT que révèle un indicateur,
+  jamais le chiffre lui-même. Un spread n'est pas « cupide », un VIX n'est pas « neutre » : c'est
+  le comportement des investisseurs qui l'est.
+
 RÈGLE SUR LE SENS DES OPÉRATIONS, AUSSI IMPORTANTE QUE LES DATES :
 - Un titre d'article ne dit presque jamais QUI achète et QUI vend. "X Vs Y: rotation de 56 M$"
   ne dit pas le sens. Quand une ligne "RÉSUMÉ DE L'ARTICLE" suit un titre, c'est ELLE qui fait
