@@ -1004,6 +1004,98 @@
     .sub-tab-bar { overflow-x: auto; flex-wrap: nowrap; justify-content: flex-start; padding: 0 8px; }
     .sub-tab-btn { white-space: nowrap; }
   }
+  /* ═══════════ MOBILE (≤ 640 px) ═══════════
+     Une seule règle englobante : au-dessus de 640 px, RIEN ne change.
+     Sur un téléphone, six cartes de 119 px empilées font 750 px avant le premier graphique,
+     et Trading Auto en aligne douze, soit près de 2 000 px. Les chiffres passent en petit et
+     en deux colonnes, le héros se resserre, les tableaux larges défilent dans leur cadre. */
+  @media (max-width: 640px) {
+    .dashboard { padding: 12px 10px 28px; }
+    .header { margin-bottom: 10px; }
+    .header h1 { font-size: 1.35rem; }
+    .header .subtitle, .header p { font-size: 0.72rem; }
+    .tab-bar { gap: 6px; margin-bottom: 10px; }
+    .tab-btn { padding: 8px 12px; font-size: 0.82rem; }
+    .sub-tab-bar { overflow-x: auto; flex-wrap: nowrap; justify-content: flex-start;
+      padding: 0 4px 6px; margin-bottom: 12px; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+    .sub-tab-bar::-webkit-scrollbar { display: none; }
+    .sub-tab-btn { white-space: nowrap; padding: 6px 10px; font-size: 0.78rem; }
+
+    /* cartes KPI : deux colonnes, chiffre en 1.1rem au lieu de 1.7rem */
+    .kpi-grid, .inv-grid-kpi, .ttl-top > .kpi-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 8px; margin-bottom: 18px;
+    }
+    .kpi-card { padding: 10px 11px 9px; border-radius: 12px; box-shadow: 0 3px 10px rgba(34,49,77,0.07); }
+    .kpi-card:hover { transform: none; }
+    .kpi-card .label { font-size: 0.56rem; letter-spacing: 0.04em; margin-bottom: 4px; }
+    .kpi-card .value { font-size: 1.1rem; letter-spacing: -0.01em; }
+    .kpi-card .sub { font-size: 0.6rem; margin-top: 2px; line-height: 1.3; }
+    .kpi-card .sub br { display: none; }
+    .kpi-card.kpi-gauge { grid-column: 1 / -1; }
+    .kpi-card.kpi-gauge .value svg { width: 150px; }
+
+    /* héros Capital total : moins de vide, chiffre en 1.5rem au lieu de 2.1rem.
+       Sur PC il est étiré à la hauteur de la grille (height:100 %) : sur mobile, où tout
+       s'empile, cela laissait 130 px de vide sous les trois lignes. */
+    .ttl-top { gap: 8px; margin-bottom: 14px; }
+    /* flex:1 1 300px : sur PC c'est une LARGEUR de base, mais une fois la rangée passée en
+       colonne, la même valeur devient une hauteur de 300 px, d'où 105 px de vide sous le héros. */
+    .ttl-top > .hero-kpi { flex: 0 0 auto; }
+    .ttl-top > .hero-kpi .hero-card { height: auto; }
+    .ttl-top > .kpi-grid { align-content: start; }
+    .kpi-card { height: auto; }
+    /* les trois lignes de répartition (Trading Auto, Actions, Darwinex) sur une seule rangée */
+    .hero-card > div[style*="flex-wrap:wrap"][style*="margin-top:10px"] { gap: 6px 14px !important; }
+    .hero-card > div[style*="flex-wrap:wrap"][style*="margin-top:10px"] > div { font-size: 0.78rem !important; }
+    .hero-kpi { gap: 8px; margin-bottom: 14px; }
+    .hero-card { padding: 14px 16px 12px; border-radius: 12px; }
+    .hero-card .hero-label { font-size: 0.6rem; }
+    .hero-card .hero-value { font-size: 1.5rem; }
+    .hero-card .hero-value + div, .hero-card .hero-sub { font-size: 0.72rem; }
+    .repart-item .repart-num { font-size: 0.95rem; }
+    .repart-item .repart-label { font-size: 0.55rem; }
+
+    /* tuiles inv-card (Darwinex, Portefeuille) : mêmes proportions */
+    .inv-card { padding: 11px 12px; border-radius: 12px; }
+    .inv-card:hover { transform: none; }
+    .inv-card .inv-value, .inv-card .value { font-size: 1.05rem !important; }
+    .inv-card .inv-label, .inv-card .label { font-size: 0.56rem !important; }
+    .inv-grid-2, .inv-grid-3 { grid-template-columns: 1fr; gap: 10px; }
+
+    /* tuiles construites en JS (Enfants, Portefeuille) : marquées kpi-tile par le code */
+    .kpi-tile { padding: 9px 10px !important; min-width: 0 !important; flex: 1 1 44% !important; }
+    .kpi-tile-value { font-size: 1rem !important; }
+    .kpi-tile-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 8px !important; }
+
+    /* graphiques : une colonne, moins hauts */
+    .chart-row { grid-template-columns: 1fr; gap: 12px; margin-bottom: 12px; }
+    .chart-card { padding: 12px 10px; border-radius: 12px; }
+    .chart-card h3, .inv-chart-card h3 { font-size: 0.82rem; }
+    canvas { max-height: 240px; }
+    .inv-canvas-wrap { height: 220px !important; }
+
+    /* tableaux larges : ils défilent dans leur cadre, la page ne déborde plus */
+    .table-wrap, .inv-table-wrap, .heatmap-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    table { font-size: 0.72rem; }
+    .heatmap-table td, .heatmap-table th { padding: 4px 5px; font-size: 0.66rem; }
+    .inv-table td, .inv-table th { padding: 6px 7px; }
+
+    /* Trading Auto : le groupe Synchroniser / Historique / statuts faisait 519 px sur une seule
+       ligne et poussait la page ; il se replie, et le dashboard n'accepte plus de débordement. */
+    .dashboard { overflow-x: hidden; }
+    .real-header-row > div[style*="display:flex"] { flex-wrap: wrap; gap: 6px !important; }
+    .real-header-row .csv-btn { padding: 6px 9px; font-size: 0.72rem; }
+    .asset-filter .filter-btn { padding: 6px 10px; font-size: 0.74rem; }
+
+    /* Portefeuille : sur PC l'onglet est élargi à 95vw et recentré (marge 50 % + translation
+       de -50 %) pour ses tableaux. À 375 px ce recentrage le décalait de 188 px vers la droite. */
+    #tab-screener { width: auto; margin-left: 0; transform: none; }
+
+    /* brief du matin : la jauge et le baromètre passent au-dessus du texte, centrés */
+    #ttlBrief .brief-row { flex-direction: column; align-items: center; }
+    #ttlBrief .brief-col { flex: 0 0 auto !important; width: 190px; margin: 0 auto; }
+    #ttlBrief { font-size: 0.8rem; }
+  }
 </style>
 </head>
 <body>
@@ -4482,7 +4574,7 @@ function renderMorningBrief() {
     scrFreshBadge(b.at, 'Brief produit chaque matin à 07h45 par le VPS.'),
     scrBriefEtat(b, br),
     scrBriefRefreshBtn(b)] }));
-  const row = scrEl('div', { style: 'display:flex;gap:22px;flex-wrap:wrap;align-items:flex-start' });
+  const row = scrEl('div', { cls: 'brief-row', style: 'display:flex;gap:22px;flex-wrap:wrap;align-items:flex-start' });
   // baromètre cliquable
   if (fg) {
     const band = fgBand(fg.score);
@@ -4499,7 +4591,7 @@ function renderMorningBrief() {
     // colonne de gauche : la jauge de sentiment, puis le baromètre de volatilité en dessous.
     // Deux mesures différentes, l'une dit ce que les investisseurs ressentent, l'autre ce
     // qu'ils paient pour se protéger.
-    const colG = scrEl('div', { style: 'flex:0 0 190px;display:flex;flex-direction:column;gap:26px' });
+    const colG = scrEl('div', { cls: 'brief-col', style: 'flex:0 0 190px;display:flex;flex-direction:column;gap:26px' });
     colG.appendChild(g);
     const vixBar = fgVixBar(fg);
     if (vixBar) colG.appendChild(vixBar);
@@ -7309,10 +7401,10 @@ function renderEnfantsTab() {
   const money = kidsMoney;   // devise de l'ETF (EUR pour VWCE.DE), surtout pas scrUsd
   const sign = (x) => (x >= 0 ? '+' : '');
   // gain (optionnel) = 4e ligne, en vert ou en rouge selon le sens.
-  const tile = (label, main, sub, col, title, gain) => scrEl('div', { attrs: title ? { title: title } : {},
+  const tile = (label, main, sub, col, title, gain) => scrEl('div', { cls: 'kpi-tile', attrs: title ? { title: title } : {},
     style: 'flex:1;min-width:150px;background:#fff;border:1px solid #e3e8ee;border-radius:12px;padding:11px 13px' + (title ? ';cursor:help' : ''), kids: [
       scrEl('div', { text: label, style: 'font-size:0.59rem;color:#9aa7b4;text-transform:uppercase;font-weight:800;letter-spacing:.05em' }),
-      scrEl('div', { text: main, style: 'font-size:1.3rem;font-weight:800;line-height:1.15;margin-top:3px;color:' + (col || '#22303f') }),
+      scrEl('div', { cls: 'kpi-tile-value', text: main, style: 'font-size:1.3rem;font-weight:800;line-height:1.15;margin-top:3px;color:' + (col || '#22303f') }),
       scrEl('div', { text: sub || '', style: 'font-size:0.68rem;color:#5b6b7d;margin-top:1px' })].concat(gain ? [
       scrEl('div', { text: gain.txt, style: 'font-size:0.72rem;font-weight:800;margin-top:3px;color:' + gain.col })] : []) });
   const gainShare = (agg.value != null && agg.value > 0 && agg.pnl != null) ? (agg.pnl / agg.value) : null;
@@ -8955,11 +9047,11 @@ function scrTopKpiBand(pos) {
   const GREEN = '#1d9e74', RED = '#dd5f66';
   const sign = (x) => (x >= 0 ? '+' : '');
   const tile = (label, main, sub, col, title) => scrEl('div', {
-    attrs: title ? { title: title } : {},
+    cls: 'kpi-tile', attrs: title ? { title: title } : {},
     style: 'flex:1;min-width:148px;background:#fff;border:1px solid #e3e8ee;border-radius:12px;padding:11px 13px' + (title ? ';cursor:help' : ''),
     kids: [
       scrEl('div', { text: label, style: 'font-size:0.59rem;color:#9aa7b4;text-transform:uppercase;font-weight:800;letter-spacing:.05em' }),
-      scrEl('div', { text: main, style: 'font-size:1.3rem;font-weight:800;line-height:1.15;margin-top:3px;color:' + (col || '#22303f') }),
+      scrEl('div', { cls: 'kpi-tile-value', text: main, style: 'font-size:1.3rem;font-weight:800;line-height:1.15;margin-top:3px;color:' + (col || '#22303f') }),
       scrEl('div', { text: sub || '', style: 'font-size:0.68rem;color:#5b6b7d;margin-top:1px;white-space:nowrap' })] });
   return scrEl('div', { style: 'display:flex;gap:10px;flex-wrap:wrap', kids: [
     tile('Valeur du portefeuille', scrUsd(val),
