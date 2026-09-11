@@ -75,9 +75,9 @@ def _score_volatilite(j):
     """Score 0-100 de la volatilite, reconstruit par nos soins.
 
     CNN sert 50 et « neutre » pour ce sous-indicateur alors qu'il publie toujours les deux
-    series qui servent a le calculer. On le refait donc : ecart du VIX a sa moyenne 50 jours,
-    situe en percentile sur l'annee ecoulee, puis inverse pour suivre la convention de l'indice,
-    un ecart eleve valant de la tension donc un score bas.
+    series qui servent a le calculer. On le refait donc : 50 moins l'ecart du VIX a sa moyenne
+    50 jours, en pourcentage, borne 0-100. Un ecart eleve vaut de la tension, donc un score bas,
+    ce qui suit la convention de l'indice.
 
     Ce n'est PAS le bareme de CNN, qui n'est pas documente et que j'ai essaye sans succes de
     retrouver : percentile et min-max s'ecartent de 10 a 16 points sur les composants dont le
@@ -167,8 +167,10 @@ def fetch_fear_greed(prev=None):
         comps['market_volatility_vix']['ecartPct'] = vol['ecart']
         # 65 seances, soit environ 3 mois : de quoi tracer une courbe lisible sous la
         # jauge sans alourdir le payload (65 nombres).
-        comps['market_volatility_vix']['spark'] = [round(y, 2)
-                                                   for _, y in _serie_cnn(j, 'market_volatility_vix')[-65:]]
+        serie = _serie_cnn(j, 'market_volatility_vix')[-65:]
+        comps['market_volatility_vix']['spark'] = [round(y, 2) for _, y in serie]
+        comps['market_volatility_vix']['sparkDates'] = [
+            datetime.fromtimestamp(x / 1000, timezone.utc).strftime('%Y-%m-%d') for x, _ in serie]
     return {
         'score': round(float(f.get('score') or 0), 1),
         'rating': f.get('rating'),

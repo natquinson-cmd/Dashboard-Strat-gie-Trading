@@ -4126,8 +4126,10 @@ function fgVixBar(fg) {
     // d'un coup d'œil quand le VIX est passé en tension et quand il en est redescendu. Les seuils
     // 12 et 20 restent toujours dans le cadre, même quand le VIX n'en a pas bougé de tout le trimestre.
     const W = 190, H = 40;
-    const lo = Math.min(Math.min.apply(null, sp), 11), hi = Math.max(Math.max.apply(null, sp), 21);
+    const vmin = Math.min.apply(null, sp), vmax = Math.max.apply(null, sp);   // vrais extrêmes, pour la légende
+    const lo = Math.min(vmin, 11), hi = Math.max(vmax, 21);                   // échelle du tracé, seuils visibles
     const ec = (hi - lo) || 1;
+    const dates = (Array.isArray(c.sparkDates) && c.sparkDates.length === sp.length) ? c.sparkDates : null;
     const X = (i) => (i / (sp.length - 1)) * W, Y = (y) => H - 2 - ((y - lo) / ec) * (H - 4);
     const NS = 'http://www.w3.org/2000/svg';
     const svg = document.createElementNS(NS, 'svg');
@@ -4163,8 +4165,47 @@ function fgVixBar(fg) {
     fin.setAttribute('cy', Y(sp[sp.length - 1]).toFixed(1));
     fin.setAttribute('fill', b.color); fin.setAttribute('stroke', '#fff'); fin.setAttribute('stroke-width', '1');
     svg.appendChild(fin);
-    box.appendChild(svg);
-    box.appendChild(scrEl('div', { text: '3 mois · de ' + nb(lo) + ' à ' + nb(hi),
+    // ---- Survol : réticule, point et bulle avec la date, la valeur et la zone ----
+    const trait = document.createElementNS(NS, 'line');
+    trait.setAttribute('y1', '0'); trait.setAttribute('y2', String(H));
+    trait.setAttribute('stroke', '#22314f'); trait.setAttribute('stroke-width', '1');
+    trait.setAttribute('stroke-dasharray', '2 2'); trait.setAttribute('opacity', '0');
+    const pt = document.createElementNS(NS, 'circle');
+    pt.setAttribute('r', '3.5'); pt.setAttribute('stroke', '#fff'); pt.setAttribute('stroke-width', '1.5');
+    pt.setAttribute('opacity', '0');
+    svg.appendChild(trait); svg.appendChild(pt);
+    // le conteneur porte un title VIDE : sinon l'infobulle native de la carte s'ouvre par-dessus la bulle
+    const wrap = scrEl('div', { attrs: { title: '' }, style: 'position:relative' });
+    const bulle = scrEl('div', { style: 'position:absolute;pointer-events:none;display:none;z-index:3;'
+      + 'background:#22314f;color:#fff;border-radius:6px;padding:4px 7px;font-size:0.6rem;line-height:1.35;'
+      + 'white-space:nowrap;text-align:left;box-shadow:0 4px 12px rgba(20,30,45,.3)' });
+    wrap.appendChild(svg); wrap.appendChild(bulle);
+    const MOIS_V = ['janv', 'févr', 'mars', 'avr', 'mai', 'juin', 'juil', 'août', 'sept', 'oct', 'nov', 'déc'];
+    const jolie = (iso) => { const p = String(iso).split('-');
+      return p.length === 3 ? (Number(p[2]) + ' ' + MOIS_V[Number(p[1]) - 1] + ' ' + p[0]) : String(iso); };
+    svg.addEventListener('mousemove', (ev) => {
+      const r = svg.getBoundingClientRect();
+      if (!r.width) return;
+      let i = Math.round(((ev.clientX - r.left) * (W / r.width)) / (W / (sp.length - 1)));
+      i = Math.max(0, Math.min(sp.length - 1, i));
+      const y = sp[i], bd = vixBande(y);
+      trait.setAttribute('x1', X(i).toFixed(1)); trait.setAttribute('x2', X(i).toFixed(1)); trait.setAttribute('opacity', '1');
+      pt.setAttribute('cx', X(i).toFixed(1)); pt.setAttribute('cy', Y(y).toFixed(1));
+      pt.setAttribute('fill', bd.color); pt.setAttribute('opacity', '1');
+      bulle.replaceChildren(
+        scrEl('div', { text: dates ? jolie(dates[i]) : ('séance ' + (i + 1) + ' / ' + sp.length), style: 'opacity:.75' }),
+        scrEl('div', { kids: [ scrEl('b', { text: 'VIX ' + nb(y), style: 'font-size:0.72rem' }),
+          scrEl('span', { text: ' · ' + bd.label, style: 'color:' + bd.color + ';font-weight:700' })] }));
+      bulle.style.display = 'block';
+      const px = (X(i) / W) * r.width, large = bulle.offsetWidth || 90;
+      bulle.style.left = Math.max(0, Math.min(r.width - large, px - large / 2)) + 'px';
+      bulle.style.top = (-(bulle.offsetHeight || 30) - 6) + 'px';
+    });
+    svg.addEventListener('mouseleave', () => { bulle.style.display = 'none';
+      trait.setAttribute('opacity', '0'); pt.setAttribute('opacity', '0'); });
+    svg.style.cursor = 'crosshair';
+    box.appendChild(wrap);
+    box.appendChild(scrEl('div', { text: '3 mois · de ' + nb(vmin) + ' à ' + nb(vmax),
       style: 'font-size:0.56rem;color:var(--text-muted);margin-bottom:4px' }));
   }
 
