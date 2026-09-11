@@ -1041,6 +1041,9 @@
     /* flex:1 1 300px : sur PC c'est une LARGEUR de base, mais une fois la rangée passée en
        colonne, la même valeur devient une hauteur de 300 px, d'où 105 px de vide sous le héros. */
     .ttl-top > .hero-kpi { flex: 0 0 auto; }
+    /* même piège pour la grille des cartes : flex:3 1 520px devenait une hauteur mini de
+       520 px en colonne, soit 250 px de vide sous six cartes qui n'en font que 270. */
+    .ttl-top > .kpi-grid { flex: 0 0 auto; }
     .ttl-top > .hero-kpi .hero-card { height: auto; }
     .ttl-top > .kpi-grid { align-content: start; }
     .kpi-card { height: auto; }
@@ -1074,11 +1077,42 @@
     canvas { max-height: 240px; }
     .inv-canvas-wrap { height: 220px !important; }
 
-    /* tableaux larges : ils défilent dans leur cadre, la page ne déborde plus */
+    /* tableaux : compacts, et ils défilent dans leur cadre.
+       Tout est en style inline (padding:8px 10px, logos de 38 px, police 0.82rem), d'où les
+       !important. Sur un téléphone on voyait 3 colonnes sur 12 et 7 lignes par écran ; avec
+       une police de 0.66rem, des cellules à 4 px et des logos de 22 px, on en voit deux fois plus. */
     .table-wrap, .inv-table-wrap, .heatmap-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-    table { font-size: 0.72rem; }
-    .heatmap-table td, .heatmap-table th { padding: 4px 5px; font-size: 0.66rem; }
-    .inv-table td, .inv-table th { padding: 6px 7px; }
+    table { font-size: 0.66rem !important; }
+    table th, table td { padding: 4px 5px !important; font-size: 0.66rem !important; line-height: 1.25; }
+    table th { font-size: 0.56rem !important; letter-spacing: 0 !important; }
+    table img { width: 22px !important; height: 22px !important; border-radius: 5px !important; }
+    table svg { max-height: 18px; }
+    /* la cellule Juste valeur empile chiffre, jauge et zone sur 54 px et fixe la hauteur des
+       19 colonnes de la ligne : tout ce qui est dans une cellule se tasse */
+    table td { vertical-align: middle; white-space: nowrap; }
+    /* la cellule Potentiel/an passait « +27 %/an » sur deux lignes et imposait 64 px à toute
+       la ligne ; en nowrap chaque cellule tient sur une ligne, le tableau s'élargit d'autant,
+       ce qui est le comportement voulu puisqu'il défile */
+    table td div[style*="flex-direction: column"] { gap: 1px !important; }
+    table td span[style*="font-size: 0.86rem"] { font-size: 0.7rem !important; }
+    /* jauge de juste valeur : le chiffre reste, la barre se resserre, la ligne des zones
+       (Idéal ≤ … / Cher > …) disparaît, c'est un détail de fiche et il coûtait 20 px par ligne */
+    table td div[style*="flex-direction: column"][style*="min-width: 160px"] { min-width: 120px !important; gap: 0 !important; }
+    table td div[style*="padding: 7px 0px 3px"] { padding: 3px 0 1px !important; }
+    table td div[style*="justify-content: space-between"][style*="font-size"] { display: none !important; }
+    table td b[style*="font-size: 0.86rem"] { font-size: 0.72rem !important; }
+    .heatmap-table td, .heatmap-table th { padding: 3px 4px !important; font-size: 0.6rem !important; }
+    /* tout parent direct d'un tableau devient une fenêtre de défilement, et un flex item
+       ne peut plus refuser de rétrécir (min-width:auto par défaut) */
+    table { display: table; }
+    :is(div, section) > table { max-width: 100%; }
+    div:has(> table) { overflow-x: auto !important; min-width: 0 !important; -webkit-overflow-scrolling: touch; }
+    /* un tableau placé à côté d'un donut (Enfants) prend toute la largeur en dessous, au lieu
+       des 37 px que lui laissait le flex:1 une fois min-width:0 posé */
+    div:has(> table) { flex-basis: 100% !important; }
+    /* la première colonne (ticker, enfant) reste visible pendant le défilement */
+    table th:first-child, table td:first-child { position: sticky; left: 0; background: var(--bg-card); z-index: 1; }
+    table thead th:first-child { background: #f6f8fb; }
 
     /* Trading Auto : le groupe Synchroniser / Historique / statuts faisait 519 px sur une seule
        ligne et poussait la page ; il se replie, et le dashboard n'accepte plus de débordement. */
