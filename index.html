@@ -4042,7 +4042,7 @@ const FG_COMPONENTS = [
    'Nombre de titres du NYSE au plus haut de 52 semaines, moins ceux au plus bas.\nUne valeur négative signifie que plus d’actions touchent leur plancher annuel que leur plafond, même si l’indice, lui, tient encore.'],
   ['put_call_options', 'Options Put / Call', 'Ratio options baissières / haussières',
    'Volume des options de VENTE rapporté à celui des options d’ACHAT, sur 5 séances.\nAu-dessus de 1, les investisseurs paient pour se protéger d’une baisse, c’est de la peur. En dessous, ils parient sur la hausse, c’est de la cupidité.'],
-  ['market_volatility_vix', 'Volatilité (VIX)', 'Indice de la peur, CBOE',
+  ['market_volatility_vix', 'Volatilité de marché', 'VIX vs sa moyenne mobile 50 j',
    'Compare le VIX, la volatilité attendue du S&P 500 sur 30 jours, à sa moyenne des 50 dernières séances.\nAu-dessus de sa moyenne, se couvrir coûte cher et la nervosité domine. En dessous, le marché est serein.'],
   ['safe_haven_demand', 'Demande valeurs refuges', 'Actions vs obligations Treasury 20 ans',
    'Écart de performance sur 20 séances entre les actions et les obligations d’État américaines à 20 ans.\nQuand les obligations font mieux, l’argent quitte le risque pour le refuge, c’est de la peur. Quand les actions dominent, c’est de l’appétit pour le risque.'],
@@ -4122,8 +4122,13 @@ function fgVixBar(fg) {
   // courbe 3 mois
   const sp = Array.isArray(c.spark) ? c.spark.filter((x) => typeof x === 'number') : [];
   if (sp.length > 5) {
-    const W = 190, H = 34, lo = Math.min.apply(null, sp), hi = Math.max.apply(null, sp);
+    // La courbe se colore selon la ZONE traversée, et les zones sont dessinées en fond : on voit
+    // d'un coup d'œil quand le VIX est passé en tension et quand il en est redescendu. Les seuils
+    // 12 et 20 restent toujours dans le cadre, même quand le VIX n'en a pas bougé de tout le trimestre.
+    const W = 190, H = 40;
+    const lo = Math.min(Math.min.apply(null, sp), 11), hi = Math.max(Math.max.apply(null, sp), 21);
     const ec = (hi - lo) || 1;
+    const X = (i) => (i / (sp.length - 1)) * W, Y = (y) => H - 2 - ((y - lo) / ec) * (H - 4);
     const NS = 'http://www.w3.org/2000/svg';
     const svg = document.createElementNS(NS, 'svg');
     svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
@@ -4131,28 +4136,32 @@ function fgVixBar(fg) {
     svg.setAttribute('height', String(H));
     svg.style.display = 'block';
     svg.style.margin = '4px 0 2px';
-    let d = '';
-    sp.forEach((y, i) => {
-      const X = (i / (sp.length - 1)) * W, Y = H - 2 - ((y - lo) / ec) * (H - 4);
-      d += (i ? ' L' : 'M') + X.toFixed(1) + ' ' + Y.toFixed(1);
+    // zones de fond
+    let bas = lo;
+    VIX_BANDS.forEach((bd) => {
+      const haut = Math.min(bd.max, hi);
+      if (haut <= bas) return;
+      const r = document.createElementNS(NS, 'rect');
+      r.setAttribute('x', '0'); r.setAttribute('width', String(W));
+      r.setAttribute('y', Y(haut).toFixed(1)); r.setAttribute('height', Math.max(0, Y(bas) - Y(haut)).toFixed(1));
+      r.setAttribute('fill', bd.color); r.setAttribute('opacity', '0.13');
+      svg.appendChild(r);
+      bas = haut;
     });
-    const aire = document.createElementNS(NS, 'path');
-    aire.setAttribute('d', d + ' L' + W + ' ' + H + ' L0 ' + H + ' Z');
-    aire.setAttribute('fill', b.color);
-    aire.setAttribute('opacity', '0.16');
-    svg.appendChild(aire);
-    const path = document.createElementNS(NS, 'path');
-    path.setAttribute('d', d);
-    path.setAttribute('fill', 'none');
-    path.setAttribute('stroke', b.color);
-    path.setAttribute('stroke-width', '2');
-    path.setAttribute('stroke-linejoin', 'round');
-    svg.appendChild(path);
+    // la courbe, segment par segment, chacun de la couleur de la zone où il arrive
+    for (let i = 1; i < sp.length; i++) {
+      const l = document.createElementNS(NS, 'line');
+      l.setAttribute('x1', X(i - 1).toFixed(1)); l.setAttribute('y1', Y(sp[i - 1]).toFixed(1));
+      l.setAttribute('x2', X(i).toFixed(1)); l.setAttribute('y2', Y(sp[i]).toFixed(1));
+      l.setAttribute('stroke', vixBande(sp[i]).color);
+      l.setAttribute('stroke-width', '2'); l.setAttribute('stroke-linecap', 'round');
+      svg.appendChild(l);
+    }
     // point du jour, pour accrocher l'œil au bout de la courbe
     const fin = document.createElementNS(NS, 'circle');
     fin.setAttribute('cx', String(W)); fin.setAttribute('r', '3');
-    fin.setAttribute('cy', (H - 2 - ((sp[sp.length - 1] - lo) / ec) * (H - 4)).toFixed(1));
-    fin.setAttribute('fill', b.color);
+    fin.setAttribute('cy', Y(sp[sp.length - 1]).toFixed(1));
+    fin.setAttribute('fill', b.color); fin.setAttribute('stroke', '#fff'); fin.setAttribute('stroke-width', '1');
     svg.appendChild(fin);
     box.appendChild(svg);
     box.appendChild(scrEl('div', { text: '3 mois · de ' + nb(lo) + ' à ' + nb(hi),
@@ -4405,7 +4414,7 @@ function showFgDetail() {
       scrEl('div', { style: 'height:4px;border-radius:3px;background:#e3e8ee;overflow:hidden', kids: [
         scrEl('div', { style: 'height:100%;width:' + ((fige && !recalc) ? 0 : Math.max(0, Math.min(100, valeur))) + '%;background:' + teinte })] }),
       scrEl('div', { style: 'display:flex;align-items:baseline;gap:8px;margin-top:5px', kids: [
-        scrEl('span', { text: recalc ? (b.label + ' · vs moyenne 50 j') : (fige ? 'SCORE NON CALCULÉ PAR CNN' : b.label),
+        scrEl('span', { text: recalc ? (b.label + ' · reconstruit') : (fige ? 'SCORE NON CALCULÉ PAR CNN' : b.label),
           style: 'font-size:0.6rem;font-weight:800;text-transform:uppercase;color:' + teinte }),
         scrEl('span', { text: brut, style: 'margin-left:auto;font-size:0.62rem;color:#94a0b4' })] })] }));
   });
