@@ -4083,7 +4083,7 @@ function scrGras(txt) {
 // la jauge était vide. Les bandes sont les repères conventionnels du marché, pas une invention.
 const VIX_BANDS = [
   { max: 12, label: 'Très calme', color: '#1d9e74' },
-  { max: 20, label: 'Normal', color: '#7f8da3' },
+  { max: 20, label: 'Normal', color: '#3b7dd8' },
   { max: 30, label: 'Tension', color: '#e0922c' },
   { max: 45, label: 'Stress', color: '#dd5f66' },
   { max: 9999, label: 'Panique', color: '#a02b34' }];
@@ -4105,18 +4105,21 @@ function fgVixBar(fg) {
     + '30 à 45 le stress, au-delà la panique.'
     + NLB + 'Le trait sombre sur la barre est la moyenne des 50 dernières séances : au-dessus, la nervosité '
     + 'grimpe par rapport à l\'habitude récente ; en dessous, elle retombe.' },
-    style: 'text-align:center;cursor:help' });
+    style: 'text-align:center;cursor:help;border-radius:12px;padding:10px 10px 9px;'
+      + 'background:linear-gradient(180deg,' + b.color + '14,' + b.color + '05);'
+      + 'border:1px solid ' + b.color + '33' });
   box.appendChild(scrEl('div', { text: 'VOLATILITÉ VIX',
-    style: 'font-size:0.58rem;font-weight:800;letter-spacing:.05em;color:var(--text-muted);margin-bottom:2px' }));
-  box.appendChild(scrEl('div', { style: 'display:flex;align-items:baseline;justify-content:center;gap:6px', kids: [
-    scrEl('span', { text: nb(v), style: 'font-size:1.25rem;font-weight:800;line-height:1.1;color:' + b.color }),
+    style: 'font-size:0.58rem;font-weight:800;letter-spacing:.06em;color:' + b.color + ';margin-bottom:1px' }));
+  box.appendChild(scrEl('div', { style: 'display:flex;align-items:baseline;justify-content:center;gap:7px', kids: [
+    scrEl('span', { text: nb(v), style: 'font-size:1.55rem;font-weight:800;line-height:1.1;color:' + b.color }),
     scrEl('span', { text: b.label.toUpperCase(),
-      style: 'font-size:0.58rem;font-weight:800;letter-spacing:.04em;color:' + b.color })] }));
+      style: 'font-size:0.6rem;font-weight:800;letter-spacing:.05em;padding:2px 6px;border-radius:6px;'
+        + 'color:#fff;background:' + b.color })] }));
 
   // courbe 3 mois
   const sp = Array.isArray(c.spark) ? c.spark.filter((x) => typeof x === 'number') : [];
   if (sp.length > 5) {
-    const W = 190, H = 26, lo = Math.min.apply(null, sp), hi = Math.max.apply(null, sp);
+    const W = 190, H = 34, lo = Math.min.apply(null, sp), hi = Math.max.apply(null, sp);
     const ec = (hi - lo) || 1;
     const NS = 'http://www.w3.org/2000/svg';
     const svg = document.createElementNS(NS, 'svg');
@@ -4130,35 +4133,47 @@ function fgVixBar(fg) {
       const X = (i / (sp.length - 1)) * W, Y = H - 2 - ((y - lo) / ec) * (H - 4);
       d += (i ? ' L' : 'M') + X.toFixed(1) + ' ' + Y.toFixed(1);
     });
+    const aire = document.createElementNS(NS, 'path');
+    aire.setAttribute('d', d + ' L' + W + ' ' + H + ' L0 ' + H + ' Z');
+    aire.setAttribute('fill', b.color);
+    aire.setAttribute('opacity', '0.16');
+    svg.appendChild(aire);
     const path = document.createElementNS(NS, 'path');
     path.setAttribute('d', d);
     path.setAttribute('fill', 'none');
     path.setAttribute('stroke', b.color);
-    path.setAttribute('stroke-width', '1.6');
+    path.setAttribute('stroke-width', '2');
+    path.setAttribute('stroke-linejoin', 'round');
     svg.appendChild(path);
+    // point du jour, pour accrocher l'œil au bout de la courbe
+    const fin = document.createElementNS(NS, 'circle');
+    fin.setAttribute('cx', String(W)); fin.setAttribute('r', '3');
+    fin.setAttribute('cy', (H - 2 - ((sp[sp.length - 1] - lo) / ec) * (H - 4)).toFixed(1));
+    fin.setAttribute('fill', b.color);
+    svg.appendChild(fin);
     box.appendChild(svg);
     box.appendChild(scrEl('div', { text: '3 mois · de ' + nb(lo) + ' à ' + nb(hi),
       style: 'font-size:0.56rem;color:var(--text-muted);margin-bottom:4px' }));
   }
 
   // barre des bandes, curseur du jour, repère de la moyenne 50 jours
-  const wrap = scrEl('div', { style: 'position:relative;margin-top:3px' });
-  const barre = scrEl('div', { style: 'display:flex;height:6px;border-radius:3px;overflow:hidden' });
+  const wrap = scrEl('div', { style: 'position:relative;margin-top:9px' });
+  const barre = scrEl('div', { style: 'display:flex;height:8px;border-radius:4px;overflow:hidden' });
   let bas = 0;
   VIX_BANDS.forEach((bd) => {
     if (bas >= VIX_ECHELLE) return;
     const haut = Math.min(bd.max, VIX_ECHELLE);
-    barre.appendChild(scrEl('div', { style: 'width:' + ((haut - bas) / VIX_ECHELLE * 100) + '%;background:' + bd.color + ';opacity:.35' }));
+    barre.appendChild(scrEl('div', { style: 'width:' + ((haut - bas) / VIX_ECHELLE * 100) + '%;background:' + bd.color + ';opacity:.85' }));
     bas = haut;
   });
   wrap.appendChild(barre);
   if (moy != null) {
     wrap.appendChild(scrEl('div', { attrs: { title: 'Moyenne des 50 dernières séances : ' + nb(moy) },
-      style: 'position:absolute;top:-2px;height:10px;width:2px;background:#22314f;left:' + pos(moy) + '%' }));
+      style: 'position:absolute;top:-3px;height:14px;width:2px;background:#22314f;border-radius:1px;left:' + pos(moy) + '%' }));
   }
-  wrap.appendChild(scrEl('div', { style: 'position:absolute;top:-4px;width:0;height:0;margin-left:-4px;'
-    + 'border-left:4px solid transparent;border-right:4px solid transparent;border-top:6px solid ' + b.color
-    + ';left:' + pos(v) + '%' }));
+  wrap.appendChild(scrEl('div', { style: 'position:absolute;top:-7px;width:0;height:0;margin-left:-5px;'
+    + 'border-left:5px solid transparent;border-right:5px solid transparent;border-top:7px solid ' + b.color
+    + ';left:' + pos(v) + '%;filter:drop-shadow(0 1px 1px rgba(0,0,0,.25))' }));
   box.appendChild(wrap);
   box.appendChild(scrEl('div', { style: 'display:flex;justify-content:space-between;font-size:0.55rem;color:var(--text-muted);margin-top:2px', kids: [
     scrEl('span', { text: '0' }), scrEl('span', { text: '12' }), scrEl('span', { text: '20' }),
@@ -4420,7 +4435,7 @@ function renderMorningBrief() {
     // colonne de gauche : la jauge de sentiment, puis le baromètre de volatilité en dessous.
     // Deux mesures différentes, l'une dit ce que les investisseurs ressentent, l'autre ce
     // qu'ils paient pour se protéger.
-    const colG = scrEl('div', { style: 'flex:0 0 190px;display:flex;flex-direction:column;gap:12px' });
+    const colG = scrEl('div', { style: 'flex:0 0 190px;display:flex;flex-direction:column;gap:26px' });
     colG.appendChild(g);
     const vixBar = fgVixBar(fg);
     if (vixBar) colG.appendChild(vixBar);
