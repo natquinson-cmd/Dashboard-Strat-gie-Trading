@@ -571,6 +571,57 @@ def _extraire_json(txt):
     return None, 'reponse tronquee et irrecuperable'
 
 
+# Ce que le modele doit savoir des sous-indicateurs, dans les memes termes que le lecteur.
+# Les cles techniques de CNN (market_volatility_vix, junk_bond_demand...) n'ont rien a faire
+# dans un prompt en francais, et surtout le 50 de repli de CNN sur la volatilite ne doit JAMAIS
+# lui parvenir tel quel : le 11/09/2026 il en a ecrit « le VIX demeure neutre a 50 », alors que
+# le VIX valait 17,84 et montait de 10 % au-dessus de sa moyenne.
+LIBELLES_FG = [
+    ('market_momentum_sp125', 'Momentum de marché (S&P 500 vs sa moyenne 125 j)'),
+    ('stock_price_breadth', 'Largeur de marché (volume acheteur vs vendeur)'),
+    ('stock_price_strength', 'Force des cours (plus-hauts vs plus-bas 52 semaines)'),
+    ('put_call_options', 'Options put/call'),
+    ('market_volatility_vix', 'Volatilité de marché (VIX vs sa moyenne 50 j)'),
+    ('safe_haven_demand', 'Demande de valeurs refuges (actions vs obligations d\'État)'),
+    ('junk_bond_demand', 'Demande d\'obligations à risque (spread high-yield)'),
+]
+BANDES_FR = [(25, 'peur extrême'), (45, 'peur'), (55, 'neutre'), (75, 'cupidité'), (101, 'cupidité extrême')]
+
+
+def _bande_fr(score):
+    for borne, lib in BANDES_FR:
+        if score < borne:
+            return lib
+    return BANDES_FR[-1][1]
+
+
+def _lignes_sous_indicateurs(fg):
+    comps = fg.get('components') or {}
+    out = ['Sous-indicateurs du Fear & Greed, notés de 0 (peur extrême) à 100 (cupidité extrême) :']
+    for cle, lib in LIBELLES_FG:
+        c = comps.get(cle)
+        if not c:
+            continue
+        score = c.get('score')
+        note = ''
+        if cle == 'market_volatility_vix':
+            # le score de CNN sur ce composant est un 50 de repli : on donne le notre, et les brutes
+            if c.get('scoreCalc') is not None:
+                score = c['scoreCalc']
+            vix, moy, ec = c.get('raw'), (comps.get('market_volatility_vix_50') or {}).get('raw'), c.get('ecartPct')
+            if vix is not None and moy is not None:
+                note = (f" [VIX à {vix}, moyenne 50 j {moy}, écart {ec:+.1f} %. Le VIX lui-même est un NIVEAU, "
+                        f"{'normal' if vix < 20 else 'en tension' if vix < 30 else 'en stress'} sous les seuils "
+                        f"habituels ; le score ci-contre mesure sa TENDANCE par rapport à sa moyenne. Ne jamais "
+                        f"écrire que le VIX vaut le score, ni que le VIX est « neutre » : ce sont deux choses.]")
+        elif c.get('raw') is not None:
+            note = f" [valeur brute {c['raw']}]"
+        if score is None:
+            continue
+        out.append(f"- {lib} : {score} ({_bande_fr(float(score))}){note}")
+    return '\n'.join(out)
+
+
 def anthropic_brief(api_key, fg, per_ticker, market, econ=None):
     """Retourne (dict {market, ...} ou None, souci ou None). Ne leve jamais."""
     lignes = []
@@ -579,9 +630,7 @@ def anthropic_brief(api_key, fg, per_ticker, market, econ=None):
     lignes.append(f"Fear & Greed CNN : {fg['score']} ({fg['rating']}). "
                   f"Hier {fg['prev']['close']}, il y a une semaine {fg['prev']['week']}, "
                   f"un mois {fg['prev']['month']}, un an {fg['prev']['year']}.")
-    comp = ', '.join(f"{k} {v['score']} ({v['rating']})" for k, v in (fg.get('components') or {}).items())
-    if comp:
-        lignes.append('Sous-indicateurs : ' + comp)
+    lignes.append(_lignes_sous_indicateurs(fg))
     if econ:
         lignes.append('\nCALENDRIER ÉCONOMIQUE AMÉRICAIN (dates fiables, DÉJÀ converties en heure de Paris) :')
         for e in econ:
