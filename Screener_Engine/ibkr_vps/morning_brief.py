@@ -88,13 +88,14 @@ def _score_volatilite(j):
     ecarts = [(v - moy[x]) / moy[x] for x, v in vix if moy.get(x)]
     if len(ecarts) < 60:
         return None
-    v, hist = ecarts[-1], ecarts[:-1][-250:]
-    if not hist:
-        return None
-    dessous = sum(1 for e in hist if e < v)
-    egaux = sum(1 for e in hist if e == v)
-    perc = 100.0 * (dessous + egaux / 2.0) / len(hist)
-    return {'score': round(100.0 - perc, 1), 'ecart': round(v * 100, 1)}
+    v = ecarts[-1] * 100.0
+    # Regle LINEAIRE et non percentile : score = 50 moins l'ecart en pourcentage, borne 0-100.
+    # Le percentile sur un an classait +10,5 % en « peur extreme » alors qu'un jour sur quatre
+    # fait pire : ce n'est pas extreme. Ici les bandes extremes exigent 25 % d'ecart a la
+    # moyenne 50 jours, ce qui arrive 12 % des jours sur l'annee ecoulee (mesure le 11/09/2026 :
+    # P90 de l'ecart absolu a 27 %). Et la regle tient en une phrase, ce qu'un percentile ne
+    # permet pas.
+    return {'score': round(max(0.0, min(100.0, 50.0 - v)), 1), 'ecart': round(v, 1)}
 
 
 # ── 1. Fear & Greed (CNN) ────────────────────────────────────────────────────
