@@ -9229,11 +9229,47 @@ function scrRealizedCard(tx) {
   wrap.appendChild(scrEl('div', { style: 'margin-top:8px;font-size:0.7rem;color:#9aa7b4', text: "Coût de revient FRAIS INCLUS (Revolut affiche un prix moyen hors frais, d'où un léger écart). Une vente portant sur un titre acheté avant la période du relevé est ignorée, faute de prix de revient connu. Information, pas un conseil fiscal." }));
   return wrap;
 }
-function scrDividendCard(pos) {
+// DIVIDENDES ENCAISSES : lus dans le journal Revolut (type DIVIDEND), en USD canonique. Le ticker vient
+// du journal ; s'il manque, la ligne s'affiche quand meme sous "Dividende". Un montant en EUR est
+// converti au taux du jour (SCR_FX), faute de mieux. Renvoie le bloc, meme vide, pour que la carte
+// dise noir sur blanc qu'aucun versement n'est encore enregistre.
+function scrDividendsReceived(tx) {
+  const MN = ['janv', 'févr', 'mars', 'avr', 'mai', 'juin', 'juil', 'août', 'sept', 'oct', 'nov', 'déc'];
+  const list = (Array.isArray(tx) ? tx : Object.values(tx || {}))
+    .filter((t) => t && t.type === 'DIVIDEND' && Number(t.total) > 0)
+    .map((t) => {
+      const ccy = String(t.ccy || 'USD').toUpperCase(), tot = Number(t.total);
+      const usd = (ccy === 'USD') ? tot : ((ccy === 'EUR' && SCR_FX && SCR_FX.EUR) ? tot / SCR_FX.EUR : null);
+      return { date: String(t.date || ''), ticker: String(t.ticker || '').toUpperCase(), usd: usd };
+    })
+    .filter((t) => t.usd != null)
+    .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));   // le plus récent en tête
+  const fmtDate = (iso) => { const d = new Date(iso); return isNaN(d) ? iso.slice(0, 10) : (d.getDate() + ' ' + MN[d.getMonth()] + ' ' + d.getFullYear()); };
+  const money = (usd) => scrFmt2(usdToDisp(usd));
+  const year = String(new Date().getFullYear());
+  const total = list.reduce((a, t) => a + t.usd, 0), totYear = list.filter((t) => t.date.slice(0, 4) === year).reduce((a, t) => a + t.usd, 0);
+  const box = scrEl('div', { style: 'display:flex;gap:14px;flex-wrap:wrap;align-items:flex-start;background:#f6f8fb;border:1px solid #e3e8ee;border-radius:10px;padding:10px 12px;margin-bottom:12px',
+    attrs: { title: 'Dividendes réellement reçus sur le compte Revolut, d’après le journal des transactions. Montants tels que Revolut les affiche.' } });
+  box.appendChild(scrEl('div', { style: 'min-width:150px;padding-right:14px;border-right:1px solid #e3e8ee', kids: [
+    scrEl('div', { text: 'Encaissés', style: 'font-size:0.66rem;color:#9aa7b4;text-transform:uppercase;font-weight:700;letter-spacing:.03em' }),
+    scrEl('div', { text: money(total), style: 'font-size:1.4rem;font-weight:800;color:#1d9e74;line-height:1.15' }),
+    scrEl('div', { text: list.length ? (list.length + ' versement' + (list.length > 1 ? 's' : '') + ' · ' + money(totYear) + ' en ' + year) : 'aucun versement dans le journal', style: 'font-size:0.68rem;color:#5b6b7d;margin-top:2px' })] }));
+  if (list.length) {
+    const MAXL = 6, ul = scrEl('div', { style: 'flex:1;min-width:200px;display:flex;flex-direction:column;gap:3px' });
+    list.slice(0, MAXL).forEach((t) => ul.appendChild(scrEl('div', { style: 'display:flex;justify-content:space-between;align-items:baseline;gap:10px;font-size:0.76rem', kids: [
+      scrEl('span', { kids: [scrEl('b', { text: t.ticker || 'Dividende', style: 'color:#22303f' }), scrEl('span', { text: '  ' + fmtDate(t.date), style: 'color:#9aa7b4;font-size:0.68rem' })] }),
+      scrEl('span', { text: money(t.usd), style: 'font-weight:700;color:#42546a' })] })));
+    if (list.length > MAXL) ul.appendChild(scrEl('div', { text: '+ ' + (list.length - MAXL) + ' autres versements', style: 'font-size:0.66rem;color:#9aa7b4' }));
+    box.appendChild(ul);
+  }
+  return box;
+}
+function scrDividendCard(pos, tx) {
   const wrap = scrEl('div', { style: 'background:#fff;border:1px solid #e3e8ee;border-radius:14px;padding:14px' });
   wrap.appendChild(scrEl('div', { style: 'display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap', kids: [
-    scrEl('span', { text: 'Paiements de dividendes estimés', style: 'font-weight:800;color:#22303f;font-size:0.95rem' }),
-    scrEl('span', { text: 'projection des versements, avant fiscalité', style: 'font-size:0.72rem;color:#5b6b7d' })] }));
+    scrEl('span', { text: 'Dividendes', style: 'font-weight:800;color:#22303f;font-size:0.95rem' }),
+    scrEl('span', { text: 'encaissés d’après le journal, puis projection des versements avant fiscalité', style: 'font-size:0.72rem;color:#5b6b7d' })] }));
+  wrap.appendChild(scrDividendsReceived(tx));
   const rows = [];
   let totAnnual = 0;
   (pos || []).forEach((p) => {
@@ -9469,7 +9505,7 @@ function screenerPositionsModule() {
   wrap.appendChild(valBox);
   const body = scrEl('div');                                            // 5) tableau des positions + repartitions
   wrap.appendChild(body);
-  const render = () => { refreshStamp(); kpiBox.replaceChildren(scrTopKpiBand(scrGetPositions())); valBox.replaceChildren(scrValuationSummary(scrGetPositions())); body.replaceChildren(renderPositionsTable(scrGetPositions(), render)); divBox.replaceChildren(scrDividendCard(scrGetPositions())); realBox.replaceChildren(scrRealizedCard(SCR_TX)); };
+  const render = () => { refreshStamp(); kpiBox.replaceChildren(scrTopKpiBand(scrGetPositions())); valBox.replaceChildren(scrValuationSummary(scrGetPositions())); body.replaceChildren(renderPositionsTable(scrGetPositions(), render)); divBox.replaceChildren(scrDividendCard(scrGetPositions(), SCR_TX)); realBox.replaceChildren(scrRealizedCard(SCR_TX)); };
   // Historique valeur vs juste valeur + benchmark S&P 500 : chargés une fois, re-render quand dispo.
   if (typeof db !== 'undefined' && db) {
     db.ref('stocks/screener/valuationHistory').once('value').then((s) => { SCR_VALHIST = s.val() || {}; render(); }).catch(() => {});
