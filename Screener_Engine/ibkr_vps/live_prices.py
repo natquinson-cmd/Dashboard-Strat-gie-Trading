@@ -146,7 +146,13 @@ def main():
                 item['ts'] = q['ts']    # heure du DERNIER ECHANGE en bourse (epoch s), != heure de collecte :
                                         # Yahoo diffuse XETRA/Amsterdam avec ~15 min de retard -> le badge le dit.
             prices.append(item)
-            pmap[t] = (q['price'], q.get('exchange'))
+            # Instantane du portefeuille : cours de la SEANCE REGULIERE des qu'elle est finie (POST/CLOSED).
+            # Avant, le dernier run du jour (23h45) figeait le cours after-hours ; le lendemain le calendrier
+            # mesurait depuis ce cours et le tableau depuis la cloture officielle (3,22 $ d'ecart le 16/09).
+            # En pre-marche et en seance on garde le cours courant, comme le tableau.
+            st = (q.get('marketState') or '').upper()
+            en_seance = (st == 'REGULAR') or st.startswith('PRE') or (q.get('regularPrice') is None)
+            pmap[t] = (q['price'] if en_seance else q['regularPrice'], q.get('exchange'))
         time.sleep(0.3)
     push(db, 'stocks/screener/livePrices', {'generatedAt': _now_iso(), 'prices': prices})
     print(f'Cours live pousses : {len(prices)}/{len(tickers)} ({", ".join(p["ticker"] for p in prices)})')

@@ -354,6 +354,7 @@ class Yahoo:
                         price = reg; chg = None                                 # fige a la cloture, pas de fausse "var. jour"
                 exch = self._PRICE_EXCH.get(pm.get('exchangeName'), pm.get('exchangeName'))
                 return {'price': price, 'changePct': chg, 'exchange': exch, 'marketState': state,
+                        'regularPrice': reg,   # cloture officielle (ou cours de seance) : pour l'instantane du soir
                         'quoteType': pm.get('quoteType'), 'ts': raw('regularMarketTime')}
         except Exception:
             pass

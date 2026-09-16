@@ -9543,6 +9543,37 @@ function screenerPositionsModule() {
   render();
   return wrap;
 }
+// VARIATION DU JOUR D'UNE LIGNE, EN USD, EN TENANT COMPTE DES ORDRES DU JOUR.
+// La formule naive (quantite x (cours - cloture de la veille)) applique la variation du jour a des actions
+// achetees EN SEANCE a un autre prix que la cloture : le 15/09, AMZN affichait -43,68 $ (8 x -5,46) alors
+// que 2 des 8 actions, achetees a 249,33 $ dans la journee, n'avaient perdu que 0,98 $ chacune. Le
+// calendrier compte depuis le prix d'achat, d'ou deux chiffres differents pour "la journee". On lit donc
+// le journal : achats du jour comptes depuis leur prix, ventes du jour jusqu'a leur prix.
+const SCR_TX_SUFFIX = /\.(DE|PA|AS|MI|L|SW|MC|BR|LS|HE|VI|ST|CO)$/;   // VUAA.DE (positions) = VUAA (journal)
+function scrTxKey(t) { return String(t || '').toUpperCase().trim().replace(SCR_TX_SUFFIX, ''); }
+function scrTxPriceUsd(t) {
+  const px = Number(t.price), ccy = String(t.ccy || 'USD').toUpperCase();
+  if (!(px > 0)) return null;
+  if (ccy === 'USD') return px;
+  return (SCR_FX && SCR_FX[ccy]) ? px / SCR_FX[ccy] : null;
+}
+function scrDayImpact(ticker, qty, priceUsd, chg) {
+  const prev = priceUsd / (1 + chg), k = scrTxKey(ticker), today = new Date().toDateString();
+  let bought = 0, gainBought = 0, sold = 0, gainSold = 0;
+  (Array.isArray(SCR_TX) ? SCR_TX : Object.values(SCR_TX || {})).forEach((t) => {
+    if (!t || (t.type !== 'BUY' && t.type !== 'SELL') || scrTxKey(t.ticker) !== k) return;
+    if (new Date(t.date).toDateString() !== today) return;
+    const q = Number(t.qty) || 0, px = scrTxPriceUsd(t);
+    if (!(q > 0) || px == null) return;
+    if (t.type === 'BUY') { bought += q; gainBought += q * (priceUsd - px); }
+    else { sold += q; gainSold += q * (px - prev); }
+  });
+  bought = Math.min(bought, qty);   // journal en avance sur les positions -> jamais de quantité négative
+  const parts = [];
+  if (bought > 0) parts.push(bought + ' achetée' + (bought > 1 ? 's' : '') + ' aujourd’hui, comptée' + (bought > 1 ? 's' : '') + ' depuis le prix d’achat');
+  if (sold > 0) parts.push(sold + ' vendue' + (sold > 1 ? 's' : '') + ' aujourd’hui, comptée' + (sold > 1 ? 's' : '') + ' jusqu’au prix de vente');
+  return { usd: (qty - bought) * (priceUsd - prev) + gainBought + gainSold, note: parts.join(' · ') };
+}
 function renderPositionsTable(pos, onChange) {
   if (!pos.length) return scrEl('div', { text: 'Aucune position. Ajoute tes achats Revolut ci-dessus (ticker, quantité d\'actions, prix d\'achat) pour suivre ta performance.', style: 'color:#5b6b7d;font-size:0.8rem;padding:4px 0' });
   const bd = 'border-bottom:1px solid #eef1f5';
@@ -9572,7 +9603,8 @@ function renderPositionsTable(pos, onChange) {
     const pnl = priceUsd != null ? valeur - investi : null;
     const pnlPct = (priceUsd != null && p.pru > 0) ? priceUsd / p.pru - 1 : null;
     const chg = d && d.changePct != null ? d.changePct : null;
-    const dayImp = (chg != null && priceUsd != null) ? valeur * chg / (1 + chg) : null;
+    const dj = (chg != null && priceUsd != null) ? scrDayImpact(p.ticker, qty, priceUsd, chg) : null;
+    const dayImp = dj ? dj.usd : null;
     totInv += investi; totVal += valeur; if (dayImp != null) totDay += dayImp;
     // Valorisation DCF de la ligne : juste valeur par action (meme modele que la fiche) -> ecart cours / juste valeur.
     const dcf = d ? scrDcf(d, (d && d.sector) ? d.sector : 'Autre') : null;
@@ -9606,7 +9638,7 @@ function renderPositionsTable(pos, onChange) {
       scrEl('td', { text: qtyTxt, style: `padding:6px 10px;text-align:right;${bd};color:#42546a;font-weight:600` }),
       scrEl('td', { text: (p.pru != null ? usdToDisp(p.pru).toFixed(2) : '–'), style: `padding:6px 10px;text-align:right;${bd};color:#42546a` }),
       (d ? scrCoursCell(d, bd, true) : scrEl('td', { text: '–', style: `padding:6px 10px;text-align:right;${bd};color:#c3ccd6` })),
-      scrEl('td', { text: dayTxt, style: `padding:6px 10px;text-align:right;${bd};font-weight:700;color:${dayCol};white-space:nowrap` }),
+      scrEl('td', { text: dayTxt, attrs: (dj && dj.note) ? { title: dj.note } : {}, style: `padding:6px 10px;text-align:right;${bd};font-weight:700;color:${dayCol};white-space:nowrap${(dj && dj.note) ? ';cursor:help;text-decoration:underline dotted #9aa7b4' : ''}` }),
       scrEl('td', { style: `padding:6px 10px;text-align:right;${bd};font-weight:700;color:#22303f;white-space:nowrap`, kids: [
         scrEl('span', { text: scrUsd(valeur) }),
         scrEl('span', { text: totValAll > 0 ? ' (' + (valeur / totValAll * 100).toFixed(1) + '%)' : '', style: 'font-weight:600;color:#9aa7b4' })] }),
@@ -9621,7 +9653,9 @@ function renderPositionsTable(pos, onChange) {
     scrEl('td', { text: pos.length + ' lignes', style: 'padding:7px 10px;font-weight:700;color:#5b6b7d' }),
     scrEl('td', { text: '' }), scrEl('td', { text: '' }),
     scrEl('td', { text: '' }),
-    scrEl('td', { text: (totDay >= 0 ? '+' : '') + scrUsd(totDay) + ' (' + (dayPctT >= 0 ? '+' : '') + (dayPctT * 100).toFixed(1) + '%)', style: `padding:7px 10px;text-align:right;font-weight:800;color:${dCol};white-space:nowrap` }),
+    scrEl('td', { text: (totDay >= 0 ? '+' : '') + scrUsd(totDay) + ' (' + (dayPctT >= 0 ? '+' : '') + (dayPctT * 100).toFixed(1) + '%)',
+      attrs: { title: 'Variation du jour de tes lignes depuis la clôture officielle de la veille, ordres du jour lus dans le journal (achats comptés depuis leur prix, ventes jusqu’à leur prix) : même règle que le calendrier ci-dessous.' },
+      style: `padding:7px 10px;text-align:right;font-weight:800;color:${dCol};white-space:nowrap;cursor:help` }),
     scrEl('td', { text: scrUsd(totVal), style: 'padding:7px 10px;text-align:right;font-weight:800;color:#22303f' }),
     scrEl('td', { text: (totPnl >= 0 ? '+' : '') + scrUsd(totPnl) + ' (' + (totPct >= 0 ? '+' : '') + (totPct * 100).toFixed(1) + '%)', style: `padding:7px 10px;text-align:right;font-weight:800;color:${tCol};white-space:nowrap` }),
     ...Array.from({ length: 11 }, () => scrEl('td', { text: '' })),
