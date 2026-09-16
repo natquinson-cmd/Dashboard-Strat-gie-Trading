@@ -336,8 +336,10 @@ class Yahoo:
                     price = pre; chg = raw('preMarketChangePercent')
                     if chg is None and reg: chg = pre / reg - 1                 # overnight = pre-marche vs derniere cloture
                 elif state.startswith('POST') and post is not None:
-                    price = post; chg = raw('postMarketChangePercent')
-                    if chg is None and reg: chg = post / reg - 1                # after-hours vs cloture du jour
+                    # Soiree du jour de seance : variation depuis la cloture de la VEILLE (journee entiere + after-hours),
+                    # ce que mesure le calendrier du dashboard entre deux instantanes ; l'after-hours seul reprend
+                    # a CLOSED (apres 2h du matin), quand la journee a tourne.
+                    price = post; chg = (post / rpc - 1) if rpc else raw('postMarketChangePercent')
                 elif state == 'REGULAR':
                     price = reg; chg = raw('regularMarketChangePercent')
                     if chg is None and rpc: chg = reg / rpc - 1                 # seance en cours vs veille
@@ -351,7 +353,13 @@ class Yahoo:
                         price = pre; chg = raw('preMarketChangePercent')
                         if chg is None and reg: chg = pre / reg - 1
                     else:
-                        price = reg; chg = None                                 # fige a la cloture, pas de fausse "var. jour"
+                        # Cloture sans cotation hors seance (ETF XETRA apres 17h30, jour ferie US...) : on garde la
+                        # variation de la seance tant qu'on est LE JOUR de cette seance (le calendrier la compte),
+                        # plus rien le lendemain (ancien bug : NVDA +8,7 % du 27 affiche le 28).
+                        price = reg
+                        rmt = raw('regularMarketTime')
+                        meme_jour = isinstance(rmt, (int, float)) and _dt.datetime.fromtimestamp(rmt).date() == _dt.datetime.now().date()
+                        chg = raw('regularMarketChangePercent') if meme_jour else None
                 exch = self._PRICE_EXCH.get(pm.get('exchangeName'), pm.get('exchangeName'))
                 return {'price': price, 'changePct': chg, 'exchange': exch, 'marketState': state,
                         'regularPrice': reg,   # cloture officielle (ou cours de seance) : pour l'instantane du soir

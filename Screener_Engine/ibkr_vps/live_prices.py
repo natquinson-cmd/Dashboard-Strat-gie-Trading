@@ -171,10 +171,12 @@ def main():
             continue
         pu = _to_usd(pmap[t][0], pmap[t][1], fx) if t in pmap else None
         lv = qty * (pu if pu is not None else pru)   # cours indispo -> on retient le cout (P&L neutre)
-        a = agg.setdefault(t, {'value': 0.0, 'invested': 0.0})
+        a = agg.setdefault(t, {'value': 0.0, 'invested': 0.0, 'qty': 0.0})
         a['value'] += lv
         a['invested'] += qty * pru
-    lines = [{'ticker': k, 'value': round(v['value'], 2), 'invested': round(v['invested'], 2)} for k, v in sorted(agg.items())]
+        a['qty'] += qty   # sert au dashboard pour sortir une vente a son prix reel (PRU de la veille = investi / qte)
+    lines = [{'ticker': k, 'value': round(v['value'], 2), 'invested': round(v['invested'], 2), 'qty': round(v['qty'], 8)}
+             for k, v in sorted(agg.items())]
     value = round(sum(v['value'] for v in agg.values()), 2)
     invested = round(sum(v['invested'] for v in agg.values()), 2)
     day = datetime.now().strftime('%Y-%m-%d')                # date locale du VPS (cloture US ~22h FR)

@@ -8489,6 +8489,35 @@ function scrHistArray(raw) {
   return Object.keys(raw).filter((k) => /^\d{4}-\d{2}-\d{2}$/.test(k) && raw[k]).sort()
     .map((k) => ({ date: k, value: Number(raw[k].value) || 0, invested: Number(raw[k].invested) || 0, lines: Array.isArray(raw[k].lines) ? raw[k].lines : null }));
 }
+// POINT "AUJOURD'HUI" EN DIRECT. Le calendrier et la courbe lisaient l'instantané du VPS chargé à l'ouverture
+// de l'onglet, le tableau les cours poussés toutes les 15 min : deux "journées" différentes à l'écran. Le point
+// du jour est recalculé depuis les positions et les cours live (même formule que live_prices.py) à chaque
+// réception, et remplace l'instantané stocké du jour ; le soir il porte donc l'after-hours, comme le tableau.
+function scrLiveHistPoint() {
+  const pos = scrGetPositions();
+  if (!pos.length) return null;
+  const agg = {};
+  pos.forEach((p) => {
+    const k = String(p.ticker || '').toUpperCase().trim();
+    if (!k) return;
+    const qty = (p.qty != null) ? Number(p.qty) : ((p.amount != null && p.pru) ? p.amount / p.pru : 0), pru = Number(p.pru) || 0;
+    const d = SCR_PRICE_MAP[k], pu = d ? scrToUsd(d.price, d.exchange) : null;
+    const a = agg[k] = agg[k] || { ticker: k, value: 0, invested: 0, qty: 0 };
+    a.value += qty * (pu != null ? pu : pru); a.invested += qty * pru; a.qty += qty;   // cours indispo -> au coût (neutre), comme le VPS
+  });
+  const lines = Object.values(agg).sort((x, y) => (x.ticker < y.ticker ? -1 : 1));
+  return { date: scrLocalDay(new Date()), value: lines.reduce((s, l) => s + l.value, 0), invested: lines.reduce((s, l) => s + l.invested, 0), lines: lines, live: true };
+}
+function scrMergeLiveHist() {   // true si SCR_HIST a changé
+  if (!Array.isArray(SCR_HIST) || !SCR_LIVE_AT) return false;
+  const pt = scrLiveHistPoint();
+  if (!pt) return false;
+  const i = SCR_HIST.findIndex((h) => h.date === pt.date);
+  if (i >= 0) SCR_HIST[i] = pt;
+  else if (!SCR_HIST.length || SCR_HIST[SCR_HIST.length - 1].date < pt.date) SCR_HIST.push(pt);
+  else return false;
+  return true;
+}
 // FLUX NET entre deux instantanés, calculé LIGNE PAR LIGNE.
 // Pourquoi : le champ `invested` global ne suffit pas. À la VENTE d'une ligne, la valeur baisse du prix
 // de MARCHÉ mais l'investi baisse du prix de REVIENT ; l'écart est la plus-value déjà accumulée jour
@@ -8497,21 +8526,58 @@ function scrHistArray(raw) {
 // Traitement correct en TWR : une sortie est un RETRAIT À LA VALEUR DE MARCHÉ, donc neutre en performance.
 function scrLinesMap(s) {
   const o = {};
-  ((s && s.lines) || []).forEach((l) => { if (l && l.ticker) o[String(l.ticker).toUpperCase()] = { v: Number(l.value) || 0, i: Number(l.invested) || 0 }; });
+  ((s && s.lines) || []).forEach((l) => { if (l && l.ticker) o[String(l.ticker).toUpperCase()] = { v: Number(l.value) || 0, i: Number(l.invested) || 0, q: Number(l.qty) || 0 }; });
   return o;
+}
+// Aides journal Revolut (stocks/screener/transactions) : cle de titre commune aux positions (VUAA.DE) et au
+// journal (VUAA), prix d'un ordre en USD, ordres d'un jour (date LOCALE, celle des instantanés du VPS).
+const SCR_TX_SUFFIX = /\.(DE|PA|AS|MI|L|SW|MC|BR|LS|HE|VI|ST|CO)$/;
+function scrTxKey(t) { return String(t || '').toUpperCase().trim().replace(SCR_TX_SUFFIX, ''); }
+function scrTxPriceUsd(t) {
+  const px = Number(t.price), ccy = String(t.ccy || 'USD').toUpperCase();
+  if (!(px > 0)) return null;
+  if (ccy === 'USD') return px;
+  return (SCR_FX && SCR_FX[ccy]) ? px / SCR_FX[ccy] : null;
+}
+function scrLocalDay(d) { const x = new Date(d); return isNaN(x) ? '' : (x.getFullYear() + '-' + String(x.getMonth() + 1).padStart(2, '0') + '-' + String(x.getDate()).padStart(2, '0')); }
+function scrTxOn(day, type, k) {
+  return (Array.isArray(SCR_TX) ? SCR_TX : Object.values(SCR_TX || {}))
+    .filter((t) => t && t.type === type && scrTxKey(t.ticker) === k && scrLocalDay(t.date) === day)
+    .map((t) => ({ q: Number(t.qty) || 0, px: scrTxPriceUsd(t) }))
+    .filter((t) => t.q > 0 && t.px != null);
+}
+// FLUX D'UNE LIGNE entre deux instantanés (USD) : ce qui est entré moins ce qui est sorti. Un achat entre au
+// prix d'achat (Δinvesti, exact). Une vente sort AU PRIX DE VENTE quand le journal la connaît, pour que le
+// gain du jour sur les titres vendus reste dans la performance (le tableau des positions le compte) ; sans
+// journal, ou si les positions n'ont pas encore enregistré la vente, elle sort à la valeur de marché de la
+// veille (neutre). Partagée par le calendrier, le TWR, le détail du jour et le détail du mois.
+function scrLineFlow(k, p, c, date) {
+  if (!p && !c) return 0;
+  const di = (c ? c.i : 0) - (p ? p.i : 0);
+  const sells = p ? scrTxOn(date, 'SELL', k) : [];
+  if (sells.length && p.i > 0) {
+    const buys = scrTxOn(date, 'BUY', k);
+    const qs = sells.reduce((a, t) => a + t.q, 0), produit = sells.reduce((a, t) => a + t.q * t.px, 0);
+    const qb = buys.reduce((a, t) => a + t.q, 0), coutAchats = buys.reduce((a, t) => a + t.q * t.px, 0);
+    const qPrev = p.q > 0 ? p.q : (((c && c.q > 0) ? c.q : 0) + qs - qb);   // quantité de la veille
+    // Cohérence journal / instantanés : la variation d'investi doit s'expliquer par ces ordres (vente au PRU
+    // d'avant ou d'après les achats du jour). Sinon les positions ne portent pas encore ces ordres (ou plus) :
+    // on retombe sur le traitement sans journal, jamais sur un flux fantaisiste.
+    if (qPrev > 0) {
+      const attenduAvant = coutAchats - qs * (p.i / qPrev), attenduApres = coutAchats - qs * ((p.i + coutAchats) / (qPrev + qb));
+      const tol = 0.02 * Math.max(p.i, c ? c.i : 0) + 1;
+      if (Math.abs(di - attenduAvant) <= tol || Math.abs(di - attenduApres) <= tol) return coutAchats - produit;   // achats au prix d'achat, ventes au prix de vente
+    }
+  }
+  if (!c) return -p.v;                                       // ligne sortie -> retrait à la valeur de marché de la veille
+  if (di < 0) return di * (p.i > 0 ? (p.v / p.i) : 1);       // allègement -> retrait au prorata du marché
+  return di;                                                 // renforcement ou nouvelle ligne -> apport au prix d'achat
 }
 function scrNetFlow(prev, cur) {   // null si le détail par ligne manque (vieux instantanés) -> repli global
   if (!prev || !cur || !Array.isArray(prev.lines) || !Array.isArray(cur.lines) || !prev.lines.length || !cur.lines.length) return null;
   const a = scrLinesMap(prev), b = scrLinesMap(cur);
   let flow = 0;
-  Object.keys(a).forEach((k) => {
-    const p = a[k], c = b[k];
-    if (!c) { flow -= p.v; return; }                                   // ligne SORTIE -> retrait à la valeur de marché (neutre)
-    const di = c.i - p.i;
-    if (di > 0) flow += di;                                            // renforcement -> apport au prix d'achat
-    else if (di < 0) flow += di * (p.i > 0 ? (p.v / p.i) : 1);         // allègement partiel -> retrait au prorata du marché
-  });
-  Object.keys(b).forEach((k) => { if (!a[k]) flow += b[k].i; });       // nouvelle ligne -> apport au prix d'achat
+  Array.from(new Set(Object.keys(a).concat(Object.keys(b)))).forEach((k) => { flow += scrLineFlow(k, a[k] || null, b[k] || null, cur.date); });
   return flow;
 }
 function scrFlowBetween(prev, cur) {
@@ -8734,10 +8800,10 @@ function scrDayDetail(hist, date) {   // détail par position d'un jour cliqué 
     box.appendChild(scrEl('div', { style: 'color:#9aa7b4;font-size:0.75rem', text: "Détail par position disponible dès deux journées consécutives enregistrées avec le détail (le VPS enregistre la composition chaque jour)." }));
     return box;
   }
-  const cL = {}, pL = {}; cur.lines.forEach((l) => cL[l.ticker] = l); prev.lines.forEach((l) => pL[l.ticker] = l);
+  const cL = scrLinesMap(cur), pL = scrLinesMap(prev);
   const rows = Array.from(new Set(Object.keys(cL).concat(Object.keys(pL)))).map((t) => {
-    const cv = cL[t] ? cL[t].value : 0, ci = cL[t] ? cL[t].invested : 0, pv = pL[t] ? pL[t].value : 0, pi = pL[t] ? pL[t].invested : 0;
-    return { t, pnl: (cv - pv) - (ci - pi), dep: ci - pi };
+    const cv = cL[t] ? cL[t].v : 0, pv = pL[t] ? pL[t].v : 0, flow = scrLineFlow(t, pL[t] || null, cL[t] || null, cur.date);
+    return { t, pnl: (cv - pv) - flow, dep: flow };   // même flux que le calendrier (ventes au prix de vente si le journal les connaît)
   }).filter((r) => Math.abs(r.pnl) >= 0.5 || Math.abs(r.dep) >= 0.5).sort((a, b) => b.pnl - a.pnl);
   if (!rows.length) { box.appendChild(scrEl('div', { style: 'color:#9aa7b4;font-size:0.75rem', text: 'Aucun mouvement ce jour.' })); return box; }
   rows.forEach((r) => {
@@ -8768,11 +8834,10 @@ function scrMonthDetail(hist, mk) {   // détail par position d'un MOIS cliqué 
     const cur = hist[i], prev = hist[i - 1];
     if (!(cur.lines && cur.lines.length) || !(prev.lines && prev.lines.length)) continue;
     hasDetail = true;
-    const pL = {}; prev.lines.forEach((l) => pL[l.ticker] = l);
-    const cL = {}; cur.lines.forEach((l) => cL[l.ticker] = l);
+    const pL = scrLinesMap(prev), cL = scrLinesMap(cur);
     Array.from(new Set(Object.keys(cL).concat(Object.keys(pL)))).forEach((t) => {
-      const cv = cL[t] ? cL[t].value : 0, ci = cL[t] ? cL[t].invested : 0, pv = pL[t] ? pL[t].value : 0, pi = pL[t] ? pL[t].invested : 0;
-      const a = agg[t] || (agg[t] = { pnl: 0, dep: 0 }); a.pnl += (cv - pv) - (ci - pi); a.dep += (ci - pi);
+      const cv = cL[t] ? cL[t].v : 0, pv = pL[t] ? pL[t].v : 0, flow = scrLineFlow(t, pL[t] || null, cL[t] || null, cur.date);
+      const a = agg[t] || (agg[t] = { pnl: 0, dep: 0 }); a.pnl += (cv - pv) - flow; a.dep += flow;
     });
   }
   const rows = Object.keys(agg).map((t) => ({ t, pnl: agg[t].pnl, dep: agg[t].dep })).filter((r) => Math.abs(r.pnl) >= 0.5 || Math.abs(r.dep) >= 0.5).sort((a, b) => b.pnl - a.pnl);
@@ -9512,16 +9577,16 @@ function screenerPositionsModule() {
     db.ref('stocks/screener/benchmarkHistory').once('value').then((s) => { SCR_BENCH = s.val() || null; render(); }).catch(() => {});
     db.ref('stocks/screener/benchmarkNasdaq').once('value').then((s) => { SCR_BENCH_NDX = s.val() || null; render(); }).catch(() => {});
     db.ref('stocks/screener/companyProfiles').once('value').then((s) => { SCR_PROFILES = s.val() || {}; }).catch(() => {});
-    db.ref('stocks/screener/transactions').once('value').then((s) => { SCR_TX = s.val() || null; render(); }).catch(() => {});
+    db.ref('stocks/screener/transactions').once('value').then((s) => { SCR_TX = s.val() || null; render(); if (SCR_HIST_RERENDER) SCR_HIST_RERENDER(); }).catch(() => {});
   }
   // Écoute temps réel : la table + les graphiques se mettent à jour seuls dès que le cron VPS pousse de nouveaux cours (plus de bouton).
   if (typeof db !== 'undefined' && db) {
     const lpRef = db.ref('stocks/screener/livePrices');
     lpRef.off('value');   // évite d'empiler les écouteurs quand le module est re-monté
-    lpRef.on('value', (snap) => { if (scrApplyLpValue(snap.val())) render(); });
+    lpRef.on('value', (snap) => { if (scrApplyLpValue(snap.val())) { render(); if (SCR_HIST_RERENDER) SCR_HIST_RERENDER(); } });   // le point du jour du calendrier suit les cours
   }
   // Section "Évolution du capital" (courbe + calendriers) : la boite est declaree PLUS HAUT (remontee dans la refonte).
-  SCR_HIST_RERENDER = () => histBox.replaceChildren(scrBuildHistSection());
+  SCR_HIST_RERENDER = () => { scrMergeLiveHist(); histBox.replaceChildren(scrBuildHistSection()); };
   if (typeof db !== 'undefined' && db) {
     db.ref('stocks/screener/positionsHistory').once('value')
       .then((s) => { SCR_HIST = scrHistArray(s.val()); SCR_HIST_RERENDER(); render(); }).catch(() => {});
@@ -9538,7 +9603,7 @@ function screenerPositionsModule() {
     pos = pos.filter((p) => String(p.ticker || '').toUpperCase().trim() !== ticker);
     pos.push({ ticker, qty: Math.round(totQty * 1e8) / 1e8, pru: totQty > 0 ? Math.round((totCost / totQty) * 1e4) / 1e4 : pruUsd });
     scrSavePositions(pos);
-    tkIn.value = ''; qtyIn.value = ''; pruIn.value = ''; render();
+    tkIn.value = ''; qtyIn.value = ''; pruIn.value = ''; render(); if (SCR_HIST_RERENDER) SCR_HIST_RERENDER();
   };
   render();
   return wrap;
@@ -9549,26 +9614,12 @@ function screenerPositionsModule() {
 // que 2 des 8 actions, achetees a 249,33 $ dans la journee, n'avaient perdu que 0,98 $ chacune. Le
 // calendrier compte depuis le prix d'achat, d'ou deux chiffres differents pour "la journee". On lit donc
 // le journal : achats du jour comptes depuis leur prix, ventes du jour jusqu'a leur prix.
-const SCR_TX_SUFFIX = /\.(DE|PA|AS|MI|L|SW|MC|BR|LS|HE|VI|ST|CO)$/;   // VUAA.DE (positions) = VUAA (journal)
-function scrTxKey(t) { return String(t || '').toUpperCase().trim().replace(SCR_TX_SUFFIX, ''); }
-function scrTxPriceUsd(t) {
-  const px = Number(t.price), ccy = String(t.ccy || 'USD').toUpperCase();
-  if (!(px > 0)) return null;
-  if (ccy === 'USD') return px;
-  return (SCR_FX && SCR_FX[ccy]) ? px / SCR_FX[ccy] : null;
-}
 function scrDayImpact(ticker, qty, priceUsd, chg) {
-  const prev = priceUsd / (1 + chg), k = scrTxKey(ticker), today = new Date().toDateString();
-  let bought = 0, gainBought = 0, sold = 0, gainSold = 0;
-  (Array.isArray(SCR_TX) ? SCR_TX : Object.values(SCR_TX || {})).forEach((t) => {
-    if (!t || (t.type !== 'BUY' && t.type !== 'SELL') || scrTxKey(t.ticker) !== k) return;
-    if (new Date(t.date).toDateString() !== today) return;
-    const q = Number(t.qty) || 0, px = scrTxPriceUsd(t);
-    if (!(q > 0) || px == null) return;
-    if (t.type === 'BUY') { bought += q; gainBought += q * (priceUsd - px); }
-    else { sold += q; gainSold += q * (px - prev); }
-  });
-  bought = Math.min(bought, qty);   // journal en avance sur les positions -> jamais de quantité négative
+  const prev = priceUsd / (1 + chg), k = scrTxKey(ticker), today = scrLocalDay(new Date());
+  const buys = scrTxOn(today, 'BUY', k), sells = scrTxOn(today, 'SELL', k);
+  const gainBought = buys.reduce((a, t) => a + t.q * (priceUsd - t.px), 0), gainSold = sells.reduce((a, t) => a + t.q * (t.px - prev), 0);
+  const sold = sells.reduce((a, t) => a + t.q, 0);
+  const bought = Math.min(qty, buys.reduce((a, t) => a + t.q, 0));   // journal en avance sur les positions -> jamais de quantité négative
   const parts = [];
   if (bought > 0) parts.push(bought + ' achetée' + (bought > 1 ? 's' : '') + ' aujourd’hui, comptée' + (bought > 1 ? 's' : '') + ' depuis le prix d’achat');
   if (sold > 0) parts.push(sold + ' vendue' + (sold > 1 ? 's' : '') + ' aujourd’hui, comptée' + (sold > 1 ? 's' : '') + ' jusqu’au prix de vente');
@@ -9615,7 +9666,7 @@ function renderPositionsTable(pos, onChange) {
     const qtyTxt = (qty % 1 === 0) ? String(qty) : qty.toLocaleString('fr-FR', { maximumFractionDigits: 3 });
     const logo = d ? scrLogo(p.ticker, d.website) : scrEl('span', { style: 'display:inline-block;width:22px' });
     const del = scrEl('button', { text: '×', style: 'border:none;background:none;color:#c0392b;font-size:1.15rem;cursor:pointer;font-weight:800;line-height:1' });
-    del.onclick = () => { const arr = scrGetPositions().slice(); arr.splice(i, 1); scrSavePositions(arr); onChange(); };
+    del.onclick = () => { const arr = scrGetPositions().slice(); arr.splice(i, 1); scrSavePositions(arr); onChange(); if (SCR_HIST_RERENDER) SCR_HIST_RERENDER(); };
     const pnlCol = pnl == null ? '#5b6b7d' : (pnl >= 0 ? '#1d9e74' : '#dd5f66');
     const dayCol = chg == null ? '#5b6b7d' : (chg >= 0 ? '#1d9e74' : '#dd5f66');
     const dayTxt = chg == null ? '–' : (chg >= 0 ? '+' : '') + (chg * 100).toFixed(1) + '%' + (dayImp != null ? ' (' + (dayImp >= 0 ? '+' : '') + scrUsd(dayImp) + ')' : '');
