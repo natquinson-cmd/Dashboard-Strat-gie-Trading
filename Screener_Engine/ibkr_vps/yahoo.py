@@ -297,6 +297,16 @@ class Yahoo:
                 c = cl[i] if i < len(cl) else None
                 if t and isinstance(c, (int, float)):
                     out[_dt.datetime.utcfromtimestamp(int(t)).strftime('%Y-%m-%d')] = round(c, 2)
+            # Le jour meme, Yahoo peut ne pas avoir encore forme la barre quotidienne : le 17/09 a 15h30:12,
+            # douze secondes apres l'ouverture, le S&P 500 l'avait et le Nasdaq pas encore, donc la courbe
+            # Nasdaq s'arretait a la veille. Le cours courant du meta rebouche le trou : meme reponse,
+            # autre champ, avec la vraie date de seance.
+            meta = res.get('meta') or {}
+            rmp, rmt = meta.get('regularMarketPrice'), meta.get('regularMarketTime')
+            if isinstance(rmp, (int, float)) and isinstance(rmt, (int, float)):
+                d = _dt.datetime.utcfromtimestamp(int(rmt)).strftime('%Y-%m-%d')
+                if d not in out:
+                    out[d] = round(rmp, 2)
             return out or None
         except Exception:
             return None
