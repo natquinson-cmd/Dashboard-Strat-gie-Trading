@@ -4877,7 +4877,10 @@ function loadKidsFromFirebase() {
   return Promise.all([
     db.ref('stocks/kids').once('value').then((s) => { const v = s.val(); if (v) SCR_KIDS = v; }).catch(() => {}),
     db.ref('stocks/kidsPrice').once('value').then((s) => { SCR_KIDS_PRICE = s.val() || null; }).catch(() => {}),
-    db.ref('stocks/kidsHistory').once('value').then((s) => { SCR_KIDS_HIST = s.val() || null; }).catch(() => {})
+    db.ref('stocks/kidsHistory').once('value').then((s) => { SCR_KIDS_HIST = s.val() || null; }).catch(() => {}),
+    // S&P 500 du graphique de performance : seul l'onglet Portefeuille le chargeait, donc en ouvrant
+    // directement l'onglet Enfants la courbe de comparaison manquait (case cochée, rien de tracé).
+    db.ref('stocks/screener/benchmarkHistory').once('value').then((s) => { if (!SCR_BENCH) SCR_BENCH = s.val() || null; }).catch(() => {})
   ]).then(() => { if (typeof currentTab !== 'undefined' && currentTab === 'enfants') renderEnfantsTab(); }).catch(() => {});
 }
 function loadIgSyncStatus() {
