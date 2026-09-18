@@ -1227,6 +1227,12 @@
   html[data-theme="dark"] [style*="font-size:1.25rem"], html[data-theme="dark"] [style*="font-size: 1.25rem"] {
     --t-text-1d9e74: #81c784; --t-text-46ba90: #81c784; --t-text-127a54: #81c784; --t-bg-1d9e74: #81c784; --positive: #81c784;
   }
+  /* interrupteurs (€/%, $/%) : en foncé la piste se fondait dans la carte et le bouton prenait la
+     couleur de la carte -> contour bleu Baggr, piste teintée, bouton clair */
+  html[data-theme="dark"] .toggle-track { border: 1.5px solid #3f76ed; background: rgba(63,118,237,0.16); }
+  html[data-theme="dark"] .toggle-track::after { background: #f1f1f1; box-shadow: 0 1px 3px rgba(0,0,0,0.5); top: 1.5px; left: 1.5px; }
+  html[data-theme="dark"] .toggle-wrap input:checked + .toggle-track { border-color: #3f76ed; background: linear-gradient(135deg, #3f76ed, #1447b8); }
+  html[data-theme="dark"] .toggle-val { color: #5c8aee; }
   /* logos : tuile un peu plus claire que la carte, sans passer au blanc (refusé), pour les marques sombres */
   html[data-theme="dark"] img.scr-logo { background: #2e2e2e !important; border-color: #3a3a3a !important; }
   /* cartes : un léger dégradé de lumière en haut, ombres profondes (Baggr) */
