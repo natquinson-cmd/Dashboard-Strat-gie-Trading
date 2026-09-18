@@ -9123,7 +9123,7 @@ function scrPerfChart(hist, bench, benchN) {
 }
 // BANDEAU KPI UNIQUE (refonte) : rassemble EN HAUT les chiffres essentiels qui etaient disperses
 // dans trois cartes differentes (valorisation, dividendes, plus-values realisees).
-function scrTopKpiBand(pos) {
+function scrTopKpiBand(pos, badge) {
   let val = 0, inv = 0, day = 0, fair = 0, fairBase = 0, div = 0;
   (pos || []).forEach((p) => {
     const d = SCR_PRICE_MAP[String(p.ticker || '').toUpperCase()];
@@ -9148,17 +9148,27 @@ function scrTopKpiBand(pos) {
   const twr = (typeof scrTWR === 'function') ? scrTWR(SCR_HIST) : null;
   const GREEN = '#1d9e74', RED = '#dd5f66';
   const sign = (x) => (x >= 0 ? '+' : '');
-  const tile = (label, main, sub, col, title) => scrEl('div', {
+  // Meme forme que le cadre de l'onglet Darwinex (dwxCell) : cellule de tete en grand, les autres
+  // separees par un filet, sous-titre en gris. `sub` peut etre une liste de noeuds (partie coloree).
+  const tile = (label, main, sub, col, title, lead) => scrEl('div', {
     cls: 'kpi-tile', attrs: title ? { title: title } : {},
-    style: 'flex:1;min-width:148px;background:#fff;border:1px solid #e3e8ee;border-radius:12px;padding:11px 13px' + (title ? ';cursor:help' : ''),
+    style: (lead ? 'flex:1.5 1 210px;min-width:200px;padding:0 22px 0 0' : 'flex:1 1 130px;min-width:125px;padding:0 18px;border-left:1px solid rgba(34,49,77,0.10)') + (title ? ';cursor:help' : ''),
     kids: [
-      scrEl('div', { text: label, style: 'font-size:0.59rem;color:#9aa7b4;text-transform:uppercase;font-weight:800;letter-spacing:.05em' }),
-      scrEl('div', { cls: 'kpi-tile-value', text: main, style: 'font-size:1.3rem;font-weight:800;line-height:1.15;margin-top:3px;color:' + (col || '#22303f') }),
-      scrEl('div', { text: sub || '', style: 'font-size:0.68rem;color:#5b6b7d;margin-top:1px;white-space:nowrap' })] });
-  return scrEl('div', { style: 'display:flex;gap:10px;flex-wrap:wrap', kids: [
-    tile('Valeur du portefeuille', scrUsd(val),
-      (day ? sign(day) + scrUsd(day) + " (" + sign(dayPct) + (dayPct * 100).toFixed(2) + "%) aujourd'hui" : 'variation du jour indisponible'),
-      '#22303f', "Valeur de marché de tes lignes, aux cours du jour, convertie dans la devise d'affichage."),
+      scrEl('div', { text: label, style: 'font-size:0.65rem;letter-spacing:0.07em;color:#5b6b7d;font-weight:700;text-transform:uppercase' }),
+      scrEl('div', { cls: 'kpi-tile-value', text: main, style: 'font-size:' + (lead ? '1.9rem' : '1.25rem') + ';font-weight:800;line-height:1.15;margin-top:5px;color:' + (col || '#22303f') }),
+      scrEl('div', { style: 'font-size:0.68rem;color:#5b6b7d;margin-top:4px;line-height:1.35', kids: Array.isArray(sub) ? sub : [document.createTextNode(sub || '')] })] });
+  // avant l'ouverture, la variation est un after-hours de quelques centimes : on l'affiche a plat plutot que "-$0 (-0.00 %)"
+  const flat = Math.abs(day) < 0.5, dayCol = flat ? '#5b6b7d' : (day >= 0 ? GREEN : RED);
+  const daySub = (day || flat)
+    ? [scrEl('span', { text: flat ? scrUsd(0) + ' (0.00 %)' : ((day >= 0 ? '▲ +' : '▼ ') + scrUsd(day) + ' (' + sign(dayPct) + (dayPct * 100).toFixed(2) + ' %)'), style: 'color:' + dayCol + ';font-weight:700' }), document.createTextNode(" aujourd'hui")]
+    : 'variation du jour indisponible';
+  const hero = scrEl('div', { cls: 'inv-card', style: 'background:linear-gradient(135deg, rgba(95,139,242,0.08), rgba(29,158,116,0.04));border:1px solid rgba(95,139,242,0.18);border-radius:14px;padding:18px 24px;margin-bottom:14px' });
+  hero.appendChild(scrEl('div', { style: 'display:flex;justify-content:space-between;align-items:baseline;gap:14px;flex-wrap:wrap;margin-bottom:16px', kids: [
+    scrEl('div', { text: "Portefeuille d'actions · compte Revolut", style: 'font-size:0.7rem;letter-spacing:1px;color:#5b6b7d;text-transform:uppercase;font-weight:700' }),
+    badge || null].filter(Boolean) }));
+  hero.appendChild(scrEl('div', { style: 'display:flex;flex-wrap:wrap;align-items:flex-start;row-gap:18px', kids: [
+    tile('Valeur du portefeuille', scrUsd(val), daySub, flat ? '#22303f' : dayCol,
+      "Valeur de marché de tes lignes, aux cours du jour, convertie dans la devise d'affichage.", true),
     tile('Plus-value latente', sign(pnl) + scrUsd(pnl), sign(pnlPct) + (pnlPct * 100).toFixed(2) + '% sur ' + scrUsd(inv) + ' investis',
       pnl >= 0 ? GREEN : RED, "Écart entre la valeur actuelle et ton prix de revient, sur les lignes que tu détiens encore."),
     tile('Résultat réalisé', sign(real.total) + scrUsd2(real.total), real.closed.length + ' cession' + (real.closed.length > 1 ? 's' : '') + ' · frais ' + scrUsd2(real.fees),
@@ -9168,7 +9178,8 @@ function scrTopKpiBand(pos) {
     tile('Potentiel (juste valeur)', pot == null ? '–' : sign(pot) + (pot * 100).toFixed(0) + ' %', pot == null ? 'non évaluable' : 'juste valeur DCF vs cours',
       pot == null ? '#9aa7b4' : (pot >= 0 ? GREEN : RED), "Écart entre la juste valeur DCF agrégée de tes lignes et leur cours actuel. Estimation mécanique, pas un conseil."),
     tile('Dividendes / an', div > 0 ? scrUsd(div) : '–', div > 0 ? 'rendement ' + (val > 0 ? (div / val * 100).toFixed(2) : '0') + '%' : 'portefeuille orienté croissance',
-      div > 0 ? '#3563e9' : '#9aa7b4', "Dividendes annuels attendus au rythme actuel, rapportés à la valeur de marché de tes lignes.")] });
+      div > 0 ? '#3563e9' : '#9aa7b4', "Dividendes annuels attendus au rythme actuel, rapportés à la valeur de marché de tes lignes.")] }));
+  return hero;
 }
 function scrValuationSummary(pos) {
   const wrap = scrEl('div', { style: 'background:#fff;border:1px solid #e3e8ee;border-radius:14px;padding:14px;margin-bottom:14px' });
@@ -9535,6 +9546,10 @@ function scrDividendCard(pos, tx) {
 }
 // Module "Mes positions" en haut du screener : saisie manuelle (Revolut), P&L via les cours du screener.
 function screenerPositionsModule() {
+  // Trois etages : le cadre des indicateurs (forme du cadre Darwinex), la barre de saisie, puis la
+  // carte blanche avec l'evolution du capital, les details et le tableau.
+  const outer = scrEl('div');
+  const heroBox = scrEl('div');
   const wrap = scrEl('div', { style: 'background:#fff;border:1px solid #e3e8ee;border-radius:14px;padding:14px;margin-bottom:14px' });
   // Pastille de fraicheur (cf scrLiveFreshness) : couleur selon l'age de la COLLECTE et les deux
   // horodatages en clair. Avant, le badge etait vert "en direct" en dur, collecteur mort ou pas.
@@ -9547,10 +9562,6 @@ function screenerPositionsModule() {
     scrLiveBadgeUpdate(liveBadge, SCR_LIVE_AT, SCR_MKT_AT ? SCR_MKT_AT * 1000 : NaN, extra);
   };
   refreshStamp();
-  wrap.appendChild(scrEl('div', { style: 'display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap', kids: [
-    scrEl('span', { text: 'Mes positions', style: 'font-weight:800;color:#22303f;font-size:0.95rem' }),
-    scrEl('span', { text: 'saisie manuelle (Revolut), synchronisées sur tous tes appareils', style: 'font-size:0.72rem;color:#5b6b7d' }),
-    liveBadge] }));
   const iStyle = 'padding:8px 10px;border:1px solid #e3e8ee;border-radius:9px;font-size:0.86rem;color:#22303f';
   const dl = scrEl('datalist', { attrs: { id: 'scrTickerList' } });
   Object.keys(SCR_PRICE_MAP).sort().forEach((sym) => dl.appendChild(scrEl('option', { attrs: { value: sym } })));
@@ -9558,10 +9569,12 @@ function screenerPositionsModule() {
   const qtyIn = scrEl('input', { attrs: { type: 'number', min: '0', step: '1', placeholder: "Quantité (actions)" }, style: iStyle + ';width:130px' });
   const pruIn = scrEl('input', { attrs: { type: 'number', min: '0', step: '0.01', placeholder: "Prix d'achat" }, style: iStyle + ';width:110px' });
   const addBtn = scrEl('button', { text: '+ Ajouter', style: 'padding:8px 14px;border:none;border-radius:9px;background:#3563e9;color:#fff;font-weight:700;cursor:pointer' });
-  wrap.appendChild(scrEl('div', { style: 'display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px', kids: [tkIn, qtyIn, pruIn, addBtn, dl] }));
-  // === REFONTE : indicateurs EN HAUT, calendriers remontes, blocs de detail COTE A COTE ===
-  const kpiBox = scrEl('div', { style: 'margin-bottom:14px' });        // 1) bandeau KPI unique
-  wrap.appendChild(kpiBox);
+  const formRow = scrEl('div', { style: 'display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px;padding:10px 14px;background:#fff;border:1px solid #e3e8ee;border-radius:12px', kids: [
+    scrEl('span', { text: 'Ajouter une position', style: 'font-size:0.65rem;letter-spacing:0.07em;color:#5b6b7d;font-weight:700;text-transform:uppercase;margin-right:4px' }),
+    tkIn, qtyIn, pruIn, addBtn, dl,
+    scrEl('span', { text: 'saisie manuelle (Revolut), synchronisée sur tous tes appareils', style: 'font-size:0.72rem;color:#9aa7b4;margin-left:auto' })] });
+  outer.appendChild(heroBox); outer.appendChild(formRow); outer.appendChild(wrap);
+  // === REFONTE : indicateurs EN HAUT (dans le cadre), calendriers remontes, blocs de detail COTE A COTE ===
   const histBox = scrEl('div', { style: 'margin-bottom:14px' });       // 2) evolution du capital + CALENDRIERS (remontes)
   wrap.appendChild(histBox);
   const detailRow = scrEl('div', { style: 'display:flex;gap:14px;flex-wrap:wrap;margin-bottom:14px;align-items:flex-start' });
@@ -9573,7 +9586,7 @@ function screenerPositionsModule() {
   wrap.appendChild(valBox);
   const body = scrEl('div');                                            // 5) tableau des positions + repartitions
   wrap.appendChild(body);
-  const render = () => { refreshStamp(); kpiBox.replaceChildren(scrTopKpiBand(scrGetPositions())); valBox.replaceChildren(scrValuationSummary(scrGetPositions())); body.replaceChildren(renderPositionsTable(scrGetPositions(), render)); divBox.replaceChildren(scrDividendCard(scrGetPositions(), SCR_TX)); realBox.replaceChildren(scrRealizedCard(SCR_TX)); };
+  const render = () => { refreshStamp(); heroBox.replaceChildren(scrTopKpiBand(scrGetPositions(), liveBadge)); valBox.replaceChildren(scrValuationSummary(scrGetPositions())); body.replaceChildren(renderPositionsTable(scrGetPositions(), render)); divBox.replaceChildren(scrDividendCard(scrGetPositions(), SCR_TX)); realBox.replaceChildren(scrRealizedCard(SCR_TX)); };
   // Historique valeur vs juste valeur + benchmark S&P 500 : chargés une fois, re-render quand dispo.
   if (typeof db !== 'undefined' && db) {
     db.ref('stocks/screener/valuationHistory').once('value').then((s) => { SCR_VALHIST = s.val() || {}; render(); }).catch(() => {});
@@ -9609,7 +9622,7 @@ function screenerPositionsModule() {
     tkIn.value = ''; qtyIn.value = ''; pruIn.value = ''; render(); if (SCR_HIST_RERENDER) SCR_HIST_RERENDER();
   };
   render();
-  return wrap;
+  return outer;
 }
 // VARIATION DU JOUR D'UNE LIGNE, EN USD, EN TENANT COMPTE DES ORDRES DU JOUR.
 // La formule naive (quantite x (cours - cloture de la veille)) applique la variation du jour a des actions
