@@ -1157,7 +1157,8 @@
     --t-rgb-1d9e74: 102,187,106; --t-rgb-46ba90: 102,187,106; --t-rgb-127a54: 102,187,106;
     --t-rgb-dd5f66: 255,82,82; --t-rgb-ee7f6d: 222,96,88; --t-rgb-c0392b: 255,82,82; --t-rgb-b5564e: 222,96,88;
     --t-rgb-3563e9: 63,118,237; --t-rgb-5f8bf2: 63,118,237; --t-rgb-3b82f6: 63,118,237; --t-rgb-2eb5a0: 115,218,195; --t-rgb-3ec3a7: 115,218,195;
-    --t-rgb-e0922c: 255,183,77; --t-rgb-f59e0b: 255,183,77; --t-rgb-d8e94a: 239,197,96; --t-rgb-a9b545: 210,178,85;
+    --t-rgb-e0922c: 255,183,77; --t-rgb-f59e0b: 255,183,77; --t-rgb-d8e94a: 239,197,96; --t-rgb-a9b545: 239,197,96; --t-rgb-e6b422: 239,197,96;
+    --t-text-e6b422: #efc560; --t-bg-e6b422: #efc560; --t-border-e6b422: #efc560;
     --t-rgb-7c3aed: 128,124,250; --t-rgb-9184ea: 128,124,250; --t-rgb-6366f1: 128,124,250; --t-rgb-8b5cf6: 128,124,250;
     --t-rgb-22314f: 0,0,0; --t-rgb-22303f: 0,0,0; --t-rgb-1a2235: 0,0,0;
     /* textes */
@@ -1213,6 +1214,14 @@
     --t-border-22303f: #b3b3b3; --t-border-22314f: #b3b3b3;
     --t-border-c3ccd6: #4d4d4d;
     --t-border-9aa7b4: #8b8b8b; --t-border-94a0b4: #8b8b8b;
+  }
+  /* gros chiffres : le vert vif des pastilles Baggr (#81c784) plutôt que le vert de texte (#66bb6a) */
+  html[data-theme="dark"] .kpi-card .value, html[data-theme="dark"] .hero-value, html[data-theme="dark"] .kpi-tile-value,
+  html[data-theme="dark"] .inv-value, html[data-theme="dark"] [style*="font-size:1.9rem"], html[data-theme="dark"] [style*="font-size: 1.9rem"],
+  html[data-theme="dark"] [style*="font-size:1.4rem"], html[data-theme="dark"] [style*="font-size: 1.4rem"],
+  html[data-theme="dark"] [style*="font-size:1.6rem"], html[data-theme="dark"] [style*="font-size: 1.6rem"],
+  html[data-theme="dark"] [style*="font-size:1.25rem"], html[data-theme="dark"] [style*="font-size: 1.25rem"] {
+    --t-text-1d9e74: #81c784; --t-text-46ba90: #81c784; --t-text-127a54: #81c784; --t-bg-1d9e74: #81c784; --positive: #81c784;
   }
   /* cartes : un léger dégradé de lumière en haut, ombres profondes (Baggr) */
   html[data-theme="dark"] .kpi-card, html[data-theme="dark"] .chart-card, html[data-theme="dark"] .inv-card,
@@ -1783,60 +1792,76 @@ const THEME_CHART_MAP = {
   '3563e9': '3f76ed', '5f8bf2': '3f76ed', '7fa4f5': '5c8aee', '3b82f6': '3f76ed', '2563eb': '1447b8', '3b7dd8': '5c8aee', '4a72b8': '3f76ed',
   '2eb5a0': '73dac3', '3ec3a7': '73dac3', '56cbb4': '94d2ca', '14b8a6': '73dac3', '22d3ee': '6fbdc9', '0ea5e9': '6ba5e5',
   '9184ea': '807cfa', '6366f1': '807cfa', '8b5cf6': '807cfa', '7c3aed': '807cfa', '4f46e5': '807cfa', '818cf8': '807cfa', 'a78bfa': 'b5a6e1', '8b6fc9': '807cfa',
-  'd8e94a': 'efc560', 'a9b545': 'd2b255', 'e0922c': 'ffb74d', 'f59e0b': 'ffb74d', 'eab308': 'efc560', 'f97316': 'e47b50', 'ec4899': 'e195b8', 'f43f5e': 'de6058',
+  'd8e94a': 'efc560', 'a9b545': 'efc560', 'e6b422': 'efc560', 'e0922c': 'ffb74d', 'f59e0b': 'ffb74d', 'eab308': 'efc560', 'f97316': 'e47b50', 'ec4899': 'e195b8', 'f43f5e': 'de6058',
   '22303f': 'b3b3b3', '22314f': 'b3b3b3', '42546a': 'c5c5c5', '5b6b7d': 'b3b3b3', '64748f': 'b3b3b3', '9aa7b4': '8b8b8b', '94a0b4': '8b8b8b', 'c3ccd6': '4d4d4d', '7c94b5': '8499c3',
 };
-function themeMapColor(c) {
-  if (typeof c !== 'string') return c;
+// Lecture d'une couleur CSS -> {hex, a} ; null si ce n'est pas une couleur simple (dégradé, fonction...)
+function themeParseColor(c) {
+  if (typeof c !== 'string') return null;
   const t = c.trim();
-  let m, hex, a = null;
-  if ((m = t.match(/^#([0-9a-f]{6})$/i))) hex = m[1].toLowerCase();
-  else if ((m = t.match(/^#([0-9a-f]{3})$/i))) hex = (m[1][0] + m[1][0] + m[1][1] + m[1][1] + m[1][2] + m[1][2]).toLowerCase();
-  else if ((m = t.match(/^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*([\d.]+))?\s*\)$/i))) { hex = [m[1], m[2], m[3]].map((n) => ('0' + (Number(n) & 255).toString(16)).slice(-2)).join(''); if (m[4] != null) a = +m[4]; }
-  else return c;
-  const to = THEME_CHART_MAP[hex];
-  if (!to) return c;
-  if (a == null || a >= 1) return '#' + to;
-  return 'rgba(' + parseInt(to.slice(0, 2), 16) + ',' + parseInt(to.slice(2, 4), 16) + ',' + parseInt(to.slice(4, 6), 16) + ',' + a + ')';
+  let m;
+  if ((m = t.match(/^#([0-9a-f]{6})([0-9a-f]{2})?$/i))) return { hex: m[1].toLowerCase(), a: m[2] ? parseInt(m[2], 16) / 255 : 1 };
+  if ((m = t.match(/^#([0-9a-f]{3})$/i))) return { hex: (m[1][0] + m[1][0] + m[1][1] + m[1][1] + m[1][2] + m[1][2]).toLowerCase(), a: 1 };
+  if ((m = t.match(/^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*([\d.]+))?\s*\)$/i)))
+    return { hex: [m[1], m[2], m[3]].map((n) => ('0' + (Number(n) & 255).toString(16)).slice(-2)).join(''), a: m[4] != null ? +m[4] : 1 };
+  return null;
+}
+function themeRgba(hex, a) {
+  return a >= 1 ? ('#' + hex) : ('rgba(' + parseInt(hex.slice(0, 2), 16) + ',' + parseInt(hex.slice(2, 4), 16) + ',' + parseInt(hex.slice(4, 6), 16) + ',' + Math.max(0, Math.min(1, a)).toFixed(3) + ')');
+}
+function themeMapColor(c) {
+  const p = themeParseColor(c);
+  if (!p) return c;
+  return themeRgba(THEME_CHART_MAP[p.hex] || p.hex, p.a);
+}
+// Baggr dessine ses barres et ses aires franches : les rgba à 20-35 % du thème clair rendaient terne
+// sur fond noir. Opacité relevée (0,2 -> 0,64 ; 0,35 -> 0,71 ; 0,7 -> 0,87), l'écart précédent/actuel reste.
+function themeVivid(c, plancher) {
+  const p = themeParseColor(c);
+  if (!p) return c;
+  return themeRgba(p.hex, Math.max(plancher || 0, 0.55 + 0.45 * Math.min(1, p.a)));
 }
 const themeGradientPlugin = {
   id: 'themeGradient',
   beforeUpdate(chart) {
     const horiz = chart.options && chart.options.indexAxis === 'y';
-    // 1) couleurs de séries -> palette Baggr (chaînes et tableaux ; les fonctions sont laissées)
+    const cfgScales = (chart.config.options && chart.config.options.scales) || {};
+    const stacked = Object.keys(cfgScales).some((k) => cfgScales[k] && cfgScales[k].stacked);
     (chart.data.datasets || []).forEach((ds) => {
+      const type = ds.type || chart.config.type;
+      const bar = type === 'bar', aire = type === 'line' && ds.fill;
+      // 1) couleurs de séries -> palette Baggr (chaînes et tableaux ; les fonctions sont laissées)
       ['backgroundColor', 'borderColor', 'pointBackgroundColor', 'pointBorderColor', 'hoverBackgroundColor', 'hoverBorderColor'].forEach((k) => {
         const v = ds[k];
         if (typeof v === 'string') ds[k] = themeMapColor(v);
         else if (Array.isArray(v)) ds[k] = v.map(themeMapColor);
       });
-    });
-    // 2) barres et aires en dégradé
-    const rgba = (c, k) => {
-      if (typeof c !== 'string') return c;
-      const t = c.trim();
-      let r, g, b, a = 1, m;
-      if ((m = t.match(/^#([0-9a-f]{6})$/i))) { r = parseInt(m[1].slice(0, 2), 16); g = parseInt(m[1].slice(2, 4), 16); b = parseInt(m[1].slice(4, 6), 16); }
-      else if ((m = t.match(/^#([0-9a-f]{3})$/i))) { r = parseInt(m[1][0] + m[1][0], 16); g = parseInt(m[1][1] + m[1][1], 16); b = parseInt(m[1][2] + m[1][2], 16); }
-      else if ((m = t.match(/^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*([\d.]+))?\s*\)$/i))) { r = +m[1]; g = +m[2]; b = +m[3]; if (m[4] != null) a = +m[4]; }
-      else return c;
-      return 'rgba(' + r + ',' + g + ',' + b + ',' + Math.max(0, Math.min(1, a * k)).toFixed(3) + ')';
-    };
-    (chart.data.datasets || []).forEach((ds) => {
-      const type = ds.type || chart.config.type;
-      const bar = type === 'bar', aire = type === 'line' && ds.fill;
+      // 2) donut / camembert : le contour blanc entre les parts prend la couleur de la carte
+      if (type === 'doughnut' || type === 'pie') {
+        const bc = ds.borderColor;
+        if (bc == null || (typeof bc === 'string' && /^(#fff(fff)?|white)$/i.test(bc.trim()))) ds.borderColor = '#1a1a1a';
+        return;
+      }
       if (!bar && !aire) return;
       const base = ds.backgroundColor;
       if (base == null || typeof base === 'function') return;
-      const kBas = bar ? 0.35 : 0.04;
+      // beforeUpdate tourne à chaque update : on ne retraite la série que si l'application a changé sa
+      // couleur depuis notre dernier passage (sinon l'opacité se cumulerait, 0,2 -> 0,64 -> 0,84...)
+      if (ds._themeOut !== undefined && base === ds._themeOut) return;
+      // 3) barres et aires : opacité relevée, puis dégradé (sauf aires empilées : aplats francs, un dégradé
+      //    calculé sur toute la hauteur éteindrait les séries du bas)
+      const vivid = (c) => themeVivid(c, aire ? 0.45 : 0);
+      const solide = Array.isArray(base) ? base.map(vivid) : vivid(base);
+      if (aire && stacked) { ds.backgroundColor = ds._themeOut = solide; return; }
+      const kBas = bar ? 0.6 : 0.03;
       const mk = (ctx, col) => {
-        const area = ctx.chart.chartArea;
-        if (!area || typeof col !== 'string') return col;
+        const area = ctx.chart.chartArea, p = themeParseColor(col);
+        if (!area || !p) return col;
         const g = horiz ? ctx.chart.ctx.createLinearGradient(area.left, 0, area.right, 0) : ctx.chart.ctx.createLinearGradient(0, area.top, 0, area.bottom);
-        g.addColorStop(0, rgba(col, 1)); g.addColorStop(1, rgba(col, kBas));
+        g.addColorStop(0, themeRgba(p.hex, p.a)); g.addColorStop(1, themeRgba(p.hex, p.a * kBas));
         return g;
       };
-      ds.backgroundColor = Array.isArray(base) ? ((ctx) => mk(ctx, base[ctx.dataIndex % base.length])) : ((ctx) => mk(ctx, base));
+      ds.backgroundColor = ds._themeOut = Array.isArray(solide) ? ((ctx) => mk(ctx, solide[ctx.dataIndex % solide.length])) : ((ctx) => mk(ctx, solide));
     });
   }
 };
@@ -3772,7 +3797,7 @@ let ttlMonthPnl = {};
 // Teintes SOURDES : mêmes familles de couleur qu'avant (brique, bleu, olive) mais
 // désaturées. Les valeurs vives d'origine (#e0342e, #2563eb et surtout le jaune fluo
 // #dcee00) donnaient un rendu criard sur la page d'accueil.
-const TTL_COL = { ig: '#b5564e', stk: '#4a72b8', dwx: '#a9b545' };  // Trading Auto=brique, Actions=bleu ardoise, Darwinex=olive
+const TTL_COL = { ig: '#b5564e', stk: '#4a72b8', dwx: '#e6b422' };  // Trading Auto=brique, Actions=bleu ardoise, Darwinex=jaune (partout, RealT n'est plus utilise)
 const TTL_LABEL = { ig: 'Trading Auto', stk: "Portefeuille d'actions", dwx: 'Darwinex' };
 
 function ttlEurPerUsd() {
@@ -6016,6 +6041,32 @@ function fmt(n) { return Math.round(n).toLocaleString('fr'); }
 // ══════════════════════════════════════════════════════════════
 Chart.defaults.color = THEME === 'dark' ? '#b3b3b3' : '#64748f';   // Baggr : texte des axes #b3b3b3, grille #262626
 Chart.defaults.borderColor = THEME === 'dark' ? '#262626' : 'rgba(34,49,77,0.10)';
+if (THEME === 'dark') Chart.defaults.elements.arc.borderColor = '#1a1a1a';   // donuts : contour couleur carte, pas blanc
+// Graphiques en ligne : au survol, l'infobulle liste TOUTES les séries à la date pointée (mode index,
+// sans viser le point), avec un trait vertical de repère. Plusieurs graphiques ne montraient que la
+// série la plus proche de la souris (ex. « Évolution capital brut vs net »).
+Chart.register({
+  id: 'lineIndexTooltip',
+  beforeInit(chart) {
+    const types = new Set([chart.config.type].concat((chart.data.datasets || []).map((d) => d.type).filter(Boolean)));
+    if (!types.has('line')) return;
+    // sur la configuration BRUTE (chart.options est un proxy de résolution : le parcourir boucle à l'infini)
+    const cfg = chart.config, o = cfg.options || (cfg.options = {});
+    o.interaction = Object.assign({}, o.interaction || {}, { mode: 'index', intersect: false });
+    o.plugins = o.plugins || {};
+    o.plugins.tooltip = Object.assign({}, o.plugins.tooltip || {}, { mode: 'index', intersect: false });
+    chart.$lineIndex = true;
+  },
+  afterDraw(chart) {
+    if (!chart.$lineIndex || !chart.tooltip || !chart.tooltip.getActiveElements) return;
+    const act = chart.tooltip.getActiveElements();
+    if (!act.length || !chart.chartArea) return;
+    const x = act[0].element.x, a = chart.chartArea, ctx = chart.ctx;
+    ctx.save(); ctx.beginPath(); ctx.setLineDash([4, 4]); ctx.lineWidth = 1;
+    ctx.strokeStyle = THEME === 'dark' ? 'rgba(255,255,255,0.28)' : 'rgba(34,49,77,0.28)';
+    ctx.moveTo(x, a.top); ctx.lineTo(x, a.bottom); ctx.stroke(); ctx.restore();
+  }
+});
 Chart.defaults.font.family = "'Plus Jakarta Sans', sans-serif";
 
 // ══════════════════════════════════════════════════════════════
@@ -10353,12 +10404,12 @@ const INV_COLORS_FALLBACK = ["#6366f1","#06b6d4","#f59e0b","#ec4899","#1d9e74","
 const INV_PLATFORM_COLORS = {
   "Revolut": "#3b82f6",       // Bleu
   "Lendermarket": "#a855f7",  // Violet
-  "RealT": "#f59e0b",         // Jaune
+  "RealT": "#f59e0b",         // Ambre (plateforme en liquidation, n'apparait plus)
   "Mintos": "#1d9e74",        // Vert
   "Debitum": "#ec4899",       // Rose
   "Trading Auto": "#dd5f66",  // Rouge
   "RMM": "#f97316",           // Orange
-  "Darwinex": "#22d3ee"       // Cyan
+  "Darwinex": "#e6b422"       // Jaune, comme dans Trading total (le jaune Baggr #efc560 en theme fonce)
 };
 function invColor(p, i) { return INV_PLATFORM_COLORS[p] || INV_COLORS_FALLBACK[i % 10]; }
 // Legacy alias for indexed access
