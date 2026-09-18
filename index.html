@@ -7639,10 +7639,12 @@ function renderEnfantsTab() {
   const kMktMs = (SCR_KIDS_PRICE && SCR_KIDS_PRICE.marketAt) ? Date.parse(SCR_KIDS_PRICE.marketAt) : NaN;
   const kBadge = scrLiveBadge((SCR_KIDS_PRICE && SCR_KIDS_PRICE.at) || null, kMktMs,
     'Ticker suivi : ' + ((SCR_KIDS_PRICE && SCR_KIDS_PRICE.ticker) || '—') + '. XETRA est diffusé par Yahoo avec environ 15 min de retard.');
-  wrap.appendChild(scrEl('div', { style: 'display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap', kids: [
+  // Ligne de titre classique : seulement quand la poche est vide. Sinon c'est le CADRE (même forme que
+  // Portefeuille d'actions et Darwinex) qui porte le titre, la pastille et les indicateurs.
+  const headerRow = scrEl('div', { style: 'display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap', kids: [
     scrEl('span', { text: 'Épargne des enfants', style: 'font-weight:800;color:#22303f;font-size:0.95rem' }),
     scrEl('span', { text: 'poche séparée : elle n’entre PAS dans ton capital, ni dans ta performance, ni dans ta répartition', style: 'font-size:0.72rem;color:#5b6b7d' }),
-    kBadge] }));
+    kBadge] });
 
   // ---- Reglages (ticker, horizon, rendement) ----
   const iSt = 'padding:7px 9px;border:1px solid #e3e8ee;border-radius:9px;font-size:0.84rem;color:#22303f';
@@ -7748,6 +7750,7 @@ function renderEnfantsTab() {
   syncSrc();
 
   if (!kidsContribs().length) {
+    wrap.appendChild(headerRow);
     wrap.appendChild(formBlock);
     wrap.appendChild(scrEl('div', { style: 'color:#9aa7b4;font-size:0.82rem;line-height:1.5', text: "Aucun versement enregistré. Saisis un premier versement ci-dessus : la date, le prénom de l’enfant, le montant versé et le nombre de parts achetées (les deux figurent dans ta transaction Revolut). Chaque enfant possède ainsi un nombre de parts exact, ce qui rend la répartition incontestable." }));
     c.replaceChildren(wrap);
@@ -7782,38 +7785,43 @@ function renderEnfantsTab() {
   const kFr = (d) => { const x = new Date(d + 'T00:00:00'); return isNaN(x) ? d : (String(x.getDate()).padStart(2, '0') + '/' + String(x.getMonth() + 1).padStart(2, '0')); };
   const kMoisNom = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'][new Date().getMonth()];
   const pnlCol = (x) => (x == null ? '#9aa7b4' : (x >= 0 ? '#1d9e74' : '#dd5f66'));
-  wrap.appendChild(scrEl('div', { style: 'display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px', kids: [
-    tile('Valeur de la poche', money(agg.value), agg.price != null ? (cfg.ticker + ' à ' + kidsMoney(agg.price, 2)) : 'cours indisponible', '#22303f',
-      'Valeur de marché de toutes les parts détenues pour les enfants. Cette poche est exclue de ton capital personnel.'),
-    tile('Total versé', money(agg.invested), String(+agg.units.toFixed(4)) + ' parts', '#3563e9',
-      'Somme de tous tes versements. Le nombre de parts est la seule source de vérité de la répartition.'),
-    tile('Plus-value', agg.pnl == null ? '–' : sign(agg.pnl) + money(agg.pnl),
-      agg.pnlPct == null ? '' : sign(agg.pnlPct) + (agg.pnlPct * 100).toFixed(2) + '% sur les versements',
-      agg.pnl == null ? '#9aa7b4' : (agg.pnl >= 0 ? '#1d9e74' : '#dd5f66'),
-      'Ce que le marché a ajouté à tes versements. C’est le gain réellement obtenu, pas une performance théorique.'),
-    tile('Part des gains', gainShare == null ? '–' : (gainShare * 100).toFixed(1) + ' %', 'de la valeur vient du marché',
-      '#a855f7', 'Part de la valeur actuelle qui provient des gains et non de tes versements. Sur 10 ans, cette part grossit fortement : c’est l’effet des intérêts composés.')] }));
-
-  // Rendement du FONDS vs rendement des VERSEMENTS : l'ecart mesure la qualite du TIMING.
+  // ---- Cadre des indicateurs : même forme que Portefeuille d'actions et Darwinex ----
   const ret = kidsReturns();
-  if (ret && ret.fund != null && ret.mine != null) {
-    const pc = (x) => (x >= 0 ? '+' : '') + (x * 100).toFixed(2) + ' %';
-    const dep = new Date(ret.since + 'T00:00:00');
-    const depTxt = isNaN(dep) ? ret.since : (String(dep.getDate()).padStart(2, '0') + '/' + String(dep.getMonth() + 1).padStart(2, '0'));
-    const gapCol = ret.gap == null ? '#9aa7b4' : (ret.gap >= 0 ? '#1d9e74' : '#dd5f66');
-    const gapTxt = ret.dates < 2 ? 'identique tant que tous tes versements datent du même jour'
-      : ((ret.gap >= 0 ? '+' : '') + (ret.gap * 100).toFixed(2) + ' pt grâce au moment de tes versements');
-    // Plus-value du jour, du mois en cours, rendement du fonds. "Rendement de tes versements" retiré (choix user).
-    wrap.appendChild(scrEl('div', { style: 'display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px', kids: [
-      tile('Plus-value du jour', kDay == null ? '–' : sign(kDay) + money(kDay),
-        kDay == null ? 'dès la deuxième journée suivie' : ((kDayPct != null ? (sign(kDayPct) + (kDayPct * 100).toFixed(2) + ' %') : '') + ' vs clôture du ' + kFr(kPrevDay.date)),
-        pnlCol(kDay), 'Variation de la valeur de la poche depuis la dernière clôture, nette des versements du jour. Même règle que le calendrier du portefeuille d’actions.'),
-      tile('Plus-value du mois', kMonth == null ? '–' : sign(kMonth) + money(kMonth),
-        kMonth == null ? '' : ((kMonthPct != null ? (sign(kMonthPct) + (kMonthPct * 100).toFixed(2) + ' %') : '') + (kPrevMonth ? (' en ' + kMoisNom + ', vs clôture du ' + kFr(kPrevMonth.date)) : ' depuis le début du suivi')),
-        pnlCol(kMonth), 'Variation de la valeur de la poche depuis la dernière clôture du mois précédent, nette des versements du mois.'),
-      tile('Rendement du fonds', pc(ret.fund), cfg.ticker + ' depuis le ' + depTxt, ret.fund >= 0 ? '#1d9e74' : '#dd5f66',
-        "Performance de l'ETF lui-même depuis ton premier versement. Elle ne dépend pas de toi : c'est ce que le marché a fait.")] }));
-  }
+  const pc = (x) => (x >= 0 ? '+' : '') + (x * 100).toFixed(2) + ' %';
+  const depTxt = (() => { if (!ret || !ret.since) return ''; const dep = new Date(ret.since + 'T00:00:00'); return isNaN(dep) ? ret.since : (String(dep.getDate()).padStart(2, '0') + '/' + String(dep.getMonth() + 1).padStart(2, '0')); })();
+  const cell = (label, main, sub, col, title, lead) => scrEl('div', {
+    cls: 'kpi-tile', attrs: title ? { title: title } : {},
+    style: (lead ? 'flex:1.5 1 210px;min-width:200px;padding:0 22px 0 0' : 'flex:1 1 130px;min-width:125px;padding:0 18px;border-left:1px solid rgba(34,49,77,0.10)') + (title ? ';cursor:help' : ''),
+    kids: [
+      scrEl('div', { text: label, style: 'font-size:0.65rem;letter-spacing:0.07em;color:#5b6b7d;font-weight:700;text-transform:uppercase' }),
+      scrEl('div', { cls: 'kpi-tile-value', text: main, style: 'font-size:' + (lead ? '1.9rem' : '1.25rem') + ';font-weight:800;line-height:1.15;margin-top:5px;color:' + (col || '#22303f') }),
+      scrEl('div', { text: sub || '', style: 'font-size:0.68rem;color:#5b6b7d;margin-top:4px;line-height:1.35' })] });
+  const hero = scrEl('div', { cls: 'inv-card', style: 'background:linear-gradient(135deg, rgba(95,139,242,0.08), rgba(29,158,116,0.04));border:1px solid rgba(95,139,242,0.18);border-radius:14px;padding:18px 24px;margin-bottom:14px' });
+  hero.appendChild(scrEl('div', { style: 'display:flex;justify-content:space-between;align-items:baseline;gap:14px;flex-wrap:wrap;margin-bottom:16px', kids: [
+    scrEl('div', { kids: [
+      scrEl('div', { text: 'Épargne des enfants · ' + cfg.ticker, style: 'font-size:0.7rem;letter-spacing:1px;color:#5b6b7d;text-transform:uppercase;font-weight:700' }),
+      scrEl('div', { text: 'poche séparée : elle n’entre pas dans ton capital, ni dans ta performance, ni dans ta répartition', style: 'font-size:0.7rem;color:#9aa7b4;margin-top:3px' })] }),
+    kBadge] }));
+  const cells = [
+    cell('Valeur de la poche', money(agg.value), agg.price != null ? (cfg.ticker + ' à ' + kidsMoney(agg.price, 2)) : 'cours indisponible', '#22303f',
+      'Valeur de marché de toutes les parts détenues pour les enfants. Cette poche est exclue de ton capital personnel.', true),
+    cell('Total versé', money(agg.invested), String(+agg.units.toFixed(4)) + ' parts', '#3563e9',
+      'Somme de tous tes versements. Le nombre de parts est la seule source de vérité de la répartition.'),
+    cell('Plus-value', agg.pnl == null ? '–' : sign(agg.pnl) + money(agg.pnl),
+      agg.pnlPct == null ? '' : sign(agg.pnlPct) + (agg.pnlPct * 100).toFixed(2) + ' % sur les versements',
+      pnlCol(agg.pnl), 'Ce que le marché a ajouté à tes versements. C’est le gain réellement obtenu, pas une performance théorique.'),
+    cell('Plus-value du jour', kDay == null ? '–' : sign(kDay) + money(kDay),
+      kDay == null ? 'dès la deuxième journée suivie' : ((kDayPct != null ? (sign(kDayPct) + (kDayPct * 100).toFixed(2) + ' %') : '') + ' vs clôture du ' + kFr(kPrevDay.date)),
+      pnlCol(kDay), 'Variation de la valeur de la poche depuis la dernière clôture, nette des versements du jour. Même règle que le calendrier du portefeuille d’actions.'),
+    cell('Plus-value du mois', kMonth == null ? '–' : sign(kMonth) + money(kMonth),
+      kMonth == null ? '' : ((kMonthPct != null ? (sign(kMonthPct) + (kMonthPct * 100).toFixed(2) + ' %') : '') + (kPrevMonth ? (' en ' + kMoisNom + ', vs clôture du ' + kFr(kPrevMonth.date)) : ' depuis le début du suivi')),
+      pnlCol(kMonth), 'Variation de la valeur de la poche depuis la dernière clôture du mois précédent, nette des versements du mois.'),
+    cell('Part des gains', gainShare == null ? '–' : (gainShare * 100).toFixed(1) + ' %', 'de la valeur vient du marché',
+      '#a855f7', 'Part de la valeur actuelle qui provient des gains et non de tes versements. Sur 10 ans, cette part grossit fortement : c’est l’effet des intérêts composés.'),
+  ];
+  if (ret && ret.fund != null) cells.push(cell('Rendement du fonds', pc(ret.fund), cfg.ticker + ' depuis le ' + depTxt, ret.fund >= 0 ? '#1d9e74' : '#dd5f66',
+    "Performance de l'ETF lui-même depuis ton premier versement. Elle ne dépend pas de toi : c'est ce que le marché a fait."));
+  hero.appendChild(scrEl('div', { style: 'display:flex;flex-wrap:wrap;align-items:flex-start;row-gap:18px', kids: cells }));
 
   // ---- Courbe d'evolution (reutilise le graphique du portefeuille, axes + survol) ----
   if (serie.length >= 2) {
@@ -7956,7 +7964,9 @@ function renderEnfantsTab() {
 
   wrap.appendChild(scrEl('div', { style: 'font-size:0.68rem;color:#9aa7b4;margin-top:12px;line-height:1.5',
     text: 'Cette poche est totalement isolée du reste du dashboard : elle n’est comptée ni dans ton capital, ni dans ta performance, ni dans ta répartition. La répartition entre enfants repose sur le NOMBRE DE PARTS de chacun, jamais sur un pourcentage figé, pour rester exacte quels que soient les cours au moment de chaque versement.' }));
-  c.replaceChildren(wrap);
+  const outer = scrEl('div');
+  outer.appendChild(hero); outer.appendChild(wrap);
+  c.replaceChildren(outer);
 }
 
 async function renderScreenerTab() {
