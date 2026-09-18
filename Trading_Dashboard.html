@@ -6701,10 +6701,18 @@ function scrUsd2(usd) { return scrFmt2(usdToDisp(usd)); }   // 2 decimales : ces
 const SCR_CCY = { NMS: '$', NGM: '$', NCM: '$', NYQ: '$', ASE: '$', PCX: '$', BATS: '$',
   PAR: '€', AMS: '€', GER: '€', MIL: '€', MCE: '€', BRU: '€', LIS: '€', HEL: '€', VIE: '€',
   LSE: '£', EBS: 'CHF', VTX: 'CHF', STO: 'kr', CPH: 'kr' };
+// Nombre d'un prix : 2 décimales, sans décimale au-delà de 1 000, et sous 0,01 (crypto type SHIB à
+// 0,0000053 $) les décimales significatives plutôt qu'un "0.00" trompeur.
+function scrPxNum(val) {
+  const a = Math.abs(val);
+  if (a >= 1000) return val.toLocaleString('fr-FR', { maximumFractionDigits: 0 });
+  if (a > 0 && a < 0.01) return val.toFixed(10).replace(/0+$/, '').replace(/\.$/, '');
+  return val.toFixed(2);
+}
 function scrPrice(p, exch) {
   if (p == null || !isFinite(p)) return '–';
   const val = scrToDisp(Number(p), exch);
-  if (val != null) { const n = val >= 1000 ? val.toLocaleString('fr-FR', { maximumFractionDigits: 0 }) : val.toFixed(2); return SCR_DISP_CCY === 'EUR' ? (n + ' €') : ('$' + n); }
+  if (val != null) { const n = scrPxNum(val); return SCR_DISP_CCY === 'EUR' ? (n + ' €') : ('$' + n); }
   // repli devise native si le taux de change n'a pas pu être chargé
   let v = Number(p); if (exch === 'LSE') v = v / 100;
   const c = SCR_CCY[exch] || '';
@@ -8840,7 +8848,7 @@ function scrLinesMap(s) {
 }
 // Aides journal Revolut (stocks/screener/transactions) : cle de titre commune aux positions (VUAA.DE) et au
 // journal (VUAA), prix d'un ordre en USD, ordres d'un jour (date LOCALE, celle des instantanés du VPS).
-const SCR_TX_SUFFIX = /\.(DE|PA|AS|MI|L|SW|MC|BR|LS|HE|VI|ST|CO)$/;
+const SCR_TX_SUFFIX = /(\.(DE|PA|AS|MI|L|SW|MC|BR|LS|HE|VI|ST|CO)|-(USD|EUR))$/;   // VUAA.DE = VUAA, SHIB-USD = SHIB (journal Revolut)
 function scrTxKey(t) { return String(t || '').toUpperCase().trim().replace(SCR_TX_SUFFIX, ''); }
 function scrTxPriceUsd(t) {
   const px = Number(t.price), ccy = String(t.ccy || 'USD').toUpperCase();
@@ -9985,7 +9993,7 @@ function renderPositionsTable(pos, onChange) {
     const fairUsd = (dcf && dcf.fair > 0 && d) ? scrToUsd(dcf.fair, d.exchange) : null;
     if (fairUsd != null && priceUsd != null) { totFairUsd += qty * fairUsd; totFairBaseUsd += valeur; }
     parts.push({ ticker: p.ticker, valeur: valeur, sector: (d && d.sector) ? d.sector : 'Autre', country: scrCountryOf(d) });
-    const qtyTxt = (qty % 1 === 0) ? String(qty) : qty.toLocaleString('fr-FR', { maximumFractionDigits: 3 });
+    const qtyTxt = (qty % 1 === 0) ? (qty >= 10000 ? qty.toLocaleString('fr-FR') : String(qty)) : qty.toLocaleString('fr-FR', { maximumFractionDigits: 3 });
     const logo = d ? scrLogo(p.ticker, d.website) : scrEl('span', { style: 'display:inline-block;width:22px' });
     const del = scrEl('button', { text: '×', style: 'border:none;background:none;color:#c0392b;font-size:1.15rem;cursor:pointer;font-weight:800;line-height:1' });
     del.onclick = () => { const arr = scrGetPositions().slice(); arr.splice(i, 1); scrSavePositions(arr); onChange(); if (SCR_HIST_RERENDER) SCR_HIST_RERENDER(); };
@@ -10009,7 +10017,7 @@ function renderPositionsTable(pos, onChange) {
     tbody.appendChild(scrEl('tr', { kids: [
       scrEl('td', { attrs: zStripe ? { title: "Zone d'achat : " + SCR_ZONE[zBand.zone].label + " (bandeau vert = décoté, rouge = cher, d'après la juste valeur DCF)" } : {}, style: `padding:6px 10px;${bd}${zStripe ? ';box-shadow:inset 4px 0 0 0 ' + zStripe : ''}`, kids: [scrEl('div', { style: 'display:flex;align-items:center;gap:8px', kids: tkKids })] }),
       scrEl('td', { text: qtyTxt, style: `padding:6px 10px;text-align:right;${bd};color:#42546a;font-weight:600` }),
-      scrEl('td', { text: (p.pru != null ? usdToDisp(p.pru).toFixed(2) : '–'), style: `padding:6px 10px;text-align:right;${bd};color:#42546a` }),
+      scrEl('td', { text: (p.pru != null ? scrPxNum(usdToDisp(p.pru)) : '–'), style: `padding:6px 10px;text-align:right;${bd};color:#42546a` }),
       (d ? scrCoursCell(d, bd, true) : scrEl('td', { text: '–', style: `padding:6px 10px;text-align:right;${bd};color:#c3ccd6` })),
       scrEl('td', { text: dayTxt, attrs: (dj && dj.note) ? { title: dj.note } : {}, style: `padding:6px 10px;text-align:right;${bd};font-weight:700;color:${dayCol};white-space:nowrap${(dj && dj.note) ? ';cursor:help;text-decoration:underline dotted #9aa7b4' : ''}` }),
       scrEl('td', { style: `padding:6px 10px;text-align:right;${bd};font-weight:700;color:#22303f;white-space:nowrap`, kids: [
