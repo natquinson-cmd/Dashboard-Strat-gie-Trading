@@ -4081,8 +4081,13 @@ function ttlLineEndLabels() {   // derniere valeur de chaque courbe, au bord dro
       const meta = chart.getDatasetMeta(di); if (meta.hidden || !meta.data.length) return;
       const el = meta.data[meta.data.length - 1], v = Number(ds.data[ds.data.length - 1]);
       if (isNaN(v) || v === 0) return;
-      ctx.save(); ctx.font = 'bold 10px Inter, sans-serif'; ctx.fillStyle = ds.borderColor || '#42546a';
-      ctx.textAlign = 'right'; ctx.textBaseline = 'bottom'; ctx.fillText(fmt(Math.round(v)) + ' €', el.x - 2, el.y - 3); ctx.restore();
+      // chiffres en 14 px gras (10 px avant, illisibles) sur une pastille couleur carte pour rester nets sur l'aplat
+      const txt = fmt(Math.round(v)) + ' €';
+      ctx.save(); ctx.font = 'bold 14px Inter, sans-serif'; ctx.textAlign = 'right'; ctx.textBaseline = 'bottom';
+      const w = ctx.measureText(txt).width, px = el.x - 4, py = el.y - 4;
+      ctx.fillStyle = THEME === 'dark' ? 'rgba(26,26,26,0.82)' : 'rgba(255,255,255,0.85)';
+      ctx.beginPath(); ctx.roundRect(px - w - 6, py - 19, w + 12, 22, 6); ctx.fill();
+      ctx.fillStyle = ds.borderColor || '#42546a'; ctx.fillText(txt, px, py); ctx.restore();
     });
   } };
 }
@@ -7219,7 +7224,9 @@ function scrDomain(website) {
 function scrLogo(symbol, website) {
   const img = document.createElement('img');
   img.width = 38; img.height = 38; img.alt = '';
-  img.style.cssText = 'width:38px;height:38px;border-radius:8px;object-fit:contain;background:#fff;border:1px solid #eef1f5;flex-shrink:0';
+  // fond BLANC nommé (pas #fff) : le moteur de thème ne le convertit pas en foncé, donc les logos à marque
+  // sombre (Vanguard, rouge bordeaux) restent lisibles sur le thème foncé, comme sur le clair
+  img.style.cssText = 'width:38px;height:38px;border-radius:8px;object-fit:contain;background:white;border:1px solid #eef1f5;flex-shrink:0';
   const dom = scrDomain(website);
   const favicon = dom ? 'https://www.google.com/s2/favicons?domain=' + encodeURIComponent(dom) + '&sz=64' : '';
   const useFavicon = () => {
