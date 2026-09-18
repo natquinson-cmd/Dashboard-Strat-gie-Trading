@@ -1130,11 +1130,13 @@
     #ttlBrief .brief-col { flex: 0 0 auto !important; width: 190px; margin: 0 auto; }
     #ttlBrief { font-size: 0.8rem; }
   }
-  /* ═══════════ THÈME FONCÉ (façon Baggr) ═══════════
+  /* ═══════════ THÈME FONCÉ (palette Baggr) ═══════════
      Le moteur de thème (en tête du script) réécrit chaque couleur inline en
      var(--t-<rôle>-<hex>, <couleur d'origine>) ; la feuille de style est réécrite de même.
      En clair aucune variable n'est définie : le repli s'applique, rendu identique au pixel.
-     En foncé, ce bloc redéfinit les variables rôle par rôle. */
+     En foncé, ce bloc redéfinit les variables rôle par rôle, avec les couleurs lues dans le
+     thème sombre de l'application Baggr (fond #0d0d0d, cartes #1a1a1a, bleu #3f76ed, vert #66bb6a,
+     rouge #ff5252, ambre #ffb74d, série de graphiques #3f76ed #efc560 #e47b50 #8499c3 #807cfa #73dac3). */
   .theme-btn {
     width: 40px; height: 40px; border-radius: 10px; margin-left: 6px;
     border: 1px solid var(--border); background: var(--bg-card); color: var(--text-secondary);
@@ -1144,61 +1146,87 @@
   .theme-btn:hover { background: var(--bg-card-hover); color: var(--text-primary); }
   html[data-theme="dark"] {
     color-scheme: dark;
-    --bg-primary: #0c0d10; --bg-card: #1a1b20; --bg-card-hover: #22232a;
+    --bg-primary: #0d0d0d; --bg-card: #1a1a1a; --bg-card-hover: #222222;
     --border: rgba(255,255,255,0.08); --border-strong: rgba(255,255,255,0.14);
-    --text-primary: #f1f3f6; --text-secondary: #a6adba; --text-muted: #7c8595;
+    --text-primary: #f1f1f1; --text-secondary: #b3b3b3; --text-muted: #8b8b8b;
+    --positive: #66bb6a; --negative: #ff5252;
+    --accent-dax: #3f76ed; --accent-dax-light: #5c8aee; --accent-nas: #73dac3; --accent-nas-light: #94d2ca; --accent-merged: #807cfa;
+    --gradient-dax: #3f76ed; --gradient-nas: #73dac3; --gradient-merged: #807cfa;
+    --gradient-green: #66bb6a; --gradient-red: #de6058; --gradient-dwx: #efc560;
+    /* composantes des rgba() : teintes des calendriers, halos, ombres */
+    --t-rgb-1d9e74: 102,187,106; --t-rgb-46ba90: 102,187,106; --t-rgb-127a54: 102,187,106;
+    --t-rgb-dd5f66: 255,82,82; --t-rgb-ee7f6d: 222,96,88; --t-rgb-c0392b: 255,82,82; --t-rgb-b5564e: 222,96,88;
+    --t-rgb-3563e9: 63,118,237; --t-rgb-5f8bf2: 63,118,237; --t-rgb-3b82f6: 63,118,237; --t-rgb-2eb5a0: 115,218,195; --t-rgb-3ec3a7: 115,218,195;
+    --t-rgb-e0922c: 255,183,77; --t-rgb-f59e0b: 255,183,77; --t-rgb-d8e94a: 239,197,96; --t-rgb-a9b545: 210,178,85;
+    --t-rgb-7c3aed: 128,124,250; --t-rgb-9184ea: 128,124,250; --t-rgb-6366f1: 128,124,250; --t-rgb-8b5cf6: 128,124,250;
+    --t-rgb-22314f: 0,0,0; --t-rgb-22303f: 0,0,0; --t-rgb-1a2235: 0,0,0;
     /* textes */
-    --t-text-22303f: #f1f3f6; --t-text-22314f: #f1f3f6; --t-text-1f2d3d: #f1f3f6; --t-text-2d3a4d: #f1f3f6; --t-text-1a2235: #f1f3f6; --t-text-000000: #f1f3f6; --t-text-0a1600: #f1f3f6;
-    --t-text-42546a: #c9cfd8;
-    --t-text-5b6b7d: #a6adba; --t-text-64748f: #a6adba;
-    --t-text-9aa7b4: #7c8595; --t-text-94a0b4: #7c8595; --t-text-94a3b8: #7c8595; --t-text-94a3b5: #7c8595; --t-text-7b8a9a: #7c8595;
-    --t-text-c3ccd6: #5b6371; --t-text-b8c2cf: #5b6371;
-    --t-text-1d9e74: #34d399; --t-text-127a54: #34d399; --t-text-059669: #34d399; --t-text-1d7a5c: #34d399;
-    --t-text-dd5f66: #f87171; --t-text-c0392b: #f87171; --t-text-a5342f: #f87171; --t-text-dc2626: #f87171; --t-text-e0342e: #f87171; --t-text-b5564e: #f87171; --t-text-a02b34: #f87171; --t-text-e11d48: #f87171;
-    --t-text-3563e9: #60a5fa; --t-text-4a72b8: #60a5fa; --t-text-2f5fd0: #60a5fa; --t-text-2563eb: #60a5fa; --t-text-3b7dd8: #60a5fa;
-    --t-text-8a6d1f: #fbbf24; --t-text-b45309: #fbbf24; --t-text-b8860b: #fbbf24; --t-text-8a8200: #fbbf24; --t-text-e0922c: #fbbf24;
-    --t-text-3730d6: #a5b4fc; --t-text-6366f1: #a5b4fc; --t-text-818cf8: #a5b4fc;
-    --t-text-7c3aed: #c4b5fd; --t-text-a855f7: #c4b5fd; --t-text-9184ea: #c4b5fd; --t-text-8b6fc9: #c4b5fd; --t-text-8b5cf6: #c4b5fd;
+    --t-text-22303f: #f1f1f1; --t-text-22314f: #f1f1f1; --t-text-1f2d3d: #f1f1f1; --t-text-2d3a4d: #f1f1f1; --t-text-1a2235: #f1f1f1; --t-text-000000: #f1f1f1; --t-text-0a1600: #f1f1f1;
+    --t-text-42546a: #d0d0d0;
+    --t-text-5b6b7d: #b3b3b3; --t-text-64748f: #b3b3b3;
+    --t-text-9aa7b4: #8b8b8b; --t-text-94a0b4: #8b8b8b; --t-text-94a3b8: #8b8b8b; --t-text-94a3b5: #8b8b8b; --t-text-7b8a9a: #8b8b8b;
+    --t-text-c3ccd6: #5e5e5e; --t-text-b8c2cf: #5e5e5e;
+    --t-text-1d9e74: #66bb6a; --t-text-127a54: #66bb6a; --t-text-059669: #66bb6a; --t-text-1d7a5c: #66bb6a; --t-text-46ba90: #66bb6a;
+    --t-text-dd5f66: #ff5252; --t-text-c0392b: #ff5252; --t-text-a5342f: #ff5252; --t-text-dc2626: #ff5252; --t-text-e0342e: #ff5252; --t-text-b5564e: #ff5252; --t-text-a02b34: #ff5252; --t-text-e11d48: #ff5252;
+    --t-text-3563e9: #5c8aee; --t-text-4a72b8: #5c8aee; --t-text-2f5fd0: #5c8aee; --t-text-2563eb: #5c8aee; --t-text-3b7dd8: #5c8aee;
+    --t-text-8a6d1f: #ffb74d; --t-text-b45309: #ffb74d; --t-text-b8860b: #ffb74d; --t-text-8a8200: #ffb74d; --t-text-e0922c: #ffb74d; --t-text-f59e0b: #ffb74d;
+    --t-text-3730d6: #807cfa; --t-text-6366f1: #807cfa; --t-text-818cf8: #807cfa; --t-text-4f46e5: #807cfa;
+    --t-text-7c3aed: #b5a6e1; --t-text-a855f7: #b5a6e1; --t-text-9184ea: #b5a6e1; --t-text-8b6fc9: #b5a6e1; --t-text-8b5cf6: #b5a6e1;
+    --t-text-7c94b5: #8499c3;
     /* fonds */
-    --t-bg-ffffff: #1a1b20;
-    --t-bg-fafbfc: #202129; --t-bg-f6f8fb: #202129; --t-bg-fbfcfe: #202129; --t-bg-f8fafc: #202129; --t-bg-f1f4f8: #202129; --t-bg-f0f3f7: #202129; --t-bg-eef2f8: #202129;
-    --t-bg-e8edf3: #2b2e37; --t-bg-e3e8ee: #2b2e37;
-    --t-bg-eef1f5: #101115;
-    --t-bg-22303f: #2c2f38; --t-bg-22314f: #2c2f38; --t-bg-2d3a4d: #2c2f38; --t-bg-1a2235: #2c2f38;
-    --t-bg-3563e9: #3b82f6;
-    --t-bg-1d9e74: #10b981;
-    --t-bg-dd5f66: #ef4444;
-    --t-bg-4f46e5: #6366f1;
-    --t-bg-fdeaea: rgba(248,113,113,0.16); --t-bg-fbe9ea: rgba(248,113,113,0.16); --t-bg-fbdcde: rgba(248,113,113,0.16); --t-bg-ffa8ad: rgba(248,113,113,0.16);
-    --t-bg-fff2d9: rgba(245,182,66,0.16); --t-bg-fff8e6: rgba(245,182,66,0.16);
-    --t-bg-eef2fe: rgba(59,130,246,0.16); --t-bg-eef4ff: rgba(59,130,246,0.16); --t-bg-eef2ff: rgba(59,130,246,0.16); --t-bg-e8eefc: rgba(59,130,246,0.16); --t-bg-eaf0ff: rgba(59,130,246,0.16); --t-bg-e8effe: rgba(59,130,246,0.16); --t-bg-dbe7ff: rgba(59,130,246,0.16);
-    --t-bg-e9f7f0: rgba(52,211,153,0.15); --t-bg-e5f4ee: rgba(52,211,153,0.15); --t-bg-e4f5ee: rgba(52,211,153,0.15); --t-bg-d1f0e3: rgba(52,211,153,0.15); --t-bg-d8f0e6: rgba(52,211,153,0.15);
-    --t-bg-f3ecfb: rgba(139,92,246,0.18);
-    /* bordures, filets et ombres portées */
-    --t-border-e3e8ee: #272a33;
-    --t-border-eef1f5: #22242c;
-    --t-border-f4f6f9: #23252d; --t-border-f2f5f8: #23252d; --t-border-f6f8fb: #23252d; --t-border-f1f4f8: #23252d;
-    --t-border-ffffff: #1a1b20;
-    --t-border-dbe7ff: rgba(59,130,246,0.35);
-    --t-border-f5b5b5: rgba(248,113,113,0.4);
-    --t-border-f0d9a0: rgba(245,182,66,0.4);
-    --t-border-3563e9: #3b82f6;
-    --t-border-1d9e74: #34d399;
-    --t-border-22303f: #f1f3f6;
+    --t-bg-ffffff: #1a1a1a;
+    --t-bg-fafbfc: #212121; --t-bg-f6f8fb: #212121; --t-bg-fbfcfe: #212121; --t-bg-f8fafc: #212121; --t-bg-f1f4f8: #212121; --t-bg-f0f3f7: #212121; --t-bg-eef2f8: #212121;
+    --t-bg-e8edf3: #262626; --t-bg-e3e8ee: #262626;
+    --t-bg-eef1f5: #101010;
+    --t-bg-22303f: #2a2a2a; --t-bg-22314f: #2a2a2a; --t-bg-2d3a4d: #2a2a2a; --t-bg-1a2235: #2a2a2a;
+    --t-bg-3563e9: #3f76ed; --t-bg-5f8bf2: #3f76ed; --t-bg-3b82f6: #3f76ed;
+    --t-bg-1d9e74: #66bb6a;
+    --t-bg-dd5f66: #ff5252;
+    --t-bg-4f46e5: #807cfa; --t-bg-6366f1: #807cfa; --t-bg-7c3aed: #807cfa;
+    --t-bg-e0922c: #ffb74d; --t-bg-f59e0b: #ffb74d;
+    --t-bg-d8e94a: #efc560;
+    --t-bg-a02b34: #d32f2f;
+    --t-bg-8fdcbc: #4f8f53;
+    --t-bg-c9a8f5: #5d5ab5;
+    --t-bg-fdeaea: #2d1b1b; --t-bg-fbe9ea: #2d1b1b; --t-bg-fbdcde: #2d1b1b; --t-bg-ffa8ad: #2d1b1b;
+    --t-bg-fff2d9: #2d2419; --t-bg-fff8e6: #2d2419;
+    --t-bg-eef2fe: #1a2b5c; --t-bg-eef4ff: #1a2b5c; --t-bg-eef2ff: #1a2b5c; --t-bg-e8eefc: #1a2b5c; --t-bg-eaf0ff: #1a2b5c; --t-bg-e8effe: #1a2b5c; --t-bg-dbe7ff: #1a2b5c;
+    --t-bg-e9f7f0: #1b2d1b; --t-bg-e5f4ee: #1b2d1b; --t-bg-e4f5ee: #1b2d1b; --t-bg-d1f0e3: #1b2d1b; --t-bg-d8f0e6: #1b2d1b;
+    --t-bg-f3ecfb: #26233d;
+    /* bordures, filets, traits des courbes et ombres portées */
+    --t-border-e3e8ee: rgba(255,255,255,0.08);
+    --t-border-eef1f5: rgba(255,255,255,0.06); --t-border-f4f6f9: rgba(255,255,255,0.06); --t-border-f2f5f8: rgba(255,255,255,0.06); --t-border-f6f8fb: rgba(255,255,255,0.06); --t-border-f1f4f8: rgba(255,255,255,0.06);
+    --t-border-ffffff: #1a1a1a;
+    --t-border-dbe7ff: rgba(63,118,237,0.45);
+    --t-border-f5b5b5: rgba(255,82,82,0.45);
+    --t-border-f0d9a0: rgba(255,183,77,0.45);
+    --t-border-3563e9: #3f76ed; --t-border-5f8bf2: #3f76ed; --t-border-3b82f6: #3f76ed;
+    --t-border-3b7dd8: #5c8aee;
+    --t-border-1d9e74: #66bb6a; --t-border-46ba90: #66bb6a;
+    --t-border-dd5f66: #ff5252;
+    --t-border-a02b34: #d32f2f;
+    --t-border-e0922c: #ffb74d; --t-border-f59e0b: #ffb74d;
+    --t-border-7c94b5: #8499c3;
+    --t-border-8b6fc9: #807cfa; --t-border-9184ea: #807cfa; --t-border-6366f1: #807cfa; --t-border-7c3aed: #807cfa;
+    --t-border-d8e94a: #efc560;
+    --t-border-a9b545: #d2b255;
+    --t-border-22303f: #b3b3b3; --t-border-22314f: #b3b3b3;
+    --t-border-c3ccd6: #4d4d4d;
+    --t-border-9aa7b4: #8b8b8b; --t-border-94a0b4: #8b8b8b;
   }
-  /* vernis Baggr : un léger dégradé de lumière en haut de chaque carte, ombres profondes */
+  /* cartes : un léger dégradé de lumière en haut, ombres profondes (Baggr) */
   html[data-theme="dark"] .kpi-card, html[data-theme="dark"] .chart-card, html[data-theme="dark"] .inv-card,
   html[data-theme="dark"] .hero-card, html[data-theme="dark"] .inv-chart-card {
-    background-image: linear-gradient(180deg, rgba(255,255,255,0.045), rgba(255,255,255,0) 60%);
-    box-shadow: 0 10px 28px rgba(0,0,0,0.38);
+    background-image: linear-gradient(180deg, rgba(255,255,255,0.035), rgba(255,255,255,0) 60%);
+    box-shadow: 0 10px 28px rgba(0,0,0,0.45);
   }
   html[data-theme="dark"] [style*="--t-bg-ffffff"] {
-    background-image: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0) 60%) !important;
+    background-image: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0) 60%) !important;
   }
-  html[data-theme="dark"] .tab-btn.active { background: linear-gradient(135deg, #3b82f6, #2563eb); box-shadow: 0 6px 18px rgba(59,130,246,0.35); }
-  html[data-theme="dark"] .sub-tab-btn.active { background: rgba(59,130,246,0.18); border-color: rgba(59,130,246,0.45); }
+  html[data-theme="dark"] .tab-btn.active { background: linear-gradient(135deg, #3f76ed 0%, #1447b8 100%); box-shadow: 0 6px 18px rgba(63,118,237,0.35); }
+  html[data-theme="dark"] .sub-tab-btn.active { background: rgba(63,118,237,0.16); border-color: rgba(63,118,237,0.45); }
   html[data-theme="dark"] .sub-tab-btn:hover { background: rgba(255,255,255,0.05); }
-  html[data-theme="dark"] input, html[data-theme="dark"] select, html[data-theme="dark"] textarea { background: #101115; color: #f1f3f6; }
+  html[data-theme="dark"] input, html[data-theme="dark"] select, html[data-theme="dark"] textarea { background: #101010; color: #f1f1f1; }
 </style>
 </head>
 <body>
@@ -1680,9 +1708,13 @@ function themeRole(prop) {
   if (prop.indexOf('border') === 0 || prop === 'outline' || prop === 'outline-color' || prop === 'box-shadow') return 'border';
   return null;
 }
-const THEME_COLOR_RE = /#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})\b|rgb\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)/g;
+const THEME_COLOR_RE = /#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})\b|rgb\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)|rgba\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*([\d.]+)\s*\)/g;
 const THEME_COLOR_ONE = /^(?:#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})|rgb\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\))$/;
-function themeVar(role, m, h, r, g, b) {
+function themeVar(role, m, h, r, g, b, r2, g2, b2, a2) {
+  if (r2 != null) {   // rgba(r,g,b,a) : les composantes passent en variable, la transparence reste
+    const hex2 = [r2, g2, b2].map((n) => ('0' + (Number(n) & 255).toString(16)).slice(-2)).join('');
+    return 'rgba(var(--t-rgb-' + hex2 + ', ' + r2 + ',' + g2 + ',' + b2 + '), ' + a2 + ')';
+  }
   const hex = h ? (h.length === 3 ? h[0] + h[0] + h[1] + h[1] + h[2] + h[2] : h).toLowerCase()
     : [r, g, b].map((n) => ('0' + (Number(n) & 255).toString(16)).slice(-2)).join('');
   return 'var(--t-' + role + '-' + hex + ', ' + m + ')';
@@ -1695,7 +1727,7 @@ function themeRewriteStyle(str) {
     const prop = decl.slice(0, i).trim().toLowerCase(), val = decl.slice(i + 1);
     const role = themeRole(prop);
     if (!role || val.indexOf('var(--t-') >= 0 || val.indexOf('url(') >= 0) return decl;
-    const nv = val.replace(THEME_COLOR_RE, (m, h, r, g, b) => themeVar(role, m, h, r, g, b));
+    const nv = val.replace(THEME_COLOR_RE, (m, h, r, g, b, r2, g2, b2, a2) => themeVar(role, m, h, r, g, b, r2, g2, b2, a2));
     if (nv !== val) changed = true;
     return decl.slice(0, i + 1) + nv;
   }).join(';');
@@ -1704,7 +1736,7 @@ function themeRewriteStyle(str) {
 function themeApplyEl(el) {
   if (!el || el.nodeType !== 1 || !el.getAttribute) return;
   const st = el.getAttribute('style');
-  if (st && (st.indexOf('#') >= 0 || st.indexOf('rgb(') >= 0)) { const nv = themeRewriteStyle(st); if (nv) el.setAttribute('style', nv); }
+  if (st && (st.indexOf('#') >= 0 || st.indexOf('rgb') >= 0)) { const nv = themeRewriteStyle(st); if (nv) el.setAttribute('style', nv); }   // 'rgb' couvre rgb( et rgba(
   // SVG : l'attribut reste la source (le code le change au survol), le style inline le suit
   if (el.namespaceURI === 'http://www.w3.org/2000/svg') {
     const texte = el.tagName === 'text' || el.tagName === 'tspan';
@@ -1744,10 +1776,42 @@ function themeToggle() {
 // Dégradés façon Baggr sur les barres et les aires (thème foncé seulement) : une couleur unie
 // devient un dégradé vertical, pleine en haut, estompée en bas. Les couleurs par barre (tableaux
 // rouge/vert) sont respectées barre par barre.
+// Couleurs de séries du dashboard (posées en hex dans le code) -> série Baggr, même transparence.
+const THEME_CHART_MAP = {
+  '1d9e74': '66bb6a', '46ba90': '66bb6a', '34d399': '81c784', '127a54': '66bb6a', '059669': '66bb6a',
+  'dd5f66': 'ff5252', 'ee7f6d': 'de6058', 'e0342e': 'ff5252', 'c0392b': 'ff5252', 'a02b34': 'd32f2f', 'b5564e': 'de6058',
+  '3563e9': '3f76ed', '5f8bf2': '3f76ed', '7fa4f5': '5c8aee', '3b82f6': '3f76ed', '2563eb': '1447b8', '3b7dd8': '5c8aee', '4a72b8': '3f76ed',
+  '2eb5a0': '73dac3', '3ec3a7': '73dac3', '56cbb4': '94d2ca', '14b8a6': '73dac3', '22d3ee': '6fbdc9', '0ea5e9': '6ba5e5',
+  '9184ea': '807cfa', '6366f1': '807cfa', '8b5cf6': '807cfa', '7c3aed': '807cfa', '4f46e5': '807cfa', '818cf8': '807cfa', 'a78bfa': 'b5a6e1', '8b6fc9': '807cfa',
+  'd8e94a': 'efc560', 'a9b545': 'd2b255', 'e0922c': 'ffb74d', 'f59e0b': 'ffb74d', 'eab308': 'efc560', 'f97316': 'e47b50', 'ec4899': 'e195b8', 'f43f5e': 'de6058',
+  '22303f': 'b3b3b3', '22314f': 'b3b3b3', '42546a': 'c5c5c5', '5b6b7d': 'b3b3b3', '64748f': 'b3b3b3', '9aa7b4': '8b8b8b', '94a0b4': '8b8b8b', 'c3ccd6': '4d4d4d', '7c94b5': '8499c3',
+};
+function themeMapColor(c) {
+  if (typeof c !== 'string') return c;
+  const t = c.trim();
+  let m, hex, a = null;
+  if ((m = t.match(/^#([0-9a-f]{6})$/i))) hex = m[1].toLowerCase();
+  else if ((m = t.match(/^#([0-9a-f]{3})$/i))) hex = (m[1][0] + m[1][0] + m[1][1] + m[1][1] + m[1][2] + m[1][2]).toLowerCase();
+  else if ((m = t.match(/^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*([\d.]+))?\s*\)$/i))) { hex = [m[1], m[2], m[3]].map((n) => ('0' + (Number(n) & 255).toString(16)).slice(-2)).join(''); if (m[4] != null) a = +m[4]; }
+  else return c;
+  const to = THEME_CHART_MAP[hex];
+  if (!to) return c;
+  if (a == null || a >= 1) return '#' + to;
+  return 'rgba(' + parseInt(to.slice(0, 2), 16) + ',' + parseInt(to.slice(2, 4), 16) + ',' + parseInt(to.slice(4, 6), 16) + ',' + a + ')';
+}
 const themeGradientPlugin = {
   id: 'themeGradient',
   beforeUpdate(chart) {
     const horiz = chart.options && chart.options.indexAxis === 'y';
+    // 1) couleurs de séries -> palette Baggr (chaînes et tableaux ; les fonctions sont laissées)
+    (chart.data.datasets || []).forEach((ds) => {
+      ['backgroundColor', 'borderColor', 'pointBackgroundColor', 'pointBorderColor', 'hoverBackgroundColor', 'hoverBorderColor'].forEach((k) => {
+        const v = ds[k];
+        if (typeof v === 'string') ds[k] = themeMapColor(v);
+        else if (Array.isArray(v)) ds[k] = v.map(themeMapColor);
+      });
+    });
+    // 2) barres et aires en dégradé
     const rgba = (c, k) => {
       if (typeof c !== 'string') return c;
       const t = c.trim();
@@ -5950,8 +6014,8 @@ function fmt(n) { return Math.round(n).toLocaleString('fr'); }
 // ══════════════════════════════════════════════════════════════
 // CHART DEFAULTS
 // ══════════════════════════════════════════════════════════════
-Chart.defaults.color = THEME === 'dark' ? '#a6adba' : '#64748f';
-Chart.defaults.borderColor = THEME === 'dark' ? 'rgba(255,255,255,0.08)' : 'rgba(34,49,77,0.10)';
+Chart.defaults.color = THEME === 'dark' ? '#b3b3b3' : '#64748f';   // Baggr : texte des axes #b3b3b3, grille #262626
+Chart.defaults.borderColor = THEME === 'dark' ? '#262626' : 'rgba(34,49,77,0.10)';
 Chart.defaults.font.family = "'Plus Jakarta Sans', sans-serif";
 
 // ══════════════════════════════════════════════════════════════
