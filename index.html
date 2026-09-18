@@ -1137,6 +1137,10 @@
      En foncé, ce bloc redéfinit les variables rôle par rôle, avec les couleurs lues dans le
      thème sombre de l'application Baggr (fond #0d0d0d, cartes #1a1a1a, bleu #3f76ed, vert #66bb6a,
      rouge #ff5252, ambre #ffb74d, série de graphiques #3f76ed #efc560 #e47b50 #8499c3 #807cfa #73dac3). */
+  /* Détails par plateforme : un filet net sous chaque plateforme, sinon on ne sait plus à quelle
+     ligne appartiennent le capital (à droite du nom) et le "ce mois" (ligne du dessous) */
+  .inv-plat-row { padding-bottom: 10px; border-bottom: 1px solid var(--border-strong); }
+  .inv-plat-row:last-child { padding-bottom: 0; border-bottom: none; }
   .theme-btn {
     width: 40px; height: 40px; border-radius: 10px; margin-left: 6px;
     border: 1px solid var(--border); background: var(--bg-card); color: var(--text-secondary);
@@ -11212,7 +11216,7 @@ function invRenderOverview(t, labels, li) {
     const pc = t.tp > 0 ? (v / t.tp * 100).toFixed(1) : 0;
     const iv = invToEur(p, (d.interests[p] || [])[li] || 0);
     if (v > 0) {
-      h += `<div><div class="inv-flex inv-jcsb" style="font-size:12px;margin-bottom:4px"><span class="inv-flex inv-aic inv-gap2"><span class="inv-dot" style="background:${invColor(p,i)};box-shadow:0 0 6px ${invColor(p,i)}"></span><span style="color:var(--text-secondary)">${p}${invIsUsd(p) ? ' <span style="font-size:0.6rem">🇺🇸</span>' : ''}</span></span><span style="font-weight:500">${invFmt(Math.round(v))}</span></div>`;
+      h += `<div class="inv-plat-row"><div class="inv-flex inv-jcsb" style="font-size:12px;margin-bottom:4px"><span class="inv-flex inv-aic inv-gap2"><span class="inv-dot" style="background:${invColor(p,i)};box-shadow:0 0 6px ${invColor(p,i)}"></span><span style="color:var(--text-secondary)">${p}${invIsUsd(p) ? ' <span style="font-size:0.6rem">🇺🇸</span>' : ''}</span></span><span style="font-weight:500">${invFmt(Math.round(v))}</span></div>`;
       h += `<div class="inv-neon-bar"><div class="inv-neon-fill" style="width:${pc}%;background:${invColor(p,i)}"></div></div>`;
       const ivR = Math.round(iv);
       const ivColor = ivR > 0 ? 'var(--positive)' : (ivR < 0 ? 'var(--negative)' : 'var(--text-secondary)');
@@ -13620,6 +13624,18 @@ function syncRevolutFromPositions() {
     if (monthEndUsd[ym] != null) lastVal = monthEndUsd[ym];
     if (lastVal != null) d.principal[p][i] = Math.round(lastVal * usdEurRate);   // USD -> EUR
   }
+  // "Intérêts" de Revolut = P&L de MARCHÉ du Portefeuille d'actions, net des apports, mois par mois
+  // (même calcul que le calendrier mensuel de l'onglet Portefeuille, converti en EUR). Avant, la case
+  // gardait les intérêts saisis à la main de l'époque ETF seul, donc 0 depuis que la ligne est synchronisée.
+  // Les mois d'avant l'historique gardent leur saisie.
+  if (Array.isArray(d.interests[p]) && typeof scrMonthAgg === 'function' && typeof scrHistArray === 'function') {
+    const agg = scrMonthAgg(scrHistArray(positionsHistoryData));
+    for (let i = 0; i < d.months.length; i++) {
+      const ym = d.months[i];
+      if (ym < firstHistMonth) continue;
+      d.interests[p][i] = agg[ym] ? Math.round(agg[ym].sum * usdEurRate) : 0;
+    }
+  }
 }
 function syncRevolutDca() {
   if (!portfolioData) return;
@@ -13731,6 +13747,11 @@ Promise.all([
   }
   ensureMonthsUpToCurrent(); // étend les mois jusqu'au mois courant (sélectionnable partout)
   syncRobotTrading();
+  // Lendermarket = l'historique de la répartition (capital "Moi"), seule source de vérité : sans ce
+  // rejeu au chargement, le report du mois précédent (carryForwardPortfolioData) ressuscitait les
+  // 1 730 € de juillet en août et septembre alors que le retrait complet est acté en août.
+  invRebuildLendermarketFromHistory();
+  invSyncLendermarketFromRep();
   syncYounitedLoan(); // auto-remplit l'emprunt Younited depuis l'échéancier officiel
   syncRevolutLoan();  // auto-remplit l'emprunt Revolut depuis l'échéancier officiel
   syncRevolutFromPositions();   // ligne Revolut = valeur totale du Portefeuille d'actions (snapshot mensuel, USD->EUR)
