@@ -7243,7 +7243,8 @@ function scrLogo(symbol, website) {
       if (visible / (s * s) < 0.02) useFavicon();   // < 2% de pixels colores = logo blanc
     } catch (e) { /* canvas tainted : on garde le logo FMP */ }
   };
-  img.src = 'https://financialmodelingprep.com/image-stock/' + encodeURIComponent(symbol) + '.png';
+  // crypto : Yahoo dit SHIB-USD, FMP range le logo sous SHIBUSD
+  img.src = 'https://financialmodelingprep.com/image-stock/' + encodeURIComponent(/-(USD|EUR)$/.test(symbol) ? symbol.replace('-', '') : symbol) + '.png';
   img.style.cursor = 'pointer'; img.title = 'Voir la fiche société';
   img.addEventListener('click', (e) => { e.stopPropagation(); if (typeof scrShowCompanyCard === 'function') scrShowCompanyCard(symbol); });
   return img;
@@ -7656,7 +7657,11 @@ function renderEnfantsTab() {
     kidsSave(); renderEnfantsTab();
   };
   [tkIn, hzIn, rdIn].forEach((el) => { el.onchange = saveCfg; });
-  wrap.appendChild(scrEl('div', { style: 'display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px;font-size:0.8rem;color:#5b6b7d', kids: [
+  // Réglages et saisie vivent dans un bloc à part, placé SOUS les deux graphiques (demande user) :
+  // ce qu'on regarde tous les jours en haut, ce qu'on touche une fois par mois en bas.
+  const formBlock = scrEl('div', { style: 'background:#fafbfc;border:1px solid #eef1f5;border-radius:10px;padding:12px 14px;margin-bottom:14px' });
+  formBlock.appendChild(scrEl('div', { text: 'Réglages et saisie des versements', style: 'font-size:0.62rem;color:#9aa7b4;text-transform:uppercase;font-weight:800;letter-spacing:.05em;margin-bottom:10px' }));
+  formBlock.appendChild(scrEl('div', { style: 'display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px;font-size:0.8rem;color:#5b6b7d', kids: [
     scrEl('span', { text: 'ETF' }), tkIn,
     scrEl('span', { text: 'horizon' }), hzIn, scrEl('span', { text: 'ans' }),
     scrEl('span', { text: 'rendement annuel supposé' }), rdIn, scrEl('span', { text: '%' })] }));
@@ -7739,10 +7744,11 @@ function renderEnfantsTab() {
     SCR_KIDS.contributions = list;
     kidsSave(); kIn.value = ''; aIn.value = ''; uIn.value = ''; renderEnfantsTab();
   };
-  wrap.appendChild(scrEl('div', { style: 'display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px', kids: [dIn, srcIn, kIn, aIn, uIn, addBtn, dl, lmHint] }));
+  formBlock.appendChild(scrEl('div', { style: 'display:flex;gap:8px;flex-wrap:wrap;align-items:center', kids: [dIn, srcIn, kIn, aIn, uIn, addBtn, dl, lmHint] }));
   syncSrc();
 
   if (!kidsContribs().length) {
+    wrap.appendChild(formBlock);
     wrap.appendChild(scrEl('div', { style: 'color:#9aa7b4;font-size:0.82rem;line-height:1.5', text: "Aucun versement enregistré. Saisis un premier versement ci-dessus : la date, le prénom de l’enfant, le montant versé et le nombre de parts achetées (les deux figurent dans ta transaction Revolut). Chaque enfant possède ainsi un nombre de parts exact, ce qui rend la répartition incontestable." }));
     c.replaceChildren(wrap);
     return;
@@ -7759,6 +7765,23 @@ function renderEnfantsTab() {
       scrEl('div', { text: sub || '', style: 'font-size:0.68rem;color:#5b6b7d;margin-top:1px' })].concat(gain ? [
       scrEl('div', { text: gain.txt, style: 'font-size:0.72rem;font-weight:800;margin-top:3px;color:' + gain.col })] : []) });
   const gainShare = (agg.value != null && agg.value > 0 && agg.pnl != null) ? (agg.pnl / agg.value) : null;
+  // Plus-value du JOUR et du MOIS EN COURS : même règle que le calendrier du portefeuille d'actions,
+  // variation de valeur entre deux points de la série nette des versements intervenus entre les deux.
+  // Le point de départ est la dernière clôture avant aujourd'hui (jour) ou avant le 1er du mois (mois) ;
+  // l'arrivée est la valeur actuelle au cours live. Sans point avant le mois (suivi commencé ce mois-ci),
+  // la plus-value du mois est celle depuis le début.
+  const serie = kidsHistSeries();
+  const kToday = scrLocalDay(new Date()), kMonthStart = kToday.slice(0, 7) + '-01';
+  const kPrev = (before) => { for (let i = serie.length - 1; i >= 0; i--) if (serie[i].date < before) return serie[i]; return null; };
+  const kPrevDay = kPrev(kToday), kPrevMonth = kPrev(kMonthStart);
+  const kVal = agg.value, kInv = agg.invested;
+  const kDay = (kPrevDay && kVal != null) ? ((kVal - kPrevDay.value) - (kInv - kPrevDay.invested)) : null;
+  const kDayPct = (kDay != null && kPrevDay.value > 0) ? kDay / kPrevDay.value : null;
+  const kMonth = (kVal == null) ? null : (kPrevMonth ? ((kVal - kPrevMonth.value) - (kInv - kPrevMonth.invested)) : (agg.pnl != null ? agg.pnl : null));
+  const kMonthPct = (kMonth != null) ? (kPrevMonth ? (kPrevMonth.value > 0 ? kMonth / kPrevMonth.value : null) : agg.pnlPct) : null;
+  const kFr = (d) => { const x = new Date(d + 'T00:00:00'); return isNaN(x) ? d : (String(x.getDate()).padStart(2, '0') + '/' + String(x.getMonth() + 1).padStart(2, '0')); };
+  const kMoisNom = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'][new Date().getMonth()];
+  const pnlCol = (x) => (x == null ? '#9aa7b4' : (x >= 0 ? '#1d9e74' : '#dd5f66'));
   wrap.appendChild(scrEl('div', { style: 'display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px', kids: [
     tile('Valeur de la poche', money(agg.value), agg.price != null ? (cfg.ticker + ' à ' + kidsMoney(agg.price, 2)) : 'cours indisponible', '#22303f',
       'Valeur de marché de toutes les parts détenues pour les enfants. Cette poche est exclue de ton capital personnel.'),
@@ -7780,19 +7803,19 @@ function renderEnfantsTab() {
     const gapCol = ret.gap == null ? '#9aa7b4' : (ret.gap >= 0 ? '#1d9e74' : '#dd5f66');
     const gapTxt = ret.dates < 2 ? 'identique tant que tous tes versements datent du même jour'
       : ((ret.gap >= 0 ? '+' : '') + (ret.gap * 100).toFixed(2) + ' pt grâce au moment de tes versements');
-    wrap.appendChild(scrEl('div', { style: 'display:flex;gap:10px;flex-wrap:wrap;margin-bottom:6px', kids: [
+    // Plus-value du jour, du mois en cours, rendement du fonds. "Rendement de tes versements" retiré (choix user).
+    wrap.appendChild(scrEl('div', { style: 'display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px', kids: [
+      tile('Plus-value du jour', kDay == null ? '–' : sign(kDay) + money(kDay),
+        kDay == null ? 'dès la deuxième journée suivie' : ((kDayPct != null ? (sign(kDayPct) + (kDayPct * 100).toFixed(2) + ' %') : '') + ' vs clôture du ' + kFr(kPrevDay.date)),
+        pnlCol(kDay), 'Variation de la valeur de la poche depuis la dernière clôture, nette des versements du jour. Même règle que le calendrier du portefeuille d’actions.'),
+      tile('Plus-value du mois', kMonth == null ? '–' : sign(kMonth) + money(kMonth),
+        kMonth == null ? '' : ((kMonthPct != null ? (sign(kMonthPct) + (kMonthPct * 100).toFixed(2) + ' %') : '') + (kPrevMonth ? (' en ' + kMoisNom + ', vs clôture du ' + kFr(kPrevMonth.date)) : ' depuis le début du suivi')),
+        pnlCol(kMonth), 'Variation de la valeur de la poche depuis la dernière clôture du mois précédent, nette des versements du mois.'),
       tile('Rendement du fonds', pc(ret.fund), cfg.ticker + ' depuis le ' + depTxt, ret.fund >= 0 ? '#1d9e74' : '#dd5f66',
-        "Performance de l'ETF lui-même depuis ton premier versement. Elle ne dépend pas de toi : c'est ce que le marché a fait."),
-      tile('Rendement de tes versements', pc(ret.mine), gapTxt, ret.mine >= 0 ? '#1d9e74' : '#dd5f66',
-        "Ce que ton argent a réellement rapporté, compte tenu de la DATE de chaque versement. L'écart avec le rendement du fonds est la seule part qui relève de tes décisions : positif, tes versements sont tombés sur de bons points d'entrée.")] }));
-    wrap.appendChild(scrEl('div', { style: 'font-size:0.66rem;color:#9aa7b4;margin-bottom:14px;line-height:1.45',
-      text: ret.dates < 2
-        ? 'Tes versements datent tous du même jour : ces deux chiffres sont donc identiques par construction. Ils divergeront dès le premier versement à une AUTRE date, par exemple quand le capital Lendermarket se libérera. L’écart mesurera alors si tes points d’entrée successifs ont aidé ou pénalisé.'
-        : 'Le rendement du fonds ne dépend pas de toi. Celui de tes versements dépend du moment où tu as investi. L’écart entre les deux est la seule chose que tes décisions influencent.' }));
+        "Performance de l'ETF lui-même depuis ton premier versement. Elle ne dépend pas de toi : c'est ce que le marché a fait.")] }));
   }
 
   // ---- Courbe d'evolution (reutilise le graphique du portefeuille, axes + survol) ----
-  const serie = kidsHistSeries();
   if (serie.length >= 2) {
     // Courbe d evolution A GAUCHE + performance A DROITE. Pas de Nasdaq ici : un indice 100 % tech US
     // n a aucun sens face a un ETF monde. Le S&P 500 est fourni comme simple CONTEXTE.
@@ -7805,6 +7828,8 @@ function renderEnfantsTab() {
     wrap.appendChild(scrEl('div', { style: 'background:#fafbfc;border:1px solid #eef1f5;border-radius:10px;padding:12px 14px;margin-bottom:14px;font-size:0.78rem;color:#9aa7b4',
       text: 'Les graphiques se tracent dès la deuxième journée suivie : la poche vient d’être créée, il n’y a encore qu’un seul point. Le VPS enregistre le cours chaque jour, la courbe se remplira toute seule.' }));
   }
+
+  wrap.appendChild(formBlock);   // réglages et saisie, sous les graphiques
 
   // ---- Repartition par enfant : camembert + tableau ----
   const items = agg.kids.map((k, i) => ({ label: k.child, value: k.units, color: kidColor(k.child, i),
@@ -8212,7 +8237,8 @@ function scrHoldingsUsd() {
   const h = {};
   scrGetPositions().forEach((p) => {
     const tk = (p.ticker || '').toUpperCase(), d = SCR_PRICE_MAP[tk];
-    if (d && d.sector === 'ETF') return;                       // ETF = socle, pas dans le sleeve actions
+    if (d && (d.sector === 'ETF' || d.sector === 'Crypto')) return;   // ETF = socle, crypto = à part : ni l'un ni l'autre dans le sleeve actions
+    if (/-(USD|EUR)$/.test(tk)) return;                          // crypto pas encore qualifiée par les cours live
     const qty = (p.qty != null) ? p.qty : ((p.amount != null && p.pru) ? p.amount / p.pru : 0);
     const pu = d ? scrToUsd(d.price, d.exchange) : null;
     const val = (pu != null) ? qty * pu : qty * (p.pru || 0);
@@ -8635,6 +8661,7 @@ function scrApplyLpValue(lp) {
     if (q.changePct != null) SCR_PRICE_MAP[k].changePct = q.changePct;
     if (q.exchange && !SCR_PRICE_MAP[k].exchange) SCR_PRICE_MAP[k].exchange = q.exchange;
     if (q.quoteType === 'ETF' && (!SCR_PRICE_MAP[k].sector || SCR_PRICE_MAP[k].sector === 'N/A')) SCR_PRICE_MAP[k].sector = 'ETF';   // ETF socle (méthode DK)
+    if (q.quoteType === 'CRYPTOCURRENCY' && (!SCR_PRICE_MAP[k].sector || SCR_PRICE_MAP[k].sector === 'N/A')) SCR_PRICE_MAP[k].sector = 'Crypto';
     SCR_PRICE_MAP[k].live = true;
     if (q.ts) {                              // heure de l'echange en bourse pour CETTE ligne
       SCR_PRICE_MAP[k].ts = q.ts;

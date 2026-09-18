@@ -241,7 +241,9 @@ class Yahoo:
                 step = (len(closes) - 1) / (max_points - 1)
                 closes = [closes[min(len(closes) - 1, round(i * step))] for i in range(max_points)]
                 closes[-1] = price
-            return {'closes': [round(c, 4) for c in closes], 'price': price, 'changePct': change_pct}
+            # 4 decimales suffisent pour une action ; un prix minuscule (SHIB a 0,0000053) tombait a 0,0
+            arr = (lambda c: round(c, 4) if abs(c) >= 0.01 else float('%.4g' % c))
+            return {'closes': [arr(c) for c in closes], 'price': price, 'changePct': change_pct}
         except Exception:
             return None
 
