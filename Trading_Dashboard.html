@@ -1227,6 +1227,8 @@
   html[data-theme="dark"] [style*="font-size:1.25rem"], html[data-theme="dark"] [style*="font-size: 1.25rem"] {
     --t-text-1d9e74: #81c784; --t-text-46ba90: #81c784; --t-text-127a54: #81c784; --t-bg-1d9e74: #81c784; --positive: #81c784;
   }
+  /* logos : tuile un peu plus claire que la carte, sans passer au blanc (refusé), pour les marques sombres */
+  html[data-theme="dark"] img.scr-logo { background: #2e2e2e !important; border-color: #3a3a3a !important; }
   /* cartes : un léger dégradé de lumière en haut, ombres profondes (Baggr) */
   html[data-theme="dark"] .kpi-card, html[data-theme="dark"] .chart-card, html[data-theme="dark"] .inv-card,
   html[data-theme="dark"] .hero-card, html[data-theme="dark"] .inv-chart-card {
@@ -7224,9 +7226,10 @@ function scrDomain(website) {
 function scrLogo(symbol, website) {
   const img = document.createElement('img');
   img.width = 38; img.height = 38; img.alt = '';
-  // fond BLANC nommé (pas #fff) : le moteur de thème ne le convertit pas en foncé, donc les logos à marque
-  // sombre (Vanguard, rouge bordeaux) restent lisibles sur le thème foncé, comme sur le clair
-  img.style.cssText = 'width:38px;height:38px;border-radius:8px;object-fit:contain;background:white;border:1px solid #eef1f5;flex-shrink:0';
+  // fond #fff : suit le thème (carte foncée en mode foncé, le blanc a été refusé). En foncé, la feuille de
+  // style éclaircit légèrement la tuile (.scr-logo) pour que les marques sombres comme Vanguard ressortent.
+  img.className = 'scr-logo';
+  img.style.cssText = 'width:38px;height:38px;border-radius:8px;object-fit:contain;background:#fff;border:1px solid #eef1f5;flex-shrink:0';
   const dom = scrDomain(website);
   const favicon = dom ? 'https://www.google.com/s2/favicons?domain=' + encodeURIComponent(dom) + '&sz=64' : '';
   const useFavicon = () => {
