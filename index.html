@@ -7102,18 +7102,19 @@ function scrValGaugeCell(m, sector, bd) {
         ? ('sous le bas de l’échelle (' + money(lo) + ')')
         : ('au-dessus du haut de l’échelle (' + money(hi) + ')'))
       + '. Le curseur est bloqué au bord : l’écart réel est plus grand que ce que montre la barre.');
-  // trait epais, halo blanc pour ressortir sur les 4 aplats, et debordant de la barre
+  // trait epais BLEU (marine avant : en theme fonce il devenait anthracite, invisible sur les zones),
+  // halo clair pour ressortir sur les 4 aplats, et debordant de la barre
   const cur = scrEl('div', { attrs: { title: tip }, style: 'position:absolute;left:' + px.toFixed(1) + '%;'
-    + 'top:5px;bottom:0;width:3px;margin-left:-1.5px;background:#22303f;border-radius:2px;cursor:help;'
+    + 'top:5px;bottom:0;width:3px;margin-left:-1.5px;background:#3563e9;border-radius:2px;cursor:help;'
     + 'box-shadow:0 0 0 1.5px #fff, 0 1px 3px rgba(0,0,0,.4)' });
   // triangle repere au-dessus : c'est lui qui rend la position lisible d'un coup d'oeil
   const caret = scrEl('div', { attrs: { title: tip }, style: 'position:absolute;left:' + px.toFixed(1) + '%;'
     + 'top:0;margin-left:-5px;width:0;height:0;cursor:help;'
-    + 'border-left:5px solid transparent;border-right:5px solid transparent;border-top:6px solid #22303f' });
+    + 'border-left:5px solid transparent;border-right:5px solid transparent;border-top:6px solid #3563e9' });
   const kids = [bar, cur, caret];
   if (off !== 0) kids.push(scrEl('div', { attrs: { title: tip }, text: (off < 0) ? '‹' : '›',
     style: 'position:absolute;top:6px;' + ((off < 0) ? 'left:-8px' : 'right:-8px')
-      + ';font-size:0.85rem;font-weight:900;line-height:11px;color:#22303f;cursor:help' }));
+      + ';font-size:0.85rem;font-weight:900;line-height:11px;color:#3563e9;cursor:help' }));
   box.appendChild(scrEl('div', { style: 'position:relative;padding:7px 0 3px', kids: kids }));
   box.appendChild(scrEl('div', { style: 'display:flex;justify-content:space-between;gap:6px;font-size:0.56rem;color:#9aa7b4;white-space:nowrap', kids: [
     scrEl('span', { text: 'Idéal ≤ ' + money(ideal) }),
