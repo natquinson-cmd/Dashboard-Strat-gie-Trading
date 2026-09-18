@@ -58,7 +58,7 @@
   .scr-tbltop { overflow-x: auto; overflow-y: hidden; }
   .scr-tbltop > div { height: 1px; }
   .scr-tblscroll { overflow: auto; max-height: 78vh; }
-  .scr-tblscroll table thead th { position: sticky; top: 0; z-index: 3; background: #f6f8fb; box-shadow: inset 0 -1px 0 #e3e8ee; }
+  .scr-tblscroll table thead th { position: sticky; top: 0; z-index: 3; background: var(--t-bg-f6f8fb, #f6f8fb); box-shadow: inset 0 -1px 0 var(--t-border-e3e8ee, #e3e8ee); }
 
   /* Header */
   .header {
@@ -93,7 +93,7 @@
   .tab-btn:hover { background: var(--bg-card-hover); color: var(--text-primary); }
   .tab-btn.active {
     background: var(--gradient-dax);
-    border-color: transparent; color: #fff;
+    border-color: transparent; color: var(--t-text-ffffff, #fff);
     box-shadow: 0 6px 16px rgba(95,139,242,0.28);
   }
   .tab-btn.active::after {
@@ -194,7 +194,7 @@
   }
   .capital-amount {
     font-size: 1.5rem; font-weight: 800; letter-spacing: -0.5px;
-    background: linear-gradient(135deg, #1d9e74, #34d399);
+    background: linear-gradient(135deg, var(--t-bg-1d9e74, #1d9e74), var(--t-bg-34d399, #34d399));
     -webkit-background-clip: text; -webkit-text-fill-color: transparent;
   }
   .capital-detail {
@@ -215,7 +215,7 @@
     width: 24px; height: 24px;
     border-radius: 50%;
     background: var(--bg-primary);
-    border: 3px solid #34d399;
+    border: 3px solid var(--t-border-34d399, #34d399);
     cursor: grab;
     box-shadow: 0 0 10px rgba(29,158,116,0.3);
     transition: transform 0.12s, box-shadow 0.12s;
@@ -228,7 +228,7 @@
     width: 24px; height: 24px;
     border-radius: 50%;
     background: var(--bg-primary);
-    border: 3px solid #34d399;
+    border: 3px solid var(--t-border-34d399, #34d399);
     cursor: grab;
     box-shadow: 0 0 10px rgba(29,158,116,0.3);
   }
@@ -416,12 +416,12 @@
   .kpi-card .value { font-size: 1.7rem; font-weight: 800; letter-spacing: -0.02em; color: var(--text-primary); font-variant-numeric: tabular-nums; }
   .kpi-card .sub { font-size: 0.74rem; color: var(--text-secondary); margin-top: 5px; font-weight: 500; }
   .kpi-card.kpi-dax .label, .kpi-card.kpi-nas .label, .kpi-card.kpi-merged .label { color: rgba(255,255,255,0.82); }
-  .kpi-card.kpi-dax .value, .kpi-card.kpi-nas .value, .kpi-card.kpi-merged .value { color: #fff; }
+  .kpi-card.kpi-dax .value, .kpi-card.kpi-nas .value, .kpi-card.kpi-merged .value { color: var(--t-text-ffffff, #fff); }
   .kpi-card.kpi-dax .sub, .kpi-card.kpi-nas .sub, .kpi-card.kpi-merged .sub { color: rgba(255,255,255,0.74); }
   /* Darwinex : lime Darwin Zero, texte sombre pour le contraste */
   .kpi-card.kpi-dwx { background: var(--gradient-dwx); border-color: transparent; }
   .kpi-card.kpi-dwx .label { color: rgba(12,26,0,0.72); }
-  .kpi-card.kpi-dwx .value { color: #0a1600; }
+  .kpi-card.kpi-dwx .value { color: var(--t-text-0a1600, #0a1600); }
   .kpi-card.kpi-dwx .sub { color: rgba(12,26,0,0.66); }
 
   /* Jauge CUSUM : card blanche neutre, la couleur est portée par l'arc.
@@ -754,7 +754,7 @@
   .toggle-track::after {
     content:''; position:absolute;
     top:2px; left:2px; width:20px; height:20px;
-    background:#fff; border-radius:50%;
+    background:var(--t-bg-ffffff, #fff); border-radius:50%;
     transition:transform 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
     box-shadow:0 1px 3px rgba(34,49,77,0.13);
   }
@@ -821,7 +821,7 @@
   .proj-mode-btn:hover { border-color:rgba(95,139,242,0.3); color:var(--text-primary); }
   .proj-mode-btn.active {
     background:var(--accent-dax);
-    border-color:transparent; color:#fff;
+    border-color:transparent; color:var(--t-text-ffffff, #fff);
   }
 
   @media (max-width: 900px) {
@@ -911,16 +911,16 @@
 
   .inv-btn {
     padding: 8px 16px; border-radius: 10px; font-size: 12px; font-weight: 500;
-    border: none; cursor: pointer; transition: all 0.25s; color: #fff;
+    border: none; cursor: pointer; transition: all 0.25s; color: var(--t-text-ffffff, #fff);
     font-family: inherit;
   }
   .inv-btn:hover { transform: translateY(-1px); }
-  .inv-btn-p { background: linear-gradient(135deg, var(--accent-dax), #4f46e5); box-shadow: 0 0 12px rgba(95,139,242,0.25); }
+  .inv-btn-p { background: linear-gradient(135deg, var(--accent-dax), var(--t-bg-4f46e5, #4f46e5)); box-shadow: 0 0 12px rgba(95,139,242,0.25); }
   .inv-btn-p:hover { box-shadow: 0 0 20px rgba(95,139,242,0.4); }
   .inv-btn-s { background: rgba(34,49,77,0.06); border: 1px solid rgba(34,49,77,0.12); color: var(--text-primary); }
-  .inv-btn-ok { background: linear-gradient(135deg, #1d9e74, #059669); box-shadow: 0 0 12px rgba(29,158,116,0.2); }
+  .inv-btn-ok { background: linear-gradient(135deg, var(--t-bg-1d9e74, #1d9e74), var(--t-bg-059669, #059669)); box-shadow: 0 0 12px rgba(29,158,116,0.2); }
   .inv-btn-ok:hover { box-shadow: 0 0 20px rgba(29,158,116,0.35); }
-  .inv-btn-d { background: linear-gradient(135deg, #dd5f66, #dc2626); }
+  .inv-btn-d { background: linear-gradient(135deg, var(--t-bg-dd5f66, #dd5f66), var(--t-bg-dc2626, #dc2626)); }
 
   .inv-tabs {
     display: flex; gap: 4px; padding: 4px; border-radius: 12px;
@@ -934,13 +934,13 @@
   }
   .inv-tab:hover { color: var(--text-primary); }
   .inv-tab.active {
-    background: linear-gradient(135deg, var(--accent-dax), #4f46e5);
-    color: #fff; box-shadow: 0 0 15px rgba(95,139,242,0.3);
+    background: linear-gradient(135deg, var(--accent-dax), var(--t-bg-4f46e5, #4f46e5));
+    color: var(--t-text-ffffff, #fff); box-shadow: 0 0 15px rgba(95,139,242,0.3);
   }
 
   .inv-notif {
     position: fixed; top: 16px; right: 16px; z-index: 50;
-    border-radius: 12px; padding: 12px 20px; font-size: 12px; font-weight: 500; color: #fff;
+    border-radius: 12px; padding: 12px 20px; font-size: 12px; font-weight: 500; color: var(--t-text-ffffff, #fff);
     animation: fadeIn 0.3s ease; transition: opacity 0.3s;
   }
 
@@ -983,9 +983,9 @@
   .inv-mb3 { margin-bottom: 12px; }
   .inv-mb4 { margin-bottom: 16px; }
   .inv-mb6 { margin-bottom: 24px; }
-  .inv-cg { color: #1d9e74; }
-  .inv-cr { color: #dd5f66; }
-  .inv-cy { color: #f59e0b; }
+  .inv-cg { color: var(--t-text-1d9e74, #1d9e74); }
+  .inv-cr { color: var(--t-text-dd5f66, #dd5f66); }
+  .inv-cy { color: var(--t-text-f59e0b, #f59e0b); }
   .inv-hidden { display: none; }
   .inv-ox { overflow-x: auto; }
 
@@ -1112,7 +1112,7 @@
     div:has(> table) { flex-basis: 100% !important; }
     /* la première colonne (ticker, enfant) reste visible pendant le défilement */
     table th:first-child, table td:first-child { position: sticky; left: 0; background: var(--bg-card); z-index: 1; }
-    table thead th:first-child { background: #f6f8fb; }
+    table thead th:first-child { background: var(--t-bg-f6f8fb, #f6f8fb); }
 
     /* Trading Auto : le groupe Synchroniser / Historique / statuts faisait 519 px sur une seule
        ligne et poussait la page ; il se replie, et le dashboard n'accepte plus de débordement. */
@@ -1130,6 +1130,75 @@
     #ttlBrief .brief-col { flex: 0 0 auto !important; width: 190px; margin: 0 auto; }
     #ttlBrief { font-size: 0.8rem; }
   }
+  /* ═══════════ THÈME FONCÉ (façon Baggr) ═══════════
+     Le moteur de thème (en tête du script) réécrit chaque couleur inline en
+     var(--t-<rôle>-<hex>, <couleur d'origine>) ; la feuille de style est réécrite de même.
+     En clair aucune variable n'est définie : le repli s'applique, rendu identique au pixel.
+     En foncé, ce bloc redéfinit les variables rôle par rôle. */
+  .theme-btn {
+    width: 40px; height: 40px; border-radius: 10px; margin-left: 6px;
+    border: 1px solid var(--border); background: var(--bg-card); color: var(--text-secondary);
+    font-size: 1.05rem; cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
+    transition: all 0.2s;
+  }
+  .theme-btn:hover { background: var(--bg-card-hover); color: var(--text-primary); }
+  html[data-theme="dark"] {
+    color-scheme: dark;
+    --bg-primary: #0c0d10; --bg-card: #1a1b20; --bg-card-hover: #22232a;
+    --border: rgba(255,255,255,0.08); --border-strong: rgba(255,255,255,0.14);
+    --text-primary: #f1f3f6; --text-secondary: #a6adba; --text-muted: #7c8595;
+    /* textes */
+    --t-text-22303f: #f1f3f6; --t-text-22314f: #f1f3f6; --t-text-1f2d3d: #f1f3f6; --t-text-2d3a4d: #f1f3f6; --t-text-1a2235: #f1f3f6; --t-text-000000: #f1f3f6; --t-text-0a1600: #f1f3f6;
+    --t-text-42546a: #c9cfd8;
+    --t-text-5b6b7d: #a6adba; --t-text-64748f: #a6adba;
+    --t-text-9aa7b4: #7c8595; --t-text-94a0b4: #7c8595; --t-text-94a3b8: #7c8595; --t-text-94a3b5: #7c8595; --t-text-7b8a9a: #7c8595;
+    --t-text-c3ccd6: #5b6371; --t-text-b8c2cf: #5b6371;
+    --t-text-1d9e74: #34d399; --t-text-127a54: #34d399; --t-text-059669: #34d399; --t-text-1d7a5c: #34d399;
+    --t-text-dd5f66: #f87171; --t-text-c0392b: #f87171; --t-text-a5342f: #f87171; --t-text-dc2626: #f87171; --t-text-e0342e: #f87171; --t-text-b5564e: #f87171; --t-text-a02b34: #f87171; --t-text-e11d48: #f87171;
+    --t-text-3563e9: #60a5fa; --t-text-4a72b8: #60a5fa; --t-text-2f5fd0: #60a5fa; --t-text-2563eb: #60a5fa; --t-text-3b7dd8: #60a5fa;
+    --t-text-8a6d1f: #fbbf24; --t-text-b45309: #fbbf24; --t-text-b8860b: #fbbf24; --t-text-8a8200: #fbbf24; --t-text-e0922c: #fbbf24;
+    --t-text-3730d6: #a5b4fc; --t-text-6366f1: #a5b4fc; --t-text-818cf8: #a5b4fc;
+    --t-text-7c3aed: #c4b5fd; --t-text-a855f7: #c4b5fd; --t-text-9184ea: #c4b5fd; --t-text-8b6fc9: #c4b5fd; --t-text-8b5cf6: #c4b5fd;
+    /* fonds */
+    --t-bg-ffffff: #1a1b20;
+    --t-bg-fafbfc: #202129; --t-bg-f6f8fb: #202129; --t-bg-fbfcfe: #202129; --t-bg-f8fafc: #202129; --t-bg-f1f4f8: #202129; --t-bg-f0f3f7: #202129; --t-bg-eef2f8: #202129;
+    --t-bg-e8edf3: #2b2e37; --t-bg-e3e8ee: #2b2e37;
+    --t-bg-eef1f5: #101115;
+    --t-bg-22303f: #2c2f38; --t-bg-22314f: #2c2f38; --t-bg-2d3a4d: #2c2f38; --t-bg-1a2235: #2c2f38;
+    --t-bg-3563e9: #3b82f6;
+    --t-bg-1d9e74: #10b981;
+    --t-bg-dd5f66: #ef4444;
+    --t-bg-4f46e5: #6366f1;
+    --t-bg-fdeaea: rgba(248,113,113,0.16); --t-bg-fbe9ea: rgba(248,113,113,0.16); --t-bg-fbdcde: rgba(248,113,113,0.16); --t-bg-ffa8ad: rgba(248,113,113,0.16);
+    --t-bg-fff2d9: rgba(245,182,66,0.16); --t-bg-fff8e6: rgba(245,182,66,0.16);
+    --t-bg-eef2fe: rgba(59,130,246,0.16); --t-bg-eef4ff: rgba(59,130,246,0.16); --t-bg-eef2ff: rgba(59,130,246,0.16); --t-bg-e8eefc: rgba(59,130,246,0.16); --t-bg-eaf0ff: rgba(59,130,246,0.16); --t-bg-e8effe: rgba(59,130,246,0.16); --t-bg-dbe7ff: rgba(59,130,246,0.16);
+    --t-bg-e9f7f0: rgba(52,211,153,0.15); --t-bg-e5f4ee: rgba(52,211,153,0.15); --t-bg-e4f5ee: rgba(52,211,153,0.15); --t-bg-d1f0e3: rgba(52,211,153,0.15); --t-bg-d8f0e6: rgba(52,211,153,0.15);
+    --t-bg-f3ecfb: rgba(139,92,246,0.18);
+    /* bordures, filets et ombres portées */
+    --t-border-e3e8ee: #272a33;
+    --t-border-eef1f5: #22242c;
+    --t-border-f4f6f9: #23252d; --t-border-f2f5f8: #23252d; --t-border-f6f8fb: #23252d; --t-border-f1f4f8: #23252d;
+    --t-border-ffffff: #1a1b20;
+    --t-border-dbe7ff: rgba(59,130,246,0.35);
+    --t-border-f5b5b5: rgba(248,113,113,0.4);
+    --t-border-f0d9a0: rgba(245,182,66,0.4);
+    --t-border-3563e9: #3b82f6;
+    --t-border-1d9e74: #34d399;
+    --t-border-22303f: #f1f3f6;
+  }
+  /* vernis Baggr : un léger dégradé de lumière en haut de chaque carte, ombres profondes */
+  html[data-theme="dark"] .kpi-card, html[data-theme="dark"] .chart-card, html[data-theme="dark"] .inv-card,
+  html[data-theme="dark"] .hero-card, html[data-theme="dark"] .inv-chart-card {
+    background-image: linear-gradient(180deg, rgba(255,255,255,0.045), rgba(255,255,255,0) 60%);
+    box-shadow: 0 10px 28px rgba(0,0,0,0.38);
+  }
+  html[data-theme="dark"] [style*="--t-bg-ffffff"] {
+    background-image: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0) 60%) !important;
+  }
+  html[data-theme="dark"] .tab-btn.active { background: linear-gradient(135deg, #3b82f6, #2563eb); box-shadow: 0 6px 18px rgba(59,130,246,0.35); }
+  html[data-theme="dark"] .sub-tab-btn.active { background: rgba(59,130,246,0.18); border-color: rgba(59,130,246,0.45); }
+  html[data-theme="dark"] .sub-tab-btn:hover { background: rgba(255,255,255,0.05); }
+  html[data-theme="dark"] input, html[data-theme="dark"] select, html[data-theme="dark"] textarea { background: #101115; color: #f1f3f6; }
 </style>
 </head>
 <body>
@@ -1143,6 +1212,7 @@
     <div class="group-bar">
       <button class="group-btn active" onclick="switchGroup('trading')">Trading</button>
       <button class="group-btn" onclick="switchGroup('invest')">Portfolio</button>
+      <button class="theme-btn" id="themeBtn" onclick="themeToggle()" title="Thème clair / foncé">☾</button>
     </div>
   </div>
 
@@ -1591,6 +1661,122 @@
 </div>
 
 <script>
+// ════════════════════════════════════════════════════
+// MOTEUR DE THÈME (clair par défaut, foncé façon Baggr sur demande)
+// Les couleurs du dashboard sont posées en styles inline construits par le JS, par milliers.
+// Plutôt que de les réécrire une à une, un observateur réécrit chaque couleur inline en
+// variable CSS avec la couleur d'origine en repli : color:#22303f devient
+// color:var(--t-text-22303f, #22303f). En clair aucune variable n'est définie, le repli
+// s'applique et le rendu est identique au pixel. En foncé, le bloc html[data-theme="dark"]
+// de la feuille de style redéfinit les variables, rôle par rôle (texte, fond, bordure).
+// Les attributs fill/stroke des SVG sont traités de même, via un style inline qui suit
+// l'attribut (les recolorations au survol continuent donc de marcher).
+// ════════════════════════════════════════════════════
+let THEME = (function () { try { return localStorage.getItem('dashTheme') === 'dark' ? 'dark' : 'light'; } catch (e) { return 'light'; } })();
+document.documentElement.setAttribute('data-theme', THEME);
+function themeRole(prop) {
+  if (prop === 'color' || prop === '-webkit-text-fill-color' || prop === 'caret-color') return 'text';
+  if (prop.indexOf('background') === 0) return 'bg';
+  if (prop.indexOf('border') === 0 || prop === 'outline' || prop === 'outline-color' || prop === 'box-shadow') return 'border';
+  return null;
+}
+const THEME_COLOR_RE = /#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})\b|rgb\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)/g;
+const THEME_COLOR_ONE = /^(?:#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})|rgb\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\))$/;
+function themeVar(role, m, h, r, g, b) {
+  const hex = h ? (h.length === 3 ? h[0] + h[0] + h[1] + h[1] + h[2] + h[2] : h).toLowerCase()
+    : [r, g, b].map((n) => ('0' + (Number(n) & 255).toString(16)).slice(-2)).join('');
+  return 'var(--t-' + role + '-' + hex + ', ' + m + ')';
+}
+function themeRewriteStyle(str) {
+  let changed = false;
+  const out = str.split(';').map((decl) => {
+    const i = decl.indexOf(':');
+    if (i < 0) return decl;
+    const prop = decl.slice(0, i).trim().toLowerCase(), val = decl.slice(i + 1);
+    const role = themeRole(prop);
+    if (!role || val.indexOf('var(--t-') >= 0 || val.indexOf('url(') >= 0) return decl;
+    const nv = val.replace(THEME_COLOR_RE, (m, h, r, g, b) => themeVar(role, m, h, r, g, b));
+    if (nv !== val) changed = true;
+    return decl.slice(0, i + 1) + nv;
+  }).join(';');
+  return changed ? out : null;
+}
+function themeApplyEl(el) {
+  if (!el || el.nodeType !== 1 || !el.getAttribute) return;
+  const st = el.getAttribute('style');
+  if (st && (st.indexOf('#') >= 0 || st.indexOf('rgb(') >= 0)) { const nv = themeRewriteStyle(st); if (nv) el.setAttribute('style', nv); }
+  // SVG : l'attribut reste la source (le code le change au survol), le style inline le suit
+  if (el.namespaceURI === 'http://www.w3.org/2000/svg') {
+    const texte = el.tagName === 'text' || el.tagName === 'tspan';
+    ['fill', 'stroke'].forEach((a) => {
+      const v = el.getAttribute(a);
+      if (!v) return;
+      const m = v.trim().match(THEME_COLOR_ONE);
+      if (!m) return;
+      const want = themeVar(a === 'fill' ? (texte ? 'text' : 'bg') : 'border', m[0], m[1], m[2], m[3], m[4]);
+      if (el.style.getPropertyValue(a) !== want) el.style.setProperty(a, want);
+    });
+  }
+}
+function themeApplyTree(root) {
+  if (!root || root.nodeType !== 1) return;
+  themeApplyEl(root);
+  root.querySelectorAll('[style],[fill],[stroke]').forEach(themeApplyEl);
+}
+new MutationObserver((recs) => {
+  for (const r of recs) {
+    if (r.type === 'attributes') themeApplyEl(r.target);
+    else r.addedNodes.forEach((n) => themeApplyTree(n));
+  }
+}).observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['style', 'fill', 'stroke'] });
+themeApplyTree(document.body);
+(function () { const b = document.getElementById('themeBtn'); if (b) { b.textContent = THEME === 'dark' ? '☀' : '☾'; b.title = THEME === 'dark' ? 'Repasser au thème clair' : 'Passer au thème foncé (façon Baggr)'; } })();
+function themeToggle() {
+  const next = THEME === 'dark' ? 'light' : 'dark';
+  try {
+    localStorage.setItem('dashTheme', next);
+    localStorage.setItem('dashThemeReturn', JSON.stringify({ group: currentGroup, tab: currentTab }));   // on revient au même onglet
+  } catch (e) {}
+  // Les graphiques Chart.js lisent leurs couleurs à la création : recharger la page est plus sûr
+  // que de redessiner trente graphiques à chaud.
+  location.reload();
+}
+// Dégradés façon Baggr sur les barres et les aires (thème foncé seulement) : une couleur unie
+// devient un dégradé vertical, pleine en haut, estompée en bas. Les couleurs par barre (tableaux
+// rouge/vert) sont respectées barre par barre.
+const themeGradientPlugin = {
+  id: 'themeGradient',
+  beforeUpdate(chart) {
+    const horiz = chart.options && chart.options.indexAxis === 'y';
+    const rgba = (c, k) => {
+      if (typeof c !== 'string') return c;
+      const t = c.trim();
+      let r, g, b, a = 1, m;
+      if ((m = t.match(/^#([0-9a-f]{6})$/i))) { r = parseInt(m[1].slice(0, 2), 16); g = parseInt(m[1].slice(2, 4), 16); b = parseInt(m[1].slice(4, 6), 16); }
+      else if ((m = t.match(/^#([0-9a-f]{3})$/i))) { r = parseInt(m[1][0] + m[1][0], 16); g = parseInt(m[1][1] + m[1][1], 16); b = parseInt(m[1][2] + m[1][2], 16); }
+      else if ((m = t.match(/^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*([\d.]+))?\s*\)$/i))) { r = +m[1]; g = +m[2]; b = +m[3]; if (m[4] != null) a = +m[4]; }
+      else return c;
+      return 'rgba(' + r + ',' + g + ',' + b + ',' + Math.max(0, Math.min(1, a * k)).toFixed(3) + ')';
+    };
+    (chart.data.datasets || []).forEach((ds) => {
+      const type = ds.type || chart.config.type;
+      const bar = type === 'bar', aire = type === 'line' && ds.fill;
+      if (!bar && !aire) return;
+      const base = ds.backgroundColor;
+      if (base == null || typeof base === 'function') return;
+      const kBas = bar ? 0.35 : 0.04;
+      const mk = (ctx, col) => {
+        const area = ctx.chart.chartArea;
+        if (!area || typeof col !== 'string') return col;
+        const g = horiz ? ctx.chart.ctx.createLinearGradient(area.left, 0, area.right, 0) : ctx.chart.ctx.createLinearGradient(0, area.top, 0, area.bottom);
+        g.addColorStop(0, rgba(col, 1)); g.addColorStop(1, rgba(col, kBas));
+        return g;
+      };
+      ds.backgroundColor = Array.isArray(base) ? ((ctx) => mk(ctx, base[ctx.dataIndex % base.length])) : ((ctx) => mk(ctx, base));
+    });
+  }
+};
+if (THEME === 'dark' && typeof Chart !== 'undefined') Chart.register(themeGradientPlugin);
 // ══════════════════════════════════════════════════════════════
 // DATA
 // ══════════════════════════════════════════════════════════════
@@ -5764,8 +5950,8 @@ function fmt(n) { return Math.round(n).toLocaleString('fr'); }
 // ══════════════════════════════════════════════════════════════
 // CHART DEFAULTS
 // ══════════════════════════════════════════════════════════════
-Chart.defaults.color = '#64748f';
-Chart.defaults.borderColor = 'rgba(34,49,77,0.10)';
+Chart.defaults.color = THEME === 'dark' ? '#a6adba' : '#64748f';
+Chart.defaults.borderColor = THEME === 'dark' ? 'rgba(255,255,255,0.08)' : 'rgba(34,49,77,0.10)';
 Chart.defaults.font.family = "'Plus Jakarta Sans', sans-serif";
 
 // ══════════════════════════════════════════════════════════════
@@ -13440,6 +13626,12 @@ Promise.all([
   tabRendered.total = true;
   renderSubTabs();
   displayDashTimestamp();
+  // après un changement de thème (rechargement), on revient sur l'onglet où l'on était
+  try {
+    const r = JSON.parse(localStorage.getItem('dashThemeReturn') || 'null');
+    localStorage.removeItem('dashThemeReturn');
+    if (r && r.group && r.tab) { if (r.group !== currentGroup) switchGroup(r.group); if (r.tab !== currentTab) switchTab(r.tab); }
+  } catch (e) {}
 });
 </script>
 </body>
