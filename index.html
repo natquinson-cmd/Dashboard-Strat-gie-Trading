@@ -7884,16 +7884,8 @@ function renderEnfantsTab() {
       scrEl('div', { style: 'display:flex;align-items:center;gap:12px;flex-wrap:wrap', kids: [scrDonut(items, 150), scrLegend(items)] })] }),
     scrEl('div', { style: 'flex:1;min-width:340px', kids: [table] })] }));
 
-  // ---- Equite entre enfants (facile a laisser deriver avec des versements irreguliers) ----
-  if (agg.kids.length > 1) {
-    const mx = Math.max.apply(null, agg.kids.map((k) => k.invested)), mn = Math.min.apply(null, agg.kids.map((k) => k.invested));
-    const ecart = mx - mn;
-    if (ecart > Math.max(20, mx * 0.05)) {
-      const moins = agg.kids.filter((k) => k.invested === mn)[0];
-      wrap.appendChild(scrEl('div', { style: 'background:#fff8e6;border:1px solid #f0d9a0;border-radius:10px;padding:10px 13px;margin-bottom:14px;font-size:0.78rem;color:#8a6d1f',
-        text: 'Équité : ' + moins.child + ' a reçu ' + money(ecart) + ' de moins que l’enfant le mieux doté. Un rattrapage de ' + money(ecart) + ' rétablirait l’équilibre des versements.' }));
-    }
-  }
+  // Bandeau "équité entre enfants" retiré : les écarts de versement sont voulus (âges et parcours
+  // différents), le tableau ci-dessus suffit à les lire.
 
   // ---- Projection a l'horizon ----
   if (agg.value != null) {
