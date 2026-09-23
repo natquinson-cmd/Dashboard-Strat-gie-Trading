@@ -1702,6 +1702,7 @@
   <div id="tab-repartition" class="tab-content"></div>
   <div id="tab-screener" class="tab-content"></div>
   <div id="tab-enfants" class="tab-content"></div>
+  <div id="tab-opportunites" class="tab-content"></div>
   <div id="tab-update" class="tab-content"></div>
 
   <div class="footer" id="dashFooter">
@@ -6545,6 +6546,7 @@ const GROUP_TABS = {
     { id: 'fixed', label: 'Backtest fixe' },
     { id: 'reinvest', label: 'Backtest Réinv' },
     { id: 'screener', label: LOGO_REVOLUT + "Portefeuille d'actions" },
+    { id: 'opportunites', label: '🧭 Opportunités IA' },
     { id: 'darwinex', label: tabImg(LOGO_DARWINEX, 'Darwinex') + 'Darwinex' },
     { id: 'enfants', label: '👶 Enfants' }
   ],
@@ -6560,7 +6562,7 @@ const GROUP_TABS = {
   ]
 };
 
-const ALL_TAB_IDS = ['total', 'real', 'fixed', 'reinvest', 'overview', 'interests', 'evolution', 'loans', 'realestate', 'darwinex', 'simulateur', 'repartition', 'screener', 'enfants', 'update'];
+const ALL_TAB_IDS = ['total', 'real', 'fixed', 'reinvest', 'overview', 'interests', 'evolution', 'loans', 'realestate', 'darwinex', 'simulateur', 'repartition', 'screener', 'opportunites', 'enfants', 'update'];
 
 function renderSubTabs() {
   const bar = document.getElementById('subTabBar');
@@ -6634,6 +6636,9 @@ function activateTab(tab) {
 
   // Epargne des enfants : poche isolee, rendu autonome
   if (tab === 'enfants') { renderEnfantsTab(); return; }
+
+  // Opportunites IA : carte des goulots + pepites, rendu autonome (donnees opportunites_ia.json)
+  if (tab === 'opportunites') { renderOppTab(); return; }
 
   // Trading tabs
   if (['real', 'fixed', 'reinvest'].includes(tab)) {
@@ -7645,6 +7650,425 @@ function kidsMoney(v, dec) {
   if (cur === 'USD') return neg + '$' + a;
   return neg + a + ' ' + cur;
 }
+// ══════════════════════════════════════════════════════════════
+// OPPORTUNITES IA : goulots d'etranglement IA / robotique
+// 3 sous-onglets : Pepites (classement recalcule en direct selon les reglages),
+// Carte des goulots et Situational Awareness (page autonome goulots_ia.html en iframe).
+// Donnees : opportunites_ia.json (recherches datees + Yahoo + verification + contre-examen).
+// Reperage factuel, pas un conseil d'investissement.
+// ══════════════════════════════════════════════════════════════
+const OPP_DATA_URL = 'opportunites_ia.json';
+const OPP_MAP_URL = 'goulots_ia.html';
+let OPP = null, OPP_ERR = null, OPP_LOADING = null;
+const OPP_DEFAULTS = {
+  preset: 'qualite',
+  maxPerf1y: 0.5, minNodeScore: 17, expoHigh: true, expoMid: true, expoLow: false, minGrowth: 0.15,
+  minCap: 3e8, maxCap: 0, broker: 'any', chains: [],
+  excludeHeld: true, excludeRejected: true, requireThesis: true, requireProfit: true, requireVerified: true, skepticsVeto: true,
+  maxPerNode: 1, maxPerCluster: 1, n: 5, alternates: 5,
+  weights: { goulot: 25, croissance: 35, elan: 15, valo: 15, decouverte: 10 }, cautionPenalty: 5, fragilePenalty: 3,
+};
+const OPP_PRESETS = {
+  qualite: { label: 'Qualité (par défaut)', tip: 'Cours pas encore envolé (+50 % max sur un an), sociétés rentables, thèse vérifiée au communiqué, veto des sceptiques, 1 titre par maillon et par dépendance commune.', set: {} },
+  audace: { label: 'Plus audacieux', tip: 'Accepte les sociétés pas encore rentables et non vérifiées, mais exige +25 % de croissance. Plus de potentiel, plus de risque.',
+    set: { requireProfit: false, requireVerified: false, minGrowth: 0.25 } },
+  large: { label: 'Même déjà montés', tip: 'Relâche le filtre de hausse (jusqu’à +150 % sur un an) pour voir les leaders déjà découverts par le marché.',
+    set: { maxPerf1y: 1.5 } },
+  revolut: { label: 'Revolut uniquement', tip: 'Ne garde que les titres trouvés au catalogue public de Revolut.', set: { broker: 'revolut' } },
+};
+const OPP_W_LABEL = { goulot: 'Goulot', croissance: 'Croissance', elan: 'Élan des estimations', valo: 'Valorisation', decouverte: 'Pas encore découvert' };
+const OPP_W_COLOR = { goulot: '#5f8bf2', croissance: '#2eb5a0', elan: '#9184ea', valo: '#e0922c', decouverte: '#ee7f6d' };
+const OPP_LENS = { these: 'Thèse', solidite: 'Solidité', prix: 'Prix et calendrier' };
+
+function oppParams() {
+  let p = {};
+  try { p = JSON.parse(localStorage.getItem('oppParams') || '{}') || {}; } catch (e) { p = {}; }
+  const out = Object.assign({}, OPP_DEFAULTS, p);
+  out.weights = Object.assign({}, OPP_DEFAULTS.weights, p.weights || {});
+  if (!Array.isArray(out.chains)) out.chains = [];
+  return out;
+}
+function oppSave(p) { try { localStorage.setItem('oppParams', JSON.stringify(p)); } catch (e) {} }
+function oppSubGet() { try { return localStorage.getItem('oppSub') || 'pepites'; } catch (e) { return 'pepites'; } }
+function oppSubSet(v) { try { localStorage.setItem('oppSub', v); } catch (e) {} }
+
+function oppLoad() {
+  if (OPP) return Promise.resolve();
+  if (OPP_LOADING) return OPP_LOADING;
+  OPP_LOADING = fetch(OPP_DATA_URL + '?v=' + Date.now(), { cache: 'no-store' })
+    .then((r) => { if (!r.ok) throw new Error('HTTP ' + r.status + ' en lisant ' + OPP_DATA_URL); return r.json(); })
+    .then((j) => { OPP = j; OPP_ERR = null; })
+    .catch((e) => { OPP_ERR = String((e && e.message) || e); })
+    .finally(() => { OPP_LOADING = null; });
+  return OPP_LOADING;
+}
+
+// Rang centile moyen (0..1) ; une valeur manquante vaut 0,5 (neutre, ni bonus ni malus)
+function oppPct(vals) {
+  const xs = vals.filter((v) => v != null && isFinite(v)).sort((a, b) => a - b);
+  return (v) => {
+    if (v == null || !isFinite(v) || !xs.length) return 0.5;
+    let lo = 0, eq = 0;
+    for (const x of xs) { if (x < v) lo++; else if (x === v) eq++; }
+    return (lo + (eq - 1) / 2) / Math.max(xs.length - 1, 1);
+  };
+}
+// Croissance : chiffres verifies au communique en priorite, Yahoo sinon (signale dans la fiche)
+function oppGrowth(c) {
+  const v = c.verif;
+  if (v) {
+    let gy = v.revenueGrowthYoYPct != null ? v.revenueGrowthYoYPct / 100 : null;
+    let gf = v.revenueGrowthNextYPct != null ? v.revenueGrowthNextYPct / 100 : null;
+    if (v.yahooDistorted && gf != null && gf > 3) gf = null;     // acquisition ou base quasi nulle : non significatif
+    return { gy, gf, verified: true };
+  }
+  return { gy: c.m.gy, gf: c.m.gf, verified: false };
+}
+function oppBrokerOk(c, mode) {
+  const rv = c.access.revolut === 'oui' || c.access.revolut === 'probable', ib = c.access.ibkr === 'oui';
+  return mode === 'revolut' ? rv : mode === 'ibkr' ? ib : mode === 'both' ? (rv && ib) : (rv || ib);
+}
+
+function oppRank(P) {
+  const D = OPP, E = { 'élevée': 1, 'moyenne': 0.75, 'faible': 0.5 };
+  const okExpo = { 'élevée': P.expoHigh, 'moyenne': P.expoMid, 'faible': P.expoLow };
+  const clusterOf = {};
+  Object.keys(D.clusters).forEach((k) => D.clusters[k].forEach((s) => { (clusterOf[s] = clusterOf[s] || []).push(k); }));
+  const pool = [], dropped = {};
+  const drop = (why) => { dropped[why] = (dropped[why] || 0) + 1; };
+  for (const c of D.companies) {
+    const m = c.m, v = c.verif, a = c.adv;
+    let best = null;
+    for (const r of c.nodes) {
+      const n = D.nodes[r.id];
+      if (!n || !okExpo[r.exposure] || n.total < P.minNodeScore) continue;
+      if (P.chains.length && P.chains.indexOf(n.chain) < 0) continue;
+      const val = n.total * (E[r.exposure] || 0.5);
+      if (!best || val > best.val) best = { val, n, r };
+    }
+    if (!best) { drop('goulot trop faible, exposition ou chaîne hors réglage'); continue; }
+    if (m.perf1y == null) { drop('pas de cours'); continue; }
+    if (m.perf1y > P.maxPerf1y) { drop('cours déjà envolé'); continue; }
+    const cap = m.cap || 0;
+    if (cap < P.minCap || (P.maxCap && cap > P.maxCap)) { drop('capitalisation hors bornes'); continue; }
+    if (P.excludeHeld && c.held) { drop('déjà détenu'); continue; }
+    if (!oppBrokerOk(c, P.broker)) { drop('indisponible chez ton courtier'); continue; }
+    if (P.requireVerified && !v) { drop('non vérifié au communiqué'); continue; }
+    if (P.excludeRejected && v && v.verdict === 'exclude') { drop('écarté par la vérification'); continue; }
+    if (P.requireThesis && v && v.thesisStillValid === false) { drop('thèse du goulot non confirmée'); continue; }
+    const profitable = c.profitable != null ? c.profitable : ((m.pe || 0) > 0 && (m.om || 0) > 0);
+    if (P.requireProfit && !profitable) { drop('pas encore rentable'); continue; }
+    if (P.skepticsVeto && a && a.rejeter >= 2) { drop('rejeté par les sceptiques'); continue; }
+    const g = oppGrowth(c), gRef = g.gf != null ? g.gf : g.gy;
+    if (gRef == null || gRef < P.minGrowth) { drop('croissance insuffisante'); continue; }
+    const rev = (m.pe && m.pe > 0) ? m.rev90 : null;          // BPA attendu negatif : revision sans signification
+    const net = (m.up || m.dn) ? ((m.up || 0) - (m.dn || 0)) / ((m.up || 0) + (m.dn || 0)) : null;
+    const peg = (m.pe && m.pe > 0 && gRef > 0) ? m.pe / Math.max(Math.min(gRef, 1.5) * 100, 1) : null;
+    pool.push({ c, best, g, gRef, rev, net, peg });
+  }
+  const cap15 = (x) => x == null ? null : Math.min(x, 1.5);
+  const Pg = oppPct(pool.map((p) => p.best.val)), Pgy = oppPct(pool.map((p) => cap15(p.g.gy))), Pgf = oppPct(pool.map((p) => cap15(p.g.gf)));
+  const Pr = oppPct(pool.map((p) => p.rev)), Pv = oppPct(pool.map((p) => p.peg)), Pp = oppPct(pool.map((p) => Math.max(p.c.m.perf1y, 0)));
+  const W = P.weights;
+  const rows = pool.map((p) => {
+    const c = p.c, a = c.adv;
+    const parts = {
+      goulot: W.goulot * Pg(p.best.val),
+      croissance: W.croissance * (0.4 * Pgy(cap15(p.g.gy)) + 0.6 * Pgf(cap15(p.g.gf))),
+      elan: W.elan * (0.6 * Pr(p.rev) + 0.4 * (p.net != null ? (p.net + 1) / 2 : 0.5)),
+      valo: W.valo * (1 - Pv(p.peg)),
+      // une baisse de cours n'est pas une opportunite en soi : seul le fait de NE PAS avoir monte compte
+      decouverte: W.decouverte * (0.7 * (1 - Pp(Math.max(c.m.perf1y, 0))) + 0.3 * (p.best.n.consensus === 'peu_couvert' ? 1 : 0)),
+    };
+    let pen = 0;
+    if (c.verif && c.verif.verdict === 'caution') pen += P.cautionPenalty;
+    if (a) pen += P.fragilePenalty * (a.fragile + 2 * a.rejeter);
+    const score = Object.values(parts).reduce((s, x) => s + x, 0) - pen;
+    return { c, p, parts, pen, score, node: p.best.n, nodeId: p.best.r.id, role: p.best.r.role, exposure: p.best.r.exposure, clusters: clusterOf[c.symbol] || [] };
+  }).sort((x, y) => y.score - x.score);
+  const out = [], perNode = {}, perCl = {}, skipped = [];
+  for (const x of rows) {
+    if ((perNode[x.nodeId] || 0) >= P.maxPerNode || x.clusters.some((k) => (perCl[k] || 0) >= P.maxPerCluster)) { skipped.push(x); continue; }
+    out.push(x);
+    perNode[x.nodeId] = (perNode[x.nodeId] || 0) + 1;
+    x.clusters.forEach((k) => { perCl[k] = (perCl[k] || 0) + 1; });
+  }
+  return { picks: out.slice(0, P.n), alternates: out.slice(P.n, P.n + P.alternates), pool: rows.length, dropped, skipped };
+}
+
+const oppFmtPct = (v, signed) => (v == null || !isFinite(v)) ? '–' : ((signed && v > 0 ? '+' : '') + Math.round(v * 100) + ' %');
+const oppFmtCap = (v) => !v ? '–' : v >= 1e12 ? (v / 1e12).toFixed(1).replace('.', ',') + ' Bn$' : v >= 1e10 ? Math.round(v / 1e9) + ' Md$' : v >= 1e9 ? (v / 1e9).toFixed(1).replace('.', ',') + ' Md$' : Math.round(v / 1e6) + ' M$';
+const oppSafeUrl = (u) => /^https?:\/\//i.test(String(u || '')) ? u : null;
+const OPP_CHIP = 'display:inline-flex;align-items:center;gap:4px;padding:2px 9px;border-radius:20px;font-size:0.68rem;font-weight:800;white-space:nowrap';
+
+function oppAccessChips(c) {
+  const rv = c.access.revolut, ib = c.access.ibkr;
+  const rOk = rv === 'oui' || rv === 'probable', iOk = ib === 'oui';
+  return scrEl('span', { style: 'display:inline-flex;gap:5px;flex-wrap:wrap', kids: [
+    scrEl('span', { text: (rOk ? '✓ ' : '✗ ') + 'Revolut', attrs: { title: c.access.revolutNote || (rOk ? 'Trouvé au catalogue public Revolut' : 'Non trouvé au catalogue public Revolut : à vérifier dans l’app') },
+      style: OPP_CHIP + ';cursor:help;' + (rOk ? 'background:#e5f4ee;color:#1d9e74' : 'background:#f1f4f8;color:#9aa7b4') }),
+    scrEl('span', { text: (iOk ? '✓ ' : '✗ ') + 'IBKR', attrs: { title: iOk ? ('IBKR : ' + (c.access.ibkrRoute || 'place locale')) : 'Non accessible à un particulier chez IBKR' },
+      style: OPP_CHIP + ';cursor:help;' + (iOk ? 'background:#e5f4ee;color:#1d9e74' : 'background:#f1f4f8;color:#9aa7b4') })] });
+}
+function oppScoreBar(parts, W) {
+  const total = Object.values(W).reduce((s, x) => s + x, 0) || 100;
+  const bar = scrEl('div', { style: 'display:flex;gap:2px;height:8px;border-radius:4px;overflow:hidden;background:#eef1f5;margin-top:6px' });
+  Object.keys(OPP_W_LABEL).forEach((k) => {
+    const w = Math.max(0, parts[k]) / total * 100;
+    if (w > 0.2) bar.appendChild(scrEl('span', { attrs: { title: OPP_W_LABEL[k] + ' : ' + parts[k].toFixed(1) + ' / ' + W[k] }, style: 'display:block;height:100%;width:' + w.toFixed(2) + '%;background:' + OPP_W_COLOR[k] }));
+  });
+  return bar;
+}
+function oppSkeptics(a) {
+  if (!a) return scrEl('span', { text: 'Contre-examen : pas encore fait pour ce titre', style: 'font-size:0.72rem;color:#9aa7b4' });
+  const col = { solide: ['#e5f4ee', '#1d9e74', '✓'], fragile: ['#fff2d9', '#8a6d1f', '◐'], rejeter: ['#fdeaea', '#c0392b', '✗'] };
+  return scrEl('div', { style: 'display:flex;gap:6px;flex-wrap:wrap', kids: (a.lenses || []).map((l) => {
+    const cc = col[l.verdict] || col.fragile;
+    return scrEl('span', { text: cc[2] + ' ' + (OPP_LENS[l.lens] || l.lens) + ' : ' + l.verdict,
+      attrs: { title: 'Contre : ' + (l.againstStrongest || '') + '\nPour : ' + (l.forStrongest || '') },
+      style: OPP_CHIP + ';cursor:help;background:' + cc[0] + ';color:' + cc[1] });
+  }) });
+}
+function oppKv(label, value, color) {
+  return scrEl('div', { style: 'display:flex;flex-direction:column;gap:1px;min-width:0', kids: [
+    scrEl('span', { text: label, style: 'font-size:0.62rem;color:#9aa7b4;text-transform:uppercase;font-weight:800;letter-spacing:.04em' }),
+    scrEl('span', { text: value, style: 'font-size:0.9rem;font-weight:800;color:' + (color || '#22303f') })] });
+}
+function oppPara(title, text) {
+  if (!text) return null;
+  return scrEl('div', { kids: [
+    scrEl('div', { text: title, style: 'font-size:0.62rem;color:#9aa7b4;text-transform:uppercase;font-weight:800;letter-spacing:.04em;margin-bottom:2px' }),
+    scrEl('div', { text: text, style: 'font-size:0.8rem;color:#42546a;line-height:1.45' })] });
+}
+function oppCard(x, rank, W) {
+  const c = x.c, v = c.verif || {}, m = c.m, g = x.p.g;
+  const pcol = (val) => val == null ? '#22303f' : (val >= 0 ? '#1d9e74' : '#dd5f66');
+  const head = scrEl('div', { style: 'display:flex;gap:10px;align-items:center', kids: [
+    scrEl('span', { text: String(rank), style: 'width:26px;height:26px;border-radius:50%;background:#22303f;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:0.8rem;flex-shrink:0' }),
+    scrLogo(c.symbol, c.website),
+    scrEl('div', { style: 'min-width:0;flex:1', kids: [
+      scrEl('div', { style: 'display:flex;gap:6px;align-items:baseline;flex-wrap:wrap', kids: [
+        scrEl('span', { text: c.label, style: 'font-weight:800;font-size:1rem;color:#22303f' }),
+        scrEl('span', { text: c.symbol !== c.label ? c.symbol : '', style: 'font-size:0.7rem;color:#9aa7b4;font-weight:700' })] }),
+      scrEl('div', { text: c.name, style: 'font-size:0.74rem;color:#5b6b7d;white-space:nowrap;overflow:hidden;text-overflow:ellipsis' })] }),
+    scrEl('div', { style: 'text-align:right;flex-shrink:0', kids: [
+      scrEl('div', { text: x.score.toFixed(0), style: 'font-size:1.5rem;font-weight:800;color:#22303f;line-height:1' }),
+      scrEl('div', { text: '/ 100', style: 'font-size:0.62rem;color:#9aa7b4;font-weight:700' })] })] });
+  const node = scrEl('div', { style: 'display:flex;gap:6px;flex-wrap:wrap;align-items:center', kids: [
+    scrEl('span', { text: x.node.chain, style: OPP_CHIP + ';background:#eef2f8;color:#42546a' }),
+    scrEl('span', { text: x.node.name + ' · ' + x.node.total + '/25', attrs: { title: x.role || '' }, style: 'font-size:0.74rem;color:#42546a;font-weight:700;cursor:help' }),
+    oppAccessChips(c)] });
+  const kpis = scrEl('div', { style: 'display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px 12px;background:#fafbfc;border:1px solid #eef1f5;border-radius:10px;padding:10px', kids: [
+    oppKv('Hausse sur 1 an', oppFmtPct(m.perf1y, true), pcol(m.perf1y)),
+    oppKv('Croissance du CA' + (g.verified ? ' ✓' : ''), oppFmtPct(g.gy, true), pcol(g.gy)),
+    oppKv('Croissance attendue', oppFmtPct(g.gf, true), pcol(g.gf)),
+    oppKv('PER prévisionnel', m.pe > 0 ? Math.round(m.pe) + '×' : '–'),
+    oppKv('Capitalisation', oppFmtCap(m.cap)),
+    oppKv('Sous le plus haut', oppFmtPct(m.dist, true), '#5b6b7d')] });
+  const flags = (v.redFlags || []).slice(0, 8);
+  const srcs = (v.sources || []).filter((s) => s && s.title);
+  const det = scrEl('details', { style: 'font-size:0.76rem;color:#5b6b7d' , kids: [
+    scrEl('summary', { text: 'Signaux d’alerte (' + flags.length + ') et sources (' + srcs.length + ')', style: 'cursor:pointer;font-weight:700;color:#42546a' }),
+    scrEl('ul', { style: 'margin:6px 0 6px 18px;display:flex;flex-direction:column;gap:3px', kids: flags.map((f) => scrEl('li', { text: f })) }),
+    scrEl('ol', { style: 'margin:0 0 0 18px;display:flex;flex-direction:column;gap:3px', kids: srcs.map((s) => {
+      const u = oppSafeUrl(s.url);
+      return scrEl('li', { kids: [u ? scrEl('a', { text: s.title, href: u, attrs: { target: '_blank', rel: 'noopener' }, style: 'color:#3563e9' }) : scrEl('span', { text: s.title }),
+        scrEl('span', { text: s.date ? ' · ' + s.date : '' })] });
+    }) })] });
+  return scrEl('div', { style: 'background:#fff;border:1px solid #e3e8ee;border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:10px;min-width:0', kids: [
+    head, oppScoreBar(x.parts, W), node, kpis,
+    oppPara('Thèse', v.thesis),
+    oppPara('Pourquoi le cours n’a pas encore explosé', v.whyNotUp),
+    oppPara('Risque principal', v.mainRisk),
+    scrEl('div', { kids: [scrEl('div', { text: 'Contre-examen par 3 sceptiques', style: 'font-size:0.62rem;color:#9aa7b4;text-transform:uppercase;font-weight:800;letter-spacing:.04em;margin-bottom:4px' }), oppSkeptics(c.adv)] }),
+    oppPara('Prochain rendez-vous', v.catalyst),
+    c.correction ? scrEl('div', { text: 'Corrigé par le contre-examen : ' + c.correction, style: 'font-size:0.72rem;color:#42546a;background:#eef2f8;border-radius:8px;padding:6px 8px' }) : null,
+    (x.pen ? scrEl('div', { text: 'Pénalité de risque appliquée : −' + x.pen.toFixed(0) + ' points (vérification « prudence » ou sceptiques réservés).', style: 'font-size:0.7rem;color:#8a6d1f' }) : null),
+    det] });
+}
+
+function oppControl(label, input, hint) {
+  return scrEl('label', { style: 'display:flex;flex-direction:column;gap:4px;font-size:0.74rem;color:#5b6b7d;font-weight:700;min-width:0', kids: [
+    scrEl('span', { text: label }), input, hint ? scrEl('span', { text: hint, style: 'font-size:0.66rem;color:#9aa7b4;font-weight:600' }) : null] });
+}
+function oppSelect(value, options, onChange) {
+  const s = scrEl('select', { style: 'padding:6px 8px;border:1px solid #e3e8ee;border-radius:9px;font-size:0.8rem;color:#22303f;background:#fff;cursor:pointer;font-family:inherit' });
+  options.forEach(([v, l]) => { const o = scrEl('option', { text: l, attrs: { value: String(v) } }); if (String(v) === String(value)) o.selected = true; s.appendChild(o); });
+  s.onchange = () => onChange(s.value);
+  return s;
+}
+function oppCheck(label, checked, onChange, tip) {
+  const i = scrEl('input', { attrs: { type: 'checkbox' }, style: 'width:15px;height:15px;cursor:pointer;accent-color:#3563e9' });
+  i.checked = !!checked; i.onchange = () => onChange(i.checked);
+  return scrEl('label', { attrs: tip ? { title: tip } : {}, style: 'display:flex;gap:6px;align-items:center;font-size:0.76rem;color:#42546a;font-weight:600;cursor:pointer', kids: [i, scrEl('span', { text: label })] });
+}
+
+function oppRenderSettings(P, rerender) {
+  const set = (patch) => { const np = Object.assign({}, P, patch, { preset: 'perso' }); oppSave(np); rerender(); };
+  const presets = scrEl('div', { style: 'display:flex;gap:6px;flex-wrap:wrap;align-items:center', kids: [
+    scrEl('span', { text: 'Profil', style: 'font-size:0.62rem;color:#9aa7b4;text-transform:uppercase;font-weight:800;letter-spacing:.05em;margin-right:4px' }),
+    ...Object.keys(OPP_PRESETS).map((k) => {
+      const on = P.preset === k;
+      const b = scrEl('button', { text: OPP_PRESETS[k].label, attrs: { type: 'button', title: OPP_PRESETS[k].tip },
+        style: 'font-family:inherit;font-size:0.76rem;font-weight:700;padding:5px 12px;border-radius:20px;cursor:pointer;border:1px solid ' + (on ? '#22303f' : '#e3e8ee') + ';background:' + (on ? '#22303f' : '#fff') + ';color:' + (on ? '#fff' : '#42546a') });
+      b.onclick = () => { const np = Object.assign({}, OPP_DEFAULTS, OPP_PRESETS[k].set, { preset: k, weights: Object.assign({}, OPP_DEFAULTS.weights) }); oppSave(np); rerender(); };
+      return b;
+    }),
+    P.preset === 'perso' ? scrEl('span', { text: 'réglages personnalisés', style: OPP_CHIP + ';background:#fff2d9;color:#8a6d1f' }) : null] });
+  const grid = scrEl('div', { style: 'display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px 16px;margin-top:12px' });
+  grid.appendChild(oppControl('Hausse maximale sur 1 an', oppSelect(P.maxPerf1y, [[0, '0 % (en baisse)'], [0.25, '+25 %'], [0.5, '+50 %'], [0.75, '+75 %'], [1, '+100 %'], [1.5, '+150 %'], [99, 'sans limite']], (v) => set({ maxPerf1y: +v })), 'le cours ne doit pas avoir déjà explosé'));
+  grid.appendChild(oppControl('Force minimale du goulot', oppSelect(P.minNodeScore, [[12, '12 / 25'], [15, '15 / 25'], [17, '17 / 25'], [19, '19 / 25'], [21, '21 / 25'], [23, '23 / 25']], (v) => set({ minNodeScore: +v }))));
+  grid.appendChild(oppControl('Croissance minimale du CA', oppSelect(P.minGrowth, [[0, '0 %'], [0.1, '+10 %'], [0.15, '+15 %'], [0.25, '+25 %'], [0.4, '+40 %']], (v) => set({ minGrowth: +v })), 'vérifiée au communiqué quand c’est possible'));
+  grid.appendChild(oppControl('Capitalisation minimale', oppSelect(P.minCap, [[3e8, '300 M$'], [1e9, '1 Md$'], [5e9, '5 Md$'], [2e10, '20 Md$']], (v) => set({ minCap: +v }))));
+  grid.appendChild(oppControl('Capitalisation maximale', oppSelect(P.maxCap, [[0, 'sans limite'], [2e9, '2 Md$'], [1e10, '10 Md$'], [5e10, '50 Md$'], [2e11, '200 Md$']], (v) => set({ maxCap: +v }))));
+  grid.appendChild(oppControl('Courtier', oppSelect(P.broker, [['any', 'Revolut ou IBKR'], ['revolut', 'Revolut seulement'], ['ibkr', 'IBKR seulement'], ['both', 'les deux']], (v) => set({ broker: v }))));
+  grid.appendChild(oppControl('Titres par maillon', oppSelect(P.maxPerNode, [[1, '1'], [2, '2'], [3, '3']], (v) => set({ maxPerNode: +v })), 'diversification'));
+  grid.appendChild(oppControl('Titres par dépendance commune', oppSelect(P.maxPerCluster, [[1, '1'], [2, '2'], [3, '3']], (v) => set({ maxPerCluster: +v })), 'CoreWeave, InP, terres rares, mémoire, ex-mineurs'));
+  grid.appendChild(oppControl('Taille de la liste', oppSelect(P.n, [[3, '3'], [5, '5'], [8, '8'], [10, '10']], (v) => set({ n: +v }))));
+  const chains = scrEl('div', { style: 'display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:12px', kids: [
+    scrEl('span', { text: 'Chaînes', style: 'font-size:0.74rem;color:#5b6b7d;font-weight:700;margin-right:4px' }),
+    ...(OPP.chains || []).map((ch) => {
+      const on = !P.chains.length || P.chains.indexOf(ch) >= 0;
+      const b = scrEl('button', { text: ch, attrs: { type: 'button', 'aria-pressed': String(on) },
+        style: 'font-family:inherit;font-size:0.72rem;font-weight:700;padding:4px 10px;border-radius:20px;cursor:pointer;border:1px solid ' + (on ? '#3563e9' : '#e3e8ee') + ';background:' + (on ? '#eef2f8' : '#fff') + ';color:' + (on ? '#3563e9' : '#9aa7b4') });
+      b.onclick = () => {
+        let cur = P.chains.length ? P.chains.slice() : OPP.chains.slice();
+        cur = on ? cur.filter((x) => x !== ch) : cur.concat([ch]);
+        set({ chains: cur.length === OPP.chains.length ? [] : cur });
+      };
+      return b;
+    })] });
+  const checks = scrEl('div', { style: 'display:flex;gap:8px 18px;flex-wrap:wrap;margin-top:12px', kids: [
+    oppCheck('Exposition élevée', P.expoHigh, (v) => set({ expoHigh: v })),
+    oppCheck('Exposition moyenne', P.expoMid, (v) => set({ expoMid: v })),
+    oppCheck('Exposition faible', P.expoLow, (v) => set({ expoLow: v }), 'conglomérats où le goulot pèse peu'),
+    oppCheck('Rentable (bénéfice attendu et marge positifs)', P.requireProfit, (v) => set({ requireProfit: v })),
+    oppCheck('Vérifié au communiqué', P.requireVerified, (v) => set({ requireVerified: v })),
+    oppCheck('Thèse confirmée', P.requireThesis, (v) => set({ requireThesis: v })),
+    oppCheck('Exclure les titres écartés par la vérification', P.excludeRejected, (v) => set({ excludeRejected: v })),
+    oppCheck('Veto des sceptiques (2 rejets sur 3)', P.skepticsVeto, (v) => set({ skepticsVeto: v })),
+    oppCheck('Exclure les titres déjà détenus', P.excludeHeld, (v) => set({ excludeHeld: v }))] });
+  const wrow = scrEl('div', { style: 'display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px 16px;margin-top:8px' });
+  Object.keys(OPP_W_LABEL).forEach((k) => {
+    const r = scrEl('input', { attrs: { type: 'range', min: '0', max: '50', step: '5', value: String(P.weights[k]) }, style: 'width:100%;accent-color:' + OPP_W_COLOR[k] });
+    const out = scrEl('span', { text: String(P.weights[k]), style: 'font-weight:800;color:#22303f' });
+    r.oninput = () => { out.textContent = r.value; };
+    r.onchange = () => set({ weights: Object.assign({}, P.weights, { [k]: +r.value }) });
+    wrow.appendChild(scrEl('label', { style: 'display:flex;flex-direction:column;gap:3px;font-size:0.72rem;color:#5b6b7d;font-weight:700', kids: [
+      scrEl('span', { style: 'display:flex;justify-content:space-between;gap:6px', kids: [
+        scrEl('span', { style: 'display:flex;gap:6px;align-items:center', kids: [scrEl('i', { style: 'width:9px;height:9px;border-radius:2px;display:inline-block;background:' + OPP_W_COLOR[k] }), scrEl('span', { text: OPP_W_LABEL[k] })] }), out] }), r] }));
+  });
+  const weights = scrEl('details', { style: 'margin-top:12px', kids: [
+    scrEl('summary', { text: 'Poids du score (sur 100)', style: 'cursor:pointer;font-size:0.76rem;font-weight:700;color:#42546a' }), wrow] });
+  const reset = scrEl('button', { text: 'Revenir aux réglages par défaut', attrs: { type: 'button' },
+    style: 'font-family:inherit;font-size:0.72rem;font-weight:700;padding:5px 12px;border-radius:9px;cursor:pointer;border:1px solid #e3e8ee;background:#fff;color:#5b6b7d;margin-top:12px' });
+  reset.onclick = () => { oppSave(Object.assign({}, OPP_DEFAULTS, { weights: Object.assign({}, OPP_DEFAULTS.weights) })); rerender(); };
+  let open = true; try { open = localStorage.getItem('oppSettingsOpen') !== '0'; } catch (e) {}
+  const box = scrEl('details', { style: 'background:#fff;border:1px solid #e3e8ee;border-radius:14px;padding:12px 14px;margin-bottom:14px', kids: [
+    scrEl('summary', { text: 'Réglages de la sélection', style: 'cursor:pointer;font-weight:800;color:#22303f;font-size:0.86rem' }),
+    scrEl('div', { style: 'margin-top:10px', kids: [presets, grid, chains, checks, weights, reset] })] });
+  box.open = open;
+  box.addEventListener('toggle', () => { try { localStorage.setItem('oppSettingsOpen', box.open ? '1' : '0'); } catch (e) {} });
+  return box;
+}
+
+function oppRenderPepites(host) {
+  const P = oppParams();
+  const rerender = () => renderOppTab();
+  const res = oppRank(P);
+  host.appendChild(oppRenderSettings(P, rerender));
+  const W = P.weights;
+  const title = scrEl('div', { style: 'display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin:4px 0 10px', kids: [
+    scrEl('span', { text: res.picks.length ? ('Les ' + res.picks.length + ' pépites selon ta grille') : 'Aucune pépite avec ces réglages', style: 'font-weight:800;color:#22303f;font-size:1rem' }),
+    scrEl('span', { text: res.pool + ' titres passent les filtres sur ' + OPP.companies.length + ', classés par score d’opportunité de croissance', style: 'font-size:0.74rem;color:#5b6b7d' })] });
+  host.appendChild(title);
+  if (!OPP.advDone) host.appendChild(scrEl('div', { text: 'Le contre-examen par 3 sceptiques est en cours : les verdicts apparaîtront sur chaque fiche dès qu’il sera intégré.', style: 'font-size:0.74rem;color:#8a6d1f;background:#fff2d9;border-radius:9px;padding:8px 10px;margin-bottom:10px' }));
+  const cards = scrEl('div', { style: 'display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,340px),1fr));gap:14px' });
+  res.picks.forEach((x, i) => cards.appendChild(oppCard(x, i + 1, W)));
+  host.appendChild(cards);
+  host.appendChild(scrEl('div', { style: 'display:flex;gap:10px 16px;flex-wrap:wrap;font-size:0.7rem;color:#5b6b7d;margin:10px 2px 0', kids: Object.keys(OPP_W_LABEL).map((k) =>
+    scrEl('span', { style: 'display:inline-flex;gap:6px;align-items:center', kids: [scrEl('i', { style: 'width:10px;height:10px;border-radius:2px;display:inline-block;background:' + OPP_W_COLOR[k] }), scrEl('span', { text: OPP_W_LABEL[k] + ' (' + W[k] + ')' })] })) }));
+  if (res.alternates.length) {
+    const bd = 'border-bottom:1px solid #eef1f5';
+    const th = (t, right) => scrEl('th', { text: t, style: 'padding:7px 10px;font-size:0.66rem;color:#5b6b7d;font-weight:800;text-align:' + (right ? 'right' : 'left') + ';white-space:nowrap;' + bd });
+    const td = (kids, right, extra) => scrEl('td', { style: 'padding:7px 10px;font-size:0.78rem;color:#22303f;text-align:' + (right ? 'right' : 'left') + ';' + bd + ';' + (extra || ''), kids });
+    const tbody = scrEl('tbody', { kids: res.alternates.map((x, i) => {
+      const c = x.c, g = x.p.g, a = c.adv;
+      return scrEl('tr', { kids: [
+        td([scrEl('span', { text: String(res.picks.length + i + 1), style: 'color:#9aa7b4;font-weight:800' })]),
+        td([scrEl('span', { text: c.label, style: 'font-weight:800' }), scrEl('div', { text: c.name, style: 'font-size:0.68rem;color:#5b6b7d' })]),
+        td([scrEl('span', { text: x.node.name, attrs: { title: x.role || '' }, style: 'cursor:help' })], false, 'max-width:260px'),
+        td([scrEl('b', { text: x.score.toFixed(0) })], true),
+        td([scrEl('span', { text: oppFmtPct(c.m.perf1y, true) })], true),
+        td([scrEl('span', { text: oppFmtPct(g.gf != null ? g.gf : g.gy, true) })], true),
+        td([oppAccessChips(c)]),
+        td([scrEl('span', { text: a ? (a.solide + ' ✓ · ' + a.fragile + ' ◐ · ' + a.rejeter + ' ✗') : '–', attrs: { title: 'Verdicts des 3 sceptiques : solide, fragile, rejeter' }, style: 'cursor:help' })], true)] });
+    }) });
+    host.appendChild(scrEl('div', { style: 'background:#fff;border:1px solid #e3e8ee;border-radius:14px;padding:12px 14px;margin-top:16px', kids: [
+      scrEl('div', { text: 'Remplaçants', style: 'font-weight:800;color:#22303f;font-size:0.86rem;margin-bottom:6px' }),
+      scrEl('div', { style: 'overflow-x:auto', kids: [scrEl('table', { style: 'width:100%;border-collapse:collapse;min-width:720px', kids: [
+        scrEl('thead', { kids: [scrEl('tr', { kids: [th('#'), th('Société'), th('Maillon'), th('Score', true), th('1 an', true), th('Croissance', true), th('Disponible'), th('Sceptiques', true)] })] }), tbody] })] })] }));
+  }
+  const dropped = Object.keys(res.dropped).sort((a, b) => res.dropped[b] - res.dropped[a]);
+  host.appendChild(scrEl('div', { style: 'background:#fafbfc;border:1px solid #eef1f5;border-radius:12px;padding:10px 12px;margin-top:14px;font-size:0.74rem;color:#5b6b7d', kids: [
+    scrEl('div', { text: 'Ce que les filtres ont écarté', style: 'font-weight:800;color:#42546a;margin-bottom:6px' }),
+    scrEl('div', { style: 'display:flex;gap:6px;flex-wrap:wrap', kids: dropped.map((k) => scrEl('span', { text: res.dropped[k] + ' · ' + k, style: OPP_CHIP + ';background:#fff;border:1px solid #e3e8ee;color:#42546a' })) }),
+    res.skipped.length ? scrEl('div', { text: 'Écartés par la diversification (maillon ou dépendance déjà représentés) : ' + res.skipped.map((x) => x.c.label).join(', '), style: 'margin-top:6px' }) : null,
+    scrEl('div', { text: 'Repérage factuel à partir de sources datées, pas un conseil d’investissement. Les disponibilités Revolut sont déduites de ses pages publiques : à confirmer dans l’app.', style: 'margin-top:8px;color:#9aa7b4' })] }));
+}
+
+function oppRenderMap(host, anchor) {
+  const fr = scrEl('iframe', { attrs: { src: OPP_MAP_URL, title: 'Carte des goulots IA et robotique' },
+    style: 'width:100%;border:0;border-radius:14px;display:block;height:1200px;background:#eef1f5' });
+  fr.addEventListener('load', () => {
+    try {
+      const d = fr.contentDocument;
+      d.documentElement.setAttribute('data-theme', THEME);
+      // hauteur = contenu reel (.wrap), PAS scrollHeight du document : celui-ci vaut au moins la hauteur du cadre,
+      // et l'agrandir relance la mesure (boucle vue en test : cadre pousse a 224 887 px)
+      const wrap = d.querySelector('.wrap') || d.body;
+      const fit = () => { fr.style.height = Math.max(600, Math.ceil(wrap.getBoundingClientRect().height) + 8) + 'px'; };
+      fit();
+      if (window.ResizeObserver) new ResizeObserver(fit).observe(wrap);
+      if (anchor) {
+        const t = d.getElementById(anchor);
+        if (t) setTimeout(() => window.scrollTo({ top: fr.getBoundingClientRect().top + window.scrollY + t.getBoundingClientRect().top - 12, behavior: 'smooth' }), 150);
+      }
+    } catch (e) { fr.style.height = '2600px'; }   // page servie d'une autre origine : hauteur fixe
+  });
+  host.appendChild(fr);
+}
+
+async function renderOppTab() {
+  const c = document.getElementById('tab-opportunites');
+  if (!c) return;
+  if (!OPP && !OPP_ERR) { scrMsg(c, 'Chargement des opportunités IA…'); await oppLoad(); }
+  if (!OPP) {
+    c.replaceChildren(scrEl('div', { style: 'padding:24px;color:#c0392b', text: 'Impossible de charger ' + OPP_DATA_URL + ' : ' + (OPP_ERR || 'raison inconnue')
+      + '. Le fichier doit être publié à côté du dashboard (même dossier sur GitHub Pages).' }));
+    return;
+  }
+  const sub = oppSubGet();
+  const header = scrEl('div', { style: 'background:#fff;border:1px solid #e3e8ee;border-radius:14px;padding:12px 14px;margin-bottom:14px;display:flex;flex-direction:column;gap:10px' });
+  header.appendChild(scrEl('div', { style: 'display:flex;align-items:center;gap:8px;flex-wrap:wrap', kids: [
+    scrEl('span', { text: 'Opportunités IA', style: 'font-weight:800;color:#22303f;font-size:0.95rem' }),
+    scrEl('span', { text: 'goulots d’étranglement de l’IA et de la robotique, pour la poche de paris', style: 'font-size:0.72rem;color:#5b6b7d' }),
+    scrFreshBadge(OPP.generatedAt, 'Cours et indicateurs de la carte des goulots, figés à la date de génération (à refaire chaque trimestre, ou quotidiennement une fois le rafraîchissement VPS en place).')] }));
+  const tabs = [['pepites', 'Pépites'], ['carte', 'Carte des goulots'], ['sa', 'Situational Awareness']];
+  header.appendChild(scrEl('div', { style: 'display:flex;gap:6px;flex-wrap:wrap', kids: tabs.map(([k, l]) => {
+    const on = sub === k;
+    const b = scrEl('button', { text: l, attrs: { type: 'button', 'aria-pressed': String(on) },
+      style: 'font-family:inherit;font-size:0.8rem;font-weight:700;padding:6px 14px;border-radius:9px;cursor:pointer;border:1px solid ' + (on ? '#22303f' : '#e3e8ee') + ';background:' + (on ? '#22303f' : '#fff') + ';color:' + (on ? '#fff' : '#42546a') });
+    b.onclick = () => { oppSubSet(k); renderOppTab(); };
+    return b;
+  }) }));
+  const body = scrEl('div');
+  c.replaceChildren(header, body);
+  if (sub === 'carte') oppRenderMap(body, null);
+  else if (sub === 'sa') oppRenderMap(body, 'sa');
+  else oppRenderPepites(body);
+}
+
 function renderEnfantsTab() {
   const c = document.getElementById('tab-enfants');
   if (!c) return;
