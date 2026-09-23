@@ -121,6 +121,39 @@ def fb_write(cfg, path, payload, method="PATCH"):
         return 0, str(e)
 
 
+def fb_read(cfg, path):
+    """Lecture d'un noeud Firebase. None si absent ou en erreur."""
+    fb = cfg["firebase"]
+    secret = (fb.get("database_secret") or "").strip()
+    q = f"?auth={secret}" if secret and not secret.startswith("TON_") else ""
+    url = f"{fb['database_url'].rstrip('/')}/{path}.json{q}"
+    try:
+        with urllib.request.urlopen(url, timeout=30) as resp:
+            return json.loads(resp.read().decode("utf-8", "replace"))
+    except Exception:
+        return None
+
+
+def manual_flows(cfg):
+    """dashboard/darwinex/manualFlows = { 'YYYY-MM-DD': montant } -> [(ts_fin_de_jour, montant)].
+    Montant NEGATIF = retrait. Sert a corriger ce que la courbe Darwinex n'expose pas : ses
+    versements y figurent, ses retraits non, et la reconstruction comptait donc l'argent sorti."""
+    raw = fb_read(cfg, "dashboard/darwinex/manualFlows") or {}
+    out = []
+    if isinstance(raw, dict):
+        for day, amt in raw.items():
+            if not isinstance(day, str) or len(day) != 10 or not isinstance(amt, (int, float)):
+                continue
+            try:
+                d = dt.datetime.strptime(day, "%Y-%m-%d")
+            except ValueError:
+                continue
+            if TZ:
+                d = d.replace(tzinfo=TZ)
+            out.append((int(d.timestamp() * 1000), float(amt)))   # debut de journee : compte des ce jour
+    return sorted(out)
+
+
 def set_collector_status(cfg, status, message=""):
     fb_write(cfg, "dashboard/darwinex/collectorStatus",
              {"status": status, "message": message, "asOf": int(time.time() * 1000)},
@@ -252,6 +285,23 @@ def last_pl(pl_json):
     return float(pl_json[-1][1] or 0.0)
 
 
+def _fee_amount(f):
+    """Montant d'une ligne de frais, ou None. Deux formes dans la serie /pl :
+       [horodatage, montant]           -> frais de gestion (quotidiens)
+       [nom_darwin, horodatage, montant] -> commission de performance (20 %, trimestrielle)
+       On lit le DERNIER element : c'est le montant dans les deux cas."""
+    if not isinstance(f, list) or len(f) < 2:
+        return None
+    v = f[-1]
+    return float(v) if isinstance(v, (int, float)) and v < 0 else None
+
+
+def _fee_ts(f):
+    """Horodatage d'une ligne de frais : avant-dernier element."""
+    t = f[-2] if isinstance(f, list) and len(f) >= 2 else None
+    return int(t) if isinstance(t, (int, float)) else None
+
+
 def sum_fees(pl_json):
     """Somme des frais/commissions (entrées négatives des colonnes >= 2 de la série /pl)."""
     fees = 0.0
@@ -260,8 +310,9 @@ def sum_fees(pl_json):
             for i in range(2, len(pt)):
                 if isinstance(pt[i], list):
                     for f in pt[i]:
-                        if isinstance(f, list) and len(f) >= 2 and isinstance(f[1], (int, float)) and f[1] < 0:
-                            fees += f[1]
+                        a = _fee_amount(f)
+                        if a is not None:
+                            fees += a
     return round(abs(fees), 2)
 
 
@@ -328,6 +379,7 @@ def run_backfill(cfg):
     data = fetch_json(cfg, paths)
     pl = data["plAll"]                      # [[ts, cumPnl€, ...], ...]
     deps = deposits_from_value_series(data["valAll"])  # [(ts, amt), ...]
+    deps = sorted(deps + manual_flows(cfg))            # + retraits saisis a la main (negatifs)
 
     # cumPnl de fin de journée pour chaque jour
     eod = {}
@@ -350,8 +402,9 @@ def run_backfill(cfg):
         for i in range(2, len(pt)):
             if isinstance(pt[i], list):
                 for f in pt[i]:
-                    if isinstance(f, list) and len(f) >= 2 and isinstance(f[1], (int, float)) and f[1] < 0:
-                        fee_events.append((int(f[0]), float(f[1])))
+                    a, t = _fee_amount(f), _fee_ts(f)
+                    if a is not None and t is not None:
+                        fee_events.append((t, a))
 
     def deposits_upto(day):
         return sum(a for (t, a) in deps if t <= end_ms_of(day))
@@ -387,8 +440,20 @@ def run_backfill(cfg):
     darwins = fetch_darwins(cfg)
     if darwins and days:
         fb_write(cfg, f"dashboard/darwinex/daily/{days[-1]}/darwins", darwins, method="PUT")
+    # Coherence : la valeur RECONSTRUITE du dernier jour doit egaler le capital REEL du compte.
+    # Un ecart signale un mouvement d'argent que la courbe Darwinex n'expose pas (retrait) ou des
+    # frais non lus. On le dit a l'ecran plutot que d'afficher un chiffre faux en silence.
+    ecart = round(payload[days[-1]]["value"] - equity, 2) if days else 0.0
+    if abs(ecart) > 5:
+        fb_write(cfg, "dashboard/darwinex/valueError",
+                 f"Valeur reconstruite du {days[-1]} : {payload[days[-1]]['value']:.2f} EUR, "
+                 f"capital reel du compte : {equity:.2f} EUR, ecart {ecart:+.2f} EUR. "
+                 f"Un retrait est probablement absent de dashboard/darwinex/manualFlows.", method="PUT")
+        print(f"[ATTENTION] ecart reconstruction/capital reel : {ecart:+.2f} EUR")
+    else:
+        fb_write(cfg, "dashboard/darwinex/valueError", None, method="PUT")
     if status == 200:
-        set_collector_status(cfg, "ok", f"backfill {len(payload)} jours -> {days[-1]} darwins={len(darwins)}")
+        set_collector_status(cfg, "ok", f"backfill {len(payload)} jours -> {days[-1]} darwins={len(darwins)} ecart={ecart:+.2f}")
         print(f"[OK] Backfill : {len(payload)} jours écrits ({days[0]} -> {days[-1]}). "
               f"Valeur={round(equity,2)} € · dépôts={round(deposits_total,2)} · frais={fees_total} · darwins={len(darwins)}")
     else:

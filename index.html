@@ -12072,6 +12072,15 @@ function invRenderDarwinex() {
     }
   }
 
+  // Incoherence detectee par le collecteur : la valeur reconstruite (versements + P&L + frais) ne
+  // colle plus au capital reel du compte, signe d'un mouvement d'argent que Darwinex n'expose pas
+  // (retrait) ou de frais non lus. On le DIT, plutot que d'afficher un chiffre faux en silence.
+  if (d.valueError) {
+    h += `<div style="background:#fff8e6;border:1px solid #f0d9a0;border-radius:12px;padding:12px 16px;margin-bottom:16px;color:#8a6d1f;font-size:0.82rem;line-height:1.5">`
+       + `<b>⚠️ Valeur Darwinex a verifier.</b> ${String(d.valueError).replace(/</g, '&lt;')} `
+       + `Saisis le mouvement manquant dans <code>dashboard/darwinex/manualFlows</code> (montant negatif = retrait).</div>`;
+  }
+
   // ── BANDEAU UNIFIE ──
   // Un seul bloc : chaque chiffre n'apparait QU'UNE fois (avant, plus-value / performance /
   // frais figuraient a la fois ici ET dans 4 cards en dessous), et la ligne de metriques
