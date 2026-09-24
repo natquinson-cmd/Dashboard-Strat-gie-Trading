@@ -444,12 +444,15 @@ class Yahoo:
             j = self._get(url)
             res = (j.get('timeseries') or {}).get('result') or []
             series, dated = {}, {}
+            fin_ccy = None                                   # devise des comptes publies (KRW, TWD, DKK...)
             for r in res:
                 for k, v in r.items():
                     if k in ('meta', 'timestamp') or not isinstance(v, list):
                         continue
                     vals = [(a.get('asOfDate'), a['reportedValue'].get('raw')) for a in v
                             if a and a.get('reportedValue') and a['reportedValue'].get('raw') is not None]
+                    if fin_ccy is None:
+                        fin_ccy = next((a.get('currencyCode') for a in v if a and a.get('currencyCode')), None)
                     if vals:
                         vals.sort(key=lambda x: x[0] or '')      # chronologique : [0]=plus ancien, [-1]=recent
                         series[k] = [val for _, val in vals]
@@ -511,6 +514,7 @@ class Yahoo:
                 if ni_d and sh_map:
                     jc = self._get(f'{BASE}/v8/finance/chart/{symbol}?range=6y&interval=1mo')
                     r0 = ((jc.get('chart') or {}).get('result') or [{}])[0]
+                    px_ccy = (r0.get('meta') or {}).get('currency')
                     ts = r0.get('timestamp') or []
                     cl = ((r0.get('indicators') or {}).get('quote') or [{}])[0].get('close') or []
                     px = [(t, c) for t, c in zip(ts, cl)
@@ -556,6 +560,37 @@ class Yahoo:
                     def col(key):
                         return [dmap.get(key, {}).get(d) for d in exos]
 
+                    # BPA dans la devise du COURS : une societe qui publie en TWD mais cote en USD (TSM) donnait
+                    # un PER de 0,5. On convertit au taux de la date de cloture d'exercice (cloture mensuelle
+                    # la plus proche). GBp (pence de Londres) = GBP x 100.
+                    def fx_fn():
+                        f, p = (fin_ccy or '').upper(), px_ccy or ''
+                        if not f or not p or f == p.upper() and p != 'GBp':
+                            return lambda d: 1.0
+                        mult, p_base = (100.0, 'GBP') if p == 'GBp' else (1.0, p.upper())
+                        if f == p_base:
+                            return lambda d: mult
+                        try:
+                            jf = self._get(f'{BASE}/v8/finance/chart/{f}{p_base}=X?range=6y&interval=1mo')
+                            rf = ((jf.get('chart') or {}).get('result') or [{}])[0]
+                            fx = [(t, c) for t, c in zip(rf.get('timestamp') or [],
+                                                          ((rf.get('indicators') or {}).get('quote') or [{}])[0].get('close') or [])
+                                  if isinstance(t, int) and isinstance(c, (int, float)) and c > 0]
+                        except Exception:
+                            fx = []
+                        if not fx:
+                            return lambda d: None                # pas de taux : pas de PER plutot qu'un PER faux
+
+                        def at(d):
+                            try:
+                                target = calendar.timegm(_dt.datetime.strptime(d[:10], '%Y-%m-%d').timetuple())
+                            except Exception:
+                                return None
+                            best = min(fx, key=lambda tc: abs(tc[0] - target))
+                            return best[1] * mult if abs(best[0] - target) <= 70 * 86400 else None
+                        return at
+                    fx_at = fx_fn()
+
                     rev_y, fcf_y = col('annualTotalRevenue'), col('annualFreeCashFlow')
                     ni_y, sh_y = col('annualNetIncome'), col('annualDilutedAverageShares')
                     ebit_y, ic_y = col('annualEBIT'), col('annualInvestedCapital')
@@ -575,14 +610,15 @@ class Yahoo:
                         roic_y.append(round(base / ic, 4) if (ic and ic > 0 and base) else None)
                         eps = (ni_y[i] / sh_y[i]) if (ni_y[i] and sh_y[i] and sh_y[i] > 0) else None
                         eps_y.append(round(eps, 4) if eps else None)
-                        p = price_at(d)
-                        pe = (p / eps) if (p and eps and eps > 0) else None
+                        p, k = price_at(d), fx_at(d)
+                        eps_px = (eps * k) if (eps and k) else None     # BPA dans la devise du cours
+                        pe = (p / eps_px) if (p and eps_px and eps_px > 0) else None
                         pe_y.append(round(pe, 2) if (pe and 0 < pe < 200) else None)
                     h = {'years': [d[:4] for d in exos], 'revenue': rev_y, 'fcf': fcf_y,
-                         'roic': roic_y, 'eps': eps_y, 'pe': pe_y}
+                         'roic': roic_y, 'eps': eps_y, 'pe': pe_y, 'ccy': fin_ccy or 'USD'}
                     if any(v is not None for k in ('revenue', 'fcf', 'roic', 'eps') for v in h[k]):
                         out['hist'] = {k: v for k, v in h.items()
-                                       if k == 'years' or any(x is not None for x in v)}
+                                       if k in ('years', 'ccy') or any(x is not None for x in v)}
             except Exception:
                 pass
             return out or None

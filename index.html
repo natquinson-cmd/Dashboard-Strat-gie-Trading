@@ -8696,7 +8696,7 @@ function scrShowHistCard(sym, metric) {
   const h = (h0 && h0.years) ? (function () {
     const yrs = Array.isArray(h0.years) ? h0.years : Object.keys(h0.years).sort((a, b) => a - b).map((k) => h0.years[k]);
     const al = (v) => yrs.map((_, i) => (v && v[i] != null && isFinite(v[i])) ? Number(v[i]) : null);
-    return { years: yrs, revenue: al(h0.revenue), fcf: al(h0.fcf), roic: al(h0.roic), eps: al(h0.eps), pe: al(h0.pe) };
+    return { years: yrs, revenue: al(h0.revenue), fcf: al(h0.fcf), roic: al(h0.roic), eps: al(h0.eps), pe: al(h0.pe), ccy: String(h0.ccy || 'USD').toUpperCase() };
   })() : null;
   const meta = SCR_HIST_META[metric] || SCR_HIST_META.roic;
   const backdrop = scrEl('div', { style: 'position:fixed;inset:0;z-index:10000;background:rgba(20,30,45,0.45);display:flex;align-items:flex-start;justify-content:center;padding:36px 12px;overflow:auto' });
@@ -8714,7 +8714,17 @@ function scrShowHistCard(sym, metric) {
       text: "Historique annuel pas encore collecté pour ce titre. Le VPS l'enregistre lors de son passage quotidien : il apparaîtra au prochain run du screener." }));
   } else {
     const pct = (v) => (v >= 0 ? '' : '') + (v * 100).toFixed(0) + '%';
-    const md = (v) => { const a = Math.abs(v); const u = a >= 1e9 ? [1e9, ' Md'] : (a >= 1e6 ? [1e6, ' M'] : [1e3, ' k']); return (v / u[0]).toFixed(a / u[0] >= 100 ? 0 : 1) + u[1]; };
+    // Montants publies dans la devise des comptes (KRW pour SK Hynix, TWD pour TSM...) : convertis dans la
+    // devise d'affichage au taux du JOUR. Taux constant = la forme des barres est exactement celle publiee ;
+    // la devise d'origine est rappelee sous chaque graphique.
+    const ccy = h.ccy || 'USD', dispSym = scrDispSym();
+    const rateUsd = (ccy === 'USD') ? 1 : ((SCR_FX && SCR_FX[ccy]) ? 1 / SCR_FX[ccy] : null);   // SCR_FX = unites par 1 USD
+    const conv = (v) => (rateUsd == null ? v : usdToDisp(v * rateUsd));
+    const unit = rateUsd == null ? (' ' + ccy) : (' ' + dispSym);
+    const md = (v0) => { const v = conv(v0), a = Math.abs(v); const u = a >= 1e9 ? [1e9, ' Md'] : (a >= 1e6 ? [1e6, ' M'] : [1e3, ' k']); return (v / u[0]).toFixed(a / u[0] >= 100 ? 0 : 1) + u[1] + unit; };
+    const note = (ccy === 'USD' && SCR_DISP_CCY === 'USD') ? ''
+      : (rateUsd == null ? ('montants en ' + ccy + ' (taux de change indisponible)')
+         : ('comptes publiés en ' + ccy + ', convertis en ' + dispSym + ' au taux du jour'));
     const bloc = (titre, sousTitre, el) => {
       const b = scrEl('div', { style: 'margin-bottom:10px' });
       b.appendChild(scrEl('div', { style: 'display:flex;align-items:baseline;gap:8px;margin-bottom:2px', kids: [
@@ -8732,12 +8742,14 @@ function scrShowHistCard(sym, metric) {
         scrHistBars(h.years, h.revenue || [], { fmt: md, color: '#3563e9', height: 150 }));
       bloc('Free cash-flow', m.fcfCagr != null ? ((m.fcfCagr >= 0 ? '+' : '') + (m.fcfCagr * 100).toFixed(0) + ' %/an en moyenne') : '',
         scrHistBars(h.years, h.fcf || [], { fmt: md, color: (v) => (v >= 0 ? '#1d9e74' : '#dd5f66'), height: 150 }));
+      if (note) card.appendChild(scrEl('div', { text: '💱 ' + note + '.', style: 'font-size:0.68rem;color:#8a6d1f;background:#fff8e6;border:1px solid #f0d9a0;border-radius:8px;padding:5px 9px;margin:-4px 0 10px' }));
     } else {
       bloc('PER par exercice', m.avgPe != null ? ('moyenne ' + Number(m.avgPe).toFixed(1)) : 'cours de clôture ÷ bénéfice par action',
         scrHistBars(h.years, h.pe || [], { fmt: (v) => v.toFixed(0), ref: (m.avgPe != null ? Number(m.avgPe) : null), refLabel: 'moyenne',
           color: '#7c3aed', height: 150 }));
-      bloc('Bénéfice par action', m.peg != null ? ('PEG actuel ' + Number(m.peg).toFixed(2)) : '',
-        scrHistBars(h.years, h.eps || [], { fmt: (v) => v.toFixed(2), color: (v) => (v >= 0 ? '#1d9e74' : '#dd5f66'), height: 150 }));
+      bloc('Bénéfice par action', (m.peg != null ? ('PEG actuel ' + Number(m.peg).toFixed(2)) : '') + (ccy !== 'USD' ? ' · en ' + ccy : ''),
+        scrHistBars(h.years, h.eps || [], { fmt: (v) => (Math.abs(v) >= 100 ? v.toFixed(0) : v.toFixed(2)), color: (v) => (v >= 0 ? '#1d9e74' : '#dd5f66'), height: 150 }));
+      if (ccy !== 'USD') card.appendChild(scrEl('div', { text: '💱 Comptes publiés en ' + ccy + ' : le bénéfice par action est laissé dans cette devise, le PER est calculé après conversion au taux de chaque clôture d’exercice.', style: 'font-size:0.68rem;color:#8a6d1f;background:#fff8e6;border:1px solid #f0d9a0;border-radius:8px;padding:5px 9px;margin:-4px 0 10px' }));
     }
   }
   card.appendChild(scrEl('div', { style: 'font-size:0.7rem;color:#5b6b7d;line-height:1.5;background:#f8fafc;border:1px solid #eef1f5;border-radius:10px;padding:9px 11px;margin-top:4px', text: meta.aide }));
