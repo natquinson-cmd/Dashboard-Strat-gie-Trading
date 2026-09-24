@@ -8699,12 +8699,17 @@ function scrShowHistCard(sym, metric) {
   const h = (h0 && h0.years) ? (function () {
     const yrs = Array.isArray(h0.years) ? h0.years : Object.keys(h0.years).sort((a, b) => a - b).map((k) => h0.years[k]);
     const al = (v) => yrs.map((_, i) => (v && v[i] != null && isFinite(v[i])) ? Number(v[i]) : null);
-    // Etiquette = annee de CLOTURE ; si l'exercice ne clot pas en decembre, on ajoute le mois
-    // (NVIDIA : "janv. 2026" couvre fevrier 2025 - janvier 2026, pas l'annee civile 2026).
-    const MOIS = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
-    const ends = Array.isArray(h0.ends) ? h0.ends : null, mo = ends && ends[0] ? Number(String(ends[0]).slice(5, 7)) : 12;
-    const lab = (mo >= 1 && mo <= 11) ? yrs.map((y) => MOIS[mo - 1] + ' ' + y) : yrs;
-    return { years: lab, closeMonth: (mo >= 1 && mo <= 11) ? mo : 12, closeName: MOIS[(mo || 12) - 1], revenue: al(h0.revenue), fcf: al(h0.fcf), roic: al(h0.roic), eps: al(h0.eps), pe: al(h0.pe), ccy: String(h0.ccy || 'USD').toUpperCase() };
+    // Etiquette = l'ANNEE COUVERTE par l'exercice, pas son annee de cloture (choix user) : un exercice
+    // clos de janvier a mai porte surtout sur l'annee precedente (NVIDIA, clos fin janvier 2026 = 2025).
+    // Convention Compustat : cloture janvier-mai -> annee - 1, juin-decembre -> annee de cloture.
+    const ends = Array.isArray(h0.ends) ? h0.ends : null;
+    const lab = yrs.map((y, i) => {
+      const e = ends && ends[i] ? String(ends[i]) : null;
+      if (!e) return y;                                  // mois de cloture pas encore collecte
+      const mo = Number(e.slice(5, 7)), yy = Number(e.slice(0, 4));
+      return String(mo >= 1 && mo <= 5 ? yy - 1 : yy);
+    });
+    return { years: lab, revenue: al(h0.revenue), fcf: al(h0.fcf), roic: al(h0.roic), eps: al(h0.eps), pe: al(h0.pe), ccy: String(h0.ccy || 'USD').toUpperCase() };
   })() : null;
   const meta = SCR_HIST_META[metric] || SCR_HIST_META.roic;
   const backdrop = scrEl('div', { style: 'position:fixed;inset:0;z-index:10000;background:rgba(20,30,45,0.45);display:flex;align-items:flex-start;justify-content:center;padding:36px 12px;overflow:auto' });
@@ -8774,12 +8779,6 @@ function scrShowHistCard(sym, metric) {
         scrHistBars(h.years, h.eps || [], { fmt: (v) => (Math.abs(v) >= 100 ? v.toFixed(0) : v.toFixed(2)), color: (v) => (v >= 0 ? '#1d9e74' : '#dd5f66'), height: 150 }));
       if (ccy !== 'USD') card.appendChild(scrEl('div', { text: '💱 Comptes publiés en ' + ccy + ' : le bénéfice par action est laissé dans cette devise, le PER est calculé après conversion au taux de chaque clôture d’exercice.', style: 'font-size:0.68rem;color:#8a6d1f;background:#fff8e6;border:1px solid #f0d9a0;border-radius:8px;padding:5px 9px;margin:-4px 0 10px' }));
     }
-  }
-  if (h && h.closeMonth && h.closeMonth !== 12) {
-    const MOISL = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
-    const mNext = MOISL[h.closeMonth % 12], mEnd = MOISL[h.closeMonth - 1];
-    card.appendChild(scrEl('div', { text: '📅 Exercice clos fin ' + mEnd + ' : la barre « ' + h.years[h.years.length - 1] + ' » couvre ' + mNext + ' ' + (Number(String(h.years[h.years.length - 1]).slice(-4)) - 1) + ' à ' + mEnd + ' ' + String(h.years[h.years.length - 1]).slice(-4) + ', pas l’année civile.',
-      style: 'font-size:0.68rem;color:#3563e9;background:#eef4ff;border:1px solid #dbe7ff;border-radius:8px;padding:5px 9px;margin:0 0 10px' }));
   }
   card.appendChild(scrEl('div', { style: 'font-size:0.7rem;color:#5b6b7d;line-height:1.5;background:#f8fafc;border:1px solid #eef1f5;border-radius:10px;padding:9px 11px;margin-top:4px', text: meta.aide }));
   card.appendChild(scrEl('div', { style: 'font-size:0.64rem;color:#9aa7b4;margin-top:8px;line-height:1.45',
