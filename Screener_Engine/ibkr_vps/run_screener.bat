@@ -55,6 +55,14 @@ if not exist "%LOG%" (
   exit /b 5
 )
 echo ===== DEMARRAGE %DATE% %TIME%  args=[%*] =====>> "%LOG%"
+REM Toute la sortie part dans le journal : sans ces lignes, la fenetre restait vide 20 minutes
+REM et un run qui travaille ressemblait a un run bloque.
+echo.
+echo Screener lance a %TIME%. Rien ne s'affiche ici avant la fin (15 a 25 min en mode quality).
+echo Journal de ce run : %LOG%
+echo Pour suivre en direct, dans une AUTRE fenetre :
+echo   powershell -NoProfile -Command "Get-Content -LiteralPath '%LOG%' -Wait -Tail 30"
+echo.
 
 if exist ".venv\Scripts\python.exe" (
   ".venv\Scripts\python.exe" run.py %* 1>> "%LOG%" 2>&1
