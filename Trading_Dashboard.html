@@ -4112,7 +4112,9 @@ function ttlBuildStack() {
       { label: TTL_LABEL.ig, data: z(s.ig), borderColor: TTL_COL.ig, backgroundColor: TTL_COL.ig+'33', fill:true, tension:0.25, pointRadius:0, borderWidth:1.5 },
       { label: TTL_LABEL.stk, data: z(s.stk), borderColor: TTL_COL.stk, backgroundColor: TTL_COL.stk+'33', fill:true, tension:0.25, pointRadius:0, borderWidth:1.5 },
       { label: TTL_LABEL.dwx, data: z(s.dwx), borderColor: TTL_COL.dwx, backgroundColor: TTL_COL.dwx+'33', fill:true, tension:0.25, pointRadius:0, borderWidth:1.5 } ] },
-    options:{ responsive:true, maintainAspectRatio:false, interaction:{ mode:'index', intersect:false },
+    // marge haute : l'etiquette de la serie du dessus (pastille de 22 px posee au-dessus du dernier point)
+    // etait coupee par le bord du graphique quand le total touche le haut de l'axe
+    options:{ responsive:true, maintainAspectRatio:false, layout:{ padding:{ top:28 } }, interaction:{ mode:'index', intersect:false },
       plugins:{ legend:{ position:'bottom', labels:{ boxWidth:12, font:{ size:11 } } },
         tooltip:{ callbacks:{ label: c => c.dataset.label+' : '+fmt(Math.round(c.parsed.y))+' €', footer: it => 'Total : '+fmt(Math.round(it.reduce((a,i)=>a+i.parsed.y,0)))+' €' } } },
       scales:{ y:{ stacked:true, ticks:{ callback:v=>fmt(v)+' €', font:{ size:10 } } }, x:{ ticks:{ font:{ size:10 }, maxRotation:0, autoSkip:true, maxTicksLimit:12 } } } } });
