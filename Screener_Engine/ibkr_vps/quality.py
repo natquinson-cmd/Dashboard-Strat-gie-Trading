@@ -234,6 +234,7 @@ def rate_universe(universe, cfg=QUALITY_CONFIG):
                 'dividendYield': t.get('dividendYield'), 'payoutRatio': t.get('payoutRatio'),
                 'divStreak': t.get('divStreak'), 'divCagr': t.get('divCagr'), 'divGrowing': t.get('divGrowing'),
                 'website': t.get('website'), 'country': t.get('country'),
+                'hist': t.get('hist'),   # historique annuel (CA, FCF, ROIC, BPA, PER) : graphiques en barres du dashboard
             },
         })
 

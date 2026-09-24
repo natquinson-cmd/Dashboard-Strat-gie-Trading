@@ -1227,6 +1227,10 @@
   html[data-theme="dark"] [style*="font-size:1.25rem"], html[data-theme="dark"] [style*="font-size: 1.25rem"] {
     --t-text-1d9e74: #81c784; --t-text-46ba90: #81c784; --t-text-127a54: #81c784; --t-bg-1d9e74: #81c784; --positive: #81c784;
   }
+  /* cellules d'indicateur qui ouvrent l'historique annuel au clic (ROIC, croissance, PEG) */
+  .scr-hist-cell { cursor: pointer; transition: background 0.15s ease; }
+  .scr-hist-cell:hover { background: rgba(53,99,233,0.08); }
+  html[data-theme="dark"] .scr-hist-cell:hover { background: rgba(63,118,237,0.16); }
   /* interrupteurs (€/%, $/%) : en foncé la piste se fondait dans la carte et le bouton prenait la
      couleur de la carte -> contour bleu Baggr, piste teintée, bouton clair */
   html[data-theme="dark"] .toggle-track { border: 1.5px solid #3f76ed; background: rgba(63,118,237,0.16); }
@@ -8628,6 +8632,130 @@ function scrFundaHeadCells(slice) {
     style: `padding:8px 8px;text-align:${al};font-size:0.66rem;text-transform:uppercase;letter-spacing:.02em;border-bottom:1px solid #e3e8ee;white-space:nowrap${tip ? ';cursor:help;text-decoration:underline dotted #b8c2cf;text-underline-offset:3px' : ''}`
   }));
 }
+// ── HISTORIQUE ANNUEL (au clic sur ROIC, Croissance CA/FCF, PEG) ──────────────────────────────
+// Meme principe que la fenetre Valorisation : une carte modale, ici avec des barres par exercice.
+// La serie vient du VPS (metrics.hist) : Yahoo n'expose que ~4 a 6 exercices, on affiche ce qu'il y a.
+let SCR_HIST_MODAL = null;
+function scrCloseHistModal() {
+  if (SCR_HIST_MODAL) { SCR_HIST_MODAL.remove(); SCR_HIST_MODAL = null; document.removeEventListener('keydown', scrHistEsc, true); }
+}
+function scrHistEsc(e) { if (e.key === 'Escape') scrCloseHistModal(); }
+// Graphique en barres : une barre par exercice, valeur ecrite au-dessus, ligne de reference optionnelle.
+// Les valeurs manquantes sautent la barre (plutot qu'un zero, qui ferait croire a un effondrement).
+function scrHistBars(years, vals, o) {
+  o = o || {};
+  const NS = 'http://www.w3.org/2000/svg', W = 430, H = o.height || 150;
+  const padL = 4, padR = 4, padT = 20, padB = 18;
+  const nums = vals.filter((v) => v != null && isFinite(v));
+  const wrap = scrEl('div');
+  if (!nums.length) { wrap.appendChild(scrEl('div', { text: 'Donnée indisponible.', style: 'font-size:0.74rem;color:#9aa7b4;padding:6px 0' })); return wrap; }
+  let min = Math.min.apply(null, nums.concat([0])), max = Math.max.apply(null, nums.concat([0]));
+  if (o.ref != null) max = Math.max(max, o.ref);
+  if (min === max) { max = min + 1; }
+  const span = (max - min) || 1;
+  const y = (v) => H - padB - ((v - min) / span) * (H - padT - padB);
+  const svg = document.createElementNS(NS, 'svg');
+  svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H); svg.setAttribute('width', '100%'); svg.style.display = 'block';
+  const mk = (tag, a) => { const e = document.createElementNS(NS, tag); for (const k in a) e.setAttribute(k, a[k]); return e; };
+  const n = vals.length, bw = (W - padL - padR) / n, y0 = y(0);
+  // ligne de reference (ex seuil de 15 % sur le ROIC)
+  if (o.ref != null) {
+    svg.appendChild(mk('line', { x1: padL, x2: W - padR, y1: y(o.ref).toFixed(1), y2: y(o.ref).toFixed(1), stroke: '#9aa7b4', 'stroke-dasharray': '3 3', 'stroke-width': 1 }));
+    const rt = mk('text', { x: W - padR, y: (y(o.ref) - 3).toFixed(1), 'text-anchor': 'end', 'font-size': 9, fill: '#9aa7b4' });
+    rt.textContent = o.refLabel || ''; svg.appendChild(rt);
+  }
+  svg.appendChild(mk('line', { x1: padL, x2: W - padR, y1: y0.toFixed(1), y2: y0.toFixed(1), stroke: '#c3ccd6', 'stroke-width': 1 }));
+  vals.forEach((v, i) => {
+    const cx = padL + i * bw + bw / 2;
+    const lab = mk('text', { x: cx.toFixed(1), y: (H - 5).toFixed(1), 'text-anchor': 'middle', 'font-size': 9, fill: '#9aa7b4' });
+    lab.textContent = years[i] || ''; svg.appendChild(lab);
+    if (v == null || !isFinite(v)) return;
+    const top = Math.min(y(v), y0), h = Math.max(1.5, Math.abs(y(v) - y0));
+    const col = (typeof o.color === 'function') ? o.color(v, i) : (o.color || '#3563e9');
+    svg.appendChild(mk('rect', { x: (cx - bw * 0.3).toFixed(1), y: top.toFixed(1), width: (bw * 0.6).toFixed(1), height: h.toFixed(1), rx: 2, fill: col }));
+    const t = mk('text', { x: cx.toFixed(1), y: (v >= 0 ? top - 5 : top + h + 11).toFixed(1), 'text-anchor': 'middle', 'font-size': 9.5, 'font-weight': 700, fill: col });
+    t.textContent = o.fmt ? o.fmt(v) : String(v); svg.appendChild(t);
+  });
+  wrap.appendChild(svg);
+  return wrap;
+}
+const SCR_HIST_META = {
+  roic: { titre: 'ROIC par exercice',
+    aide: "Rendement du capital investi = résultat opérationnel après impôt ÷ capital employé. Au-dessus de 15 %, l'entreprise crée de la valeur sur l'argent qu'elle mobilise ; en dessous, elle la détruit. C'est le ratio n°1 de la méthode Dividend King, et le filtre qui écarte le plus de candidates du screener." },
+  growth: { titre: "Chiffre d'affaires et free cash-flow",
+    aide: "La croissance affichée dans le tableau est la moyenne annualisée entre le premier et le dernier exercice. Les barres montrent le chemin réel : une progression régulière n'a pas la même valeur qu'un unique bond suivi d'un plateau. Le free cash-flow est le cash qui reste après les investissements, plus difficile à maquiller que le bénéfice comptable." },
+  peg: { titre: 'PER et bénéfice par action',
+    aide: "Le PEG rapporte le PER à la croissance des bénéfices : il n'a de sens que si l'on voit ses deux moteurs. En haut le PER payé à chaque clôture d'exercice (cours de l'époque ÷ bénéfice par action), en bas le bénéfice par action lui-même. Un PER qui monte plus vite que le bénéfice signale une réévaluation par le marché, pas une amélioration de l'entreprise." },
+};
+function scrShowHistCard(sym, metric) {
+  scrCloseHistModal();
+  sym = String(sym || '').toUpperCase();
+  const m = SCR_PRICE_MAP[sym] || {}, h0 = m.hist || null;
+  // Firebase range un tableau troue de null (exercice sans donnee) en OBJET {0:..,2:..} : on remet
+  // chaque serie en tableau aligne sur les annees, trou = null (la barre est sautee, pas mise a zero).
+  const h = (h0 && h0.years) ? (function () {
+    const yrs = Array.isArray(h0.years) ? h0.years : Object.keys(h0.years).sort((a, b) => a - b).map((k) => h0.years[k]);
+    const al = (v) => yrs.map((_, i) => (v && v[i] != null && isFinite(v[i])) ? Number(v[i]) : null);
+    return { years: yrs, revenue: al(h0.revenue), fcf: al(h0.fcf), roic: al(h0.roic), eps: al(h0.eps), pe: al(h0.pe) };
+  })() : null;
+  const meta = SCR_HIST_META[metric] || SCR_HIST_META.roic;
+  const backdrop = scrEl('div', { style: 'position:fixed;inset:0;z-index:10000;background:rgba(20,30,45,0.45);display:flex;align-items:flex-start;justify-content:center;padding:36px 12px;overflow:auto' });
+  const card = scrEl('div', { style: 'background:#fff;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,0.3);width:min(500px,96vw);padding:18px 20px;font-size:0.82rem;color:#42546a' });
+  backdrop.appendChild(card); backdrop.onclick = (e) => { if (e.target === backdrop) scrCloseHistModal(); };
+  const close = scrEl('button', { text: '✕', style: 'margin-left:auto;border:none;background:none;cursor:pointer;color:#9aa7b4;font-size:1rem;font-weight:700' });
+  close.onclick = scrCloseHistModal;
+  card.appendChild(scrEl('div', { style: 'display:flex;align-items:center;gap:8px;margin-bottom:2px', kids: [
+    scrEl('b', { text: sym, style: 'color:#22303f;font-size:1.05rem' }),
+    scrEl('span', { text: meta.titre, style: 'font-size:0.72rem;color:#9aa7b4;text-transform:uppercase;letter-spacing:.04em' }), close] }));
+  if (m.name) card.appendChild(scrEl('div', { text: m.name, style: 'font-size:0.72rem;color:#9aa7b4;margin-bottom:10px' }));
+
+  if (!h || !Array.isArray(h.years) || !h.years.length) {
+    card.appendChild(scrEl('div', { style: 'background:#fff8e6;border:1px solid #f0d9a0;border-radius:10px;padding:10px 12px;font-size:0.76rem;color:#8a6d1f;line-height:1.5',
+      text: "Historique annuel pas encore collecté pour ce titre. Le VPS l'enregistre lors de son passage quotidien : il apparaîtra au prochain run du screener." }));
+  } else {
+    const pct = (v) => (v >= 0 ? '' : '') + (v * 100).toFixed(0) + '%';
+    const md = (v) => { const a = Math.abs(v); const u = a >= 1e9 ? [1e9, ' Md'] : (a >= 1e6 ? [1e6, ' M'] : [1e3, ' k']); return (v / u[0]).toFixed(a / u[0] >= 100 ? 0 : 1) + u[1]; };
+    const bloc = (titre, sousTitre, el) => {
+      const b = scrEl('div', { style: 'margin-bottom:10px' });
+      b.appendChild(scrEl('div', { style: 'display:flex;align-items:baseline;gap:8px;margin-bottom:2px', kids: [
+        scrEl('b', { text: titre, style: 'color:#22303f;font-size:0.78rem' }),
+        scrEl('span', { text: sousTitre || '', style: 'font-size:0.68rem;color:#9aa7b4' })] }));
+      b.appendChild(el); card.appendChild(b);
+    };
+    if (metric === 'roic') {
+      const vals = (h.roic || []).map((v) => (v == null ? null : v * 100));
+      bloc('ROIC', m.roicApprox ? 'approché (société sans EBIT publié)' : 'EBIT après impôt ÷ capital investi',
+        scrHistBars(h.years, vals, { fmt: (v) => v.toFixed(0) + '%', ref: 15, refLabel: 'seuil 15 %',
+          color: (v) => (v >= 15 ? '#1d9e74' : (v >= 0 ? '#e0922c' : '#dd5f66')), height: 160 }));
+    } else if (metric === 'growth') {
+      bloc("Chiffre d'affaires", m.revCagr != null ? ((m.revCagr >= 0 ? '+' : '') + (m.revCagr * 100).toFixed(0) + ' %/an en moyenne') : '',
+        scrHistBars(h.years, h.revenue || [], { fmt: md, color: '#3563e9', height: 150 }));
+      bloc('Free cash-flow', m.fcfCagr != null ? ((m.fcfCagr >= 0 ? '+' : '') + (m.fcfCagr * 100).toFixed(0) + ' %/an en moyenne') : '',
+        scrHistBars(h.years, h.fcf || [], { fmt: md, color: (v) => (v >= 0 ? '#1d9e74' : '#dd5f66'), height: 150 }));
+    } else {
+      bloc('PER par exercice', m.avgPe != null ? ('moyenne ' + Number(m.avgPe).toFixed(1)) : 'cours de clôture ÷ bénéfice par action',
+        scrHistBars(h.years, h.pe || [], { fmt: (v) => v.toFixed(0), ref: (m.avgPe != null ? Number(m.avgPe) : null), refLabel: 'moyenne',
+          color: '#7c3aed', height: 150 }));
+      bloc('Bénéfice par action', m.peg != null ? ('PEG actuel ' + Number(m.peg).toFixed(2)) : '',
+        scrHistBars(h.years, h.eps || [], { fmt: (v) => v.toFixed(2), color: (v) => (v >= 0 ? '#1d9e74' : '#dd5f66'), height: 150 }));
+    }
+  }
+  card.appendChild(scrEl('div', { style: 'font-size:0.7rem;color:#5b6b7d;line-height:1.5;background:#f8fafc;border:1px solid #eef1f5;border-radius:10px;padding:9px 11px;margin-top:4px', text: meta.aide }));
+  card.appendChild(scrEl('div', { style: 'font-size:0.64rem;color:#9aa7b4;margin-top:8px;line-height:1.45',
+    text: "Exercices comptables publiés par la société, tels que Yahoo les expose (environ cinq ans). Information de repérage, pas un conseil d'investissement." }));
+  document.body.appendChild(backdrop);
+  document.addEventListener('keydown', scrHistEsc, true);
+  SCR_HIST_MODAL = backdrop;
+}
+// Rend une cellule cliquable vers l'historique annuel (cursor + survol via .scr-hist-cell).
+function scrHistCell(td, sym, metric) {
+  if (!td || !sym) return td;
+  td.className = ((td.className || '') + ' scr-hist-cell').trim();
+  const t = td.getAttribute('title');
+  td.setAttribute('title', (t ? t + ' ' : '') + '— Clique pour voir l’historique annuel en barres.');
+  td.addEventListener('click', (e) => { e.stopPropagation(); scrShowHistCard(sym, metric); });
+  return td;
+}
 function scrFundaCells(m, sector, bd) {
   m = m || {};
   const g = '#c3ccd6';
@@ -8641,7 +8769,7 @@ function scrFundaCells(m, sector, bd) {
     const ap = m.roicApprox, col = ap ? '#9aa7b4' : (m.roic >= 0.15 ? '#1d9e74' : '#dd5f66');
     const kids = [scrEl('span', { text: (m.roic * 100).toFixed(0) + '%' + (ap ? '~' : ''), style: `font-weight:700;color:${col}` })];
     if (m.roe != null) kids.push(scrEl('span', { text: 'ROE ' + (m.roe * 100).toFixed(0) + '%', style: 'font-size:0.62rem;color:#9aa7b4' }));
-    roic = scrEl('td', { style: `padding:6px 8px;text-align:right;white-space:nowrap;${bd}`, kids: [scrEl('div', { style: 'display:flex;flex-direction:column;align-items:flex-end;gap:1px', kids: kids })] });
+    roic = scrHistCell(scrEl('td', { style: `padding:6px 8px;text-align:right;white-space:nowrap;${bd}`, kids: [scrEl('div', { style: 'display:flex;flex-direction:column;align-items:flex-end;gap:1px', kids: kids })] }), m.symbol, 'roic');
   } else roic = cell('–', `color:${g}`);
   const cr = m.revCagr, fc = m.fcfCagr;
   let croiss;
@@ -8649,9 +8777,10 @@ function scrFundaCells(m, sector, bd) {
   else {
     const caKids = [scrEl('span', { text: cr == null ? '–' : (cr >= 0 ? '+' : '') + (cr * 100).toFixed(0) + '%', style: cr == null ? `color:${g}` : `font-weight:700;color:${cr >= 0.10 ? '#1d9e74' : '#dd5f66'}` })];
     if (fc != null) caKids.push(scrEl('span', { text: 'FCF ' + (fc >= 0 ? '+' : '') + (fc * 100).toFixed(0) + '%', style: `font-size:0.62rem;color:${fc >= 0.10 ? '#1d9e74' : (fc < 0 ? '#dd5f66' : '#9aa7b4')}` }));
-    croiss = scrEl('td', { attrs: { title: "Croissance annualisée ~" + (m.revYears || 4) + " ans : CA (grand) et free cash-flow (petit). DK veut CA ET FCF en hausse ≥ 10 %/an." }, style: `padding:6px 8px;text-align:right;white-space:nowrap;${bd}`, kids: [scrEl('div', { style: 'display:flex;flex-direction:column;align-items:flex-end;gap:1px', kids: caKids })] });
+    croiss = scrHistCell(scrEl('td', { attrs: { title: "Croissance annualisée ~" + (m.revYears || 4) + " ans : CA (grand) et free cash-flow (petit). DK veut CA ET FCF en hausse ≥ 10 %/an." }, style: `padding:6px 8px;text-align:right;white-space:nowrap;${bd}`, kids: [scrEl('div', { style: 'display:flex;flex-direction:column;align-items:flex-end;gap:1px', kids: caKids })] }), m.symbol, 'growth');
   }
-  const peg = cell(m.peg == null ? '–' : Number(m.peg).toFixed(2), m.peg == null ? `color:${g}` : 'color:#42546a');
+  const peg = (m.peg == null) ? cell('–', `color:${g}`)
+    : scrHistCell(cell(Number(m.peg).toFixed(2), 'color:#42546a'), m.symbol, 'peg');
   const nm = m.netMargin;
   const marge = cell(nm == null ? '–' : (nm * 100).toFixed(0) + '%', nm == null ? `color:${g}` : `color:${nm >= 0.20 ? '#1d9e74' : '#42546a'}`);
   const y = m.dividendYield;
@@ -10704,8 +10833,11 @@ function screenerRenderQuality(c, data, config) {
     if (y != null && y > 0 && p != null && p >= 0) { txt = (p * 100).toFixed(0) + '%'; col = p > 0.60 ? '#dd5f66' : (p < 0.40 ? '#1d9e74' : '#42546a'); }
     return scrEl('td', { text: txt, style: `padding:8px 10px;text-align:right;white-space:nowrap;${bd};color:${col}` });
   };
+  // PEG cliquable : ouvre l'historique du PER et du benefice par action (les deux moteurs du ratio).
+  const pegC = (m, sym) => (m.peg == null) ? numC(null, 2)
+    : scrHistCell(numC(m.peg, 2), sym, 'peg');
   // ROIC réel (ratio n°1 DK, > 15% vert) en principal + ROE en petit. Approx (financières sans EBIT) = grisé + ~
-  const roeRoaC = (m) => {
+  const roeRoaC = (m, sym) => {
     const box = scrEl('div', { style: 'display:flex;flex-direction:column;align-items:flex-end;gap:1px' });
     if (m.roic != null) {
       const ap = m.roicApprox, col = ap ? '#9aa7b4' : (m.roic >= 0.15 ? '#1d9e74' : '#dd5f66');
@@ -10715,7 +10847,7 @@ function screenerRenderQuality(c, data, config) {
       box.appendChild(scrEl('span', { text: (m.roe == null ? '–' : (m.roe * 100).toFixed(0) + '%'), style: `font-weight:700;color:${m.roe == null ? '#5b6b7d' : (m.roe >= 0.15 ? '#1d9e74' : '#dd5f66')}` }));
       if (m.roa != null) box.appendChild(scrEl('span', { text: 'ROA ' + (m.roa * 100).toFixed(0) + '%', style: 'font-size:0.64rem;color:#9aa7b4' }));
     }
-    return scrEl('td', { style: `padding:6px 8px;text-align:right;white-space:nowrap;${bd}`, kids: [box] });
+    return scrHistCell(scrEl('td', { style: `padding:6px 8px;text-align:right;white-space:nowrap;${bd}`, kids: [box] }), sym, 'roic');
   };
   // Dividende croissant (signature DK) : années consécutives de hausse du dividende
   const divGrowthC = (m) => {
@@ -10729,13 +10861,13 @@ function screenerRenderQuality(c, data, config) {
     return scrEl('td', { text: txt, attrs: { title: tip }, style: `padding:8px 8px;text-align:right;white-space:nowrap;${bd};color:${col};font-weight:700` });
   };
   // Croissance RÉGULIÈRE du CA (moyenne annualisée ~4-5 ans) : critère DK n°2 (>= 10 % vert)
-  const crCagrC = (m) => {
+  const crCagrC = (m, sym) => {
     const v = m.revCagr, fc = m.fcfCagr;
     const col = v == null ? '#9aa7b4' : (v >= 0.10 ? '#1d9e74' : '#dd5f66');
     const kids = [scrEl('span', { text: v == null ? '–' : (v >= 0 ? '+' : '') + (v * 100).toFixed(0) + '%', style: `font-weight:700;color:${col}` })];
     if (fc != null) kids.push(scrEl('span', { text: 'FCF ' + (fc >= 0 ? '+' : '') + (fc * 100).toFixed(0) + '%', style: `font-size:0.62rem;color:${fc >= 0.10 ? '#1d9e74' : (fc < 0 ? '#dd5f66' : '#9aa7b4')}` }));
     const tip = 'Croissance annualisée sur ~' + (m.revYears || 4) + " ans : chiffre d'affaires (grand) et free cash-flow (petit, « FCF »). Critère DK : CA ET FCF en hausse ≥ 10 %/an.";
-    return scrEl('td', { attrs: { title: tip }, style: `padding:8px 8px;text-align:right;white-space:nowrap;${bd}`, kids: [scrEl('div', { style: 'display:flex;flex-direction:column;align-items:flex-end;gap:1px', kids: kids })] });
+    return scrHistCell(scrEl('td', { attrs: { title: tip }, style: `padding:8px 8px;text-align:right;white-space:nowrap;${bd}`, kids: [scrEl('div', { style: 'display:flex;flex-direction:column;align-items:flex-end;gap:1px', kids: kids })] }), sym, 'growth');
   };
   // Score OPPORTUNITE : qualite EN SOLDE (note x cheapness), badge colore 0-100 (vert = forte opportunite)
 
@@ -10762,7 +10894,7 @@ function screenerRenderQuality(c, data, config) {
       scrEl('td', { text: cd.sector || '–', style: `padding:8px 10px;color:#5b6b7d;${bd}` }),
       scrEl('td', { text: scrCountryOf(m), style: `padding:8px 10px;color:#5b6b7d;font-size:0.82rem;white-space:nowrap;${bd}` }),
       scrMoatCell(SCR_PRICE_MAP[String(cd.symbol || '').toUpperCase()] || m, 'padding:8px 10px', bd),
-      numC(m.peg, 2), pctC(m.gap, 0), crCagrC(m), numC(m.forwardPE, 1), roeRoaC(m), pctC(m.netMargin, 0.20), divYieldC(m.dividendYield), payoutC(m.payoutRatio, m.dividendYield), divGrowthC(m), pctC(m.fcfYield, 0.03),
+      pegC(m, cd.symbol), pctC(m.gap, 0), crCagrC(m, cd.symbol), numC(m.forwardPE, 1), roeRoaC(m, cd.symbol), pctC(m.netMargin, 0.20), divYieldC(m.dividendYield), payoutC(m.payoutRatio, m.dividendYield), divGrowthC(m), pctC(m.fcfYield, 0.03),
       scrEl('td', { text: scrCap(m.marketCap, m.exchange), style: `padding:8px 10px;text-align:right;color:#5b6b7d;${bd}` }),
     ]}));
   });

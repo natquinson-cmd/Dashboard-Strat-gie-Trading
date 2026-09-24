@@ -453,8 +453,8 @@ class Yahoo:
                     if vals:
                         vals.sort(key=lambda x: x[0] or '')      # chronologique : [0]=plus ancien, [-1]=recent
                         series[k] = [val for _, val in vals]
-                        if k in ('annualNetIncome', 'annualDilutedAverageShares'):
-                            dated[k] = vals                      # on garde les dates pour le P/E moyen historique
+                        dated[k] = vals                          # dates gardees pour TOUTES les series :
+                                                                 # P/E moyen historique + historique annuel (dashboard)
 
             def last(key):
                 s = series.get(key)
@@ -544,6 +544,45 @@ class Yahoo:
                         if 3.0 <= avg <= 150.0:
                             out['avgPe'] = round(avg, 2)
                             out['avgPeYears'] = len(pes)
+
+                # HISTORIQUE ANNUEL pour les graphiques du dashboard (clic sur ROIC / croissance / PEG).
+                # Aligne par exercice : une colonne par annee, valeur absente = None (le graphique saute
+                # la barre au lieu d'afficher un zero trompeur).
+                dmap = {k: {d: v for d, v in lst} for k, lst in dated.items()}
+                exos = sorted({d for k in ('annualTotalRevenue', 'annualFreeCashFlow', 'annualNetIncome',
+                                           'annualInvestedCapital') for d in dmap.get(k, {})})
+                exos = exos[-6:]                                  # Yahoo n'expose que ~5-6 exercices
+                if exos:
+                    def col(key):
+                        return [dmap.get(key, {}).get(d) for d in exos]
+
+                    rev_y, fcf_y = col('annualTotalRevenue'), col('annualFreeCashFlow')
+                    ni_y, sh_y = col('annualNetIncome'), col('annualDilutedAverageShares')
+                    ebit_y, ic_y = col('annualEBIT'), col('annualInvestedCapital')
+                    tax_y = col('annualTaxRateForCalcs')
+                    debt_y, eq_y = col('annualTotalDebt'), col('annualStockholdersEquity')
+                    cash_y = col('annualCashAndCashEquivalents')
+                    roic_y, eps_y, pe_y = [], [], []
+                    for i, d in enumerate(exos):
+                        # capital investi : le poste dedie, sinon dette + capitaux propres - tresorerie
+                        ic = ic_y[i]
+                        if not ic or ic <= 0:
+                            ic = (debt_y[i] or 0) + (eq_y[i] or 0) - (cash_y[i] or 0)
+                        t = tax_y[i]
+                        if t is None or not (0 <= t < 0.6):
+                            t = 0.21
+                        base = ebit_y[i] * (1 - t) if ebit_y[i] else ni_y[i]   # EBIT indispo (financieres) -> resultat net
+                        roic_y.append(round(base / ic, 4) if (ic and ic > 0 and base) else None)
+                        eps = (ni_y[i] / sh_y[i]) if (ni_y[i] and sh_y[i] and sh_y[i] > 0) else None
+                        eps_y.append(round(eps, 4) if eps else None)
+                        p = price_at(d)
+                        pe = (p / eps) if (p and eps and eps > 0) else None
+                        pe_y.append(round(pe, 2) if (pe and 0 < pe < 200) else None)
+                    h = {'years': [d[:4] for d in exos], 'revenue': rev_y, 'fcf': fcf_y,
+                         'roic': roic_y, 'eps': eps_y, 'pe': pe_y}
+                    if any(v is not None for k in ('revenue', 'fcf', 'roic', 'eps') for v in h[k]):
+                        out['hist'] = {k: v for k, v in h.items()
+                                       if k == 'years' or any(x is not None for x in v)}
             except Exception:
                 pass
             return out or None
