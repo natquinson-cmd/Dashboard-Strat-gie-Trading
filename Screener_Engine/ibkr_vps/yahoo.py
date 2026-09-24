@@ -614,11 +614,12 @@ class Yahoo:
                         eps_px = (eps * k) if (eps and k) else None     # BPA dans la devise du cours
                         pe = (p / eps_px) if (p and eps_px and eps_px > 0) else None
                         pe_y.append(round(pe, 2) if (pe and 0 < pe < 200) else None)
-                    h = {'years': [d[:4] for d in exos], 'revenue': rev_y, 'fcf': fcf_y,
+                    h = {'years': [d[:4] for d in exos], 'ends': [d[:7] for d in exos],   # mois de cloture
+                         'revenue': rev_y, 'fcf': fcf_y,
                          'roic': roic_y, 'eps': eps_y, 'pe': pe_y, 'ccy': fin_ccy or 'USD'}
                     if any(v is not None for k in ('revenue', 'fcf', 'roic', 'eps') for v in h[k]):
                         out['hist'] = {k: v for k, v in h.items()
-                                       if k in ('years', 'ccy') or any(x is not None for x in v)}
+                                       if k in ('years', 'ends', 'ccy') or any(x is not None for x in v)}
             except Exception:
                 pass
             return out or None

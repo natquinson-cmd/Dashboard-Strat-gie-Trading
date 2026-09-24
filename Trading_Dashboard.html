@@ -8675,7 +8675,8 @@ function scrHistBars(years, vals, o) {
     const top = Math.min(y(v), y0), h = Math.max(1.5, Math.abs(y(v) - y0));
     const col = (typeof o.color === 'function') ? o.color(v, i) : (o.color || '#3563e9');
     svg.appendChild(mk('rect', { x: (cx - bw * 0.3).toFixed(1), y: top.toFixed(1), width: (bw * 0.6).toFixed(1), height: h.toFixed(1), rx: 2, fill: col }));
-    const t = mk('text', { x: cx.toFixed(1), y: (v >= 0 ? top - 5 : top + h + 11).toFixed(1), 'text-anchor': 'middle', 'font-size': 9.5, 'font-weight': 700, fill: col });
+    // barre negative : valeur juste AU-DESSUS du zero (sous la barre, elle chevauchait l'annee)
+    const t = mk('text', { x: cx.toFixed(1), y: (v >= 0 ? top - 5 : y0 - 5).toFixed(1), 'text-anchor': 'middle', 'font-size': 9.5, 'font-weight': 700, fill: col });
     t.textContent = o.fmt ? o.fmt(v) : String(v); svg.appendChild(t);
   });
   wrap.appendChild(svg);
@@ -8686,8 +8687,8 @@ const SCR_HIST_META = {
     aide: "Rendement du capital investi = résultat opérationnel après impôt ÷ capital employé. Au-dessus de 15 %, l'entreprise crée de la valeur sur l'argent qu'elle mobilise ; en dessous, elle la détruit. C'est le ratio n°1 de la méthode Dividend King, et le filtre qui écarte le plus de candidates du screener." },
   growth: { titre: "Chiffre d'affaires et free cash-flow",
     aide: "La croissance affichée dans le tableau est la moyenne annualisée entre le premier et le dernier exercice. Les barres montrent le chemin réel : une progression régulière n'a pas la même valeur qu'un unique bond suivi d'un plateau. Le free cash-flow est le cash qui reste après les investissements, plus difficile à maquiller que le bénéfice comptable." },
-  peg: { titre: 'PER et bénéfice par action',
-    aide: "Le PEG rapporte le PER à la croissance des bénéfices : il n'a de sens que si l'on voit ses deux moteurs. En haut le PER payé à chaque clôture d'exercice (cours de l'époque ÷ bénéfice par action), en bas le bénéfice par action lui-même. Un PER qui monte plus vite que le bénéfice signale une réévaluation par le marché, pas une amélioration de l'entreprise." },
+  peg: { titre: 'PEG, PER et bénéfice par action',
+    aide: "PEG = PER ÷ croissance des bénéfices (en %). Sous 1, on paie peu la croissance ; au-dessus de 2, cher. Les barres par exercice utilisent la croissance RÉALISÉE sur l'année (PER de l'exercice ÷ hausse du BPA), le PEG actuel celle ATTENDUE par les analystes : les deux ne se comparent qu'avec prudence, et un PEG sur un an est volatil (une année de rattrapage après une mauvaise année l'écrase). Dessous, ses deux moteurs : le PER payé à chaque clôture et le bénéfice par action. Un PER qui monte plus vite que le bénéfice signale une réévaluation par le marché, pas une amélioration de l'entreprise." },
 };
 function scrShowHistCard(sym, metric) {
   scrCloseHistModal();
@@ -8698,7 +8699,12 @@ function scrShowHistCard(sym, metric) {
   const h = (h0 && h0.years) ? (function () {
     const yrs = Array.isArray(h0.years) ? h0.years : Object.keys(h0.years).sort((a, b) => a - b).map((k) => h0.years[k]);
     const al = (v) => yrs.map((_, i) => (v && v[i] != null && isFinite(v[i])) ? Number(v[i]) : null);
-    return { years: yrs, revenue: al(h0.revenue), fcf: al(h0.fcf), roic: al(h0.roic), eps: al(h0.eps), pe: al(h0.pe), ccy: String(h0.ccy || 'USD').toUpperCase() };
+    // Etiquette = annee de CLOTURE ; si l'exercice ne clot pas en decembre, on ajoute le mois
+    // (NVIDIA : "janv. 2026" couvre fevrier 2025 - janvier 2026, pas l'annee civile 2026).
+    const MOIS = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
+    const ends = Array.isArray(h0.ends) ? h0.ends : null, mo = ends && ends[0] ? Number(String(ends[0]).slice(5, 7)) : 12;
+    const lab = (mo >= 1 && mo <= 11) ? yrs.map((y) => MOIS[mo - 1] + ' ' + y) : yrs;
+    return { years: lab, closeMonth: (mo >= 1 && mo <= 11) ? mo : 12, closeName: MOIS[(mo || 12) - 1], revenue: al(h0.revenue), fcf: al(h0.fcf), roic: al(h0.roic), eps: al(h0.eps), pe: al(h0.pe), ccy: String(h0.ccy || 'USD').toUpperCase() };
   })() : null;
   const meta = SCR_HIST_META[metric] || SCR_HIST_META.roic;
   const backdrop = scrEl('div', { style: 'position:fixed;inset:0;z-index:10000;background:rgba(20,30,45,0.45);display:flex;align-items:flex-start;justify-content:center;padding:36px 12px;overflow:auto' });
@@ -8746,13 +8752,34 @@ function scrShowHistCard(sym, metric) {
         scrHistBars(h.years, h.fcf || [], { fmt: md, color: (v) => (v >= 0 ? '#1d9e74' : '#dd5f66'), height: 150 }));
       if (note) card.appendChild(scrEl('div', { text: '💱 ' + note + '.', style: 'font-size:0.68rem;color:#8a6d1f;background:#fff8e6;border:1px solid #f0d9a0;border-radius:8px;padding:5px 9px;margin:-4px 0 10px' }));
     } else {
+      // PEG par exercice = PER de l'exercice / croissance du BPA sur l'annee (%), puis le PEG actuel (Yahoo).
+      const eps = h.eps || [], per = h.pe || [];
+      const pegY = h.years.map((_, i) => {
+        const e0 = eps[i - 1], e1 = eps[i], p = per[i];
+        if (i === 0 || e0 == null || e1 == null || p == null || !(e0 > 0)) return null;
+        const g = (e1 / e0 - 1) * 100;
+        return g > 0 ? p / g : null;
+      });
+      const pegCol = (v) => (v < 1 ? '#1d9e74' : (v <= 2 ? '#e0922c' : '#dd5f66'));
+      const actuel = (m.peg != null && isFinite(m.peg)) ? Number(m.peg) : null;
+      bloc('PEG par exercice', actuel != null ? ('actuel ' + actuel.toFixed(2) + ', dernière barre') : 'PER ÷ croissance du BPA sur l’année',
+        scrHistBars(h.years.concat(actuel != null ? ['Actuel'] : []), pegY.concat(actuel != null ? [actuel] : []), {
+          fmt: (v) => v.toFixed(2), ref: 1, refLabel: 'PEG 1', height: 150,
+          color: (v, i) => (i === h.years.length ? '#3563e9' : pegCol(v)) }));
+      if (pegY.every((v) => v == null)) card.appendChild(scrEl('div', { text: 'Pas de PEG calculable par exercice : bénéfice négatif ou en baisse, ou PER indisponible.', style: 'font-size:0.68rem;color:#9aa7b4;margin:-6px 0 10px' }));
       bloc('PER par exercice', m.avgPe != null ? ('moyenne ' + Number(m.avgPe).toFixed(1)) : 'cours de clôture ÷ bénéfice par action',
         scrHistBars(h.years, h.pe || [], { fmt: (v) => v.toFixed(0), ref: (m.avgPe != null ? Number(m.avgPe) : null), refLabel: 'moyenne',
           color: '#7c3aed', height: 150 }));
-      bloc('Bénéfice par action', (m.peg != null ? ('PEG actuel ' + Number(m.peg).toFixed(2)) : '') + (ccy !== 'USD' ? ' · en ' + ccy : ''),
+      bloc('Bénéfice par action', (ccy !== 'USD' ? 'en ' + ccy : 'par exercice'),
         scrHistBars(h.years, h.eps || [], { fmt: (v) => (Math.abs(v) >= 100 ? v.toFixed(0) : v.toFixed(2)), color: (v) => (v >= 0 ? '#1d9e74' : '#dd5f66'), height: 150 }));
       if (ccy !== 'USD') card.appendChild(scrEl('div', { text: '💱 Comptes publiés en ' + ccy + ' : le bénéfice par action est laissé dans cette devise, le PER est calculé après conversion au taux de chaque clôture d’exercice.', style: 'font-size:0.68rem;color:#8a6d1f;background:#fff8e6;border:1px solid #f0d9a0;border-radius:8px;padding:5px 9px;margin:-4px 0 10px' }));
     }
+  }
+  if (h && h.closeMonth && h.closeMonth !== 12) {
+    const MOISL = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
+    const mNext = MOISL[h.closeMonth % 12], mEnd = MOISL[h.closeMonth - 1];
+    card.appendChild(scrEl('div', { text: '📅 Exercice clos fin ' + mEnd + ' : la barre « ' + h.years[h.years.length - 1] + ' » couvre ' + mNext + ' ' + (Number(String(h.years[h.years.length - 1]).slice(-4)) - 1) + ' à ' + mEnd + ' ' + String(h.years[h.years.length - 1]).slice(-4) + ', pas l’année civile.',
+      style: 'font-size:0.68rem;color:#3563e9;background:#eef4ff;border:1px solid #dbe7ff;border-radius:8px;padding:5px 9px;margin:0 0 10px' }));
   }
   card.appendChild(scrEl('div', { style: 'font-size:0.7rem;color:#5b6b7d;line-height:1.5;background:#f8fafc;border:1px solid #eef1f5;border-radius:10px;padding:9px 11px;margin-top:4px', text: meta.aide }));
   card.appendChild(scrEl('div', { style: 'font-size:0.64rem;color:#9aa7b4;margin-top:8px;line-height:1.45',
