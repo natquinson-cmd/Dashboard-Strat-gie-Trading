@@ -34,15 +34,26 @@ set "IBKR_PORT=4001"
 set "IBKR_CLIENT_ID=17"
 set "BLEND_IBKR=0.15"
 
-REM --- Journal date (PowerShell pour la date : %DATE% depend de la locale Windows) ---
+REM --- Journal : UN FICHIER PAR RUN (date + heure, via PowerShell car %DATE% depend de la locale) ---
+REM Un journal partage par jour a fait croire a un succes : le 24/09, le journal de 08h00 (cree par la
+REM tache planifiee) refusait l'ecriture a un lancement manuel ; Python ne demarrait pas, puis la fin
+REM du journal affichee etait celle du run de 08h00. Avec un fichier par run, on ne lit que le sien.
 set "LOGDIR=%~dp0logs"
 if not exist "%LOGDIR%" mkdir "%LOGDIR%"
-set "TODAY="
-for /f %%i in ('powershell -NoProfile -Command "Get-Date -Format yyyy-MM-dd"') do set "TODAY=%%i"
-if not defined TODAY set "TODAY=inconnu"
-set "LOG=%LOGDIR%\screener_%TODAY%.log"
-
-echo.>> "%LOG%"
+set "STAMP="
+for /f %%i in ('powershell -NoProfile -Command "Get-Date -Format yyyy-MM-dd_HHmmss"') do set "STAMP=%%i"
+if not defined STAMP set "STAMP=inconnu_%RANDOM%"
+set "LOG=%LOGDIR%\screener_%STAMP%.log"
+echo.> "%LOG%" 2>nul
+if not exist "%LOG%" (
+  echo [ATTENTION] le dossier %LOGDIR% refuse l'ecriture : journal de ce run dans %TEMP%.
+  set "LOG=%TEMP%\screener_%STAMP%.log"
+)
+echo.> "%LOG%" 2>nul
+if not exist "%LOG%" (
+  echo ECHEC : impossible d'ecrire un journal, ni dans %LOGDIR% ni dans %TEMP%. Rien n'a ete lance.
+  exit /b 5
+)
 echo ===== DEMARRAGE %DATE% %TIME%  args=[%*] =====>> "%LOG%"
 
 if exist ".venv\Scripts\python.exe" (
