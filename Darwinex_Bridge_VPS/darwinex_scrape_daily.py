@@ -150,7 +150,9 @@ def manual_flows(cfg):
                 continue
             if TZ:
                 d = d.replace(tzinfo=TZ)
-            out.append((int(d.timestamp() * 1000), float(amt)))   # debut de journee : compte des ce jour
+            # a MIDI : a minuit, l'horodatage egalait la fin de la veille (borne incluse) et le flux
+            # tombait un jour trop tot (retrait du 22/09 compte le 21).
+            out.append((int((d + dt.timedelta(hours=12)).timestamp() * 1000), float(amt)))
     return sorted(out)
 
 
@@ -444,7 +446,9 @@ def run_backfill(cfg):
     # Un ecart signale un mouvement d'argent que la courbe Darwinex n'expose pas (retrait) ou des
     # frais non lus. On le dit a l'ecran plutot que d'afficher un chiffre faux en silence.
     ecart = round(payload[days[-1]]["value"] - equity, 2) if days else 0.0
-    if abs(ecart) > 5:
+    # A 00h30 le capital reel inclut deja ~1h30 de cotation du jour suivant (journee Darwinex = 23h) :
+    # quelques euros d'ecart sont normaux. Seuil : 30 EUR ou 0,4 % du capital.
+    if abs(ecart) > max(30.0, 0.004 * abs(equity)):
         fb_write(cfg, "dashboard/darwinex/valueError",
                  f"Valeur reconstruite du {days[-1]} : {payload[days[-1]]['value']:.2f} EUR, "
                  f"capital reel du compte : {equity:.2f} EUR, ecart {ecart:+.2f} EUR. "
@@ -469,20 +473,23 @@ if __name__ == "__main__":
         do_login(load_config())
     elif "--dump" in args:
         run_once(load_config(), dump=True)
-    elif "--backfill" in args:
+    elif "--backfill" in args or "--once" in args:
         cfg = load_config()
+        run = run_backfill if "--backfill" in args else run_once
         try:
-            run_backfill(cfg)
+            run(cfg)
         except SessionExpired as e:
             set_collector_status(cfg, "expired", str(e))
             sys.exit(f"[SESSION EXPIRÉE] {e}\nDans le Chrome de start_chrome_debug.bat, reconnecte-toi à Darwinex, puis réessaie.")
-    elif "--once" in args:
-        cfg = load_config()
-        try:
-            run_once(cfg)
-        except SessionExpired as e:
-            set_collector_status(cfg, "expired", str(e))
-            sys.exit(f"[SESSION EXPIRÉE] {e}\nDans le Chrome de start_chrome_debug.bat, reconnecte-toi à Darwinex, puis réessaie.")
+        except SystemExit as e:
+            # sys.exit("message") (ex Chrome debogue injoignable) : avant, rien n'etait ecrit et le
+            # dashboard gardait "ok" avec des donnees perimees. On pousse la raison, puis on sort.
+            if e.code not in (None, 0):
+                set_collector_status(cfg, "error", str(e.code)[:400])
+            raise
+        except Exception as e:
+            set_collector_status(cfg, "error", f"{type(e).__name__}: {e}"[:400])
+            raise
     else:
         print("Prérequis : lance start_chrome_debug.bat et connecte-toi à Darwinex (une fois).\n"
               "Usage: py darwinex_scrape_daily.py [--login | --once | --backfill | --dump]\n"
