@@ -413,6 +413,14 @@ def run_backfill(cfg):
     def fees_upto(day):  # somme (négative) des frais jusqu'à la fin du jour
         return sum(a for (t, a) in fee_events if t <= end_ms_of(day))
 
+    # Flux de chaque jour (depots positifs, retraits negatifs) : rattache au PREMIER jour de la serie dont la
+    # fin est posterieure au flux, exactement la regle de deposits_upto (sinon marqueur et valeur divergent).
+    flows_by_day = {}
+    for (t, a) in deps:
+        d = next((day for day in days if t <= end_ms_of(day)), None)
+        if d:
+            flows_by_day[d] = flows_by_day.get(d, 0.0) + a
+
     payload = {}
     prev_cum, prev_fee = 0.0, 0.0
     for day in days:
@@ -420,7 +428,9 @@ def run_backfill(cfg):
         fee = fees_upto(day)
         value = round(deposits_upto(day) + cum + fee, 2)      # NET des frais de gestion
         pnl = round((cum - prev_cum) + (fee - prev_fee), 2)   # P&L net du jour (brut + frais du jour)
-        payload[day] = {"value": value, "pnl": pnl}
+        payload[day] = {"value": value, "pnl": pnl,
+                        "deposit": round(flows_by_day.get(day, 0.0), 2),
+                        "fee": round(fee - prev_fee, 2)}      # frais preleves ce jour-la (negatif)
         prev_cum, prev_fee = cum, fee
 
     # PATCH par CHAMP (clés "jour/champ") et non par jour : un PATCH de daily/<jour>
@@ -430,6 +440,11 @@ def run_backfill(cfg):
     for day, v in payload.items():
         flat[f"{day}/value"] = v["value"]
         flat[f"{day}/pnl"] = v["pnl"]
+        # marqueurs d'evenements : flux d'argent du jour, et commission significative (>= 5 EUR : les
+        # commissions de performance trimestrielles ; les frais de gestion font quelques centimes par jour).
+        # None efface un champ devenu sans objet (flux corrige, par exemple).
+        flat[f"{day}/deposit"] = v["deposit"] if abs(v["deposit"]) >= 0.01 else None
+        flat[f"{day}/fee"] = v["fee"] if v["fee"] <= -5 else None
     status, txt = fb_write(cfg, "dashboard/darwinex/daily", flat, method="PATCH")
     # agrégat hero/portfolio (valeur = equity live, dépôts = somme, frais = /pl)
     equity, _, _ = account_equity(data["account"], acc)
