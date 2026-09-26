@@ -77,6 +77,19 @@
     margin-bottom: 4px;
   }
   .header p { color: var(--text-secondary); font-size: 0.85rem; }
+  /* titre : pastille logo en dégradé + premier mot à la couleur du groupe (bleu Trading, vert Portfolio) */
+  .header h1 { display: flex; align-items: center; gap: 12px; }
+  .title-mark { width: 38px; height: 38px; border-radius: 11px; flex: none; display: inline-flex; align-items: center; justify-content: center;
+    background: linear-gradient(135deg, #3563e9, #8b5cf6); box-shadow: 0 6px 16px rgba(53,99,233,0.28); }
+  .title-mark svg { width: 22px; height: 22px; display: block; }
+  .title-accent { color: #3563e9; }
+  .header h1.grp-invest .title-mark { background: linear-gradient(135deg, #1d9e74, #3ec3a7); box-shadow: 0 6px 16px rgba(29,158,116,0.28); }
+  .header h1.grp-invest .title-accent { color: #1d9e74; }
+  html[data-theme="dark"] .title-mark { background: linear-gradient(135deg, #3f76ed, #807cfa); box-shadow: 0 6px 18px rgba(63,118,237,0.35); }
+  html[data-theme="dark"] .title-accent { color: #5c8aee; }
+  html[data-theme="dark"] .header h1.grp-invest .title-mark { background: linear-gradient(135deg, #66bb6a, #73dac3); box-shadow: 0 6px 18px rgba(102,187,106,0.30); }
+  html[data-theme="dark"] .header h1.grp-invest .title-accent { color: #81c784; }
+  @media (max-width: 700px) { .title-mark { width: 30px; height: 30px; border-radius: 9px; } .title-mark svg { width: 17px; height: 17px; } }
 
   /* TAB SYSTEM */
   .tab-bar {
@@ -1353,7 +1366,7 @@
 
   <div class="header">
     <div class="header-left">
-      <h1 id="mainTitle">Trading Dashboard</h1>
+      <h1 id="mainTitle"><span class="title-mark"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 17 9 11 13 15 21 7"/><polyline points="15 7 21 7 21 13"/></svg></span><span><span class="title-accent">Trading</span> Dashboard</span></h1>
       <p id="headerSubtitle">DAX 40 (IntradayGrafV4-3) & NASDAQ 100 (NAS 15 OPR R2.2)</p>
     </div>
     <div class="group-bar">
@@ -6884,14 +6897,30 @@ function renderSubTabs() {
   bar.innerHTML = html;
 }
 
+// Titre : pastille logo (courbe montante pour Trading, camembert pour Portfolio) + premier mot a la couleur
+// du groupe. Construit en DOM : couleurs dans le CSS (.title-mark, .title-accent, h1.grp-invest).
+function setDashTitle(group) {
+  const h = document.getElementById('mainTitle');
+  if (!h) return;
+  const NS = 'http://www.w3.org/2000/svg', svg = document.createElementNS(NS, 'svg');
+  [['viewBox', '0 0 24 24'], ['fill', 'none'], ['stroke', '#fff'], ['stroke-width', '2.4'], ['stroke-linecap', 'round'], ['stroke-linejoin', 'round']]
+    .forEach(([k, v]) => svg.setAttribute(k, v));
+  const shapes = group === 'invest'
+    ? [['path', 'd', 'M12 3a9 9 0 1 0 9 9h-9z'], ['path', 'd', 'M15.5 3.7A9 9 0 0 1 20.3 8.5h-4.8z']]
+    : [['polyline', 'points', '3 17 9 11 13 15 21 7'], ['polyline', 'points', '15 7 21 7 21 13']];
+  shapes.forEach(([tag, k, v]) => { const e = document.createElementNS(NS, tag); e.setAttribute(k, v); svg.appendChild(e); });
+  const mark = document.createElement('span'); mark.className = 'title-mark'; mark.appendChild(svg);
+  const acc = document.createElement('span'); acc.className = 'title-accent'; acc.textContent = group === 'invest' ? 'Portfolio' : 'Trading';
+  const txt = document.createElement('span'); txt.append(acc, ' Dashboard');
+  h.replaceChildren(mark, txt);
+  h.classList.toggle('grp-invest', group === 'invest');
+}
 function updateHeader(group) {
-  const title = document.getElementById('mainTitle');
   const subtitle = document.getElementById('headerSubtitle');
+  setDashTitle(group);
   if (group === 'trading') {
-    title.textContent = 'Trading Dashboard';
     subtitle.textContent = 'DAX 40 (IntradayGrafV4-3) & NASDAQ 100 (NAS 15 OPR R2.2)';
   } else {
-    title.textContent = 'Portfolio Dashboard';
     subtitle.textContent = 'Suivi de vos investissements P2P & Crypto';
   }
 }
