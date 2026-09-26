@@ -1148,6 +1148,28 @@
     transition: all 0.2s;
   }
   .theme-btn:hover { background: var(--bg-card-hover); color: var(--text-primary); }
+  /* Santé des données : une ligne discrète sous les onglets, sur toutes les pages. Couleurs en classes
+     (et non en style inline) pour que le thème foncé les reprenne sans passer par le moteur de thème. */
+  .health-bar { display: flex; justify-content: center; align-items: center; gap: 4px 14px; flex-wrap: wrap;
+    margin: -18px 0 22px; font-size: 0.7rem; color: var(--text-muted); }
+  .health-bar .hb-title { font-size: 0.6rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; }
+  .hb-item { display: inline-flex; align-items: center; gap: 5px; padding: 2px 6px; border-radius: 6px;
+    cursor: pointer; white-space: nowrap; user-select: none; }
+  .hb-item:hover, .hb-item.hb-open { background: var(--bg-card-hover); color: var(--text-primary); }
+  .hb-item b { font-weight: 600; color: var(--text-secondary); }
+  .hb-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; flex: none; background: #b7c0ca; }
+  .hb-ok .hb-dot { background: #1d9e74; }
+  .hb-warn .hb-dot { background: #e0a526; }
+  .hb-bad .hb-dot { background: #dd5f66; box-shadow: 0 0 0 3px rgba(221,95,102,0.22); }
+  .hb-warn b { color: #8a6d1f; }
+  .hb-bad, .hb-bad b { color: #c0392b; font-weight: 700; }
+  .hb-detail { flex-basis: 100%; max-width: 760px; text-align: center; font-size: 0.74rem; line-height: 1.5;
+    color: var(--text-secondary); padding: 6px 14px; border-radius: 10px; background: var(--bg-card); border: 1px solid var(--border); }
+  html[data-theme="dark"] .hb-ok .hb-dot { background: #66bb6a; }
+  html[data-theme="dark"] .hb-warn .hb-dot { background: #ffb74d; }
+  html[data-theme="dark"] .hb-bad .hb-dot { background: #ff5252; box-shadow: 0 0 0 3px rgba(255,82,82,0.22); }
+  html[data-theme="dark"] .hb-warn b { color: #ffb74d; }
+  html[data-theme="dark"] .hb-bad, html[data-theme="dark"] .hb-bad b { color: #ff5252; }
   html[data-theme="dark"] {
     color-scheme: dark;
     --bg-primary: #0d0d0d; --bg-card: #1a1a1a; --bg-card-hover: #222222;
@@ -1273,6 +1295,9 @@
   <div class="sub-tab-bar" id="subTabBar">
     <!-- Populated by switchGroup() -->
   </div>
+
+  <!-- SANTE DES DONNEES : age de chaque collecteur du VPS, sur toutes les pages (renderHealthBar) -->
+  <div class="health-bar" id="healthBar"></div>
 
   <!-- ═══════════════════════ TAB 0 : REAL TRADING ═══════════════════════ -->
   <div id="tab-total" class="tab-content active">
@@ -5258,6 +5283,137 @@ function loadPontStatus() {
     // et on re-rend chaque minute pour que l'age vieillisse meme sans nouvel evenement
     setInterval(renderPontStatus, 60000);
   } catch (e) {}
+  return Promise.resolve();
+}
+// ═════════════════════════════════════════════════════════════════
+// SANTE DES DONNEES
+// Chaque collecteur du VPS a deja eu sa panne silencieuse (screener fige 11 jours, Darwinex muet un lundi,
+// cours figes) et chacune ne se voyait que sur SON onglet, quand on pensait a le regarder. Une ligne sous
+// les onglets, sur TOUTES les pages : un point vert / orange / rouge par collecteur et son age ; au clic
+// (ou au survol), le detail et quoi faire.
+// Ages en heures OUVREES (samedi et dimanche ne comptent pas) : sans ca, tout passerait a l'orange chaque
+// lundi matin alors que rien n'est en panne. Le pont IG, lui, bat chaque minute, 7 jours sur 7.
+// ═════════════════════════════════════════════════════════════════
+const HB = {};          // derniere valeur lue par collecteur (cle absente = pas encore lue)
+let HB_OPEN = null;     // collecteur dont le detail est deplie
+function hbBizHours(t) {
+  const now = Date.now();
+  if (!(t > 0) || t >= now) return 0;
+  if (now - t > 400 * 86400000) return (now - t) / 3600000;
+  let ms = 0, cur = t;
+  while (cur < now) {
+    const d = new Date(cur);
+    const end = Math.min(new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1).getTime(), now);
+    if (d.getDay() !== 0 && d.getDay() !== 6) ms += end - cur;
+    cur = end;
+  }
+  return ms / 3600000;
+}
+function hbMs(v) { return v == null ? NaN : (typeof v === 'number' ? v : Date.parse(v)); }
+function hbAgo(t) {
+  if (isNaN(t)) return 'jamais';
+  const min = (Date.now() - t) / 60000;
+  if (min < 1) return "à l'instant";
+  if (min < 60) return Math.round(min) + ' min';
+  if (min < 1440) return Math.round(min / 60) + ' h';
+  return Math.floor(min / 1440) + ' j';
+}
+function hbWhen(t) {
+  return isNaN(t) ? 'jamais' : new Date(t).toLocaleString('fr-FR', { weekday: 'long', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+}
+// Niveau d'un collecteur periodique selon son age ouvre ; les textes disent quoi faire a chaque niveau.
+function hbLevel(t, warnH, badH) {
+  if (isNaN(t)) return 'bad';
+  const h = hbBizHours(t);
+  return h >= badH ? 'bad' : (h >= warnH ? 'warn' : 'ok');
+}
+function hbItems() {
+  const out = [];
+  const periodic = (key, label, t, warnH, badH, quoi, siWarn, siBad) => {
+    if (!(key in HB)) { out.push({ key, label, t: NaN, level: 'wait', tip: 'Lecture en cours…' }); return; }
+    const level = hbLevel(t, warnH, badH);
+    out.push({ key, label, t, level, tip: quoi + ' Dernier passage : ' + hbWhen(t) + '.'
+      + (level === 'bad' ? ' ' + siBad : (level === 'warn' ? ' ' + siWarn : '')) });
+  };
+  // Cours : toutes les ~15 min en seance ; une nuit de semaine en laisse ~10 h sans collecte.
+  periodic('cours', 'Cours', hbMs(HB.cours), 14, 40,
+    'Cours des positions (live_prices.py sur le VPS, toutes les 15 min pendant les séances).',
+    'Aucune collecte depuis plus d’une nuit de semaine : jour férié, ou tâche des cours arrêtée sur le VPS.',
+    'COURS FIGÉS : valeurs, plus-values et rendements reposent sur des cours périmés. Vérifie la tâche planifiée des cours sur le VPS et son journal.');
+  periodic('screener', 'Screener', hbMs(HB.screener), 30, 78,
+    'Screener qualité-valorisation (tâche ScreenerGrowth, chaque jour ouvré vers 8 h).',
+    'Le screener a sauté au moins une journée : relance run_screener.bat sur le VPS et lis le journal logs\\screener_*.log.',
+    'SCREENER FIGÉ : notes de valorisation, ratings et graphiques 3 mois sont calculés sur des données périmées. Vérifie la tâche ScreenerGrowth et le journal logs\\screener_*.log.');
+  periodic('brief', 'Brief', hbMs(HB.brief), 30, 78,
+    'Brief du matin, Fear & Greed et actualités (morning_brief.py, chaque matin vers 7 h 45).',
+    'Le brief du matin a sauté au moins une journée : vérifie la tâche planifiée du brief sur le VPS.',
+    'BRIEF FIGÉ depuis plusieurs jours ouvrés : vérifie la tâche planifiée du brief sur le VPS.');
+  // Darwinex : le collecteur ecrit lui-meme son statut (ok / expired / error) et sa raison.
+  if (!('dwx' in HB)) out.push({ key: 'dwx', label: 'Darwinex', t: NaN, level: 'wait', tip: 'Lecture en cours…' });
+  else {
+    const cs = HB.dwx || {}, t = hbMs(cs.asOf);
+    let level = hbLevel(t, 30, 78);
+    let tip = 'Collecteur Darwinex (darwinex_scrape_daily.py, chaque nuit de semaine). Dernier passage : ' + hbWhen(t) + '.'
+      + (cs.message ? ' Message : ' + cs.message + '.' : '');
+    if (cs.status === 'expired') { level = 'bad'; tip += ' SESSION DARWINEX EXPIRÉE : reconnecte-toi à Darwinex dans le Chrome du VPS, sinon plus aucune donnée ne remonte.'; }
+    else if (cs.status === 'error') { level = 'bad'; tip += ' LE COLLECTEUR A ÉCHOUÉ : la raison est ci-dessus, relance-le sur le VPS une fois corrigée.'; }
+    else if (level === 'bad') tip += ' Aucune donnée Darwinex depuis plusieurs jours ouvrés : vérifie la tâche planifiée sur le VPS.';
+    else if (level === 'warn') tip += ' La collecte de la nuit dernière manque : vérifie la tâche planifiée sur le VPS.';
+    out.push({ key: 'dwx', label: 'Darwinex', t, level, tip });
+  }
+  // Pont IG vers Darwinex : battement chaque minute, memes regles que la pastille de l'onglet Trading Auto.
+  if (!('pont' in HB)) out.push({ key: 'pont', label: 'Pont IG', t: NaN, level: 'wait', tip: 'Lecture en cours…' });
+  else {
+    const f = pontFreshness(HB.pont);
+    out.push({ key: 'pont', label: 'Pont IG', t: hbMs(HB.pont && HB.pont.at), level: f.level, tip: f.tip });
+  }
+  // Synchro des trades IG : ig_sync.py chaque soir a 23 h, avec son propre statut.
+  if (!('igSync' in HB)) out.push({ key: 'igSync', label: 'Trades IG', t: NaN, level: 'wait', tip: 'Lecture en cours…' });
+  else {
+    const st = HB.igSync || {}, t = hbMs(st.at);
+    let level = hbLevel(t, 30, 78);
+    let tip = 'Synchro des trades IG (ig_sync.py, chaque soir à 23 h). Dernier passage : ' + hbWhen(t) + '.'
+      + (st.message ? ' ' + st.message : '');
+    if (st.at && st.ok === false) { level = 'bad'; tip += ' LA SYNCHRO A ÉCHOUÉ (clé API IG expirée ?) : relance run_ig_sync.bat sur le VPS pour diagnostiquer.'; }
+    else if (level !== 'ok') tip += ' La tâche de 23 h ne s’est pas exécutée : VPS éteint, ou tâche désactivée.';
+    out.push({ key: 'igSync', label: 'Trades IG', t, level, tip });
+  }
+  periodic('kids', 'ETF enfants', hbMs(HB.kids), 14, 40,
+    'Cours du VWCE de la poche des enfants (collecté avec les cours des positions).',
+    'Aucune collecte depuis plus d’une nuit de semaine : jour férié, ou tâche des cours arrêtée sur le VPS.',
+    'COURS DU VWCE FIGÉ : la valeur de la poche des enfants repose sur un cours périmé.');
+  return out;
+}
+function renderHealthBar() {
+  const el = document.getElementById('healthBar');
+  if (!el) return;
+  const items = hbItems();
+  const mk = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
+  el.replaceChildren(mk('span', 'hb-title', 'Données'));
+  items.forEach(it => {
+    const s = mk('span', 'hb-item hb-' + it.level + (HB_OPEN === it.key ? ' hb-open' : ''));
+    s.title = it.tip;
+    s.append(mk('i', 'hb-dot'), document.createTextNode(it.label + ' '),
+      mk('b', null, it.level === 'wait' ? '…' : (it.level === 'bad' ? '⚠ ' : '') + hbAgo(it.t)));
+    s.onclick = () => { HB_OPEN = (HB_OPEN === it.key) ? null : it.key; renderHealthBar(); };
+    el.appendChild(s);
+  });
+  const open = HB_OPEN && items.find(i => i.key === HB_OPEN);
+  if (open) el.appendChild(mk('div', 'hb-detail', open.label + ' : ' + open.tip));
+}
+function loadHealthBar() {
+  if (typeof db === 'undefined' || !db) return Promise.resolve();
+  // abonnements TEMPS REEL sur de petits noeuds (horodatages et statuts), pas sur les donnees elles-memes
+  const sub = (path, key) => { try { db.ref(path).on('value', (x) => { HB[key] = x.val(); renderHealthBar(); }); } catch (e) {} };
+  sub('stocks/screener/livePrices/generatedAt', 'cours');
+  sub('stocks/screener/quality/generatedAt', 'screener');
+  sub('dashboard/morningBrief/at', 'brief');
+  sub('dashboard/darwinex/collectorStatus', 'dwx');
+  sub('dashboard/pontIG', 'pont');
+  sub('igSyncStatus', 'igSync');
+  sub('stocks/kidsPrice/at', 'kids');
+  renderHealthBar();
+  setInterval(renderHealthBar, 60000);   // les ages vieillissent meme sans nouvel evenement
   return Promise.resolve();
 }
 function loadKidsFromFirebase() {
@@ -14472,6 +14628,7 @@ function loadDataTimestamp() {
 Promise.all([
   loadIgSyncStatus(),
   loadPontStatus(),
+  loadHealthBar(),
   loadMorningBrief(),
   loadKidsFromFirebase(),
   loadTradesFromFirebase(),
