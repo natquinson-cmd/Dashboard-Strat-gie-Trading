@@ -12280,14 +12280,20 @@ function invHeroFrame(t) {
   const topPct = (top && t.tp > 0) ? top.v / t.tp * 100 : 0;
   const topCol = topPct >= 60 ? neg : (topPct >= 40 ? '#b45309' : null);
   const dNet = (t.nc_prev != null) ? t.nc - t.nc_prev : null;
+  const dBrut = (t.tp_prev != null) ? t.tp - t.tp_prev : null;
   const nbPlat = d.platforms.filter(p => (d.principal[p] || [])[li] > 0).length;
+  const delta = (v) => (v != null && Math.abs(v) >= 1)
+    ? '<span style="color:' + (v >= 0 ? pos : neg) + ';font-weight:700">' + (v >= 0 ? '▲ ' : '▼ ') + sgn(v) + '</span> vs fin ' + mois(prevYm)
+    : '';
   const cells = [
-    { lead: true, label: 'Patrimoine net', value: eur(t.nc), color: t.nc >= 0 ? null : neg,
-      sub: (dNet != null && Math.abs(dNet) >= 1
-        ? '<span style="color:' + (dNet >= 0 ? pos : neg) + ';font-weight:700">' + (dNet >= 0 ? '▲ ' : '▼ ') + sgn(dNet) + '</span> vs fin ' + mois(prevYm) + '<br>'
-        : '')
-        + 'brut ' + eur(t.tp) + ' sur ' + nbPlat + ' plateformes · emprunts ' + eur(t.tl),
-      tip: 'Capital placé sur toutes les plateformes (brut) moins le capital restant dû des emprunts, à la fin du dernier mois clôturé.' },
+    // Le BRUT en tete : c'est tout l'argent qui travaille (emprunts compris), celui qui porte les revenus
+    // et les risques. Le net suit juste a cote.
+    { lead: true, label: 'Patrimoine brut investi', value: eur(t.tp),
+      sub: (delta(dBrut) ? delta(dBrut) + '<br>' : '') + 'placé sur ' + nbPlat + ' plateformes',
+      tip: 'Capital placé sur toutes les plateformes à la fin du dernier mois clôturé, emprunts compris : c’est l’argent qui travaille et qui porte les revenus.' },
+    { label: 'Patrimoine net', value: eur(t.nc), color: t.nc >= 0 ? null : neg,
+      sub: 'après ' + eur(t.tl) + ' d’emprunts' + (delta(dNet) ? '<br>' + delta(dNet) : ''),
+      tip: 'Patrimoine brut moins le capital restant dû des emprunts.' },
     { label: 'Revenus du mois', value: sgn(t.lmi), color: t.lmi >= 0 ? pos : neg,
       sub: 'intérêts <b>' + sgn(intMois) + '</b> · marchés <b style="color:' + (mktMois >= 0 ? pos : neg) + '">' + sgn(mktMois) + '</b>',
       tip: 'Intérêts contractuels (Debitum, Mintos...) d\'un côté ; résultats de marché de l\'autre (Revolut, Trading Auto, Darwinex : plus ou moins-values, non garanties, qui peuvent être négatives).' },
