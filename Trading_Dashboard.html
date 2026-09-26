@@ -12303,6 +12303,67 @@ function invHeroFrame(t) {
   return heroFrameHtml({ title: 'Patrimoine · situation à fin ' + mois(ym) + ' ' + ym.slice(0, 4), cells: cells });
 }
 
+// Nature de chaque plateforme : type de risque porte par le capital qui y est place.
+const INV_NATURE = { 'Debitum': 'p2p', 'Mintos': 'p2p', 'Lendermarket': 'p2p', 'Revolut': 'marche', 'Trading Auto': 'marche',
+  'Darwinex': 'marche', 'RealT': 'immo', 'RMM': 'immo' };
+const INV_NATURE_LIB = {
+  p2p: ['Prêts P2P', '#f59e0b', 'Risque de défaut des emprunteurs et de la plateforme elle-même'],
+  marche: ['Marchés', '#3563e9', 'Volatilité : la valeur peut baisser, parfois fortement'],
+  immo: ['Immobilier tokenisé', '#8b5cf6', 'Liquidité et solidité de l’émetteur des jetons'],
+  autre: ['Autre', '#94a3b5', ''] };
+function invNatureHtml(t) {
+  const d = portfolioData, li = t.li, tot = {};
+  let sum = 0;
+  d.platforms.forEach((p) => {
+    const v = invToEur(p, (d.principal[p] || [])[li] || 0);
+    if (v > 0) { const k = INV_NATURE[p] || 'autre'; tot[k] = (tot[k] || 0) + v; sum += v; }
+  });
+  if (!(sum > 0)) return '';
+  const keys = Object.keys(tot).sort((a, b) => tot[b] - tot[a]);
+  const pc = (k) => (tot[k] / sum * 100);
+  let h = '<div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border)">'
+    + '<div style="font-size:0.65rem;letter-spacing:0.07em;color:var(--text-secondary);font-weight:700;text-transform:uppercase">Par nature de risque</div>'
+    + '<div style="display:flex;height:10px;border-radius:6px;overflow:hidden;margin:8px 0">';
+  keys.forEach((k) => { h += '<div title="' + INV_NATURE_LIB[k][0] + ' : ' + pc(k).toFixed(0) + ' %" style="width:' + pc(k).toFixed(2) + '%;background:' + INV_NATURE_LIB[k][1] + '"></div>'; });
+  h += '</div><div style="display:flex;gap:4px 14px;flex-wrap:wrap;font-size:0.74rem;color:var(--text-secondary)">';
+  keys.forEach((k) => { h += '<span title="' + INV_NATURE_LIB[k][2] + '" style="cursor:help"><span class="hf-dot" style="background:' + INV_NATURE_LIB[k][1] + '"></span>'
+    + INV_NATURE_LIB[k][0] + ' <b style="color:var(--text-primary)">' + pc(k).toFixed(0) + ' %</b> · ' + invFmt(Math.round(tot[k])) + '</span>'; });
+  return h + '</div></div>';
+}
+// Plateformes cloturees : ni capital ni revenu sur le dernier mois cloture (Lendermarket, videe en aout 2026).
+function invClosedPlatforms(li) {
+  const d = portfolioData;
+  return d.platforms.filter((p) => {
+    const pr = d.principal[p] || [];
+    return !(pr[li] > 0) && !((d.interests[p] || [])[li]);
+  });
+}
+// Qui alimente chaque plateforme (les autres sont saisies a la main dans la mise a jour mensuelle).
+const INV_AUTO_SRC = { 'Trading Auto': 'automatique : synchro IG chaque soir', 'Revolut': 'automatique : portefeuille d’actions, instantané quotidien',
+  'Darwinex': 'automatique : collecteur Darwinex chaque nuit', 'Lendermarket': 'automatique : reconstruit depuis l’onglet Lendermarket' };
+function invSourcesCardHtml(t) {
+  const d = portfolioData, li = t.li, closed = invClosedPlatforms(li);
+  const mois = (i) => (i >= 0 && d.months[i]) ? (monthNamesFull[parseInt(d.months[i].slice(5, 7), 10) - 1].toLowerCase() + ' ' + d.months[i].slice(0, 4)) : '–';
+  const lastRev = (p) => { const a = d.interests[p] || []; for (let i = li; i >= 0; i--) if (a[i]) return i; return -1; };
+  const th = (x, al) => '<th style="text-align:' + (al || 'left') + ';padding:6px 8px;font-size:0.64rem;text-transform:uppercase;letter-spacing:.04em;color:var(--text-secondary);border-bottom:1px solid var(--border)">' + x + '</th>';
+  let h = '<div class="inv-card"><h3 style="font-size:1rem;font-weight:600">Sources des données</h3>'
+    + '<p style="font-size:12px;color:var(--text-secondary);margin-top:6px">Qui alimente chaque plateforme, et le dernier mois où un revenu est enregistré. Mois de référence : fin ' + mois(li) + '.</p>'
+    + '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:0.8rem;margin-top:10px"><thead><tr>'
+    + th('Plateforme') + th('Alimentation') + th('Dernier revenu') + th('État', 'right') + '</tr></thead><tbody>';
+  d.platforms.filter((p) => closed.indexOf(p) < 0).concat(closed).forEach((p) => {
+    const i = d.platforms.indexOf(p), isClosed = closed.indexOf(p) >= 0, auto = INV_AUTO_SRC[p], lr = lastRev(p);
+    const etat = isClosed ? ['clôturée', '#94a3b5', 'Plus de capital sur cette plateforme.']
+      : (auto ? ['automatique', '#1d9e74', 'Rien à saisir : la plateforme est alimentée automatiquement.']
+      : (lr === li ? ['à jour', '#1d9e74', 'Revenu de ' + mois(li) + ' enregistré.']
+      : ['à vérifier', '#b45309', 'Aucun revenu enregistré pour ' + mois(li) + ' : à saisir dans la mise à jour mensuelle, sauf si la plateforme n’a rien versé.']));
+    h += '<tr style="' + (isClosed ? 'opacity:0.55' : '') + '">'
+      + '<td style="padding:6px 8px;border-bottom:1px solid var(--border);white-space:nowrap"><span class="hf-dot" style="background:' + invColor(p, i) + '"></span>' + p + '</td>'
+      + '<td style="padding:6px 8px;border-bottom:1px solid var(--border);color:var(--text-secondary)">' + (auto || 'saisie manuelle, chaque mois') + '</td>'
+      + '<td style="padding:6px 8px;border-bottom:1px solid var(--border);white-space:nowrap">' + mois(lr) + '</td>'
+      + '<td title="' + etat[2] + '" style="padding:6px 8px;border-bottom:1px solid var(--border);text-align:right;font-weight:700;white-space:nowrap;cursor:help;color:' + etat[1] + '">' + etat[0] + '</td></tr>';
+  });
+  return h + '</tbody></table></div></div>';
+}
 // ── Overview ──
 function invRenderOverview(t, labels, li) {
   const d = portfolioData;
@@ -12313,7 +12374,7 @@ function invRenderOverview(t, labels, li) {
 
   h += '<div class="inv-grid inv-grid-2">';
   h += '<div class="inv-chart-card"><h3>Évolution capital brut vs net</h3><div class="inv-canvas-wrap"><canvas id="inv-ch-capital"></canvas></div></div>';
-  h += '<div class="inv-chart-card"><h3>Répartition actuelle</h3><div class="inv-canvas-wrap"><canvas id="inv-ch-pie"></canvas></div></div>';
+  h += '<div class="inv-chart-card"><h3>Répartition actuelle</h3><div class="inv-canvas-wrap"><canvas id="inv-ch-pie"></canvas></div>' + invNatureHtml(t) + '</div>';
   h += '</div>';
   h += '<div class="inv-grid inv-grid-2">';
   h += '<div class="inv-chart-card"><h3>Intérêts mensuels</h3><div class="inv-canvas-wrap"><canvas id="inv-ch-intbar"></canvas></div></div>';
@@ -12328,7 +12389,7 @@ function invRenderOverview(t, labels, li) {
       const ivR = Math.round(iv);
       const ivColor = ivR > 0 ? 'var(--positive)' : (ivR < 0 ? 'var(--negative)' : 'var(--text-secondary)');
       const ivSign = ivR > 0 ? '+' : '';
-      h += `<div class="inv-flex inv-jcsb" style="font-size:12px;color:var(--text-secondary);margin-top:2px"><span>${pc}%</span><span style="color:${ivColor};font-weight:500">${ivSign}${invFmt(ivR)} ce mois</span></div></div>`;
+      h += `<div class="inv-flex inv-jcsb" style="font-size:12px;color:var(--text-secondary);margin-top:2px"><span>${pc}%</span><span style="color:${ivColor};font-weight:500">${ivSign}${invFmt(ivR)} ce mois${INV_MARKET_PLATFORMS.indexOf(p) >= 0 ? ' <span style="font-weight:400;color:var(--text-muted)">(marché)</span>' : ''}</span></div></div>`;
     }
   });
   h += '</div></div></div>';
@@ -14252,6 +14313,9 @@ function invRenderUpdate(t, li) {
   }
   h += '</div>';
 
+  // Sources des donnees : automatique ou saisie manuelle, dernier revenu, etat
+  h += invSourcesCardHtml(t);
+
   // Monthly update
   h += '<div class="inv-card"><div class="inv-flex inv-jcsb inv-aic inv-fw inv-gap4 inv-mb6" style="flex-wrap:wrap">';
   h += '<h3 style="font-size:1rem;font-weight:600;display:flex;align-items:center;gap:8px">Mise à jour mensuelle</h3>';
@@ -14265,7 +14329,9 @@ function invRenderUpdate(t, li) {
   if (invEditing) {
     h += '<div><div style="font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:12px">Plateformes d\'investissement</div>';
     h += '<div class="inv-grid-form" style="margin-bottom:24px">';
-    d.platforms.forEach((p, i) => {
+    // plateformes cloturees : en fin de formulaire, repliees (elles gardent leurs champs)
+    const closedSet = new Set(invClosedPlatforms(t.li));
+    const invCard = (p, i) => {
       if (p === 'Lendermarket') {
         const intVal = (d.interests[p] || [])[invEditMonth] || 0;
         const prinVal = (d.principal[p] || [])[invEditMonth] || 0;
@@ -14309,8 +14375,14 @@ function invRenderUpdate(t, li) {
       h += `<div><label style="font-size:12px;color:var(--text-secondary);display:block;margin-bottom:4px">Intérêts (${cur})${eurNote}</label><input class="inv-input" type="number" value="${intVal}" onchange="invUpdateForm('${p}','interest',this.value)" placeholder="0"></div>`;
       h += `<div><label style="font-size:12px;color:var(--text-secondary);display:block;margin-bottom:4px">Capital total (${cur})${eurNotePrin}</label><input class="inv-input" type="number" value="${prinVal}" onchange="invUpdateForm('${p}','principal',this.value)" placeholder="0"></div>`;
       h += '</div></div>';
-    });
+    };
+    d.platforms.forEach((p, i) => { if (!closedSet.has(p)) invCard(p, i); });
     h += '</div>';
+    if (closedSet.size) {
+      h += '<details style="margin:-12px 0 24px"><summary style="cursor:pointer;font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:12px">Plateformes clôturées (' + closedSet.size + ')</summary><div class="inv-grid-form" style="opacity:0.7">';
+      d.platforms.forEach((p, i) => { if (closedSet.has(p)) invCard(p, i); });
+      h += '</div></details>';
+    }
 
     if ((d.loanNames || []).length > 0) {
       h += '<div style="font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:12px">Emprunts en cours</div><div class="inv-grid-form" style="margin-bottom:24px">';
