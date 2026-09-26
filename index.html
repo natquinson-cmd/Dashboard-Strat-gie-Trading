@@ -455,6 +455,9 @@
   /* Trading total : Capital total a GAUCHE, les 6 cards chiffres en grille a DROITE (remplit le vide) */
   .ttl-top { display:flex; gap:16px; align-items:stretch; flex-wrap:wrap; margin-bottom:24px; }
   .ttl-top > .hero-kpi { display:block; flex:1 1 300px; max-width:400px; margin-bottom:0; }
+  /* cadre de tete : le heros prend toute la largeur, la grille de cartes a cote est vide */
+  .ttl-top > .hero-kpi#ttlHero { max-width:none; flex:1 1 100%; }
+  .ttl-top > #ttlKpi:empty { display:none; }
   .ttl-top > .hero-kpi .hero-card { height:100%; }
   .ttl-top > .kpi-grid { flex:3 1 520px; margin-bottom:0; grid-template-columns:repeat(3,minmax(0,1fr)); align-content:stretch; }
   @media (max-width:860px){
@@ -1148,6 +1151,39 @@
     transition: all 0.2s;
   }
   .theme-btn:hover { background: var(--bg-card-hover); color: var(--text-primary); }
+  /* CADRE DE TETE COMMUN (heroFrameHtml), sur le modèle de l'onglet Darwinex : cellule de tête en grand,
+     les autres séparées par un filet, libellés en capitales grises, pied de cadre pour les chiffres secondaires */
+  .hf { background: linear-gradient(135deg, rgba(95,139,242,0.08), rgba(29,158,116,0.04)); border: 1px solid rgba(95,139,242,0.18);
+    padding: 18px 24px; margin-bottom: 20px; }
+  .hero-kpi > .hf { grid-column: 1 / -1; margin-bottom: 0; }
+  .hf-head { display: flex; justify-content: space-between; align-items: baseline; gap: 6px 14px; flex-wrap: wrap; margin-bottom: 16px; }
+  .hf-title { font-size: 0.7rem; letter-spacing: 1px; color: var(--text-secondary); text-transform: uppercase; font-weight: 700; }
+  .hf-right { font-size: 0.74rem; color: var(--text-secondary); }
+  .hf-row { display: flex; flex-wrap: wrap; align-items: flex-start; row-gap: 18px; }
+  .hf-cell { flex: 1 1 130px; min-width: 125px; padding: 0 18px; border-left: 1px solid var(--border-strong); }
+  .hf-cell.hf-lead { flex: 1.5 1 230px; min-width: 210px; padding: 0 22px 0 0; border-left: none; }
+  .hf-cell.hf-wide { flex: 1 1 170px; }
+  .hf-cell[title] { cursor: help; }
+  .hf-label { font-size: 0.65rem; letter-spacing: 0.07em; color: var(--text-secondary); font-weight: 700; text-transform: uppercase; }
+  .hf-value { font-size: 1.25rem; font-weight: 800; line-height: 1.15; margin-top: 5px; color: var(--text-primary); }
+  .hf-lead .hf-value { font-size: 1.9rem; }
+  .hf-sub { font-size: 0.68rem; color: var(--text-secondary); margin-top: 4px; line-height: 1.45; }
+  .hf-gauge svg { width: 150px; height: auto; display: block; margin-top: -4px; }
+  .hf-badge { display: inline-flex; align-items: center; border: 1px solid rgba(217,119,6,0.45); color: #b45309; background: rgba(245,158,11,0.10);
+    font-size: 0.6rem; font-weight: 800; padding: 1px 7px; border-radius: 5px; vertical-align: middle; margin-left: 8px; letter-spacing: 0.08em; }
+  .hf-foot { display: flex; gap: 6px 20px; flex-wrap: wrap; margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border);
+    font-size: 0.76rem; color: var(--text-secondary); }
+  .hf-foot b { color: var(--text-primary); font-weight: 700; }
+  .hf-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; vertical-align: -1px; }
+  @media (max-width: 700px) {
+    .hf { padding: 14px 14px; }
+    .hf-cell { flex: 1 1 42%; min-width: 0; padding: 0 10px; }
+    .hf-cell.hf-lead { flex: 1 1 100%; padding: 0; }
+    .hf-cell:nth-child(2n) { border-left: none; padding-left: 0; }
+    .hf-lead .hf-value { font-size: 1.6rem; }
+  }
+  html[data-theme="dark"] .hf { background: linear-gradient(135deg, rgba(63,118,237,0.10), rgba(102,187,106,0.04)); border-color: rgba(63,118,237,0.30); }
+  html[data-theme="dark"] .hf-badge { color: #ffb74d; border-color: rgba(255,183,77,0.45); background: rgba(255,183,77,0.10); }
   /* Santé des données : une ligne discrète sous les onglets, sur toutes les pages. Couleurs en classes
      (et non en style inline) pour que le thème foncé les reprenne sans passer par le moteur de thème. */
   .health-bar { display: flex; justify-content: center; align-items: center; gap: 4px 14px; flex-wrap: wrap;
@@ -1242,7 +1278,7 @@
     --t-border-9aa7b4: #8b8b8b; --t-border-94a0b4: #8b8b8b;
   }
   /* gros chiffres : le vert vif des pastilles Baggr (#81c784) plutôt que le vert de texte (#66bb6a) */
-  html[data-theme="dark"] .kpi-card .value, html[data-theme="dark"] .hero-value, html[data-theme="dark"] .kpi-tile-value,
+  html[data-theme="dark"] .kpi-card .value, html[data-theme="dark"] .hero-value, html[data-theme="dark"] .kpi-tile-value, html[data-theme="dark"] .hf-value,
   html[data-theme="dark"] .inv-value, html[data-theme="dark"] [style*="font-size:1.9rem"], html[data-theme="dark"] [style*="font-size: 1.9rem"],
   html[data-theme="dark"] [style*="font-size:1.4rem"], html[data-theme="dark"] [style*="font-size: 1.4rem"],
   html[data-theme="dark"] [style*="font-size:1.6rem"], html[data-theme="dark"] [style*="font-size: 1.6rem"],
@@ -1301,9 +1337,6 @@
 
   <!-- ═══════════════════════ TAB 0 : REAL TRADING ═══════════════════════ -->
   <div id="tab-total" class="tab-content active">
-    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px">
-      <span style="font-size:0.8rem;color:var(--text-secondary)">Patrimoine de trading consolidé — Trading Auto (IG) + Portefeuille d'actions + Darwinex, en euros.</span>
-    </div>
     <div class="ttl-top">
       <div class="hero-kpi" id="ttlHero"></div>
       <div class="kpi-grid" id="ttlKpi"></div>
@@ -2405,110 +2438,39 @@ function buildRealKPIs() {
   const gainPct = grossTotal > 0 ? (totalWins / grossTotal * 100) : 0;
   const lossPct = grossTotal > 0 ? (totalLosses / grossTotal * 100) : 0;
 
-  // ── HERO ROW ──
-  document.getElementById('heroReal').innerHTML = `
-    <div class="hero-card capital" style="position:relative;">
-      <div class="hero-label">Capital Actuel${isATH ? ' <span style="display:inline-flex;align-items:center;gap:5px;margin-left:10px;background:linear-gradient(135deg,#f59e0b,#fbbf24);color:#000;font-size:0.85rem;font-weight:700;padding:4px 12px;border-radius:20px;vertical-align:middle;animation:athPulse 2s ease-in-out infinite;letter-spacing:0.5px;">ATH</span>' : ''}</div>
-      <div style="display:flex;align-items:baseline;gap:12px;">
-        <div class="hero-value" style="background:linear-gradient(135deg,${totalAll>=0?'#1d9e74,#34d399':'#dd5f66,#f87171'});-webkit-background-clip:text;-webkit-text-fill-color:transparent;">
-          ${fmt(Math.round(capitalActuel))} €
-        </div>
-        <span class="hero-badge ${perfPct>=0?'pos':'neg'}" style="font-size:0.95rem;padding:5px 14px;" title="Rendement pondéré temps (TWR) : dépôts neutralisés à leur date">${perfPct>=0?'+':''}${perfPct.toFixed(2)}% <span style="font-size:0.62rem;opacity:0.75;">TWR</span></span>
-      </div>
-      <div style="font-size:0.92rem;color:var(--text-secondary);margin-top:8px;">Capital versé : ${fmt(totalDeposits)} € · <span style="color:var(--negative)">Frais : ${fmt(Math.round(totalFees))} €</span></div>
-      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:10px;padding-top:10px;border-top:1px solid rgba(34,49,77,0.08);font-size:0.9rem;">
-        <span style="color:var(--text-secondary);">ATH : <strong style="color:var(--text-primary);font-weight:700;">${fmt(Math.round(athCapital))} €</strong>${athDateLabel ? ` <span style="opacity:0.7;">(${athDateLabel})</span>` : ''}</span>
-        ${isATH
-          ? '<span style="color:var(--positive);font-weight:600;display:inline-flex;align-items:center;gap:4px;">· Au plus haut</span>'
-          : `<span style="color:var(--negative);font-weight:600;">· ${fmt(Math.round(distToAthEUR))} € (${distToAthPct.toFixed(2)}% TWR)</span>`}
-      </div>
-    </div>
-    <div class="hero-card" style="position:relative;">
-      <div class="hero-label">Gain Total</div>
-      <div style="position:absolute;top:16px;right:16px;display:flex;flex-direction:column;align-items:center;">
-        <svg width="52" height="52" viewBox="0 0 52 52">
-          <circle cx="26" cy="26" r="20" fill="none" stroke="rgba(34,49,77,0.08)" stroke-width="6"/>
-          <circle cx="26" cy="26" r="20" fill="none" stroke="#dd5f66" stroke-width="6" stroke-dasharray="${(2*Math.PI*20).toFixed(1)}" stroke-dashoffset="0" transform="rotate(-90 26 26)"/>
-          <circle cx="26" cy="26" r="20" fill="none" stroke="#1d9e74" stroke-width="6" stroke-dasharray="${(2*Math.PI*20*gainPct/100).toFixed(1)} ${(2*Math.PI*20).toFixed(1)}" stroke-dashoffset="0" transform="rotate(-90 26 26)" stroke-linecap="round"/>
-          <text x="26" y="27" text-anchor="middle" dominant-baseline="middle" fill="${totalWins >= totalLosses ? '#1d9e74' : '#dd5f66'}" font-size="11" font-weight="700">${totalLosses > 0 ? (totalWins / totalLosses).toFixed(2) : '∞'}</text>
-        </svg>
-        <span style="font-size:0.55rem;color:var(--text-secondary);margin-top:2px;">Gain/Perte</span>
-      </div>
-      <div class="hero-value" style="color:${total>=0?'var(--positive)':'var(--negative)'};">
-        ${total>=0?'+':''}${total.toFixed(2)} €
-      </div>
-      <div style="display:flex;flex-direction:column;gap:6px;margin-top:10px;width:100%;">
-        <div style="display:flex;align-items:center;gap:8px;">
-          <span style="font-size:0.68rem;color:var(--text-secondary);font-weight:600;min-width:42px;">Gains</span>
-          <div style="flex:1;background:rgba(34,49,77,0.08);border-radius:4px;height:18px;overflow:hidden;position:relative;">
-            <div style="height:100%;width:${gainPct.toFixed(1)}%;background:var(--positive);border-radius:4px;transition:width .4s;"></div>
-          </div>
-          <span style="font-size:0.72rem;font-weight:700;color:var(--positive);min-width:72px;text-align:right;">+${fmt(Math.round(totalWins))} €</span>
-        </div>
-        <div style="display:flex;align-items:center;gap:8px;">
-          <span style="font-size:0.68rem;color:var(--text-secondary);font-weight:600;min-width:42px;">Pertes</span>
-          <div style="flex:1;background:rgba(34,49,77,0.08);border-radius:4px;height:18px;overflow:hidden;position:relative;">
-            <div style="height:100%;width:${lossPct.toFixed(1)}%;background:var(--negative);border-radius:4px;transition:width .4s;"></div>
-          </div>
-          <span style="font-size:0.72rem;font-weight:700;color:var(--negative);min-width:72px;text-align:right;">-${fmt(Math.round(totalLosses))} €</span>
-        </div>
-      </div>
-    </div>
-    <div class="hero-card">
-      <div class="hero-label">Trades Gagnants</div>
-      <div class="donut-wrap">
-        <svg class="donut-svg" viewBox="0 0 64 64">
-          <circle class="donut-bg" cx="32" cy="32" r="28"/>
-          <circle class="donut-fill" cx="32" cy="32" r="28"
-            stroke="${donutColor}"
-            stroke-dasharray="${circumference.toFixed(1)}"
-            stroke-dashoffset="${dashOffset.toFixed(1)}"/>
-          <text class="donut-center" x="32" y="32" transform="rotate(90 32 32)">${winRateNum.toFixed(1)}%</text>
-        </svg>
-        <div class="donut-stats">
-          <div class="donut-stat"><span class="donut-dot" style="background:var(--positive);"></span><strong>${wins.length}</strong>&nbsp;gagnants</div>
-          <div class="donut-stat"><span class="donut-dot" style="background:var(--negative);"></span><strong>${losses.length}</strong>&nbsp;perdants</div>
-          <div class="donut-stat" style="color:var(--text-secondary);">${trades.length} trades total</div>
-        </div>
-      </div>
-    </div>
-  `;
-
-  // ── KPI GRID (smaller cards) ──
-  const pfColor = pf >= 1 ? 'var(--positive)' : 'var(--negative)';
-  const rrColor = rr >= 1 ? 'var(--positive)' : 'var(--negative)';
-  const rmDD = computeRealReturnMetrics(); // métriques TWR partagées (cards Drawdown + Rdt)
-  const kpis = [
-    { l:'Profit Factor', v:pf === Infinity ? '∞' : pf.toFixed(2), s:'Gains / Pertes brutes', c:'stripe-merged', vc:pfColor },
-    { l:'Risk/Reward', v:rr === Infinity ? '∞' : rr.toFixed(2), s:'Gain moy / Perte moy', c:'stripe-nas', vc:rrColor },
-    { l:'Gain Moyen', v:'+'+avgWin.toFixed(2)+' €', s:'Max : +'+best.toFixed(2)+' €', c:'stripe-green', vc:'var(--positive)' },
-    { l:'Perte Moyenne', v:avgLoss.toFixed(2)+' €', s:'Max : '+worst.toFixed(2)+' €', c:'stripe-dax', vc:'var(--negative)' },
-    { l:'Drawdown Max', v:'-'+maxDD.toFixed(2)+' €', s:rmDD ? '-'+rmDD.ddRetPct.toFixed(1)+'% en rendement (TWR)' : '', c:'stripe-dax', vc:'var(--negative)' },
-    { l:'Dividendes', v:(totalDiv>=0?'+':'')+totalDiv.toFixed(2)+' €', s:realDividends.length+' versement(s)', c:'stripe-green', vc:totalDiv>=0?'var(--positive)':'var(--negative)' },
-  ];
-
-  // ── Rendement neutre au capital (TWR) + drawdown en rendement ──
-  const rm = rmDD;
-  if (rm) {
-    kpis.push({
-      l:'Rdt pondéré temps', v:(rm.twrPct>=0?'+':'')+rm.twrPct.toFixed(1)+'%',
-      s:'Cash '+(rm.cashPct>=0?'+':'')+rm.cashPct.toFixed(1)+'% · écart '+(rm.gapPts>=0?'+':'')+Math.round(rm.gapPts)+' pts',
-      c:'stripe-green', vc: rm.twrPct>=0?'var(--positive)':'var(--negative)'
-    });
-    kpis.push({
-      l:'Drawdown rendement', v:'-'+rm.ddRetPct.toFixed(1)+'%',
-      s:'Neutre au capital · € : -'+fmt(Math.round(maxDD))+' €',
-      c:'stripe-dax', vc:'var(--negative)'
-    });
-  }
-
-  // ── Jauge CUSUM : régime de l'algo (moniteur de dégradation TWR) ──
+  // ── CADRE DE TETE (modele Darwinex) ──
+  // Avant : 3 grandes cartes + 9 petites, douze chiffres au meme niveau. Restent en haut les six qui disent
+  // si l'algo fonctionne (capital, gain, reussite, profit factor, drawdown, regime CUSUM) ; les autres
+  // passent en pied de cadre, en petit, et l'Analyse Avancee garde tout le detail.
+  const rmDD = computeRealReturnMetrics(); // metriques TWR partagees (drawdown et rendement en cash)
+  const posC = 'var(--positive)', negC = 'var(--negative)';
   const cbAsset = (typeof currentAssetFilter !== 'undefined' && currentAssetFilter !== 'all') ? currentAssetFilter : null;
   const cbNom = cbAsset ? (cbAsset === 'NASDAQ' ? 'Nasdaq' : 'DAX') : null;
+  const fmtD = (d) => d ? d.slice(8, 10) + '/' + d.slice(5, 7) + '/' + d.slice(0, 4) : '';
+  const cells = [];
+  cells.push({ lead: true, label: 'Capital actuel' + (isATH ? ' <span class="hf-badge">PLUS HAUT</span>' : ''),
+    value: fmt(Math.round(capitalActuel)) + ' €',
+    sub: '<span style="color:' + (perfPct >= 0 ? posC : negC) + ';font-weight:700">' + (perfPct >= 0 ? '▲ +' : '▼ ') + perfPct.toFixed(2) + ' % (TWR)</span>'
+      + ' · versé ' + fmt(totalDeposits) + ' €<br>'
+      + (isATH ? '<span style="color:' + posC + ';font-weight:700">au plus haut historique</span>'
+        : ('plus haut ' + fmt(Math.round(athCapital)) + ' €' + (athDateLabel ? ' (' + athDateLabel + ')' : '')
+           + ' · <span style="color:' + negC + ';font-weight:700">' + fmt(Math.round(distToAthEUR)) + ' € (' + distToAthPct.toFixed(2) + ' % TWR)</span>')),
+    tip: 'Capital du compte IG : dépôts + gains des trades + dividendes + frais, sur TOUS les trades (le filtre ne change pas le capital). Le % est pondéré dans le temps (TWR) : chaque dépôt est neutralisé à sa date.' });
+  cells.push({ label: 'Gain des trades', value: (total >= 0 ? '+' : '') + fmt(Math.round(total)) + ' €', color: total >= 0 ? posC : negC,
+    sub: '<span style="color:' + posC + '">+' + fmt(Math.round(totalWins)) + ' €</span> / <span style="color:' + negC + '">-' + fmt(Math.round(totalLosses)) + ' €</span>',
+    tip: 'Somme des gains et des pertes des trades de la sélection (filtre Tout / NASDAQ / DAX et période choisie).' });
+  cells.push({ label: 'Trades gagnants', value: winRateNum.toFixed(1) + ' %', color: winRateNum >= 50 ? posC : negC,
+    sub: wins.length + ' gagnants · ' + losses.length + ' perdants sur ' + trades.length });
+  cells.push({ label: 'Profit factor', value: pf === Infinity ? '∞' : pf.toFixed(2), color: pf >= 1 ? posC : negC,
+    sub: 'risk/reward ' + (rr === Infinity ? '∞' : rr.toFixed(2)),
+    tip: 'Profit factor = gains bruts / pertes brutes : au-dessus de 1, la sélection gagne. Risk/reward = gain moyen / perte moyenne.' });
+  cells.push(rmDD
+    ? { label: 'Drawdown max', value: '-' + rmDD.ddRetPct.toFixed(1) + ' %', color: negC,
+        sub: 'en rendement (TWR) · -' + fmt(Math.round(maxDD)) + ' € en euros',
+        tip: 'Plus forte baisse depuis un plus haut, en rendement pondéré dans le temps : c\'est la mesure comparable d\'une période à l\'autre, les euros grossissant avec les dépôts.' }
+    : { label: 'Drawdown max', value: '-' + fmt(Math.round(maxDD)) + ' €', color: negC, sub: 'sur le P&L cumulé' });
+  // Jauge CUSUM : regime de l'algo (moniteur de degradation TWR), suit le filtre Tout / NASDAQ / DAX
   const cbG = computeCusumBreak(cbAsset);
-  if (!cbG && cbAsset) {
-    kpis.push({ l: 'Régime algo ' + cbNom + ' (CUSUM)', v: '–', s: 'moins de 30 jours de trading : test impossible', c: 'stripe-gauge', vc: 'var(--text-secondary)' });
-  }
   if (cbG) {
     const cbVerdict = cbG.pval >= 0.10 ? 'aucune rupture' : (cbG.pval >= 0.05 ? 'suspicion' : (cbG.degrade ? 'dégradation avérée' : 'amélioration avérée'));
     const cbCol = (cbG.pval < 0.05 && cbG.degrade) ? 'var(--negative)' : ((cbG.pval < 0.10 || cbG.S >= 3) ? '#b45309' : 'var(--positive)');
@@ -2518,15 +2480,25 @@ function buildRealKPIs() {
       + 'Aiguille = dérive cumulée sous la moyenne, en σ. Alerte à 4σ.\n'
       + 'Test rétrospectif (pont brownien) : p=' + cbG.pval.toFixed(2) + ' (rupture avérée si < 0,05).\n'
       + 'Cassure candidate : ' + fmtDcb(cbG.dateStar) + ' (' + (cbG.mAvant*100).toFixed(2) + '%/j → ' + (cbG.mApres*100).toFixed(2) + '%/j).';
-    kpis.push({
-      l:'Régime algo' + (cbNom ? ' ' + cbNom : '') + ' (CUSUM)', v: cusumGaugeSVG(cbG.S),
-      s:'<span style="color:' + cbCol + ';font-weight:700">' + cbVerdict + '</span> · p=' + cbG.pval.toFixed(2) + ' · alerte 4σ',
-      c:'stripe-gauge', vc:'var(--text-primary)', t: cbTip
-    });
+    cells.push({ wide: true, label: 'Régime algo' + (cbNom ? ' ' + cbNom : '') + ' (CUSUM)', value: '<span class="hf-gauge">' + cusumGaugeSVG(cbG.S) + '</span>',
+      sub: '<span style="color:' + cbCol + ';font-weight:700">' + cbVerdict + '</span> · p=' + cbG.pval.toFixed(2) + ' · alerte 4σ', tip: cbTip });
+  } else if (cbAsset) {
+    cells.push({ wide: true, label: 'Régime algo ' + cbNom + ' (CUSUM)', value: '–', color: 'var(--text-secondary)', sub: 'moins de 30 jours de trading : test impossible' });
   }
-  document.getElementById('kpiReal').innerHTML = kpis.map(k =>
-    kpiHTML(k)
-  ).join('');
+  // chiffres secondaires : en pied de cadre, lisibles mais sans concurrencer les six du dessus
+  const foot = [
+    'Gain moyen <b style="color:' + posC + '">+' + fmt(avgWin) + ' €</b> (max +' + fmt(best) + ' €)',
+    'Perte moyenne <b style="color:' + negC + '">' + fmt(avgLoss) + ' €</b> (max ' + fmt(worst) + ' €)',
+    'Dividendes <b>' + (totalDiv >= 0 ? '+' : '') + fmt(Math.round(totalDiv)) + ' €</b>',
+    'Frais <b style="color:' + negC + '">' + fmt(Math.round(totalFees)) + ' €</b>',
+    rmDD ? ('Rendement en cash <b>' + (rmDD.cashPct >= 0 ? '+' : '') + rmDD.cashPct.toFixed(1) + ' %</b> (écart ' + (rmDD.gapPts >= 0 ? '+' : '') + Math.round(rmDD.gapPts) + ' pts avec le TWR)') : null
+  ].filter(Boolean).map(x => '<span>' + x + '</span>').join('');
+  document.getElementById('heroReal').innerHTML = heroFrameHtml({
+    title: 'Trading Auto · compte IG · ' + (cbNom ? cbNom + ' seul' : 'DAX + Nasdaq'),
+    right: sorted.length ? ('trades du ' + fmtD(sorted[0][0]) + ' au ' + fmtD(sorted[sorted.length - 1][0])) : '',
+    cells: cells, foot: foot });
+  const kr = document.getElementById('kpiReal');
+  kr.replaceChildren(); kr.style.display = 'none';
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -2549,6 +2521,25 @@ function toggleAdvanced() {
 // Le TWR neutralise l'effet des dépôts étalés (comme la courbe cotée d'un DARWIN).
 // Rendu unifié d'une card KPI. Mix couleur : couleur par catégorie (dax/nas/merged/green),
 // ROUGE si la valeur est négative (perte/drawdown), lime pour le groupe Darwinex (kpi-dwx).
+// CADRE DE TETE COMMUN, sur le modele de l'onglet Darwinex : une cellule de tete en grand, les autres a
+// droite separees par un filet, libelles en capitales grises. Un seul endroit pour le style (classes .hf-*,
+// declinees en theme fonce), partage par Trading total, Trading Auto et Portfolio.
+//   o = { title, right, cells: [{ label, value, sub, color, tip, lead, wide }], foot }
+// value / sub / foot sont du HTML compose par le code (nombres et libelles fixes) ; tip est du texte, echappe.
+function heroFrameHtml(o) {
+  const esc = (t) => String(t).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+  const cell = (c) => '<div class="hf-cell' + (c.lead ? ' hf-lead' : '') + (c.wide ? ' hf-wide' : '') + '"'
+    + (c.tip ? ' title="' + esc(c.tip) + '"' : '') + '>'
+    + '<div class="hf-label">' + c.label + '</div>'
+    + '<div class="hf-value"' + (c.color ? ' style="color:' + c.color + '"' : '') + '>' + c.value + '</div>'
+    + (c.sub ? '<div class="hf-sub">' + c.sub + '</div>' : '') + '</div>';
+  return '<div class="inv-card hf">'
+    + '<div class="hf-head"><div class="hf-title">' + (o.title || '') + '</div>'
+    + (o.right ? '<div class="hf-right">' + o.right + '</div>' : '') + '</div>'
+    + '<div class="hf-row">' + (o.cells || []).map(cell).join('') + '</div>'
+    + (o.foot ? '<div class="hf-foot">' + o.foot + '</div>' : '')
+    + '</div>';
+}
 function kpiHTML(k) {
   const cat = (k.c || 'stripe-merged').replace('stripe-', '');
   const isDwx = /kpi-dwx/.test(k.cls || '');
@@ -4095,47 +4086,40 @@ function renderTotalTab() {
   const pnlMonth = (ttlMonthPnl[curYM] || {}).total || 0;
   const pnlToday = (ttlDayData[curDay] || {}).total || 0;
 
-  const dot = k => '<span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:' + TTL_COL[k] + ';margin-right:6px;vertical-align:-1px"></span>';
-  // Pastille discrète (contour) plutôt qu'une gélule jaune pleine : c'est une mention, pas une médaille.
-  const athBadge = isATH ? ' <span title="Le patrimoine est à son plus haut historique" style="display:inline-flex;align-items:center;border:1px solid rgba(217,119,6,0.45);color:#b45309;background:rgba(245,158,11,0.10);font-size:0.62rem;font-weight:800;padding:2px 8px;border-radius:5px;vertical-align:middle;margin-left:9px;letter-spacing:0.08em;">PLUS HAUT</span>' : '';
-  document.getElementById('ttlHero').innerHTML =
-    '<div class="hero-card capital" style="position:relative;flex:1;">' +
-      '<div class="hero-label">Capital total' + athBadge + '</div>' +
-      '<div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;">' +
-        // Chiffre en encre pleine : le dégradé découpé dans le texte faisait décoratif et
-        // dégradait la lisibilité. La couleur reste sur le badge de performance, à côté.
-        '<div class="hero-value">' + fmt(Math.round(capTotal)) + ' €</div>' +
-        '<span class="hero-badge ' + (pnlPct>=0?'pos':'neg') + '" style="font-size:0.95rem;padding:5px 14px;" title="Rendement sur les apports nets cumulés">' + (pnlPct>=0?'+':'') + pnlPct.toFixed(2) + '%</span>' +
-      '</div>' +
-      '<div style="font-size:0.9rem;color:var(--text-secondary);margin-top:8px;">Investi : ' + fmt(Math.round(invTotal)) + ' € · P&L cumulé : <span style="color:' + (pnlTotal>=0?'var(--positive)':'var(--negative)') + ';font-weight:700">' + (pnlTotal>=0?'+':'') + fmt(Math.round(pnlTotal)) + ' €</span></div>' +
-      '<div style="display:flex;gap:18px;flex-wrap:wrap;margin-top:10px;padding-top:10px;border-top:1px solid rgba(34,49,77,0.08);font-size:0.88rem;">' +
-        '<span>' + dot('ig') + 'Trading Auto&nbsp;<strong>' + fmt(Math.round(igNow)) + ' €</strong></span>' +
-        '<span>' + dot('stk') + 'Actions&nbsp;<strong>' + fmt(Math.round(stkNow)) + ' €</strong>' + (stkUsd ? '<span style="color:var(--text-secondary);font-size:0.82em">&nbsp;($' + fmt(Math.round(stkUsd)) + ')</span>' : '') + '</span>' +
-        '<span>' + dot('dwx') + 'Darwinex&nbsp;<strong>' + fmt(Math.round(dwxNow)) + ' €</strong></span>' +
-      '</div>' +
-    '</div>';
-
+  // CADRE DE TETE (modele Darwinex). Avant : une carte « Capital total » et six cartes a cote, dont une
+  // redisait le P&L cumule et une autre (« Sources agregees : 3 ») n'apprenait rien. Chaque chiffre n'y
+  // apparait plus qu'une fois ; la repartition par source passe en pied de cadre.
   const sgn = v => (v>=0?'+':'') + fmt(Math.round(v)) + ' €';
-  const card = (cls,label,value,sub) => '<div class="kpi-card ' + cls + '"><div class="label">' + label + '</div><div class="value">' + value + '</div><div class="sub">' + sub + '</div></div>';
-  document.getElementById('ttlKpi').innerHTML =
-    card(pnlTotal>=0?'kpi-green':'kpi-neg', 'P&L cumulé total', sgn(pnlTotal), (pnlPct>=0?'+':'')+pnlPct.toFixed(2)+'% sur '+fmt(Math.round(invTotal))+' € investis') +
-    card(pnlMonth>=0?'kpi-green':'kpi-neg', 'P&L du mois', sgn(pnlMonth), monthNamesFull[now.getMonth()]+' '+now.getFullYear()) +
-    card(pnlToday ? (pnlToday>=0?'kpi-green':'kpi-neg') : '', 'P&L du jour', pnlToday ? sgn(pnlToday) : '—', pnlToday ? curDay : 'Pas de mouvement aujourd\'hui') +
-    // apport du mois mis en avant : sinon rien ne distingue un capital qui monte par
-    // performance d'un capital qui monte parce qu'on a remis de l'argent dedans.
-    card('', 'Investi total', fmt(Math.round(invTotal))+' €',
-      'Apports nets cumulés (3 sources)' + (Math.abs(apportMois) >= 1
-        ? ' · <span style="color:' + (apportMois >= 0 ? 'var(--positive)' : 'var(--negative)') + ';font-weight:700">'
-          + (apportMois >= 0 ? '+' : '') + fmt(Math.round(apportMois)) + ' €</span> ce mois'
-        : ' · aucun apport ce mois')) +
-    // l'écart au pic en ROUGE, avec le montant entre parenthèses : un pourcentage seul
-    // ne dit pas combien d'euros séparent du plus-haut.
-    card(isATH?'kpi-green':'', 'Plus haut patrimoine', fmt(Math.round(ath))+' €',
-      isATH ? 'Au plus haut historique'
-            : ('Actuel <span style="color:var(--negative);font-weight:700">' + ddPct.toFixed(1) + ' %'
-               + ' (' + fmt(Math.round(capTotal - ath)) + ' €)</span> sous le pic'
-               + (athQuand ? ' du ' + athQuand.split('-').reverse().join('/') : ''))) +
-    card('', 'Sources agrégées', '3', 'IG · Actions · Darwinex');
+  const pos = 'var(--positive)', neg = 'var(--negative)';
+  const dot = k => '<span class="hf-dot" style="background:' + TTL_COL[k] + '"></span>';
+  const cells = [
+    { lead: true, label: 'Capital total' + (isATH ? ' <span class="hf-badge" title="Le patrimoine est à son plus haut historique">PLUS HAUT</span>' : ''),
+      value: fmt(Math.round(capTotal)) + ' €',
+      sub: '<span style="color:' + (pnlTotal >= 0 ? pos : neg) + ';font-weight:700">' + (pnlTotal >= 0 ? '▲ ' : '▼ ') + sgn(pnlTotal)
+        + ' (' + (pnlPct >= 0 ? '+' : '') + pnlPct.toFixed(2) + ' %)</span> sur ' + fmt(Math.round(invTotal)) + ' € investis',
+      tip: 'Somme des trois poches en euros : Trading Auto (compte IG), portefeuille d\'actions (Revolut, converti au cours du jour) et Darwinex. Le % rapporte le P&L cumulé aux apports nets.' },
+    { label: 'P&L du jour', value: pnlToday ? sgn(pnlToday) : '0 €', color: pnlToday ? (pnlToday >= 0 ? pos : neg) : null,
+      sub: pnlToday ? 'toutes sources, aujourd\'hui' : 'pas de mouvement aujourd\'hui' },
+    { label: 'P&L du mois', value: sgn(pnlMonth), color: pnlMonth >= 0 ? pos : neg,
+      sub: monthNamesFull[now.getMonth()] + ' ' + now.getFullYear() },
+    // apport du mois mis en avant : sinon rien ne distingue un capital qui monte par performance d'un
+    // capital qui monte parce qu'on a remis de l'argent dedans.
+    { label: 'Investi total', value: fmt(Math.round(invTotal)) + ' €',
+      sub: 'apports nets cumulés' + (Math.abs(apportMois) >= 1
+        ? ' · <span style="color:' + (apportMois >= 0 ? pos : neg) + ';font-weight:700">' + (apportMois >= 0 ? '+' : '') + fmt(Math.round(apportMois)) + ' €</span> ce mois'
+        : ' · aucun apport ce mois') },
+    // l'ecart au pic en ROUGE, avec le montant : un pourcentage seul ne dit pas combien d'euros separent du plus-haut.
+    { label: 'Plus haut patrimoine', value: fmt(Math.round(ath)) + ' €', color: isATH ? pos : null,
+      sub: isATH ? 'au plus haut historique'
+        : ('actuel <span style="color:' + neg + ';font-weight:700">' + ddPct.toFixed(1) + ' % (' + fmt(Math.round(capTotal - ath)) + ' €)</span> sous le pic'
+           + (athQuand ? ' du ' + athQuand.split('-').reverse().join('/') : '')) }
+  ];
+  const foot = '<span>' + dot('ig') + 'Trading Auto <b>' + fmt(Math.round(igNow)) + ' €</b></span>'
+    + '<span>' + dot('stk') + 'Actions <b>' + fmt(Math.round(stkNow)) + ' €</b>' + (stkUsd ? ' (' + fmt(Math.round(stkUsd)) + ' $)' : '') + '</span>'
+    + '<span>' + dot('dwx') + 'Darwinex <b>' + fmt(Math.round(dwxNow)) + ' €</b></span>';
+  document.getElementById('ttlHero').innerHTML = heroFrameHtml({
+    title: 'Patrimoine de trading consolidé · IG + actions + Darwinex, en euros', cells: cells, foot: foot });
+  document.getElementById('ttlKpi').replaceChildren();
 
   if (ttlCalY === null) {
     const dks = Object.keys(ttlDayData).sort();
@@ -12032,25 +12016,7 @@ function renderPortfolioTab(tab) {
   }
   // Onglet Darwinex : il vit dans le groupe TRADING. Les KPI portefeuille (capital brut des
   // 6 plateformes, emprunts, revenu net/mois) n'ont rien a y faire et repetent le bandeau.
-  if (tab !== 'darwinex') {
-  h += '<div class="inv-grid-kpi">';
-  const kpis = [
-    { l: "Capital Brut", v: invFmt(Math.round(t.tp)), i: "💰", c: "#6366f1", c2: "#818cf8", s: portfolioData.platforms.filter(p => (portfolioData.principal[p] || [])[li] > 0).length + " plateformes", d: invDeltaHtml(t.tp, t.tp_prev) },
-    { l: "Capital Net", v: invFmt(Math.round(t.nc)), i: "🏦", c: t.nc >= 0 ? "#1d9e74" : "#dd5f66", c2: t.nc >= 0 ? "#34d399" : "#f87171", s: "Emprunts : " + invFmt(Math.round(t.tl)), d: invDeltaHtml(t.nc, t.nc_prev) },
-    { l: "Intérêts du mois", v: invFmt(Math.round(t.lmi)), i: "📈", c: "#06b6d4", c2: "#22d3ee", s: (t.mc > 0 ? "+" : "") + t.mc + "% vs préc.", d: invDeltaHtml(t.lmi, t.pmi) },
-    { l: "Intérêts cumulés", v: invFmt(Math.round(t.tic)), i: "📊", c: "#f59e0b", c2: "#fbbf24", s: "Moy. " + invFmt(t.am) + "/mois", d: invDeltaHtml(t.tic, t.tic_prev) },
-    { l: "Revenu net/mois", v: invFmt(Math.round(t.nmi)), i: "⚡", c: t.nmi >= 0 ? "#1d9e74" : "#dd5f66", c2: t.nmi >= 0 ? "#34d399" : "#f87171", s: "Remb. " + invFmt(t.tmp) + "/mois", d: invDeltaHtml(t.nmi, t.nmi_prev) }
-  ];
-  kpis.forEach((k, i) => {
-    h += `<div class="kpi-card">`;
-    h += `<div class="stripe" style="background:linear-gradient(90deg,${k.c},${k.c2||k.c})"></div>`;
-    h += `<div class="label">${k.l}</div>`;
-    h += `<div class="value" style="color:${k.c};font-size:1.5rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${k.v}</div>`;
-    h += `${k.d || ''}<div class="sub">${k.s}</div>`;
-    h += `</div>`;
-  });
-  h += '</div>';
-  }
+  if (tab !== 'darwinex') h += invHeroFrame(t);
 
   // Sync indicator
 
@@ -12088,6 +12054,57 @@ function renderPortfolioTab(tab) {
     else if (tab === 'repartition') invBuildRepartitionCharts(t, labels, li);
     invUpdateSyncIndicator();
   });
+}
+
+// Plateformes dont la ligne « intérêts » porte en realite un RESULTAT DE MARCHE (plus ou moins-value,
+// non garanti) et non des interets contractuels : Revolut = plus-value mensuelle du portefeuille d'actions
+// (syncRevolutFromPositions), Trading Auto = gains des algos, Darwinex = P&L des DARWINs.
+const INV_MARKET_PLATFORMS = ['Revolut', 'Trading Auto', 'Darwinex'];
+// CADRE DE TETE du Portfolio (meme modele que Darwinex / Trading total), sur tous les onglets du groupe.
+function invHeroFrame(t) {
+  const d = portfolioData, li = t.li;
+  const pos = 'var(--positive)', neg = 'var(--negative)';
+  const eur = (v) => invFmt(Math.round(v));
+  const sgn = (v) => (v >= 0 ? '+' : '') + eur(v);
+  const ym = d.months[li] || '';
+  const prevYm = li > 0 ? d.months[li - 1] : '';
+  const mois = (x) => x ? monthNamesFull[parseInt(x.slice(5, 7), 10) - 1].toLowerCase() : '';   // « août », pas « aoû »
+  // revenus du mois : interets contractuels d'un cote, resultats de marche de l'autre
+  let intMois = 0, mktMois = 0;
+  d.platforms.forEach((p) => {
+    const v = invToEur(p, (d.interests[p] || [])[li] || 0);
+    if (INV_MARKET_PLATFORMS.indexOf(p) >= 0) mktMois += v; else intMois += v;
+  });
+  // plus grosse exposition a une seule plateforme (part du capital brut)
+  let top = null;
+  d.platforms.forEach((p) => {
+    const v = invToEur(p, (d.principal[p] || [])[li] || 0);
+    if (v > 0 && (!top || v > top.v)) top = { p: p, v: v };
+  });
+  const topPct = (top && t.tp > 0) ? top.v / t.tp * 100 : 0;
+  const topCol = topPct >= 60 ? neg : (topPct >= 40 ? '#b45309' : null);
+  const dNet = (t.nc_prev != null) ? t.nc - t.nc_prev : null;
+  const nbPlat = d.platforms.filter(p => (d.principal[p] || [])[li] > 0).length;
+  const cells = [
+    { lead: true, label: 'Patrimoine net', value: eur(t.nc), color: t.nc >= 0 ? null : neg,
+      sub: (dNet != null && Math.abs(dNet) >= 1
+        ? '<span style="color:' + (dNet >= 0 ? pos : neg) + ';font-weight:700">' + (dNet >= 0 ? '▲ ' : '▼ ') + sgn(dNet) + '</span> vs fin ' + mois(prevYm) + '<br>'
+        : '')
+        + 'brut ' + eur(t.tp) + ' sur ' + nbPlat + ' plateformes · emprunts ' + eur(t.tl),
+      tip: 'Capital placé sur toutes les plateformes (brut) moins le capital restant dû des emprunts, à la fin du dernier mois clôturé.' },
+    { label: 'Revenus du mois', value: sgn(t.lmi), color: t.lmi >= 0 ? pos : neg,
+      sub: 'intérêts <b>' + sgn(intMois) + '</b> · marchés <b style="color:' + (mktMois >= 0 ? pos : neg) + '">' + sgn(mktMois) + '</b>',
+      tip: 'Intérêts contractuels (Debitum, Mintos...) d\'un côté ; résultats de marché de l\'autre (Revolut, Trading Auto, Darwinex : plus ou moins-values, non garanties, qui peuvent être négatives).' },
+    { label: 'Revenus cumulés', value: sgn(t.tic), color: t.tic >= 0 ? pos : neg,
+      sub: 'moyenne ' + eur(t.am) + ' par mois' },
+    { label: 'Revenu net / mois', value: sgn(t.nmi), color: t.nmi >= 0 ? pos : neg,
+      sub: 'après ' + eur(t.tmp) + ' de remboursements',
+      tip: 'Revenus du mois moins les mensualités des emprunts.' },
+    { label: 'Plus grosse exposition', value: top ? topPct.toFixed(0) + ' %' : '–', color: topCol,
+      sub: top ? (top.p + ' · ' + eur(top.v) + ' du brut') : 'aucune plateforme',
+      tip: 'Part du capital brut placée sur une seule plateforme : c\'est la part du patrimoine qui dépend de la solidité de cette plateforme. Orange au-delà de 40 %, rouge au-delà de 60 %.' }
+  ];
+  return heroFrameHtml({ title: 'Patrimoine · situation à fin ' + mois(ym) + ' ' + ym.slice(0, 4), cells: cells });
 }
 
 // ── Overview ──
