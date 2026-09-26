@@ -1159,6 +1159,11 @@
   .hf-head { display: flex; justify-content: space-between; align-items: baseline; gap: 6px 14px; flex-wrap: wrap; margin-bottom: 16px; }
   .hf-title { font-size: 0.7rem; letter-spacing: 1px; color: var(--text-secondary); text-transform: uppercase; font-weight: 700; }
   .hf-right { font-size: 0.74rem; color: var(--text-secondary); }
+  .hf-band { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 18px; margin: -4px 0 16px; padding: 8px 12px;
+    border-radius: 10px; background: rgba(255,255,255,0.55); border: 1px solid var(--border); font-size: 0.78rem; color: var(--text-secondary); }
+  .hf-band b { font-weight: 800; }
+  .hf-band:empty { display: none; }
+  html[data-theme="dark"] .hf-band { background: rgba(255,255,255,0.03); }
   .hf-row { display: flex; flex-wrap: wrap; align-items: flex-start; row-gap: 18px; }
   .hf-cell { flex: 1 1 130px; min-width: 125px; padding: 0 18px; border-left: 1px solid var(--border-strong); }
   .hf-cell.hf-lead { flex: 1.5 1 230px; min-width: 210px; padding: 0 22px 0 0; border-left: none; }
@@ -2553,6 +2558,7 @@ function heroFrameHtml(o) {
   return '<div class="inv-card hf">'
     + '<div class="hf-head"><div class="hf-title">' + (o.title || '') + '</div>'
     + (o.right ? '<div class="hf-right">' + o.right + '</div>' : '') + '</div>'
+    + (o.band != null ? '<div class="hf-band"' + (o.bandId ? ' id="' + o.bandId + '"' : '') + '>' + o.band + '</div>' : '')
     + '<div class="hf-row">' + (o.cells || []).map(cell).join('') + '</div>'
     + (o.foot ? '<div class="hf-foot">' + o.foot + '</div>' : '')
     + '</div>';
@@ -4135,8 +4141,9 @@ function renderTotalTab() {
     + '<span>' + dot('stk') + 'Actions <b>' + fmt(Math.round(stkNow)) + ' €</b>' + (stkUsd ? ' (' + fmt(Math.round(stkUsd)) + ' $)' : '') + '</span>'
     + '<span>' + dot('dwx') + 'Darwinex <b>' + fmt(Math.round(dwxNow)) + ' €</b></span>';
   document.getElementById('ttlHero').innerHTML = heroFrameHtml({
-    title: 'Patrimoine de trading consolidé · IG + actions + Darwinex, en euros', cells: cells, foot: foot });
+    title: 'Patrimoine de trading consolidé · IG + actions + Darwinex, en euros', band: '', bandId: 'ttlDaySummary', cells: cells, foot: foot });
   document.getElementById('ttlKpi').replaceChildren();
+  renderTtlDaySummary();
 
   if (ttlCalY === null) {
     const dks = Object.keys(ttlDayData).sort();
@@ -4152,6 +4159,51 @@ function renderTotalTab() {
   ttlBuildDaily(); ttlBuildMonthly(); ttlBuildRiskReturn(); ttlBuildYearHeat();
 }
 
+// RESUME DU JOUR (Trading total), une ligne en tete du cadre : ce qu'il faut savoir en ouvrant le
+// dashboard, sans descendre. P&L du dernier jour toutes sources, la ligne du portefeuille qui a le plus
+// monte et celle qui a le plus baisse, puis les alertes (collecteur en panne, regime algo, Darwinex).
+// Rappele par la barre sante : les statuts des collecteurs arrivent apres le premier rendu.
+function renderTtlDaySummary() {
+  const el = document.getElementById('ttlDaySummary');
+  if (!el) return;
+  const mk = (tag, txt, style) => { const e = document.createElement(tag); e.textContent = txt; if (style) e.style.cssText = style; return e; };
+  const item = (...kids) => { const sp = document.createElement('span'); sp.append(...kids); return sp; };
+  const col = (v) => 'color:' + (v >= 0 ? 'var(--positive)' : 'var(--negative)');
+  const out = [];
+  // 1. P&L du dernier jour, toutes sources
+  const dd = (typeof ttlDayData !== 'undefined' && ttlDayData) ? ttlDayData : {};
+  const jours = Object.keys(dd).sort(), auj = scrLocalDay(new Date());
+  const dk = dd[auj] ? auj : jours[jours.length - 1];
+  if (dk) {
+    const v = dd[dk].total || 0;
+    const lib = dk === auj ? "Aujourd'hui" : ('Dernière séance (' + new Date(dk + 'T12:00:00').toLocaleDateString('fr-FR', { weekday: 'long', day: '2-digit', month: '2-digit' }) + ')');
+    out.push(item(mk('span', lib + ' : '), mk('b', (v >= 0 ? '+' : '') + fmt(v) + ' €', col(v))));
+  }
+  // 2. plus forte hausse et plus forte baisse du portefeuille d'actions (variation du jour des cours)
+  const court = (t) => String(t).replace(/(\.[A-Z]{1,3}|-USD)$/, '');
+  // source : stocks/screener/livePrices/prices (les lignes detenues, 2 Ko), ecoute par loadHealthBar ;
+  // la carte des cours complete, elle, n'est chargee que sur l'onglet Portefeuille d'actions
+  const lp = Array.isArray(TTL_LP) ? TTL_LP : (TTL_LP ? Object.values(TTL_LP) : []);
+  const mv = lp.map((d) => (d && d.ticker && d.changePct != null && isFinite(d.changePct)) ? { t: court(d.ticker), c: d.changePct } : null)
+    .filter(Boolean).sort((a, b) => b.c - a.c);
+  if (mv.length >= 2) {
+    const pc = (m) => m.t + ' ' + (m.c >= 0 ? '+' : '') + (m.c * 100).toFixed(1) + ' %';
+    out.push(item(mk('span', 'Actions : '), mk('b', '▲ ' + pc(mv[0]), col(mv[0].c)), mk('span', ' · '), mk('b', '▼ ' + pc(mv[mv.length - 1]), col(mv[mv.length - 1].c))));
+  }
+  // 3. alertes
+  const al = [];
+  if (typeof hbItems === 'function') hbItems().forEach((it) => { if (it.level === 'bad') al.push(it.label + ' en panne'); });
+  try {
+    const cb = computeCusumBreak(null);
+    if (cb && cb.pval < 0.05 && cb.degrade) al.push('régime algo : dégradation avérée');
+    else if (cb && cb.pval < 0.10) al.push('régime algo : rupture suspectée');
+  } catch (e) {}
+  if (typeof darwinexData !== 'undefined' && darwinexData && darwinexData.valueError) al.push('valeur Darwinex à vérifier');
+  out.push(al.length
+    ? item(mk('b', '⚠ ' + al.join(' · '), 'color:var(--negative)'))
+    : item(mk('b', '✓ aucune alerte', 'color:var(--positive)')));
+  el.replaceChildren(...out);
+}
 // ── Graphiques (Chart.js) ──
 function ttlDestroyCharts() { ttlCharts.forEach(c => { try { c.destroy(); } catch (e) {} }); ttlCharts = []; }
 function ttlYm(ym) { const p = ym.split('-'); return p[1] + '/' + p[0].slice(2); }
@@ -5341,6 +5393,7 @@ function loadPontStatus() {
 // lundi matin alors que rien n'est en panne. Le pont IG, lui, bat chaque minute, 7 jours sur 7.
 // ═════════════════════════════════════════════════════════════════
 const HB = {};          // derniere valeur lue par collecteur (cle absente = pas encore lue)
+let TTL_LP = null;      // cours du jour des lignes detenues (resume du jour de Trading total)
 let HB_OPEN = null;     // collecteur dont le detail est deplie
 function hbBizHours(t) {
   const now = Date.now();
@@ -5446,6 +5499,7 @@ function renderHealthBar() {
   });
   const open = HB_OPEN && items.find(i => i.key === HB_OPEN);
   if (open) el.appendChild(mk('div', 'hb-detail', open.label + ' : ' + open.tip));
+  if (typeof renderTtlDaySummary === 'function') renderTtlDaySummary();   // ses alertes lisent ces statuts
 }
 function loadHealthBar() {
   if (typeof db === 'undefined' || !db) return Promise.resolve();
@@ -5458,6 +5512,7 @@ function loadHealthBar() {
   sub('dashboard/pontIG', 'pont');
   sub('igSyncStatus', 'igSync');
   sub('stocks/kidsPrice/at', 'kids');
+  try { db.ref('stocks/screener/livePrices/prices').on('value', (x) => { TTL_LP = x.val(); renderTtlDaySummary(); }); } catch (e) {}
   renderHealthBar();
   setInterval(renderHealthBar, 60000);   // les ages vieillissent meme sans nouvel evenement
   return Promise.resolve();
