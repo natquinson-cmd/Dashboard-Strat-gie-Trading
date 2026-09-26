@@ -1883,6 +1883,61 @@ const themeGradientPlugin = {
   }
 };
 if (THEME === 'dark' && typeof Chart !== 'undefined') Chart.register(themeGradientPlugin);
+
+// ════════════════════════════════════════════════════
+// FORMAT FRANCAIS DES NOMBRES, A L'AFFICHAGE
+// Une meme carte melangeait « −1.23% », « +$208,00 » et « 1 713 ». Plutot que de reprendre 501 formatages
+// (dont ceux du dessin : coordonnees SVG, largeurs CSS en %, qui doivent garder le point), on reecrit ce
+// que l'on VOIT : noeuds texte, infobulles (title) et texte dessine sur les canvas (Chart.js, etiquettes).
+//   point decimal entre deux chiffres -> virgule ; espace fine insecable avant % ; $ place apres le montant.
+// Idempotent (un texte deja au format francais ne change plus) ; jamais les attributs style ni les valeurs
+// des champs de saisie. Aucun code ne relit les nombres affiches (verifie), donc rien ne casse.
+// ════════════════════════════════════════════════════
+const FR_SEP = '\u202f';   // espace fine insecable, celle de toLocaleString('fr-FR')
+function frText(s) {
+  if (typeof s !== 'string' || !/\d/.test(s)) return s;
+  return s
+    .replace(/(\d)\.(\d)/g, '$1,$2')
+    .replace(/(\d)[ \u00a0]?%/g, '$1' + FR_SEP + '%')
+    .replace(/\$(\d(?:\d|,(?=\d)|[\u202f\u00a0](?=\d))*)/g, '$1' + FR_SEP + '$');   // virgule seulement si un chiffre suit (« 225,30, sous... »)
+}
+const FR_SKIP = 'code,pre,script,style,textarea,.no-fr';
+function frApplyNode(n) {
+  if (n.nodeType === 3) {
+    const p = n.parentElement;
+    if (!p || p.closest(FR_SKIP)) return;
+    const v = n.nodeValue, w = frText(v);
+    if (w !== v) n.nodeValue = w;
+  } else if (n.nodeType === 1) {
+    if (n.closest && n.closest(FR_SKIP)) return;
+    const t = n.getAttribute && n.getAttribute('title');
+    if (t) { const w = frText(t); if (w !== t) n.setAttribute('title', w); }
+  }
+}
+function frApplyTree(root) {
+  if (!root) return;
+  if (root.nodeType === 3) { frApplyNode(root); return; }
+  if (root.nodeType !== 1) return;
+  frApplyNode(root);
+  const tw = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  for (let n = tw.nextNode(); n; n = tw.nextNode()) frApplyNode(n);
+  root.querySelectorAll('[title]').forEach(frApplyNode);
+}
+new MutationObserver((recs) => {
+  for (const r of recs) {
+    if (r.type === 'characterData') frApplyNode(r.target);
+    else if (r.type === 'attributes') frApplyNode(r.target);
+    else r.addedNodes.forEach(frApplyTree);
+  }
+}).observe(document.documentElement, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['title'] });
+frApplyTree(document.body);
+// Canvas : graduations, infobulles, legendes et etiquettes des graphiques passent toutes par fillText.
+(function () {
+  const P = CanvasRenderingContext2D.prototype, f = P.fillText, st = P.strokeText;
+  P.fillText = function (txt, x, y, m) { return f.call(this, typeof txt === 'string' ? frText(txt) : txt, x, y, m); };
+  P.strokeText = function (txt, x, y, m) { return st.call(this, typeof txt === 'string' ? frText(txt) : txt, x, y, m); };
+})();
+if (typeof Chart !== 'undefined') Chart.defaults.locale = 'fr-FR';
 // ══════════════════════════════════════════════════════════════
 // DATA
 // ══════════════════════════════════════════════════════════════
