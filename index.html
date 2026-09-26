@@ -1629,7 +1629,10 @@
 
   <!-- ═══════════════════════ TAB 1 : FIXED ═══════════════════════ -->
   <div id="tab-fixed" class="tab-content">
-    <div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px;">
+      <div class="scr-seg" title="Deux lectures du même backtest : mise constante, ou gains réinvestis">
+        <button type="button" class="on" onclick="switchTab('fixed')">Montant fixe</button><button type="button" onclick="switchTab('reinvest')">Réinvestissement</button>
+      </div>
       <button class="csv-btn" onclick="openBacktestModal('fixed')">Mettre à jour CSV</button>
     </div>
     <!-- Capital Selector -->
@@ -1712,7 +1715,10 @@
 
   <!-- ═══════════════════════ TAB 2 : REINVEST ═══════════════════════ -->
   <div id="tab-reinvest" class="tab-content">
-    <div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px;">
+      <div class="scr-seg" title="Deux lectures du même backtest : mise constante, ou gains réinvestis">
+        <button type="button" onclick="switchTab('fixed')">Montant fixe</button><button type="button" class="on" onclick="switchTab('reinvest')">Réinvestissement</button>
+      </div>
       <button class="csv-btn" onclick="openBacktestModal('reinvest')">Mettre à jour CSV</button>
     </div>
     <!-- Capital Selector -->
@@ -6913,8 +6919,8 @@ const GROUP_TABS = {
   trading: [
     { id: 'total', label: LOGO_TOTAL + 'Trading total' },
     { id: 'real', label: tabImg(LOGO_IG, 'IG') + 'Trading Auto' },
-    { id: 'fixed', label: 'Backtest fixe' },
-    { id: 'reinvest', label: 'Backtest Réinv' },
+    // un seul onglet pour les deux backtests ; 'reinvest' reste un onglet valide, choisi a l'interieur
+    { id: 'fixed', label: 'Backtests', also: ['reinvest'] },
     { id: 'screener', label: LOGO_REVOLUT + "Portefeuille d'actions" },
     { id: 'opportunites', label: '🧭 Opportunités IA' },
     { id: 'darwinex', label: tabImg(LOGO_DARWINEX, 'Darwinex') + 'Darwinex' },
@@ -6934,12 +6940,18 @@ const GROUP_TABS = {
 
 const ALL_TAB_IDS = ['total', 'real', 'fixed', 'reinvest', 'overview', 'interests', 'evolution', 'loans', 'realestate', 'darwinex', 'simulateur', 'repartition', 'screener', 'opportunites', 'enfants', 'update'];
 
+// Dernier backtest consulte (fixe ou reinvesti), pour que l'onglet « Backtests » le rouvre.
+function btLastTab() {
+  try { return localStorage.getItem('btLastTab') === 'reinvest' ? 'reinvest' : 'fixed'; } catch (e) { return 'fixed'; }
+}
 function renderSubTabs() {
   const bar = document.getElementById('subTabBar');
   const tabs = GROUP_TABS[currentGroup];
-  let html = tabs.map(t =>
-    `<button class="sub-tab-btn${t.id === currentTab ? ' active' : ''}" onclick="switchTab('${t.id}')">${t.label}</button>`
-  ).join('');
+  let html = tabs.map(t => {
+    const on = t.id === currentTab || (t.also || []).indexOf(currentTab) >= 0;
+    const cible = (t.id === 'fixed') ? btLastTab() : t.id;   // Backtests : rouvre le dernier mode consulte
+    return `<button class="sub-tab-btn${on ? ' active' : ''}" onclick="switchTab('${cible}')">${t.label}</button>`;
+  }).join('');
   if (currentGroup === 'invest') {
     html += `<span id="eurUsdRate" style="margin-left:auto;font-size:0.7rem;color:var(--text-secondary);display:flex;align-items:center;gap:4px;padding-right:4px">EUR/USD : ${(1/usdEurRate).toFixed(4)}</span>`;
     html += `<span id="eurChfRate" style="font-size:0.7rem;color:var(--text-secondary);display:flex;align-items:center;gap:4px;padding-right:4px">EUR/CHF : ${chfEurRate.toFixed(4)}</span>`;
@@ -6998,6 +7010,7 @@ function activateTab(tab) {
   const el = document.getElementById('tab-' + tab);
   if (el) el.classList.add('active');
   ccyToggleSync();   // selecteur $ / € de l'en-tete : visible la ou il agit
+  if (tab === 'fixed' || tab === 'reinvest') { try { localStorage.setItem('btLastTab', tab); } catch (e) {} }
 
   // Trading total : agrégat des 3 sources (rendu autonome)
   if (tab === 'total') { renderTotalTab(); return; }
