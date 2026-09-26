@@ -1184,6 +1184,18 @@
   }
   html[data-theme="dark"] .hf { background: linear-gradient(135deg, rgba(63,118,237,0.10), rgba(102,187,106,0.04)); border-color: rgba(63,118,237,0.30); }
   html[data-theme="dark"] .hf-badge { color: #ffb74d; border-color: rgba(255,183,77,0.45); background: rgba(255,183,77,0.10); }
+  /* Tableau des positions : vues Suivi / Analyse (colonnes masquées par classe) et tri par en-tête */
+  .scr-pos-suivi .pcol-ana, .scr-pos-analyse .pcol-suivi { display: none; }
+  .scr-pos-th { cursor: pointer; user-select: none; }
+  .scr-pos-th:hover { color: var(--text-primary); }
+  .scr-pos-th .srt { margin-left: 3px; font-size: 0.6rem; color: #3563e9; }
+  .scr-seg { display: inline-flex; border: 1px solid var(--border-strong); border-radius: 9px; overflow: hidden; }
+  .scr-seg button { border: none; background: transparent; padding: 6px 13px; font: inherit; font-size: 0.74rem; font-weight: 700;
+    color: var(--text-secondary); cursor: pointer; }
+  .scr-seg button + button { border-left: 1px solid var(--border-strong); }
+  .scr-seg button.on { background: #3563e9; color: #fff; }
+  html[data-theme="dark"] .scr-seg button.on { background: #3f76ed; }
+  html[data-theme="dark"] .scr-pos-th .srt { color: #5c8aee; }
   /* Santé des données : une ligne discrète sous les onglets, sur toutes les pages. Couleurs en classes
      (et non en style inline) pour que le thème foncé les reprenne sans passer par le moteur de thème. */
   .health-bar { display: flex; justify-content: center; align-items: center; gap: 4px 14px; flex-wrap: wrap;
@@ -10881,7 +10893,7 @@ function renderPositionsTable(pos, onChange) {
     const zSec = (d && d.sector) ? d.sector : 'Autre';
     const zBand = d ? scrBuyBand(d, zSec) : null;
     const zStripe = zBand ? (SCR_ZONE[zBand.zone] || {}).bar : null;   // bandeau gauche = zone d'achat (vert décoté -> rouge cher)
-    tbody.appendChild(scrEl('tr', { kids: [
+    const tr = scrEl('tr', { kids: [
       scrEl('td', { attrs: zStripe ? { title: "Zone d'achat : " + SCR_ZONE[zBand.zone].label + " (bandeau vert = décoté, rouge = cher, d'après la juste valeur DCF)" } : {}, style: `padding:6px 10px;${bd}${zStripe ? ';box-shadow:inset 4px 0 0 0 ' + zStripe : ''}`, kids: [scrEl('div', { style: 'display:flex;align-items:center;gap:8px', kids: tkKids })] }),
       scrEl('td', { text: qtyTxt, style: `padding:6px 10px;text-align:right;${bd};color:#42546a;font-weight:600` }),
       scrEl('td', { text: (p.pru != null ? scrPxNum(usdToDisp(p.pru)) : '–'), style: `padding:6px 10px;text-align:right;${bd};color:#42546a` }),
@@ -10893,7 +10905,14 @@ function renderPositionsTable(pos, onChange) {
       scrEl('td', { text: (pnl == null ? '–' : (pnl >= 0 ? '+' : '') + scrUsd(pnl) + ' (' + (pnlPct >= 0 ? '+' : '') + (pnlPct * 100).toFixed(1) + '%)'), style: `padding:6px 10px;text-align:right;${bd};font-weight:700;color:${pnlCol};white-space:nowrap` }),
       ...(() => { const sec = (d && d.sector) ? d.sector : 'Autre'; const f = scrFundaCells(d, sec, bd); f[0] = scrValGaugeCell(d, sec, bd); f.splice(2, 1); return f; })(),
       scrEl('td', { style: `padding:6px 10px;text-align:right;${bd}`, kids: [del] }),
-    ] }));
+    ] });
+    // cles de tri, une par colonne (meme ordre que l'en-tete ; null = toujours en bas du tri)
+    const mm = d || {};
+    const k3m = (Array.isArray(mm.spark) && mm.spark.length > 1 && mm.spark[0] > 0) ? mm.spark[mm.spark.length - 1] / mm.spark[0] - 1 : null;
+    tr._k = [String(p.ticker || ''), qty, p.pru, k3m, chg, valeur, pnlPct, vgap,
+      (dcf && isFinite(dcf.cagr)) ? dcf.cagr : null, mm.moatScore, mm.roic, mm.revCagr, mm.peg, mm.netMargin,
+      mm.dividendYield > 0 ? mm.dividendYield : null, mm.payoutRatio, mm.divStreak, mm.fcfYield];
+    tbody.appendChild(tr);
   });
   const totPnl = totVal - totInv, totPct = totInv > 0 ? totVal / totInv - 1 : 0, tCol = totPnl >= 0 ? '#1d9e74' : '#dd5f66';
   const dayBase = totVal - totDay, dayPctT = dayBase > 0 ? totDay / dayBase : 0, dCol = totDay >= 0 ? '#1d9e74' : '#dd5f66';
@@ -10920,7 +10939,70 @@ function renderPositionsTable(pos, onChange) {
     ...['ideal', 'achat', 'plein', 'cher'].map((z) => scrEl('span', { style: 'display:flex;align-items:center;gap:4px', kids: [
       scrEl('span', { style: `display:inline-block;width:11px;height:11px;border-radius:3px;background:${SCR_ZONE[z].bar}` }),
       scrEl('span', { text: SCR_ZONE[z].label })] }))] });
-  const kids = [scrTableBox(table, { maxH: 'none' }), zoneLegend, note];   // Mes positions : pleine hauteur, pas d'ascenseur vertical
+  // ── Vues Suivi / Analyse / Tout, et tri par en-tete ──
+  // colonnes : 0 ticker, 1 qte, 2 prix achat, 3 cours 3 M, 4 var. jour, 5 valeur, 6 +/-, 7 juste valeur,
+  // 8 potentiel/an, 9 moat, 10 ROIC, 11 croissance, 12 PEG, 13 marge, 14 rendement, 15 payout,
+  // 16 dividende, 17 FCF yield, 18 suppression. Communes aux deux vues : 0, 5, 6, 7.
+  const COL_SUIVI = [1, 2, 3, 4, 18], COL_ANA = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17];
+  const totalRow = tbody.lastChild;
+  [thead].concat(Array.from(tbody.children)).forEach((row) => Array.from(row.children).forEach((cellEl, c) => {
+    if (COL_SUIVI.indexOf(c) >= 0) cellEl.classList.add('pcol-suivi');
+    else if (COL_ANA.indexOf(c) >= 0) cellEl.classList.add('pcol-ana');
+  }));
+  let view = 'suivi', sort = { col: 5, dir: 'desc' };
+  try { view = localStorage.getItem('scrPosView') || 'suivi'; } catch (e) {}
+  try { const ss = JSON.parse(localStorage.getItem('scrPosSort') || 'null'); if (ss && ss.col >= 0 && ss.col < 18) sort = ss; } catch (e) {}
+  const ths = Array.from(thead.children);
+  const applySort = () => {
+    const trs = Array.from(tbody.children).filter((r) => r._k);
+    const vide = (x) => x == null || (typeof x === 'number' && !isFinite(x));
+    trs.sort((a, b) => {
+      const x = a._k[sort.col], y = b._k[sort.col];
+      if (vide(x) && vide(y)) return 0;
+      if (vide(x)) return 1;
+      if (vide(y)) return -1;
+      const c = (typeof x === 'string') ? x.localeCompare(y) : x - y;
+      return sort.dir === 'asc' ? c : -c;
+    });
+    trs.forEach((r) => tbody.insertBefore(r, totalRow));
+    ths.forEach((th, c) => {
+      const old = th.querySelector('.srt'); if (old) old.remove();
+      if (c === sort.col) th.appendChild(scrEl('span', { cls: 'srt', text: sort.dir === 'asc' ? '▲' : '▼' }));
+    });
+  };
+  ths.forEach((th, c) => {
+    if (c >= 18) return;
+    th.classList.add('scr-pos-th');
+    th.addEventListener('click', () => {
+      sort = (sort.col === c) ? { col: c, dir: sort.dir === 'asc' ? 'desc' : 'asc' } : { col: c, dir: c === 0 ? 'asc' : 'desc' };
+      try { localStorage.setItem('scrPosSort', JSON.stringify(sort)); } catch (e) {}
+      applySort();
+    });
+  });
+  applySort();
+  const box = scrTableBox(table, { maxH: 'none' });
+  const seg = scrEl('div', { cls: 'scr-seg' });
+  const setView = (v) => {
+    view = v;
+    try { localStorage.setItem('scrPosView', v); } catch (e) {}
+    table.classList.remove('scr-pos-suivi', 'scr-pos-analyse');
+    if (v !== 'tout') table.classList.add('scr-pos-' + v);
+    Array.from(seg.children).forEach((b) => b.classList.toggle('on', b.dataset.v === v));
+  };
+  [['suivi', 'Suivi', 'Quantité, prix d’achat, cours, variation du jour, valeur, plus-value, juste valeur'],
+   ['analyse', 'Analyse', 'Juste valeur, potentiel, moat, ROIC, croissance, PEG, marge, dividende, FCF'],
+   ['tout', 'Tout', 'Toutes les colonnes']].forEach(([v, label, tip]) => {
+    const b = scrEl('button', { text: label, attrs: { title: tip, type: 'button' } });
+    b.dataset.v = v;
+    b.onclick = () => setView(v);
+    seg.appendChild(b);
+  });
+  setView(['suivi', 'analyse', 'tout'].indexOf(view) >= 0 ? view : 'suivi');
+  const viewBar = scrEl('div', { style: 'display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px', kids: [
+    scrEl('span', { text: 'Mes positions', style: 'font-weight:800;color:#22303f;font-size:0.95rem' }),
+    seg,
+    scrEl('span', { text: 'clique un en-tête pour trier', style: 'font-size:0.7rem;color:#9aa7b4' })] });
+  const kids = [viewBar, box, zoneLegend, note];   // Mes positions : pleine hauteur, pas d'ascenseur vertical
   if (parts2.length && totV > 0) {
     const stockItems = parts2.map((p, i) => ({ label: p.ticker, value: p.valeur, color: SCR_CHART_COLORS[i % SCR_CHART_COLORS.length], pctTxt: (p.valeur / totV * 100).toFixed(0) + '%' }));
     const grp = (keyfn) => { const o = {}; parts2.forEach((p) => { const k = keyfn(p) || 'Autre'; o[k] = (o[k] || 0) + p.valeur; }); return Object.keys(o).map((s) => ({ label: s, value: o[s] })).sort((a, b) => b.value - a.value).map((it, i) => ({ label: it.label, value: it.value, color: SCR_CHART_COLORS[i % SCR_CHART_COLORS.length], pctTxt: (it.value / totV * 100).toFixed(0) + '%' })); };
