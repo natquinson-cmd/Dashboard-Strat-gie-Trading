@@ -1151,6 +1151,15 @@
     transition: all 0.2s;
   }
   .theme-btn:hover { background: var(--bg-card-hover); color: var(--text-primary); }
+  /* sélecteur de devise d'affichage (portefeuille d'actions), dans l'en-tête */
+  .ccy-toggle { display: inline-flex; height: 40px; margin-left: 6px; border: 1px solid var(--border); border-radius: 10px;
+    overflow: hidden; background: var(--bg-card); vertical-align: middle; }
+  .ccy-toggle[hidden] { display: none; }
+  .ccy-toggle button { border: none; background: transparent; padding: 0 13px; font: inherit; font-size: 0.95rem; font-weight: 800;
+    color: var(--text-secondary); cursor: pointer; }
+  .ccy-toggle button + button { border-left: 1px solid var(--border); }
+  .ccy-toggle button.on { background: #3563e9; color: #fff; }
+  html[data-theme="dark"] .ccy-toggle button.on { background: #3f76ed; }
   /* CADRE DE TETE COMMUN (heroFrameHtml), sur le modèle de l'onglet Darwinex : cellule de tête en grand,
      les autres séparées par un filet, libellés en capitales grises, pied de cadre pour les chiffres secondaires */
   .hf { background: linear-gradient(135deg, rgba(95,139,242,0.08), rgba(29,158,116,0.04)); border: 1px solid rgba(95,139,242,0.18);
@@ -1350,6 +1359,9 @@
     <div class="group-bar">
       <button class="group-btn active" onclick="switchGroup('trading')">Trading</button>
       <button class="group-btn" onclick="switchGroup('invest')">Portfolio</button>
+      <div class="ccy-toggle" id="ccyToggle" hidden title="Devise d'affichage du portefeuille d'actions et du screener (le reste du dashboard est en euros)">
+        <button type="button" data-ccy="USD" onclick="ccySet('USD')">$</button><button type="button" data-ccy="EUR" onclick="ccySet('EUR')">€</button>
+      </div>
       <button class="theme-btn" id="themeBtn" onclick="themeToggle()" title="Thème clair / foncé">☾</button>
     </div>
   </div>
@@ -6985,6 +6997,7 @@ function switchTab(tab) {
 function activateTab(tab) {
   const el = document.getElementById('tab-' + tab);
   if (el) el.classList.add('active');
+  ccyToggleSync();   // selecteur $ / € de l'en-tete : visible la ou il agit
 
   // Trading total : agrégat des 3 sources (rendu autonome)
   if (tab === 'total') { renderTotalTab(); return; }
@@ -7026,16 +7039,19 @@ function activateTab(tab) {
 let screenerWorkerUrl = localStorage.getItem('screenerWorkerUrl') || '';
 let screenerUrlLoaded = false;
 let screenerMode = 'quality';   // small-cap abandonné : le screener est désormais uniquement Qualité-valorisation
-function screenerModeBar() {
-  // Bascule devise d'affichage $/€ (convertit tout l'onglet)
-  const ccyBar = scrEl('div', { style: 'display:inline-flex;border:1px solid #e3e8ee;border-radius:10px;overflow:hidden' });
-  [['USD', '$'], ['EUR', '€']].forEach(([ccy, sym]) => {
-    const on = SCR_DISP_CCY === ccy;
-    const b = scrEl('button', { text: sym, attrs: { title: ccy === 'EUR' ? 'Afficher en euros' : 'Afficher en dollars' }, style: `padding:8px 14px;border:none;cursor:pointer;font-weight:800;font-size:0.9rem;background:${on ? '#1d9e74' : '#fff'};color:${on ? '#fff' : '#5b6b7d'}` });
-    b.onclick = () => { if (SCR_DISP_CCY !== ccy) { SCR_DISP_CCY = ccy; try { localStorage.setItem('scrDispCcy', ccy); } catch (e) {} renderScreenerTab(); } };
-    ccyBar.appendChild(b);
-  });
-  return scrEl('div', { style: 'display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px', kids: [ccyBar] });
+// Selecteur $ / € : dans l'en-tete (ccySet), visible sur l'onglet Portefeuille d'actions uniquement.
+function ccyToggleSync() {
+  const el = document.getElementById('ccyToggle');
+  if (!el) return;
+  el.hidden = (typeof currentTab === 'undefined' || currentTab !== 'screener');
+  el.querySelectorAll('button').forEach((b) => b.classList.toggle('on', b.dataset.ccy === SCR_DISP_CCY));
+}
+function ccySet(ccy) {
+  if (SCR_DISP_CCY === ccy) return;
+  SCR_DISP_CCY = ccy;
+  try { localStorage.setItem('scrDispCcy', ccy); } catch (e) {}
+  ccyToggleSync();
+  if (typeof currentTab !== 'undefined' && currentTab === 'screener') renderScreenerTab();
 }
 const scrCap = (x, exch) => { if (x == null) return '–'; const d = scrToDisp(x, exch); const v = (d != null) ? d : x; const body = v >= 1e9 ? (v / 1e9).toFixed(1) + 'B' : v >= 1e6 ? (v / 1e6).toFixed(0) + 'M' : String(Math.round(v)); return SCR_DISP_CCY === 'EUR' ? (body + ' €') : ('$' + body); };
 const scrCol = (x, y) => x == null ? '#5b6b7d' : (x >= y ? '#1d9e74' : '#dd5f66');
@@ -8824,7 +8840,6 @@ async function renderScreenerTab() {
   const btn = scrEl('button', { text: 'Réessayer', style: 'padding:8px 14px;border:1px solid #e3e8ee;border-radius:10px;background:#fff;font-weight:600;cursor:pointer' });
   btn.onclick = () => renderScreenerTab();
   c.replaceChildren(
-    screenerModeBar(),
     scrEl('div', { text: "Pas encore de classement pour ce mode. Lance le moteur (run.py) sur le VPS.", style: 'padding:20px;color:#5b6b7d' }),
     scrEl('div', { style: 'padding:0 20px', kids: [btn] })
   );
@@ -11280,7 +11295,6 @@ function screenerRenderQuality(c, data, config) {
       scrEl('div', { text: 'SCREENER', style: 'font-size:0.74rem;font-weight:800;color:#3563e9;letter-spacing:.09em' }),
       scrEl('div', { text: "Où déployer : classement qualité-valorisation et proposition de répartition", style: 'font-size:0.72rem;color:#9aa7b4' })] }),
     scrEl('div', { style: 'flex:1;height:1px;background:#e3e8ee' })] }));
-  frag.appendChild(screenerModeBar());
 
   const grid = scrEl('div', { cls: 'inv-grid-kpi', style: 'margin-bottom:14px' });
   [['Notées', String(top.length), 'Achat fort → Surévaluée'],
@@ -11427,7 +11441,6 @@ function screenerRender(c, data, positions, config) {
   const enriched = !!(data.source && String(data.source).indexOf('ibkr') === 0);
   const frag = document.createDocumentFragment();
   frag.appendChild(screenerPositionsModule());
-  frag.appendChild(screenerModeBar());
 
   // KPIs
   const grid = scrEl('div', { cls: 'inv-grid-kpi', style: 'margin-bottom:14px' });
