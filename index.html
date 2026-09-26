@@ -1205,6 +1205,12 @@
   .evt-legend { display: flex; gap: 4px 14px; flex-wrap: wrap; margin-top: 6px; font-size: 0.68rem; color: var(--text-secondary); }
   .evt-legend i { font-style: normal; font-size: 0.7rem; margin-right: 2px; }
   .evt-legend .evt-hint { margin-left: auto; color: var(--text-muted); }
+  /* notes explicatives repliables (scrFoldNote) */
+  .fold-btn { border: none; background: none; padding: 2px 0; font: inherit; font-size: 0.7rem; font-weight: 600;
+    color: var(--text-muted); cursor: pointer; text-align: left; }
+  .fold-btn:hover, .fold-btn.on { color: #3563e9; }
+  html[data-theme="dark"] .fold-btn:hover, html[data-theme="dark"] .fold-btn.on { color: #5c8aee; }
+  .fold-body { margin-top: 4px; }
   /* Santé des données : une ligne discrète sous les onglets, sur toutes les pages. Couleurs en classes
      (et non en style inline) pour que le thème foncé les reprenne sans passer par le moteur de thème. */
   .health-bar { display: flex; justify-content: center; align-items: center; gap: 4px 14px; flex-wrap: wrap;
@@ -7805,6 +7811,20 @@ function scrShowCompanyCard(symbol) {
   card.appendChild(scrEl('div', { style: 'font-size:0.62rem;color:#c3ccd6;margin-top:12px;border-top:1px solid #eef1f5;padding-top:8px', text: upd + '. Repérage / information, pas un conseil.' }));
   document.body.appendChild(backdrop); SCR_COMPANY_MODAL = backdrop; document.addEventListener('keydown', scrCompanyEsc, true);
 }
+// NOTE EXPLICATIVE REPLIABLE : les paragraphes d'explication restent disponibles mais ne mangent plus
+// l'ecran ; un « ⓘ » suivi d'un libelle court les deplie. L'etat est memorise par note (cle).
+function scrFoldNote(label, body, key, boxStyle) {
+  const box = scrEl('div', { cls: 'fold-note', style: boxStyle || '' });
+  const btn = scrEl('button', { cls: 'fold-btn', attrs: { type: 'button' }, text: 'ⓘ ' + label });
+  body.classList.add('fold-body');
+  let open = false;
+  try { open = localStorage.getItem('fold:' + key) === '1'; } catch (e) {}
+  const set = (o) => { open = o; body.style.display = o ? '' : 'none'; btn.classList.toggle('on', o); };
+  btn.onclick = () => { set(!open); try { localStorage.setItem('fold:' + key, open ? '1' : '0'); } catch (e) {} };
+  set(open);
+  box.append(btn, body);
+  return box;
+}
 function scrEl(tag, o = {}) {
   const e = document.createElement(tag);
   if (o.style) e.style.cssText = o.style;
@@ -8622,8 +8642,8 @@ function renderEnfantsTab() {
     wrap.appendChild(scrEl('div', { style: 'display:flex;gap:14px;flex-wrap:wrap;align-items:stretch;margin-bottom:6px', kids: [
       scrEl('div', { style: 'flex:1.7;min-width:340px;background:#fff;border:1px solid #e3e8ee;border-radius:10px;padding:12px 14px', kids: [scrEquityCurve(serie)] }),
       scrEl('div', { style: 'flex:1;min-width:290px;background:#fff;border:1px solid #e3e8ee;border-radius:10px;padding:12px 14px', kids: [scrPerfChart(serie, SCR_BENCH, null)] })] }));
-    wrap.appendChild(scrEl('div', { style: 'font-size:0.66rem;color:#9aa7b4;margin-bottom:14px;line-height:1.45',
-      text: 'Le S&P 500 n’est PAS un indice de référence pour cet ETF : il ne contient que 500 grandes valeurs américaines, quand VWCE en détient plus de 4 000 réparties sur plus de 45 pays, émergents compris. Il est affiché à titre de contexte, pour voir ce qu’aurait donné une concentration sur les États-Unis, pas pour juger la poche.' }));
+    wrap.appendChild(scrFoldNote('Pourquoi le S&P 500 n’est qu’un repère', scrEl('div', { style: 'font-size:0.66rem;color:#9aa7b4;line-height:1.45',
+      text: 'Le S&P 500 n’est PAS un indice de référence pour cet ETF : il ne contient que 500 grandes valeurs américaines, quand VWCE en détient plus de 4 000 réparties sur plus de 45 pays, émergents compris. Il est affiché à titre de contexte, pour voir ce qu’aurait donné une concentration sur les États-Unis, pas pour juger la poche.' }), 'kidsSp', 'margin-bottom:14px'));
   } else {
     wrap.appendChild(scrEl('div', { style: 'background:#fafbfc;border:1px solid #eef1f5;border-radius:10px;padding:12px 14px;margin-bottom:14px;font-size:0.78rem;color:#9aa7b4',
       text: 'Les graphiques se tracent dès la deuxième journée suivie : la poche vient d’être créée, il n’y a encore qu’un seul point. Le VPS enregistre le cours chaque jour, la courbe se remplira toute seule.' }));
@@ -8695,8 +8715,8 @@ function renderEnfantsTab() {
   if (jrn.length) {
     const jb = scrEl('div', { style: 'background:#fafbfc;border:1px solid #eef1f5;border-radius:12px;padding:12px 14px;margin-top:14px' });
     jb.appendChild(scrEl('div', { text: 'Journal des versements', style: 'font-size:0.7rem;text-transform:uppercase;letter-spacing:.03em;color:#5b6b7d;font-weight:700;margin-bottom:4px' }));
-    jb.appendChild(scrEl('div', { style: 'font-size:0.68rem;color:#9aa7b4;margin-bottom:9px;line-height:1.45',
-      text: 'Un versement Lendermarket est saisi une seule fois mais apparaît sur DEUX lignes, une par enfant servi. La colonne « part du pot » donne le poids de l’enfant juste après ce versement, et l’effet en points. Les autres enfants ne perdent rien : leur pourcentage baisse simplement parce que le pot grossit.' }));
+    jb.appendChild(scrFoldNote('Lire le journal', scrEl('div', { style: 'font-size:0.68rem;color:#9aa7b4;line-height:1.45',
+      text: 'Un versement Lendermarket est saisi une seule fois mais apparaît sur DEUX lignes, une par enfant servi. La colonne « part du pot » donne le poids de l’enfant juste après ce versement, et l’effet en points. Les autres enfants ne perdent rien : leur pourcentage baisse simplement parce que le pot grossit.' }), 'kidsJournal', 'margin-bottom:9px'));
     const th = (t, al) => scrEl('th', { text: t, style: 'text-align:' + (al || 'left') + ';padding:5px 8px;font-size:0.64rem;text-transform:uppercase;letter-spacing:.04em;color:#9aa7b4;font-weight:800;border-bottom:1px solid #e3e8ee;white-space:nowrap' });
     const tbl = scrEl('table', { style: 'width:100%;border-collapse:collapse;font-size:0.78rem' });
     tbl.appendChild(scrEl('thead', { kids: [scrEl('tr', { kids: [
@@ -8746,8 +8766,8 @@ function renderEnfantsTab() {
     wrap.appendChild(jb);
   }
 
-  wrap.appendChild(scrEl('div', { style: 'font-size:0.68rem;color:#9aa7b4;margin-top:12px;line-height:1.5',
-    text: 'Cette poche est totalement isolée du reste du dashboard : elle n’est comptée ni dans ton capital, ni dans ta performance, ni dans ta répartition. La répartition entre enfants repose sur le NOMBRE DE PARTS de chacun, jamais sur un pourcentage figé, pour rester exacte quels que soient les cours au moment de chaque versement.' }));
+  wrap.appendChild(scrFoldNote('Comment cette poche est comptée', scrEl('div', { style: 'font-size:0.68rem;color:#9aa7b4;line-height:1.5',
+    text: 'Cette poche est totalement isolée du reste du dashboard : elle n’est comptée ni dans ton capital, ni dans ta performance, ni dans ta répartition. La répartition entre enfants repose sur le NOMBRE DE PARTS de chacun, jamais sur un pourcentage figé, pour rester exacte quels que soient les cours au moment de chaque versement.' }), 'kidsIsole', 'margin-top:12px'));
   const outer = scrEl('div');
   outer.appendChild(hero); outer.appendChild(wrap);
   c.replaceChildren(outer);
@@ -10641,7 +10661,7 @@ function scrRealizedCard(tx) {
       scrEl('td', { text: (c.pnl >= 0 ? '+' : '') + scrUsd2(c.pnl) + ' (' + (c.pct >= 0 ? '+' : '') + (c.pct * 100).toFixed(1) + '%)', style: 'padding:6px 9px;text-align:right;' + bd + ';font-weight:700;color:' + cc + ';white-space:nowrap' })] }));
   });
   wrap.appendChild(scrTableBox(scrEl('table', { style: 'width:100%;border-collapse:collapse;font-size:0.8rem', kids: [scrEl('thead', { kids: [thead] }), tbody] }), { maxH: 'none' }));
-  wrap.appendChild(scrEl('div', { style: 'margin-top:8px;font-size:0.7rem;color:#9aa7b4', text: "Coût de revient FRAIS INCLUS (Revolut affiche un prix moyen hors frais, d'où un léger écart). Une vente portant sur un titre acheté avant la période du relevé est ignorée, faute de prix de revient connu. Information, pas un conseil fiscal." }));
+  wrap.appendChild(scrFoldNote('Calcul des cessions (information, pas un conseil fiscal)', scrEl('div', { style: 'font-size:0.7rem;color:#9aa7b4', text: "Coût de revient FRAIS INCLUS (Revolut affiche un prix moyen hors frais, d'où un léger écart). Une vente portant sur un titre acheté avant la période du relevé est ignorée, faute de prix de revient connu. Information, pas un conseil fiscal." }), 'cessions', 'margin-top:8px'));
   return wrap;
 }
 // DIVIDENDES ENCAISSES : lus dans le journal Revolut (type DIVIDEND), en USD canonique. Le ticker vient
@@ -11073,7 +11093,7 @@ function renderPositionsTable(pos, onChange) {
   ] }));
   const table = scrEl('table', { style: 'width:100%;border-collapse:collapse;font-size:0.82rem', kids: [scrEl('thead', { kids: [thead] }), tbody] });
   const liveTxt = SCR_LIVE_AT ? '' : 'Cours = snapshot du run VPS (pas encore de cron temps réel). ';   // horodatage DEPLACE dans l'en-tete
-  const note = scrEl('div', { style: 'margin-top:8px;font-size:0.7rem;color:#9aa7b4', text: liveTxt + "Saisis la quantité d'actions et ton prix d'achat (en " + scrDispSym() + ", la devise affichée). Cours étrangers convertis au taux du jour. Titre hors univers screené : cours indisponible. P&L hors frais de change. ⚠ = signaux de vente à vérifier." });
+  const note = scrFoldNote('Saisie, devises et signaux ⚠', scrEl('div', { style: 'font-size:0.7rem;color:#9aa7b4', text: liveTxt + "Saisis la quantité d'actions et ton prix d'achat (en " + scrDispSym() + ", la devise affichée). Cours étrangers convertis au taux du jour. Titre hors univers screené : cours indisponible. P&L hors frais de change. ⚠ = signaux de vente à vérifier." }), 'posNote', 'margin-top:8px');
   // Graphiques : répartition par action (barres) + par secteur (donut), sur la valeur actuelle
   const parts2 = parts.filter((p) => p.valeur > 0).sort((a, b) => b.valeur - a.valeur);
   const totV = parts2.reduce((s, p) => s + p.valeur, 0);
@@ -11193,7 +11213,7 @@ function screenerQualityAllocPanel(top) {
     scrEl('span', { text: 'marge sécu', style: 'font-size:0.8rem;color:#5b6b7d;margin-left:6px' }), safetyInput, scrEl('span', { text: '%', style: 'color:#5b6b7d' })] }));
   const results = scrEl('div');
   wrap.appendChild(results);
-  wrap.appendChild(scrEl('div', { style: 'margin-top:10px;font-size:0.72rem;color:#5b6b7d', text: "Plan de DCA : l'argent que tu déploies (ex libéré de Debitum) va EN PRIORITÉ là où tu es le plus sous ta cible, en tenant compte de tes positions déjà détenues (on ne vend jamais). Cible et classement = juste valeur (décote vs juste valeur DCF) + potentiel annuel ; les titres en zone « Cher » (cours au-dessus de la juste valeur) sont exclus des achats, et seuls les titres à MOAT LARGE sont retenus (« Étroit », « Aucun » et les moats non analysés sont écartés). Plafonds par ligne et par secteur RÉGLABLES (DK ne s'interdit pas plus de 10 % sur ses plus fortes convictions). « lignes » = taille visée du portefeuille : tes titres détenus concourent au même classement (renforcés s'ils entrent dans le top, sinon conservés hors plan, jamais vendus en DCA). Structure DK : ETF socle 50-60 % + actions de qualité. La décision reste la tienne." }));
+  wrap.appendChild(scrFoldNote('Comment le plan de DCA répartit l’argent (la décision reste la tienne)', scrEl('div', { style: 'font-size:0.72rem;color:#5b6b7d', text: "Plan de DCA : l'argent que tu déploies (ex libéré de Debitum) va EN PRIORITÉ là où tu es le plus sous ta cible, en tenant compte de tes positions déjà détenues (on ne vend jamais). Cible et classement = juste valeur (décote vs juste valeur DCF) + potentiel annuel ; les titres en zone « Cher » (cours au-dessus de la juste valeur) sont exclus des achats, et seuls les titres à MOAT LARGE sont retenus (« Étroit », « Aucun » et les moats non analysés sont écartés). Plafonds par ligne et par secteur RÉGLABLES (DK ne s'interdit pas plus de 10 % sur ses plus fortes convictions). « lignes » = taille visée du portefeuille : tes titres détenus concourent au même classement (renforcés s'ils entrent dans le top, sinon conservés hors plan, jamais vendus en DCA). Structure DK : ETF socle 50-60 % + actions de qualité. La décision reste la tienne." }), 'planDca', 'margin-top:10px'));
   function render() {
     const amount = Math.max(0, Number(amtInput.value) || 0);
     const nLines = Number(nSelect.value) || 12;
