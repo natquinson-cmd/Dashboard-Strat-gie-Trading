@@ -2188,11 +2188,22 @@ function realTWRDaily(trades) {
 // Détecte un changement de la moyenne quelque part dans l'historique, avec une
 // p-value exacte (sup du pont brownien) : PAS un découpage choisi après coup.
 // + CUSUM de surveillance (k=0,5σ) : distance actuelle à l'alerte dégradation (4σ).
-// Compte complet (tous les trades), comme computeRealReturnMetrics.
-function computeCusumBreak() {
-  const twr = realTWRDaily((typeof realTrades !== 'undefined' && realTrades) ? realTrades : []);
-  const days = Object.keys(twr.r).sort();
-  const r = days.map(d => twr.r[d]);
+// Suit le filtre Tout / NASDAQ / DAX : les rendements sont ceux de la SEULE strategie filtree, rapportes
+// au capital total du compte le matin (la meme base que le TWR du compte, les deux algos partageant le
+// capital). En "Tout", c'est exactement le calcul du compte complet. Toute la periode, pas la plage de dates :
+// un test de rupture a besoin de tout l'historique.
+function computeCusumBreak(asset) {
+  const all = (typeof realTrades !== 'undefined' && realTrades) ? realTrades : [];
+  const twr = realTWRDaily(all);
+  let days, r;
+  if (!asset || asset === 'all') {
+    days = Object.keys(twr.r).sort();
+    r = days.map(d => twr.r[d]);
+  } else {
+    const byDay = aggregateByDay(all.filter(t => t[1] === asset));
+    days = Object.keys(byDay).filter(d => twr.baseByDay[d] > 0).sort();
+    r = days.map(d => byDay[d].pnl / twr.baseByDay[d]);
+  }
   const n = r.length;
   if (n < 30) return null;
   const mu = r.reduce((a, b) => a + b, 0) / n;
@@ -2412,17 +2423,23 @@ function buildRealKPIs() {
   }
 
   // ── Jauge CUSUM : régime de l'algo (moniteur de dégradation TWR) ──
-  const cbG = computeCusumBreak();
+  const cbAsset = (typeof currentAssetFilter !== 'undefined' && currentAssetFilter !== 'all') ? currentAssetFilter : null;
+  const cbNom = cbAsset ? (cbAsset === 'NASDAQ' ? 'Nasdaq' : 'DAX') : null;
+  const cbG = computeCusumBreak(cbAsset);
+  if (!cbG && cbAsset) {
+    kpis.push({ l: 'Régime algo ' + cbNom + ' (CUSUM)', v: '–', s: 'moins de 30 jours de trading : test impossible', c: 'stripe-gauge', vc: 'var(--text-secondary)' });
+  }
   if (cbG) {
     const cbVerdict = cbG.pval >= 0.10 ? 'aucune rupture' : (cbG.pval >= 0.05 ? 'suspicion' : (cbG.degrade ? 'dégradation avérée' : 'amélioration avérée'));
     const cbCol = (cbG.pval < 0.05 && cbG.degrade) ? 'var(--negative)' : ((cbG.pval < 0.10 || cbG.S >= 3) ? '#b45309' : 'var(--positive)');
     const fmtDcb = (d) => `${parseInt(d.substring(8))} ${monthNames[parseInt(d.substring(5,7))-1].toLowerCase()} ${d.substring(0,4)}`;
-    const cbTip = 'Moniteur CUSUM de dégradation (k=0,5σ) sur les rendements TWR journaliers, compte complet (n=' + cbG.n + ' jours).\n'
+    const cbTip = 'Moniteur CUSUM de dégradation (k=0,5σ) sur les rendements TWR journaliers, '
+      + (cbNom ? ('stratégie ' + cbNom + ' seule, rapportée au capital total du compte') : 'compte complet') + ' (n=' + cbG.n + ' jours).\n'
       + 'Aiguille = dérive cumulée sous la moyenne, en σ. Alerte à 4σ.\n'
       + 'Test rétrospectif (pont brownien) : p=' + cbG.pval.toFixed(2) + ' (rupture avérée si < 0,05).\n'
       + 'Cassure candidate : ' + fmtDcb(cbG.dateStar) + ' (' + (cbG.mAvant*100).toFixed(2) + '%/j → ' + (cbG.mApres*100).toFixed(2) + '%/j).';
     kpis.push({
-      l:'Régime algo (CUSUM)', v: cusumGaugeSVG(cbG.S),
+      l:'Régime algo' + (cbNom ? ' ' + cbNom : '') + ' (CUSUM)', v: cusumGaugeSVG(cbG.S),
       s:'<span style="color:' + cbCol + ';font-weight:700">' + cbVerdict + '</span> · p=' + cbG.pval.toFixed(2) + ' · alerte 4σ',
       c:'stripe-gauge', vc:'var(--text-primary)', t: cbTip
     });
@@ -2951,28 +2968,45 @@ let projectionEnabled = false;
 let projMode = 'fixed'; // 'fixed' = Taille Fixe (fDax+fNas), 'reinvest' = Réinvestissement (rDax+rNas)
 const PROJ_HORIZONS = [6, 12, 24, 60, 120]; // months for 6m,1y,2y,5y,10y
 
+// Backtests qui alimentent la projection : ceux de la strategie filtree (la courbe reelle l'est aussi).
+// En "Tout", la moyenne des deux algos, comme avant.
+function projSources() {
+  const f = (typeof currentAssetFilter !== 'undefined') ? currentAssetFilter : 'all';
+  const dax = projMode === 'reinvest' ? rDax : fDax, nas = projMode === 'reinvest' ? rNas : fNas;
+  return f === 'NASDAQ' ? [nas] : (f === 'DAX' ? [dax] : [dax, nas]);
+}
 function getMonthlyReturnsByMonth() {
-  // Espérance par mois calendaire (0-11) basée sur le mode choisi
-  const sources = projMode === 'reinvest' ? [rDax, rNas] : [fDax, fNas];
-  const byMonth = Array.from({length:12}, () => []);
-  sources.forEach(dataset => {
-    Object.values(dataset).forEach(months => {
-      months.forEach((v, i) => { if (v !== 0) byMonth[i].push(v); });
-    });
+  // Espérance par mois calendaire (0-11) : pour chaque algo du filtre, moyenne de ses mois de backtest,
+  // puis SOMME des algos. Les deux algos tournent chacun sur tout le capital : leurs rendements
+  // s'additionnent (l'ancienne moyenne divisait l'attendu par deux en mode "Tout").
+  const out = new Array(12).fill(0);
+  projSources().forEach(dataset => {
+    for (let i = 0; i < 12; i++) {
+      const v = Object.values(dataset).map(months => months[i]).filter(x => x !== 0 && x != null);
+      if (v.length) out[i] += v.reduce((a, b) => a + b, 0) / v.length;
+    }
   });
-  return byMonth.map(arr => arr.length ? arr.reduce((a,b) => a+b, 0) / arr.length : 0);
+  return out;
 }
 
 // Écart-type des rendements mensuels (tous mois/années confondus) du mode choisi.
 // Sert à construire le cône d'incertitude de la projection (volatilité réelle).
 function getMonthlyReturnStd() {
-  const sources = projMode === 'reinvest' ? [rDax, rNas] : [fDax, fNas];
-  const all = [];
-  sources.forEach(ds => Object.values(ds).forEach(months => months.forEach(v => { if (v !== 0) all.push(v); })));
-  if (all.length < 2) return 0;
-  const mean = all.reduce((a,b) => a+b, 0) / all.length;
-  const variance = all.reduce((a,b) => a + (b-mean)*(b-mean), 0) / all.length;
-  return Math.sqrt(variance); // en % par mois
+  // Volatilite mensuelle (%) du portefeuille d'algos filtre. Plusieurs algos : serie COMBINEE mois par
+  // mois (somme des rendements du meme mois), ce qui integre leur correlation reelle ; repli sur la
+  // racine de la somme des variances si leurs annees de backtest ne se recoupent pas.
+  const sources = projSources();
+  const sd = (arr) => { if (arr.length < 2) return 0; const m = arr.reduce((a, b) => a + b, 0) / arr.length; return Math.sqrt(arr.reduce((a, b) => a + (b - m) * (b - m), 0) / arr.length); };
+  const flat = (ds) => { const a = []; Object.values(ds).forEach(months => months.forEach(v => { if (v !== 0 && v != null) a.push(v); })); return a; };
+  if (sources.length === 1) return sd(flat(sources[0]));
+  const comb = [];
+  Object.keys(sources[0]).forEach(y => {
+    const a = sources[0][y], b = sources[1][y];
+    if (!a || !b) return;
+    for (let i = 0; i < 12; i++) if (a[i] && b[i]) comb.push(a[i] + b[i]);   // mois ou les deux algos ont tourne
+  });
+  if (comb.length >= 12) return sd(comb);
+  return Math.sqrt(sources.reduce((acc, ds) => acc + Math.pow(sd(flat(ds)), 2), 0));
 }
 
 function buildProjectionData(startPnL, lastDate, horizonMonths, sigmaOffsetMonths = 0) {
