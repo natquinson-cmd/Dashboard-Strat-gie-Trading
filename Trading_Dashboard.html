@@ -1273,6 +1273,35 @@
   html.m-mode .m-brief-btn { margin-top: 10px; }
   html[data-theme="dark"].m-mode .m-more-btn, html[data-theme="dark"].m-mode .m-brief-btn { color: #5c8aee; }
   html.m-mode .brief-card:not(.m-brief-open) .bm { display: none !important; }
+  /* onglet Actions sur mobile (scrMobilePortfolio) */
+  .m-only { display: none; }
+  html.m-mode .m-only { display: block; }
+  .mp-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 16px; padding: 14px 16px; margin-bottom: 10px; }
+  .mp-lbl { font-size: 0.64rem; letter-spacing: .06em; text-transform: uppercase; font-weight: 700; color: var(--text-secondary); }
+  .mp-big { font-size: 2.1rem; font-weight: 800; line-height: 1.1; margin-top: 4px; color: var(--text-primary); }
+  .mp-sub { font-size: 0.78rem; color: var(--text-secondary); margin-top: 4px; }
+  .mp-donut { display: flex; justify-content: center; padding: 4px 0; }
+  .mp-grp-head { display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; }
+  .mp-dot { width: 11px; height: 11px; border-radius: 50%; flex: none; }
+  .mp-gname { font-weight: 800; font-size: 0.98rem; color: var(--text-primary); }
+  .mp-gval { margin-left: auto; font-weight: 800; font-size: 0.95rem; color: var(--text-primary); }
+  .mp-gpct { font-size: 0.8rem; color: var(--text-secondary); min-width: 46px; text-align: right; }
+  .mp-chev { color: var(--text-muted); font-size: 0.9rem; transition: transform .2s; }
+  .mp-grp.closed .mp-rows { display: none; }
+  .mp-grp.closed .mp-chev { transform: rotate(-90deg); }
+  .mp-rows { margin-top: 6px; }
+  .mp-row { display: flex; gap: 10px; align-items: flex-start; padding: 10px 0; border-top: 1px solid var(--border); }
+  .mp-row img.scr-logo { width: 34px !important; height: 34px !important; }
+  .mp-mid { flex: 1; min-width: 0; }
+  .mp-name { font-weight: 700; font-size: 0.88rem; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .mp-tk { font-size: 0.7rem; color: var(--text-muted); margin-top: 1px; }
+  .mp-bar { height: 5px; border-radius: 3px; background: var(--border); margin-top: 8px; overflow: hidden; }
+  .mp-bar i { display: block; height: 100%; border-radius: 3px; }
+  .mp-right { text-align: right; flex: none; }
+  .mp-val { font-weight: 800; font-size: 0.9rem; color: var(--text-primary); }
+  .mp-pv { font-size: 0.72rem; font-weight: 700; margin-top: 1px; white-space: nowrap; }
+  .mp-w { font-size: 0.7rem; color: var(--text-secondary); margin-top: 4px; }
+  html[data-theme="dark"] .mp-card { --positive: #81c784; }
   /* écran Accueil */
   #tab-accueil .m-hero, #tab-accueil .m-card, #tab-accueil .m-list { background: var(--bg-card); border: 1px solid var(--border); }
   #tab-accueil .m-hero { padding: 16px 18px; border-radius: 16px; margin-bottom: 10px;
@@ -6954,6 +6983,7 @@ if (M_MQ.matches) {
 M_MQ.addEventListener('change', (e) => {
   document.documentElement.classList.toggle('m-mode', e.matches);
   if (!e.matches && currentTab === 'accueil') switchTab('total');   // l'accueil mobile n'existe pas sur PC
+  if (e.matches && currentTab === 'screener') renderScreenerTab();   // construit l'ecran Actions mobile
   mNavSync();
 });
 function mGo(group, tab) {
@@ -11121,6 +11151,145 @@ function scrDividendCard(pos, tx) {
   draw();
   return wrap;
 }
+// ONGLET ACTIONS SUR MOBILE : valeur, courbe, repartition ETF / Actions / Crypto, puis une carte par
+// categorie avec, pour chaque ligne, sa valeur, sa plus-value et son poids. Memes calculs que le tableau
+// des positions (renderPositionsTable), dans la devise d'affichage choisie dans l'en-tete.
+const MP_CAT = { actions: ['Actions', '#3563e9'], etf: ['ETF', '#8b5cf6'], crypto: ['Crypto', '#f59e0b'] };
+let MP_CLOSED = {};   // categories repliees (le temps de la session)
+function mpCat(ticker, d) {
+  if ((d && d.sector === 'Crypto') || /-USD$/.test(ticker)) return 'crypto';
+  if (d && d.sector === 'ETF') return 'etf';
+  return 'actions';
+}
+function mpName(ticker, d) {
+  let n = (d && (d.name || d.shortName)) || ticker;
+  n = n.replace(/\b(UCITS|ETF|USD|EUR|Accumulation|Acc|Distributing|Dist)\b/g, ' ')
+       .replace(/,?\s*(Inc\.?|Incorporated|Corporation|Corp\.?|Company Limited|Limited|Ltd\.?|plc|N\.V\.|S\.A\.|Holding N\.V\.)\s*$/i, '')
+       .replace(/\.com\b/i, '').replace(/\s+/g, ' ').trim();
+  return n.replace(/\s+(Holding|Holdings)$/i, '') || ticker;
+}
+function mpQty(q) {
+  if (q >= 1e6) return (q / 1e6).toLocaleString('fr-FR', { maximumFractionDigits: 1 }) + ' M';
+  return (q % 1 === 0) ? q.toLocaleString('fr-FR') : q.toLocaleString('fr-FR', { maximumFractionDigits: 3 });
+}
+function mpCompact(usd) {   // graduation courte : 27 k$ / 23 k€
+  const v = usdToDisp(usd), sym = scrDispSym();
+  return Math.abs(v) >= 1000 ? (Math.round(v / 100) / 10).toLocaleString('fr-FR') + ' k' + sym : Math.round(v) + ' ' + sym;
+}
+function mpCurve(hist) {
+  const NS = 'http://www.w3.org/2000/svg', W = 340, Hh = 150, pl = 4, pr = 44, pt = 10, pb = 22;
+  const pts = (hist || []).filter((h) => h && h.value > 0);
+  if (pts.length < 2) return scrEl('div', { cls: 'mp-sub', text: 'La courbe apparaît après deux jours de suivi.' });
+  const vals = pts.map((h) => h.value);
+  let mn = Math.min.apply(null, vals), mx = Math.max.apply(null, vals);
+  const pad = (mx - mn) * 0.08 || 1; mn -= pad; mx += pad;
+  const x = (i) => pl + i * (W - pl - pr) / (pts.length - 1), y = (v) => pt + (1 - (v - mn) / (mx - mn)) * (Hh - pt - pb);
+  const svg = document.createElementNS(NS, 'svg');
+  svg.setAttribute('viewBox', '0 0 ' + W + ' ' + Hh); svg.setAttribute('width', '100%'); svg.style.display = 'block';
+  const mk = (t, a) => { const e = document.createElementNS(NS, t); Object.keys(a).forEach((k) => e.setAttribute(k, a[k])); svg.appendChild(e); return e; };
+  for (let i = 0; i <= 2; i++) {
+    const v = mn + (mx - mn) * i / 2, yy = y(v);
+    mk('line', { x1: pl, x2: W - pr, y1: yy.toFixed(1), y2: yy.toFixed(1), stroke: 'rgba(120,135,160,0.18)', 'stroke-width': 1 });
+    mk('text', { x: W - pr + 6, y: (yy + 3.5).toFixed(1), 'font-size': 10, fill: '#8a97a8' }).textContent = mpCompact(v);
+  }
+  let d = '';
+  pts.forEach((h, i) => { d += (i ? 'L' : 'M') + x(i).toFixed(1) + ' ' + y(h.value).toFixed(1) + ' '; });
+  mk('path', { d: d + 'L' + x(pts.length - 1).toFixed(1) + ' ' + (Hh - pb) + ' L' + x(0).toFixed(1) + ' ' + (Hh - pb) + ' Z', fill: 'rgba(53,99,233,0.13)', stroke: 'none' });
+  mk('path', { d: d.trim(), fill: 'none', stroke: '#3563e9', 'stroke-width': 2.2, 'stroke-linejoin': 'round' });
+  const lx = x(pts.length - 1), ly = y(vals[vals.length - 1]);
+  mk('circle', { cx: lx.toFixed(1), cy: ly.toFixed(1), r: 4.5, fill: '#3563e9', stroke: '#ffffff', 'stroke-width': 2 });
+  const d0 = new Date(pts[0].date + 'T12:00:00');
+  mk('text', { x: pl, y: Hh - 5, 'font-size': 10, fill: '#8a97a8' }).textContent = d0.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+  mk('text', { x: W - pr, y: Hh - 5, 'font-size': 10, fill: '#8a97a8', 'text-anchor': 'end' }).textContent = 'Aujourd’hui';
+  return svg;
+}
+function mpDonut(items, centre) {
+  const NS = 'http://www.w3.org/2000/svg', S = 210, c = S / 2, r = 76, sw = 34, C = 2 * Math.PI * r;
+  const tot = items.reduce((a, it) => a + it.value, 0) || 1;
+  const svg = document.createElementNS(NS, 'svg');
+  svg.setAttribute('viewBox', '0 0 ' + S + ' ' + S); svg.setAttribute('width', S); svg.setAttribute('height', S);
+  const mk = (t, a) => { const e = document.createElementNS(NS, t); Object.keys(a).forEach((k) => e.setAttribute(k, a[k])); svg.appendChild(e); return e; };
+  let acc = 0;
+  items.forEach((it) => {
+    const len = it.value / tot * C;
+    mk('circle', { cx: c, cy: c, r: r, fill: 'none', stroke: it.color, 'stroke-width': sw,
+      'stroke-dasharray': Math.max(0, len - 1.5).toFixed(2) + ' ' + (C - Math.max(0, len - 1.5)).toFixed(2),
+      'stroke-dashoffset': (-acc).toFixed(2), transform: 'rotate(-90 ' + c + ' ' + c + ')' });
+    const share = it.value / tot, ang = (acc + len / 2) / C * 2 * Math.PI - Math.PI / 2;
+    if (share >= 0.04) mk('text', { x: (c + r * Math.cos(ang)).toFixed(1), y: (c + r * Math.sin(ang) + 4).toFixed(1), 'text-anchor': 'middle',
+      'font-size': 11.5, 'font-weight': 800, fill: '#ffffff' }).textContent = (share * 100).toFixed(1) + ' %';
+    acc += len;
+  });
+  mk('text', { x: c, y: c + 2, 'text-anchor': 'middle', 'font-size': 19, 'font-weight': 800, fill: 'var(--text-primary)' }).textContent = centre;
+  mk('text', { x: c, y: c + 20, 'text-anchor': 'middle', 'font-size': 10, fill: '#8a97a8' }).textContent = 'valeur totale';
+  return svg;
+}
+function scrMobilePortfolio(pos) {
+  const box = scrEl('div');
+  const col = (v) => 'color:' + (v >= 0 ? 'var(--positive)' : 'var(--negative)');
+  const sg = (v) => (v >= 0 ? '+' : '');
+  const lines = (pos || []).map((p) => {
+    const t = String(p.ticker || '').toUpperCase(), d = SCR_PRICE_MAP[t];
+    const qty = (p.qty != null) ? p.qty : ((p.amount != null && p.pru) ? p.amount / p.pru : 0);
+    const investi = qty * (p.pru || 0), pu = d ? scrToUsd(d.price, d.exchange) : null;
+    const valeur = pu != null ? qty * pu : investi;
+    const chg = (d && d.changePct != null) ? d.changePct : null;
+    const dj = (chg != null && pu != null) ? scrDayImpact(p.ticker, qty, pu, chg) : null;
+    return { t: t, d: d, qty: qty, investi: investi, valeur: valeur, cat: mpCat(t, d),
+      pnl: pu != null ? valeur - investi : null, pnlPct: (pu != null && p.pru > 0) ? pu / p.pru - 1 : null, day: dj ? dj.usd : 0 };
+  });
+  const tot = lines.reduce((a, l) => a + l.valeur, 0), inv = lines.reduce((a, l) => a + l.investi, 0);
+  const day = lines.reduce((a, l) => a + l.day, 0), pnl = tot - inv;
+  if (!lines.length || !(tot > 0)) { box.appendChild(scrEl('div', { cls: 'mp-card', text: 'Aucune position pour l’instant.' })); return box; }
+  // 1. valeur, jour, plus-value latente
+  const dayPct = (tot - day) > 0 ? day / (tot - day) : 0, pnlPct = inv > 0 ? pnl / inv : 0;
+  box.appendChild(scrEl('div', { cls: 'mp-card', kids: [
+    scrEl('div', { cls: 'mp-lbl', text: 'Portefeuille d’actions' }),
+    scrEl('div', { cls: 'mp-big', text: scrUsd(tot) }),
+    scrEl('div', { cls: 'mp-sub', kids: [scrEl('b', { text: (day >= 0 ? '▲ ' : '▼ ') + sg(day) + scrUsd(day) + ' (' + sg(dayPct) + (dayPct * 100).toFixed(2) + ' %)', style: col(day) }),
+      document.createTextNode(' aujourd’hui')] }),
+    scrEl('div', { cls: 'mp-sub', kids: [document.createTextNode('Plus-value latente '), scrEl('b', { text: sg(pnl) + scrUsd(pnl) + ' (' + sg(pnlPct) + (pnlPct * 100).toFixed(1) + ' %)', style: col(pnl) }),
+      document.createTextNode(' sur ' + scrUsd(inv))] })] }));
+  // 2. courbe d'evolution
+  box.appendChild(scrEl('div', { cls: 'mp-card', kids: [scrEl('div', { cls: 'mp-lbl', text: 'Évolution de la valeur', style: 'margin-bottom:6px' }), mpCurve(SCR_HIST)] }));
+  // 3. repartition par categorie
+  const cats = ['etf', 'actions', 'crypto'].map((k) => {
+    const ls = lines.filter((l) => l.cat === k).sort((a, b) => b.valeur - a.valeur);
+    return { k: k, ls: ls, value: ls.reduce((a, l) => a + l.valeur, 0) };
+  }).filter((g) => g.ls.length).sort((a, b) => b.value - a.value);
+  box.appendChild(scrEl('div', { cls: 'mp-card mp-donut', kids: [mpDonut(cats.map((g) => ({ value: g.value, color: MP_CAT[g.k][1] })), scrUsd(tot))] }));
+  // 4. une carte par categorie, lignes avec valeur, plus-value et poids
+  const maxW = Math.max.apply(null, lines.map((l) => l.valeur));
+  cats.forEach((g) => {
+    const rows = scrEl('div', { cls: 'mp-rows' });
+    g.ls.forEach((l) => {
+      const w = l.valeur / tot;
+      rows.appendChild(scrEl('div', { cls: 'mp-row', kids: [
+        l.d ? scrLogo(l.t, l.d.website) : scrEl('span', { style: 'display:inline-block;width:34px' }),
+        scrEl('div', { cls: 'mp-mid', kids: [
+          scrEl('div', { cls: 'mp-name', text: mpName(l.t, l.d) }),
+          scrEl('div', { cls: 'mp-tk', text: l.t.replace(/(\.[A-Z]{1,3}|-USD)$/, '') + ' · ' + mpQty(l.qty) }),
+          scrEl('div', { cls: 'mp-bar', kids: [scrEl('i', { style: 'width:' + (l.valeur / maxW * 100).toFixed(1) + '%;background:' + MP_CAT[g.k][1] })] })] }),
+        scrEl('div', { cls: 'mp-right', kids: [
+          scrEl('div', { cls: 'mp-val', text: scrUsd(l.valeur) }),
+          scrEl('div', { cls: 'mp-pv', text: l.pnl == null ? '–' : (sg(l.pnl) + scrUsd(l.pnl) + ' (' + sg(l.pnlPct) + (l.pnlPct * 100).toFixed(1) + ' %)'), style: l.pnl == null ? 'color:var(--text-muted)' : col(l.pnl) }),
+          scrEl('div', { cls: 'mp-w', text: (w * 100).toFixed(1) + ' % du portefeuille' })] })] }));
+    });
+    const card = scrEl('div', { cls: 'mp-card mp-grp' + (MP_CLOSED[g.k] ? ' closed' : '') });
+    const gpnl = g.ls.reduce((a, l) => a + (l.pnl || 0), 0);
+    const head = scrEl('div', { cls: 'mp-grp-head', kids: [
+      scrEl('span', { cls: 'mp-dot', style: 'background:' + MP_CAT[g.k][1] }),
+      scrEl('div', { kids: [scrEl('div', { cls: 'mp-gname', text: MP_CAT[g.k][0] }),
+        scrEl('div', { cls: 'mp-tk', text: g.ls.length + (g.ls.length > 1 ? ' lignes' : ' ligne') + ' · ', kids: [scrEl('span', { text: sg(gpnl) + scrUsd(gpnl), style: 'font-weight:700;' + col(gpnl) })] })] }),
+      scrEl('span', { cls: 'mp-gval', text: scrUsd(g.value) }),
+      scrEl('span', { cls: 'mp-gpct', text: (g.value / tot * 100).toFixed(1) + ' %' }),
+      scrEl('span', { cls: 'mp-chev', text: '▾' })] });
+    head.onclick = () => { MP_CLOSED[g.k] = !MP_CLOSED[g.k]; card.classList.toggle('closed', !!MP_CLOSED[g.k]); };
+    card.append(head, rows);
+    box.appendChild(card);
+  });
+  return box;
+}
 // Module "Mes positions" en haut du screener : saisie manuelle (Revolut), P&L via les cours du screener.
 function screenerPositionsModule() {
   // Trois etages : le cadre des indicateurs (forme du cadre Darwinex), la barre de saisie, puis la
@@ -11151,6 +11320,12 @@ function screenerPositionsModule() {
     tkIn, qtyIn, pruIn, addBtn, dl,
     scrEl('span', { text: 'saisie manuelle (Revolut), synchronisée sur tous tes appareils', style: 'font-size:0.72rem;color:#9aa7b4;margin-left:auto' })] });
   formRow.classList.add('m-sec');   // saisie d'une position : secondaire sur mobile
+  // mobile : l'ecran simplifie (scrMobilePortfolio) remplace le cadre et le tableau, qui passent derriere
+  // « Afficher les analyses detaillees »
+  const mBox = scrEl('div', { cls: 'm-only' });
+  heroBox.classList.add('m-sec'); wrap.classList.add('m-sec');
+  const mRender = () => { if (M_MQ.matches) mBox.replaceChildren(scrMobilePortfolio(scrGetPositions())); };
+  outer.appendChild(mBox);
   outer.appendChild(heroBox); outer.appendChild(formRow); outer.appendChild(wrap);
   // === REFONTE : indicateurs EN HAUT (dans le cadre), calendriers remontes, blocs de detail COTE A COTE ===
   const histBox = scrEl('div', { style: 'margin-bottom:14px' });       // 2) evolution du capital + CALENDRIERS (remontes)
@@ -11164,7 +11339,7 @@ function screenerPositionsModule() {
   wrap.appendChild(valBox);
   const body = scrEl('div');                                            // 5) tableau des positions + repartitions
   wrap.appendChild(body);
-  const render = () => { refreshStamp(); heroBox.replaceChildren(scrTopKpiBand(scrGetPositions(), liveBadge)); valBox.replaceChildren(scrValuationSummary(scrGetPositions())); body.replaceChildren(renderPositionsTable(scrGetPositions(), render)); divBox.replaceChildren(scrDividendCard(scrGetPositions(), SCR_TX)); realBox.replaceChildren(scrRealizedCard(SCR_TX)); };
+  const render = () => { refreshStamp(); mRender(); heroBox.replaceChildren(scrTopKpiBand(scrGetPositions(), liveBadge)); valBox.replaceChildren(scrValuationSummary(scrGetPositions())); body.replaceChildren(renderPositionsTable(scrGetPositions(), render)); divBox.replaceChildren(scrDividendCard(scrGetPositions(), SCR_TX)); realBox.replaceChildren(scrRealizedCard(SCR_TX)); };
   // Historique valeur vs juste valeur + benchmark S&P 500 : chargés une fois, re-render quand dispo.
   if (typeof db !== 'undefined' && db) {
     db.ref('stocks/screener/valuationHistory').once('value').then((s) => { SCR_VALHIST = s.val() || {}; render(); }).catch(() => {});
@@ -11180,7 +11355,7 @@ function screenerPositionsModule() {
     lpRef.on('value', (snap) => { if (scrApplyLpValue(snap.val())) { render(); if (SCR_HIST_RERENDER) SCR_HIST_RERENDER(); } });   // le point du jour du calendrier suit les cours
   }
   // Section "Évolution du capital" (courbe + calendriers) : la boite est declaree PLUS HAUT (remontee dans la refonte).
-  SCR_HIST_RERENDER = () => { scrMergeLiveHist(); histBox.replaceChildren(scrBuildHistSection()); };
+  SCR_HIST_RERENDER = () => { scrMergeLiveHist(); histBox.replaceChildren(scrBuildHistSection()); mRender(); };
   if (typeof db !== 'undefined' && db) {
     db.ref('stocks/screener/positionsHistory').once('value')
       .then((s) => { SCR_HIST = scrHistArray(s.val()); SCR_HIST_RERENDER(); render(); }).catch(() => {});
