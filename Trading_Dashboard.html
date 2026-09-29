@@ -1264,6 +1264,15 @@
   #mPlus .m-plus-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 10px; }
   #mPlus button { text-align: left; border: 1px solid var(--border); background: var(--bg-primary); border-radius: 10px; padding: 10px 12px;
     font: inherit; font-size: 0.8rem; font-weight: 600; color: var(--text-primary); cursor: pointer; }
+  /* onglets allégés : sections secondaires repliées derrière un bouton, brief replié */
+  .m-more-btn, .m-brief-btn { display: none; }
+  html.m-mode .tab-content:not(.m-open) .m-sec { display: none !important; }
+  html.m-mode .m-more-btn, html.m-mode .m-brief-btn { display: block; width: 100%; padding: 12px; border: 1px dashed var(--border-strong);
+    border-radius: 12px; background: transparent; font: inherit; font-size: 0.82rem; font-weight: 700; color: #3563e9; cursor: pointer; }
+  html.m-mode .m-more-btn { margin: 6px 0 16px; }
+  html.m-mode .m-brief-btn { margin-top: 10px; }
+  html[data-theme="dark"].m-mode .m-more-btn, html[data-theme="dark"].m-mode .m-brief-btn { color: #5c8aee; }
+  html.m-mode .brief-card:not(.m-brief-open) .bm { display: none !important; }
   /* écran Accueil */
   #tab-accueil .m-hero, #tab-accueil .m-card, #tab-accueil .m-list { background: var(--bg-card); border: 1px solid var(--border); }
   #tab-accueil .m-hero { padding: 16px 18px; border-radius: 16px; margin-bottom: 10px;
@@ -1494,22 +1503,23 @@
       <div class="day-detail-panel" id="ttlMonthDetail"></div>
       <div class="stats-bar" id="ttlMonthStats"></div>
     </div></div>
-    <div class="chart-row">
+    <div class="chart-row m-sec">
       <div class="chart-card"><h3>Répartition du capital</h3><canvas id="ttlAllocChart"></canvas></div>
       <div class="chart-card"><h3 title="P&L cumulé net des apports, par source">Contribution au P&amp;L</h3><canvas id="ttlContribChart"></canvas></div>
     </div>
-    <div class="chart-full"><div class="chart-card">
+    <div class="chart-full m-sec"><div class="chart-card">
       <h3>Performance mensuelle comparée</h3>
       <canvas id="ttlMonthlyChart"></canvas>
     </div></div>
-    <div class="chart-full"><div class="chart-card">
+    <div class="chart-full m-sec"><div class="chart-card">
       <h3 title="Valeur nette du patrimoine dans le temps, et son recul depuis le plus haut (zone rouge)">Courbe de patrimoine &amp; drawdown</h3>
       <canvas id="ttlEquityDDChart"></canvas>
       <div class="evt-legend"><span><i style="color:#3563e9">▲</i> apport</span><span><i style="color:#e0a526">▼</i> retrait</span><span><i style="color:#dd5f66">▼</i> commission</span><span class="evt-hint">détail au survol</span></div>
     </div></div>
-    <div class="chart-full">
+    <div class="chart-full m-sec">
       <div class="chart-card"><h3 title="Rendement pondéré dans le temps (dépôts neutralisés), drawdown maximal et ratio Rdt/DD par source">Risque / rendement par source</h3><div id="ttlRiskReturn" style="margin-top:6px"></div></div>
     </div>
+    <button type="button" class="m-more-btn" onclick="mToggleMore(this)">Afficher les analyses détaillées</button>
   </div>
 
   <div id="tab-real" class="tab-content">
@@ -1519,7 +1529,7 @@
         <button class="filter-btn" onclick="setAssetFilter('NASDAQ')">NASDAQ</button>
         <button class="filter-btn" onclick="setAssetFilter('DAX')">DAX</button>
       </div>
-      <div style="display:flex;gap:8px;align-items:center;">
+      <div class="m-sec" style="display:flex;gap:8px;align-items:center;">
         <button class="csv-btn" onclick="syncFromIG()" id="btnIgSync" style="background:linear-gradient(135deg,rgba(29,158,116,0.15),rgba(46,181,160,0.15));border-color:rgba(29,158,116,0.3);">Synchroniser IG</button>
         <button class="csv-btn" onclick="syncFromIG(true)" id="btnIgFull" title="Recharger tout l'historique depuis IG" style="font-size:0.7rem;padding:6px 10px;opacity:0.7;">Historique complet</button>
         <span id="igSyncStatus" style="font-size:0.72rem;font-weight:700;padding:5px 10px;border-radius:8px;white-space:nowrap;cursor:help"></span>
@@ -1528,15 +1538,15 @@
     </div>
     <div class="hero-kpi" id="heroReal"></div>
     <div class="kpi-grid" id="kpiReal"></div>
-    <div style="margin-top:28px;margin-bottom:20px;">
+    <div class="m-sec" style="margin-top:28px;margin-bottom:20px;">
       <h3 onclick="toggleAdvanced()" style="font-size:1rem;font-weight:700;color:var(--text-primary);display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none;">
         <span id="advancedChevron" style="transition:transform .2s;transform:rotate(0deg);display:inline-block;">▶</span> Analyse Avancée
       </h3>
     </div>
-    <div id="advancedSection" style="display:none;">
+    <div id="advancedSection" class="m-sec" style="display:none;">
       <div class="kpi-grid" id="kpiAdvancedReal"></div>
     </div>
-    <div class="date-range-wrap">
+    <div class="date-range-wrap m-sec">
       <div class="date-range-header">
         <span>Période d'analyse</span>
         <span class="date-range-label" id="dateRangeLabel"></span>
@@ -1576,7 +1586,7 @@
         </div>
       </div>
     </div></div>
-    <div class="chart-full">
+    <div class="chart-full m-sec">
       <div class="chart-card"><h3 style="display:flex;justify-content:space-between;align-items:center;"><span style="display:flex;align-items:center;gap:8px;white-space:nowrap;">Gagnants vs Perdants par Jour</span><label class="toggle-wrap"><span class="toggle-val">#</span><input type="checkbox" id="winLossPctToggle" onchange="rebuildWinLossDay()"><span class="toggle-track"></span><span class="toggle-val">€</span></label></h3><canvas id="winLossDayReal"></canvas></div>
     </div>
     <div class="chart-full"><div class="chart-card">
@@ -1611,10 +1621,11 @@
       <div class="heatmap-container" id="monthlyHeatReal"></div>
       <div class="stats-bar" id="monthStats"></div>
     </div></div>
-    <div class="chart-full"><div class="chart-card">
+    <div class="chart-full m-sec"><div class="chart-card">
       <h3>Drawdown depuis le Plus Haut</h3>
       <canvas id="drawdownReal"></canvas>
     </div></div>
+    <button type="button" class="m-more-btn" onclick="mToggleMore(this)">Afficher les analyses détaillées</button>
   </div>
 
   <!-- Loading Overlay -->
@@ -5143,7 +5154,7 @@ function renderMorningBrief() {
   const b = SCR_BRIEF;
   if (!b) { c.replaceChildren(); return; }
   const fg = b.fearGreed, br = b.brief;
-  const card = scrEl('div', { style: 'background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:20px 22px;margin-bottom:26px;box-shadow:0 8px 22px rgba(34,49,77,0.08)' });
+  const card = scrEl('div', { cls: 'brief-card', style: 'background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:20px 22px;margin-bottom:26px;box-shadow:0 8px 22px rgba(34,49,77,0.08)' });
   card.appendChild(scrEl('div', { style: 'display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px', kids: [
     scrEl('span', { text: '☕ Le brief du matin', style: 'font-weight:700;color:var(--text-primary);font-size:0.98rem' }),
     // date ET heure en clair : la pastille dit « aujourd'hui », elle ne dit pas à quelle heure.
@@ -5251,6 +5262,7 @@ function renderMorningBrief() {
     txt.appendChild(ul);
   }
   const watch = (br && Array.isArray(br.watch)) ? br.watch : [];
+  const iWatch = txt.children.length;   // mobile : tout ce qui precede « A surveiller » se replie
   if (watch.length) {
     txt.appendChild(scrEl('div', { text: 'À surveiller aujourd’hui', style: 'font-size:0.62rem;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--text-muted);margin-bottom:5px' }));
     const ul = scrEl('div', { style: 'display:flex;flex-direction:column;gap:4px' });
@@ -5270,6 +5282,13 @@ function renderMorningBrief() {
     } else {
       txt.appendChild(scrEl('div', { text: 'Aucune synthèse pour l’instant. Le VPS produit le brief chaque matin à 07h45.', style: 'color:var(--text-muted)' }));
     }
+  }
+  // mobile : la jauge et « A surveiller aujourd'hui » d'emblee, le reste derriere « Lire le brief complet »
+  if (watch.length && iWatch > 0) {
+    Array.from(txt.children).forEach((el, i) => { if (i < iWatch) el.classList.add('bm'); });
+    const more = scrEl('button', { cls: 'm-brief-btn', attrs: { type: 'button' }, text: 'Lire le brief complet' });
+    more.onclick = () => { const o = card.classList.toggle('m-brief-open'); more.textContent = o ? 'Replier le brief' : 'Lire le brief complet'; };
+    txt.appendChild(more);
   }
   row.appendChild(txt);
   card.appendChild(row);
@@ -6969,6 +6988,20 @@ function mDotSync() {
   const items = hbItems(), bad = items.filter((i) => i.level === 'bad');
   d.className = bad.length ? 'bad' : (items.some((i) => i.level === 'wait') ? '' : 'ok');
   d.title = bad.length ? ('En panne : ' + bad.map((i) => i.label).join(', ') + '. Touche pour le détail.') : 'Données à jour. Touche pour le détail.';
+}
+// Onglets alleges : le bouton du bas deplie / replie les sections secondaires (classe m-sec) de l'onglet.
+function mToggleMore(btn) {
+  const tab = btn.closest('.tab-content');
+  if (!tab) return;
+  const open = tab.classList.toggle('m-open');
+  tab.querySelectorAll('.m-more-btn').forEach((b) => { b.textContent = open ? 'Masquer les analyses détaillées' : 'Afficher les analyses détaillées'; });
+  if (open) window.dispatchEvent(new Event('resize'));   // les graphiques reprennent leur taille une fois visibles
+}
+function mMoreBtn() {   // bouton construit en JS (onglet Portefeuille d'actions, re-rendu souvent) : reprend l'etat de l'onglet
+  const t = document.getElementById('tab-screener'), open = !!(t && t.classList.contains('m-open'));
+  const b = scrEl('button', { cls: 'm-more-btn', attrs: { type: 'button' }, text: open ? 'Masquer les analyses détaillées' : 'Afficher les analyses détaillées' });
+  b.onclick = () => mToggleMore(b);
+  return b;
 }
 // ECRAN ACCUEIL MOBILE : l'essentiel en un coup d'oeil, sans defiler.
 function renderMobileHome() {
@@ -11117,16 +11150,17 @@ function screenerPositionsModule() {
     scrEl('span', { text: 'Ajouter une position', style: 'font-size:0.65rem;letter-spacing:0.07em;color:#5b6b7d;font-weight:700;text-transform:uppercase;margin-right:4px' }),
     tkIn, qtyIn, pruIn, addBtn, dl,
     scrEl('span', { text: 'saisie manuelle (Revolut), synchronisée sur tous tes appareils', style: 'font-size:0.72rem;color:#9aa7b4;margin-left:auto' })] });
+  formRow.classList.add('m-sec');   // saisie d'une position : secondaire sur mobile
   outer.appendChild(heroBox); outer.appendChild(formRow); outer.appendChild(wrap);
   // === REFONTE : indicateurs EN HAUT (dans le cadre), calendriers remontes, blocs de detail COTE A COTE ===
   const histBox = scrEl('div', { style: 'margin-bottom:14px' });       // 2) evolution du capital + CALENDRIERS (remontes)
   wrap.appendChild(histBox);
-  const detailRow = scrEl('div', { style: 'display:flex;gap:14px;flex-wrap:wrap;margin-bottom:14px;align-items:flex-start' });
+  const detailRow = scrEl('div', { cls: 'm-sec', style: 'display:flex;gap:14px;flex-wrap:wrap;margin-bottom:14px;align-items:flex-start' });
   const divBox = scrEl('div', { style: 'flex:1;min-width:340px' });      // 3) dividendes ET cessions cote a cote, remontes AVANT la valorisation
   const realBox = scrEl('div', { style: 'flex:1;min-width:340px' });
   detailRow.appendChild(divBox); detailRow.appendChild(realBox);
   wrap.appendChild(detailRow);
-  const valBox = scrEl('div');                                          // 4) valorisation (pleine largeur)
+  const valBox = scrEl('div', { cls: 'm-sec' });                       // 4) valorisation (pleine largeur)
   wrap.appendChild(valBox);
   const body = scrEl('div');                                            // 5) tableau des positions + repartitions
   wrap.appendChild(body);
@@ -11285,7 +11319,7 @@ function renderPositionsTable(pos, onChange) {
   // Graphiques : répartition par action (barres) + par secteur (donut), sur la valeur actuelle
   const parts2 = parts.filter((p) => p.valeur > 0).sort((a, b) => b.valeur - a.valeur);
   const totV = parts2.reduce((s, p) => s + p.valeur, 0);
-  const zoneLegend = scrEl('div', { style: 'display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:8px;font-size:0.66rem;color:#5b6b7d', kids: [
+  const zoneLegend = scrEl('div', { cls: 'm-sec', style: 'display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:8px;font-size:0.66rem;color:#5b6b7d', kids: [
     scrEl('span', { text: "Bandeau gauche = zone d'achat :", style: 'font-weight:600' }),
     ...['ideal', 'achat', 'plein', 'cher'].map((z) => scrEl('span', { style: 'display:flex;align-items:center;gap:4px', kids: [
       scrEl('span', { style: `display:inline-block;width:11px;height:11px;border-radius:3px;background:${SCR_ZONE[z].bar}` }),
@@ -11301,7 +11335,8 @@ function renderPositionsTable(pos, onChange) {
     else if (COL_ANA.indexOf(c) >= 0) cellEl.classList.add('pcol-ana');
   }));
   let view = 'suivi', sort = { col: 5, dir: 'desc' };
-  try { view = localStorage.getItem('scrPosView') || 'suivi'; } catch (e) {}
+  const viewKey = M_MQ.matches ? 'scrPosViewM' : 'scrPosView';   // sur mobile : vue Suivi par defaut, memoire a part
+  try { view = localStorage.getItem(viewKey) || 'suivi'; } catch (e) {}
   try { const ss = JSON.parse(localStorage.getItem('scrPosSort') || 'null'); if (ss && ss.col >= 0 && ss.col < 18) sort = ss; } catch (e) {}
   const ths = Array.from(thead.children);
   const applySort = () => {
@@ -11335,7 +11370,7 @@ function renderPositionsTable(pos, onChange) {
   const seg = scrEl('div', { cls: 'scr-seg' });
   const setView = (v) => {
     view = v;
-    try { localStorage.setItem('scrPosView', v); } catch (e) {}
+    try { localStorage.setItem(viewKey, v); } catch (e) {}
     table.classList.remove('scr-pos-suivi', 'scr-pos-analyse');
     if (v !== 'tout') table.classList.add('scr-pos-' + v);
     Array.from(seg.children).forEach((b) => b.classList.toggle('on', b.dataset.v === v));
@@ -11361,7 +11396,7 @@ function renderPositionsTable(pos, onChange) {
     const card = (title, content) => scrEl('div', { style: 'flex:1;min-width:230px;background:#fafbfc;border:1px solid #eef1f5;border-radius:12px;padding:12px', kids: [
       scrEl('div', { text: title, style: 'font-size:0.72rem;text-transform:uppercase;letter-spacing:.03em;color:#5b6b7d;font-weight:700;margin-bottom:10px' }), content] });
     const dRow = (items) => scrEl('div', { style: 'display:flex;align-items:center;gap:12px;flex-wrap:wrap', kids: [scrDonut(items, 158), scrLegend(items)] });
-    kids.push(scrEl('div', { style: 'display:flex;gap:12px;flex-wrap:wrap;margin-top:14px', kids: [card('Répartition par action', scrBarChart(stockItems)), card('Répartition par secteur', dRow(secItems)), card('Répartition géographique', dRow(geoItems))] }));
+    kids.push(scrEl('div', { cls: 'm-sec', style: 'display:flex;gap:12px;flex-wrap:wrap;margin-top:14px', kids: [card('Répartition par action', scrBarChart(stockItems)), card('Répartition par secteur', dRow(secItems)), card('Répartition géographique', dRow(geoItems))] }));
   }
   return scrEl('div', { kids: kids });
 }
@@ -11606,6 +11641,10 @@ function screenerRenderQuality(c, data, config) {
   const disc = scrEl('div', { style: 'margin-top:14px;font-size:0.74rem;color:#5b6b7d;background:#fff;border:1px solid #e3e8ee;border-radius:12px;padding:12px 14px' });
   disc.append('Qualité + valorisation + dividende (« prix décroché sous les bénéfices »). Le dividende sain (rendement soutenable, payout raisonnable) valorise la note ; un rendement > 7 % ou un payout trop élevé sont écartés du bonus. ', scrEl('b', { text: '💡 Survole les en-têtes de colonnes' }), ' pour la définition de chaque indicateur. Note ', scrEl('b', { text: '≠' }), " conseil : « pas cher » peut aussi être un value trap (bénéfices sur le point de baisser). Fais ta propre analyse.");
   frag.appendChild(disc);
+  // mobile : le screener (classement, repartition proposee) passe derriere le bouton, seul le module
+  // des positions reste visible d'emblee
+  Array.from(frag.children).forEach((el, i) => { if (i > 0) el.classList.add('m-sec'); });
+  frag.appendChild(mMoreBtn());
   c.replaceChildren(frag);
 }
 
