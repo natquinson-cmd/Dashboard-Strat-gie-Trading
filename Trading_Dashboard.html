@@ -1302,6 +1302,13 @@
   .mp-pv { font-size: 0.72rem; font-weight: 700; margin-top: 1px; white-space: nowrap; }
   .mp-w { font-size: 0.7rem; color: var(--text-secondary); margin-top: 4px; }
   html[data-theme="dark"] .mp-card { --positive: #81c784; }
+  .mt-side { width: 34px; height: 34px; border-radius: 9px; flex: none; display: flex; align-items: center; justify-content: center;
+    font-size: 0.62rem; font-weight: 800; letter-spacing: .03em; }
+  .mt-long { background: rgba(29,158,116,0.14); color: #127a54; }
+  .mt-short { background: rgba(221,95,102,0.14); color: #c0392b; }
+  html[data-theme="dark"] .mt-long { background: rgba(102,187,106,0.16); color: #81c784; }
+  html[data-theme="dark"] .mt-short { background: rgba(255,82,82,0.16); color: #ff8a80; }
+  .mp-foot { font-size: 0.7rem; color: var(--text-muted); padding-top: 8px; border-top: 1px solid var(--border); }
   /* écran Accueil */
   #tab-accueil .m-hero, #tab-accueil .m-card, #tab-accueil .m-list { background: var(--bg-card); border: 1px solid var(--border); }
   #tab-accueil .m-hero { padding: 16px 18px; border-radius: 16px; margin-bottom: 10px;
@@ -1552,7 +1559,8 @@
   </div>
 
   <div id="tab-real" class="tab-content">
-    <div class="real-header-row">
+    <div id="mReal" class="m-only"></div>
+    <div class="real-header-row m-sec">
       <div class="asset-filter">
         <button class="filter-btn active" onclick="setAssetFilter('all')">Tout</button>
         <button class="filter-btn" onclick="setAssetFilter('NASDAQ')">NASDAQ</button>
@@ -1565,8 +1573,8 @@
         <span id="pontStatus" style="font-size:0.72rem;font-weight:700;padding:5px 10px;border-radius:8px;white-space:nowrap;cursor:help"></span>
       </div>
     </div>
-    <div class="hero-kpi" id="heroReal"></div>
-    <div class="kpi-grid" id="kpiReal"></div>
+    <div class="hero-kpi m-sec" id="heroReal"></div>
+    <div class="kpi-grid m-sec" id="kpiReal"></div>
     <div class="m-sec" style="margin-top:28px;margin-bottom:20px;">
       <h3 onclick="toggleAdvanced()" style="font-size:1rem;font-weight:700;color:var(--text-primary);display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none;">
         <span id="advancedChevron" style="transition:transform .2s;transform:rotate(0deg);display:inline-block;">▶</span> Analyse Avancée
@@ -1587,7 +1595,7 @@
         <input type="range" id="dateRangeMax" min="0" max="1" value="1" step="1" oninput="onDateRangeChange()">
       </div>
     </div>
-    <div class="chart-full"><div class="chart-card proj-chart-card">
+    <div class="chart-full m-sec"><div class="chart-card proj-chart-card">
       <h3 style="display:flex;justify-content:space-between;align-items:center;">
         <span style="display:flex;align-items:center;gap:8px;">P&L Cumulé</span>
         <label class="toggle-wrap" title="Activer la projection">
@@ -1618,7 +1626,7 @@
     <div class="chart-full m-sec">
       <div class="chart-card"><h3 style="display:flex;justify-content:space-between;align-items:center;"><span style="display:flex;align-items:center;gap:8px;white-space:nowrap;">Gagnants vs Perdants par Jour</span><label class="toggle-wrap"><span class="toggle-val">#</span><input type="checkbox" id="winLossPctToggle" onchange="rebuildWinLossDay()"><span class="toggle-track"></span><span class="toggle-val">€</span></label></h3><canvas id="winLossDayReal"></canvas></div>
     </div>
-    <div class="chart-full"><div class="chart-card">
+    <div class="chart-full m-sec"><div class="chart-card">
       <h3 style="justify-content:space-between;flex-wrap:wrap;">
         <span style="display:flex;align-items:center;gap:8px;">Calendrier Journalier</span>
         <label class="toggle-wrap">
@@ -1637,7 +1645,7 @@
       <div class="day-detail-panel" id="dayDetailPanel"></div>
       <div class="stats-bar" id="dayStats"></div>
     </div></div>
-    <div class="chart-full"><div class="chart-card">
+    <div class="chart-full m-sec"><div class="chart-card">
       <h3 style="justify-content:space-between;flex-wrap:wrap;">
         <span style="display:flex;align-items:center;gap:8px;">Performance Mensuelle</span>
         <label class="toggle-wrap">
@@ -6403,6 +6411,7 @@ function updateHeaderSubtitle() {
 }
 
 function renderRealTab() {
+  renderMobileReal();   // ecran mobile (ne fait rien sur PC)
   destroyRealCharts();
   updateHeaderSubtitle();
   initDateRangeSlider();
@@ -6984,6 +6993,7 @@ M_MQ.addEventListener('change', (e) => {
   document.documentElement.classList.toggle('m-mode', e.matches);
   if (!e.matches && currentTab === 'accueil') switchTab('total');   // l'accueil mobile n'existe pas sur PC
   if (e.matches && currentTab === 'screener') renderScreenerTab();   // construit l'ecran Actions mobile
+  if (e.matches && currentTab === 'real') renderMobileReal();
   mNavSync();
 });
 function mGo(group, tab) {
@@ -7246,6 +7256,7 @@ function activateTab(tab) {
   // Opportunites IA : carte des goulots + pepites, rendu autonome (donnees opportunites_ia.json)
   if (tab === 'opportunites') { renderOppTab(); return; }
 
+  if (tab === 'real') renderMobileReal();   // ecran mobile, a jour a chaque ouverture
   // Trading tabs
   if (['real', 'fixed', 'reinvest'].includes(tab)) {
     if (!tabRendered[tab]) {
@@ -11176,7 +11187,7 @@ function mpCompact(usd) {   // graduation courte : 27 k$ / 23 k€
   const v = usdToDisp(usd), sym = scrDispSym();
   return Math.abs(v) >= 1000 ? (Math.round(v / 100) / 10).toLocaleString('fr-FR') + ' k' + sym : Math.round(v) + ' ' + sym;
 }
-function mpCurve(hist) {
+function mpCurve(hist, fmtY) {   // fmtY : formateur des graduations (defaut : devise du portefeuille d'actions)
   const NS = 'http://www.w3.org/2000/svg', W = 340, Hh = 150, pl = 4, pr = 44, pt = 10, pb = 22;
   const pts = (hist || []).filter((h) => h && h.value > 0);
   if (pts.length < 2) return scrEl('div', { cls: 'mp-sub', text: 'La courbe apparaît après deux jours de suivi.' });
@@ -11190,7 +11201,7 @@ function mpCurve(hist) {
   for (let i = 0; i <= 2; i++) {
     const v = mn + (mx - mn) * i / 2, yy = y(v);
     mk('line', { x1: pl, x2: W - pr, y1: yy.toFixed(1), y2: yy.toFixed(1), stroke: 'rgba(120,135,160,0.18)', 'stroke-width': 1 });
-    mk('text', { x: W - pr + 6, y: (yy + 3.5).toFixed(1), 'font-size': 10, fill: '#8a97a8' }).textContent = mpCompact(v);
+    mk('text', { x: W - pr + 6, y: (yy + 3.5).toFixed(1), 'font-size': 10, fill: '#8a97a8' }).textContent = (fmtY || mpCompact)(v);
   }
   let d = '';
   pts.forEach((h, i) => { d += (i ? 'L' : 'M') + x(i).toFixed(1) + ' ' + y(h.value).toFixed(1) + ' '; });
@@ -11289,6 +11300,115 @@ function scrMobilePortfolio(pos) {
     box.appendChild(card);
   });
   return box;
+}
+// ONGLET TRADING SUR MOBILE : meme modele que l'onglet Actions (scrMobilePortfolio), pour le compte IG.
+const MT_STRAT = { NASDAQ: ['Nasdaq 100', '#2eb5a0'], DAX: ['DAX 40', '#5f8bf2'] };
+function renderMobileReal() {
+  const box = document.getElementById('mReal');
+  if (!box || !M_MQ.matches) return;
+  const trades = (typeof realTrades !== 'undefined' && realTrades) ? realTrades : [];
+  if (!trades.length) { box.replaceChildren(scrEl('div', { cls: 'mp-card', text: 'Aucun trade pour l’instant.' })); return; }
+  const E = (v) => fmt(v) + ' €';
+  const S = (v) => (v >= 0 ? '+' : '') + fmt(v) + ' €';
+  const P = (v, dec) => (v >= 0 ? '+' : '') + v.toFixed(dec == null ? 1 : dec) + ' %';
+  const col = (v) => 'color:' + (v >= 0 ? 'var(--positive)' : 'var(--negative)');
+  const eurK = (v) => Math.abs(v) >= 1000 ? (Math.round(v / 100) / 10).toLocaleString('fr-FR') + ' k€' : Math.round(v) + ' €';
+  // capital jour par jour : depots d'un cote, resultats (trades, dividendes, frais) de l'autre
+  const flows = {}, pnlD = {};
+  const add = (m, d, v) => { if (!d) return; d = String(d).slice(0, 10); m[d] = (m[d] || 0) + v; };
+  (realDeposits || []).forEach((x) => add(flows, x.date, x.amount || 0));
+  trades.forEach((t) => add(pnlD, t[0], t[2] || 0));
+  (realDividends || []).forEach((x) => add(pnlD, x.date, x.amount || 0));
+  (realFees || []).forEach((x) => add(pnlD, x.date, x.amount || 0));
+  const days = Array.from(new Set(Object.keys(flows).concat(Object.keys(pnlD)))).sort();
+  let eq = 0;
+  const serie = [], before = {};
+  days.forEach((d) => { eq += flows[d] || 0; before[d] = eq; eq += pnlD[d] || 0; serie.push({ date: d, value: eq }); });
+  // jour : aujourd'hui, sinon la derniere seance avec des trades
+  const tDays = Object.keys(aggregateByDay(trades)).sort(), auj = scrLocalDay(new Date());
+  const dk = tDays.indexOf(auj) >= 0 ? auj : tDays[tDays.length - 1];
+  const dayPnl = pnlD[dk] || 0, dayPct = before[dk] > 0 ? dayPnl / before[dk] * 100 : 0;
+  const dayLib = dk === auj ? 'aujourd’hui' : new Date(dk + 'T12:00:00').toLocaleDateString('fr-FR', { weekday: 'long', day: '2-digit', month: '2-digit' });
+  // mois en cours : resultat / (capital a la fin du mois precedent + depots du mois)
+  const now = new Date(), ym = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+  let mPnl = 0, mDep = 0, mBase = 0;
+  days.forEach((d) => { if (d.indexOf(ym) === 0) { mPnl += pnlD[d] || 0; mDep += flows[d] || 0; } });
+  serie.forEach((p) => { if (p.date < ym + '-01') mBase = p.value; });
+  const mPct = (mBase + mDep) > 0 ? mPnl / (mBase + mDep) * 100 : 0;
+  const rm = (typeof computeRealReturnMetrics === 'function') ? computeRealReturnMetrics() : null;
+  // 1. capital, jour, mois, rendement
+  box.replaceChildren();
+  box.appendChild(scrEl('div', { cls: 'mp-card', kids: [
+    scrEl('div', { cls: 'mp-lbl', text: 'Trading Auto · compte IG' }),
+    scrEl('div', { cls: 'mp-big', text: E(eq) }),
+    scrEl('div', { cls: 'mp-sub', kids: [scrEl('b', { text: (dayPnl >= 0 ? '▲ ' : '▼ ') + S(dayPnl) + ' (' + P(dayPct, 2) + ')', style: col(dayPnl) }),
+      document.createTextNode(' ' + dayLib)] }),
+    scrEl('div', { cls: 'mp-sub', kids: [document.createTextNode(monthNamesFull[now.getMonth()] + ' '), scrEl('b', { text: S(mPnl) + ' (' + P(mPct) + ')', style: col(mPnl) }),
+      document.createTextNode(rm ? ' · rendement ' : ''), ...(rm ? [scrEl('b', { text: P(rm.twrPct) + ' (TWR)', style: col(rm.twrPct) })] : [])] })] }));
+  // 2. courbe du capital
+  box.appendChild(scrEl('div', { cls: 'mp-card', kids: [scrEl('div', { cls: 'mp-lbl', text: 'Évolution du capital', style: 'margin-bottom:6px' }), mpCurve(serie, eurK)] }));
+  // 3. repartition des gains par strategie
+  const strat = ['NASDAQ', 'DAX'].map((k) => {
+    const ts = trades.filter((t) => t[1] === k);
+    const g = ts.map((t) => t[2] || 0), win = g.filter((x) => x > 0), loss = g.filter((x) => x <= 0);
+    const gw = win.reduce((a, b) => a + b, 0), gl = Math.abs(loss.reduce((a, b) => a + b, 0));
+    let cb = null;
+    try { cb = computeCusumBreak(k); } catch (e) {}
+    return { k: k, ts: ts, total: g.reduce((a, b) => a + b, 0), n: ts.length, wr: ts.length ? win.length / ts.length * 100 : 0, pf: gl > 0 ? gw / gl : null, cb: cb };
+  }).filter((x) => x.n).sort((a, b) => b.total - a.total);
+  const totG = strat.reduce((a, x) => a + x.total, 0);
+  if (strat.length && strat.every((x) => x.total > 0)) {
+    box.appendChild(scrEl('div', { cls: 'mp-card', kids: [scrEl('div', { cls: 'mp-lbl', text: 'Répartition des gains' }),
+      scrEl('div', { cls: 'mp-donut', kids: [mpDonut(strat.map((x) => ({ value: x.total, color: MT_STRAT[x.k][1] })), S(totG))] })] }));
+    const lb = box.lastChild.querySelectorAll('svg text');
+    if (lb.length) lb[lb.length - 1].textContent = 'gain des trades';
+  } else if (strat.length) {
+    const mxA = Math.max.apply(null, strat.map((x) => Math.abs(x.total))) || 1;
+    box.appendChild(scrEl('div', { cls: 'mp-card', kids: [scrEl('div', { cls: 'mp-lbl', text: 'Gain des trades par stratégie', style: 'margin-bottom:8px' })].concat(strat.map((x) =>
+      scrEl('div', { style: 'margin:6px 0', kids: [
+        scrEl('div', { style: 'display:flex;justify-content:space-between;font-size:0.82rem;font-weight:700', kids: [scrEl('span', { text: MT_STRAT[x.k][0] }), scrEl('span', { text: S(x.total), style: col(x.total) })] }),
+        scrEl('div', { cls: 'mp-bar', kids: [scrEl('i', { style: 'width:' + (Math.abs(x.total) / mxA * 100).toFixed(1) + '%;background:' + (x.total >= 0 ? MT_STRAT[x.k][1] : 'var(--negative)') })] })] }))) }));
+  }
+  // 4. une carte par strategie : statistiques puis les derniers trades
+  const NB = 8;
+  strat.forEach((x) => {
+    const cb = x.cb, cbDeg = cb && cb.pval < 0.05 && cb.degrade, cbSusp = cb && (cb.pval < 0.10 || cb.S >= 3);
+    const cbCol = !cb ? '#9aa7b4' : (cbDeg ? '#dd5f66' : (cbSusp ? '#e0a526' : '#1d9e74'));
+    const cbTxt = !cb ? 'régime non évaluable' : (cbDeg ? 'dégradation avérée' : (cb.pval < 0.10 ? 'rupture suspectée' : 'aucune rupture'));
+    const last = x.ts.slice().sort((a, b) => String(b[8] || b[0]).localeCompare(String(a[8] || a[0]))).slice(0, NB);
+    const maxG = Math.max.apply(null, last.map((t) => Math.abs(t[2] || 0))) || 1;
+    const rows = scrEl('div', { cls: 'mp-rows' });
+    last.forEach((t) => {
+      const sz = t[4] || 0, lg = sz >= 0, pts = ((t[6] || 0) - (t[5] || 0)) * (lg ? 1 : -1), g = t[2] || 0;
+      // horodatages IG en UTC sans suffixe (ig_sync.py lit dateUtc) : affiches a l'heure de Paris, comme le detail PC
+      const raw = String(t[8] || ''), hasT = raw.length >= 16;
+      const when = hasT ? new Date(raw + (raw.endsWith('Z') || raw.includes('+') ? '' : 'Z')) : new Date(t[0] + 'T12:00:00');
+      const lib = isNaN(when) ? t[0] : when.toLocaleDateString('fr-FR', { timeZone: 'Europe/Paris', weekday: 'short', day: '2-digit', month: '2-digit' })
+        + (hasT ? ' · ' + when.toLocaleTimeString('fr-FR', { timeZone: 'Europe/Paris', hour: '2-digit', minute: '2-digit' }) : '');
+      rows.appendChild(scrEl('div', { cls: 'mp-row', kids: [
+        scrEl('div', { cls: 'mt-side ' + (lg ? 'mt-long' : 'mt-short'), text: lg ? 'LONG' : 'SHORT', style: lg ? '' : 'font-size:0.55rem' }),
+        scrEl('div', { cls: 'mp-mid', kids: [
+          scrEl('div', { cls: 'mp-name', text: lib }),
+          scrEl('div', { cls: 'mp-tk', text: Math.abs(sz).toLocaleString('fr-FR', { maximumFractionDigits: 2 }) + (Math.abs(sz) >= 2 ? ' lots' : ' lot') }),
+          scrEl('div', { cls: 'mp-bar', kids: [scrEl('i', { style: 'width:' + (Math.abs(g) / maxG * 100).toFixed(1) + '%;background:' + (g >= 0 ? 'var(--positive)' : 'var(--negative)') })] })] }),
+        scrEl('div', { cls: 'mp-right', kids: [
+          scrEl('div', { cls: 'mp-val', text: S(g), style: col(g) }),
+          scrEl('div', { cls: 'mp-w', text: (pts >= 0 ? '+' : '') + pts.toLocaleString('fr-FR', { maximumFractionDigits: 1 }) + ' pts' })] })] }));
+    });
+    rows.appendChild(scrEl('div', { cls: 'mp-foot', text: NB + ' derniers trades · historique complet dans les analyses détaillées' }));
+    const card = scrEl('div', { cls: 'mp-card mp-grp' + (MP_CLOSED[x.k] ? ' closed' : '') });
+    const head = scrEl('div', { cls: 'mp-grp-head', kids: [
+      scrEl('span', { cls: 'mp-dot', style: 'background:' + MT_STRAT[x.k][1] }),
+      scrEl('div', { kids: [
+        scrEl('div', { cls: 'mp-gname', kids: [document.createTextNode(MT_STRAT[x.k][0]),
+          scrEl('span', { cls: 'mp-dot', attrs: { title: 'Régime de l’algo (CUSUM) : ' + cbTxt }, style: 'display:inline-block;width:8px;height:8px;margin-left:7px;vertical-align:2px;background:' + cbCol })] }),
+        scrEl('div', { cls: 'mp-tk', text: x.n + ' trades · ' + x.wr.toFixed(0) + ' % gagnants' + (x.pf != null ? ' · PF ' + x.pf.toFixed(2) : '') })] }),
+      scrEl('span', { cls: 'mp-gval', text: S(x.total), style: col(x.total) }),
+      scrEl('span', { cls: 'mp-chev', text: '▾' })] });
+    head.onclick = () => { MP_CLOSED[x.k] = !MP_CLOSED[x.k]; card.classList.toggle('closed', !!MP_CLOSED[x.k]); };
+    card.append(head, rows);
+    box.appendChild(card);
+  });
 }
 // Module "Mes positions" en haut du screener : saisie manuelle (Revolut), P&L via les cours du screener.
 function screenerPositionsModule() {
