@@ -1495,7 +1495,7 @@
   <!-- VUE MOBILE : ecran Accueil (rempli par renderMobileHome), barre du bas, menu Plus -->
   <div id="tab-accueil" class="tab-content"></div>
   <div id="mPlus">
-    <div class="m-plus-title">Trading</div><div class="m-plus-grid"><button type="button" onclick="mGo('trading','total')">Trading total</button><button type="button" onclick="mGo('trading','darwinex')">Darwinex</button><button type="button" onclick="mGo('trading','enfants')">Enfants</button><button type="button" onclick="mGo('trading','fixed')">Backtests</button><button type="button" onclick="mGo('trading','opportunites')">Opportunités IA</button></div>
+    <div class="m-plus-title">Trading</div><div class="m-plus-grid"><button type="button" onclick="mGo('trading','total')">Trading total</button><button type="button" onclick="mGo('trading','enfants')">Enfants</button><button type="button" onclick="mGo('trading','fixed')">Backtests</button><button type="button" onclick="mGo('trading','opportunites')">Opportunités IA</button></div>
     <div class="m-plus-title">Portfolio</div><div class="m-plus-grid"><button type="button" onclick="mGo('invest','interests')">Intérêts</button><button type="button" onclick="mGo('invest','evolution')">Évolution</button><button type="button" onclick="mGo('invest','loans')">Emprunts</button><button type="button" onclick="mGo('invest','realestate')">Immobilier</button><button type="button" onclick="mGo('invest','simulateur')">Rembourser vs Placer</button><button type="button" onclick="mGo('invest','repartition')">Lendermarket</button><button type="button" onclick="mGo('invest','update')">Mise à jour</button></div>
   </div>
   <nav id="mNav"><button type="button" data-k="home" onclick="mGo('trading','accueil')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/></svg>Accueil</button><button type="button" data-k="trading" onclick="mGo('trading','real')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 17 9 11 13 15 21 7"/><polyline points="15 7 21 7 21 13"/></svg>Trading</button><button type="button" data-k="actions" onclick="mGo('trading','screener')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V11"/><path d="M10 20V5"/><path d="M16 20v-8"/><path d="M22 20H2"/></svg>Actions</button><button type="button" data-k="portfolio" onclick="mGo('invest','overview')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="14" rx="2"/><path d="M3 10h18"/><path d="M16 14h2"/></svg>Portfolio</button><button type="button" data-k="plus" onclick="mPlusToggle(event)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/></svg>Plus</button></nav>
@@ -7152,8 +7152,8 @@ function renderMobileHome() {
       scrEl('div', { cls: 'm-val', kids: [
         scrEl('div', { cls: 'm-v', text: val == null ? '–' : E(val) }),
         scrEl('div', { cls: 'm-p', text: p == null ? '–' : P(p), style: p == null ? 'color:var(--text-muted)' : col(p) })] }),
-      scrEl('span', { cls: 'm-chev', text: '›' })] });
-    r.onclick = go;
+      scrEl('span', { cls: 'm-chev', text: go ? '›' : '' })] });
+    if (go) r.onclick = go; else r.style.cursor = 'default';
     return r;
   };
   let cb = null;
@@ -7165,7 +7165,7 @@ function renderMobileHome() {
     row('Trading Auto', cbTxt, A.igNow, pct(A.igPnl, A.igDep), () => mGo('trading', 'real'), mSrcCol('ig'), cbCol,
       'Régime de l’algo (moniteur CUSUM) : vert = aucune rupture, orange = rupture suspectée, rouge = dégradation avérée'),
     row('Actions', 'portefeuille Revolut', A.stkNow, pct(A.stkPnl, A.stkInv), () => mGo('trading', 'screener'), mSrcCol('stk')),
-    row('Darwinex', 'compte investisseur', A.dwxNow, pct(A.dwxPnl, A.dwxInv), () => mGo('trading', 'darwinex'), mSrcCol('dwx'))] }));
+    row('Darwinex', 'retrait en cours · historique conservé', A.dwxNow, pct(A.dwxPnl, A.dwxInv), null, mSrcCol('dwx'))] }));   // plus d'onglet Darwinex
   let k = null;
   try { k = kidsCompute(); } catch (e) {}
   if (k && k.value != null) kids.push(scrEl('div', { cls: 'm-list', kids: [
@@ -7201,7 +7201,8 @@ const GROUP_TABS = {
     { id: 'fixed', label: 'Backtests', also: ['reinvest'] },
     { id: 'screener', label: LOGO_REVOLUT + "Portefeuille d'actions" },
     { id: 'opportunites', label: '🧭 Opportunités IA' },
-    { id: 'darwinex', label: tabImg(LOGO_DARWINEX, 'Darwinex') + 'Darwinex' },
+    // Onglet Darwinex retire le 29/09/2026 : fonds en cours de retrait. Le code et les donnees restent
+    // (historique visible dans Trading total, l'accueil mobile et Portfolio).
     { id: 'enfants', label: '👶 Enfants' }
   ],
   invest: [
@@ -15922,6 +15923,7 @@ Promise.all([
   try {
     const r = JSON.parse(localStorage.getItem('dashThemeReturn') || 'null');
     localStorage.removeItem('dashThemeReturn');
+    if (r && r.tab === 'darwinex') r.tab = 'total';   // onglet retire
     if (r && r.group && r.tab) { if (r.group !== currentGroup) switchGroup(r.group); if (r.tab !== currentTab) switchTab(r.tab); }
   } catch (e) {}
 });
