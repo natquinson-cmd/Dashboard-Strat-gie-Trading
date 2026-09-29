@@ -1251,6 +1251,9 @@
   html.m-mode #healthBar, html.m-mode .fresh-badge, html.m-mode #igSyncStatus, html.m-mode #pontStatus, html.m-mode #dashFooter { display: none !important; }
   html.m-mode.m-hb-open #healthBar { display: flex !important; margin: 0 0 12px; }
   html.m-mode body { padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
+  /* clip coupe le debordement lateral comme hidden, sans creer de zone de defilement : les elements colles
+     (interrupteur plus-value de l'ecran Actions) restent alors fixes en haut de l'ecran */
+  html.m-mode .dashboard, html.m-mode body { overflow-x: clip; }
   html.m-mode #mNav { display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 900; background: var(--bg-card);
     border-top: 1px solid var(--border); padding: 6px 4px calc(6px + env(safe-area-inset-bottom)); box-shadow: 0 -4px 16px rgba(34,49,77,0.08); }
   #mNav button { flex: 1; border: none; background: none; display: flex; flex-direction: column; align-items: center; gap: 2px;
@@ -1301,6 +1304,13 @@
   .mp-val { font-weight: 800; font-size: 0.9rem; color: var(--text-primary); }
   .mp-pv { font-size: 0.72rem; font-weight: 700; margin-top: 1px; white-space: nowrap; }
   .mp-w { font-size: 0.7rem; color: var(--text-secondary); margin-top: 4px; }
+  /* interrupteur plus-value totale / du jour (ecran mobile Actions) */
+  .mp-box:not(.mp-jour) .pv-j, .mp-box.mp-jour .pv-t { display: none; }
+  .mp-pvbar { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    background: var(--bg-primary); padding: 8px 2px; margin: -2px 0 8px; }
+  .mp-pvseg button { padding: 7px 16px; font-size: 0.8rem; }
+  .mp-right.mp-tap { cursor: pointer; -webkit-tap-highlight-color: transparent; border-radius: 8px; }
+  .mp-right.mp-tap:active { background: var(--border); }
   html[data-theme="dark"] .mp-card { --positive: #81c784; }
   .mt-side { width: 34px; height: 34px; border-radius: 9px; flex: none; display: flex; align-items: center; justify-content: center;
     font-size: 0.62rem; font-weight: 800; letter-spacing: .03em; }
@@ -11405,8 +11415,24 @@ function mpDonut(items, centre) {
   mk('text', { x: c, y: c + 20, 'text-anchor': 'middle', 'font-size': 10, fill: '#8a97a8' }).textContent = 'valeur totale';
   return svg;
 }
+// Plus-value affichee sur l'ecran mobile Actions : 'total' (latente) ou 'jour'. Retenue d'une visite a l'autre.
+let MP_PV = 'total';
+try { if (localStorage.getItem('mpPvMode') === 'jour') MP_PV = 'jour'; } catch (e) {}
+function mpPvApply(box) {
+  box.classList.toggle('mp-jour', MP_PV === 'jour');
+  box.querySelectorAll('.mp-pvseg button').forEach((b) => b.classList.toggle('on', b.getAttribute('data-m') === MP_PV));
+  // ordre des lignes : par valeur en total ; de la plus forte hausse a la plus forte baisse en jour
+  box.querySelectorAll('.mp-rows[data-sort]').forEach((rs) => {
+    Array.from(rs.children).sort((a, b) => MP_PV === 'jour' ? (b._kd - a._kd) : (b._kv - a._kv)).forEach((r) => rs.appendChild(r));
+  });
+}
+function mpPvSet(m, box) {
+  MP_PV = m;
+  try { localStorage.setItem('mpPvMode', m); } catch (e) {}
+  mpPvApply(box);
+}
 function scrMobilePortfolio(pos) {
-  const box = scrEl('div');
+  const box = scrEl('div', { cls: 'mp-box' });
   const col = (v) => 'color:' + (v >= 0 ? 'var(--positive)' : 'var(--negative)');
   const sg = (v) => (v >= 0 ? '+' : '');
   const lines = (pos || []).map((p) => {
@@ -11417,7 +11443,8 @@ function scrMobilePortfolio(pos) {
     const chg = (d && d.changePct != null) ? d.changePct : null;
     const dj = (chg != null && pu != null) ? scrDayImpact(p.ticker, qty, pu, chg) : null;
     return { t: t, d: d, qty: qty, investi: investi, valeur: valeur, cat: mpCat(t, d),
-      pnl: pu != null ? valeur - investi : null, pnlPct: (pu != null && p.pru > 0) ? pu / p.pru - 1 : null, day: dj ? dj.usd : 0 };
+      pnl: pu != null ? valeur - investi : null, pnlPct: (pu != null && p.pru > 0) ? pu / p.pru - 1 : null, day: dj ? dj.usd : 0,
+      dayOk: !!dj, dayPct: dj ? ((valeur - dj.usd) > 0 ? dj.usd / (valeur - dj.usd) : chg) : null };
   });
   const tot = lines.reduce((a, l) => a + l.valeur, 0), inv = lines.reduce((a, l) => a + l.investi, 0);
   const day = lines.reduce((a, l) => a + l.day, 0), pnl = tot - inv;
@@ -11439,8 +11466,17 @@ function scrMobilePortfolio(pos) {
     return { k: k, ls: ls, value: ls.reduce((a, l) => a + l.valeur, 0) };
   }).filter((g) => g.ls.length).sort((a, b) => b.value - a.value);
   box.appendChild(scrEl('div', { cls: 'mp-card mp-donut', kids: [mpDonut(cats.map((g) => ({ value: g.value, color: MP_CAT[g.k][1] })), scrUsd(tot))] }));
-  // 4. une carte par categorie, lignes avec valeur, plus-value et poids
+  // 4. interrupteur plus-value totale / du jour, colle en haut de l'ecran pendant le defilement
+  const pvBtn = (m, lbl) => {
+    const b = scrEl('button', { text: lbl, attrs: { type: 'button', 'data-m': m } });
+    b.onclick = () => mpPvSet(m, box);
+    return b;
+  };
+  box.appendChild(scrEl('div', { cls: 'mp-pvbar', kids: [scrEl('span', { cls: 'mp-lbl', text: 'Plus-value' }),
+    scrEl('div', { cls: 'scr-seg mp-pvseg', kids: [pvBtn('total', 'Totale'), pvBtn('jour', 'Du jour')] })] }));
+  // 5. une carte par categorie, lignes avec valeur, plus-value (totale ou du jour) et poids
   const maxW = Math.max.apply(null, lines.map((l) => l.valeur));
+  const pctTxt = (v, dec) => sg(v) + (v * 100).toFixed(dec) + ' %';
   cats.forEach((g) => {
     const rows = scrEl('div', { cls: 'mp-rows' });
     g.ls.forEach((l) => {
@@ -11451,17 +11487,27 @@ function scrMobilePortfolio(pos) {
           scrEl('div', { cls: 'mp-name', text: mpName(l.t, l.d) }),
           scrEl('div', { cls: 'mp-tk', text: l.t.replace(/(\.[A-Z]{1,3}|-USD)$/, '') + ' · ' + mpQty(l.qty) }),
           scrEl('div', { cls: 'mp-bar', kids: [scrEl('i', { style: 'width:' + (l.valeur / maxW * 100).toFixed(1) + '%;background:' + MP_CAT[g.k][1] })] })] }),
-        scrEl('div', { cls: 'mp-right', kids: [
+        scrEl('div', { cls: 'mp-right mp-tap', attrs: { title: 'Toucher pour basculer plus-value totale / du jour' }, kids: [
           scrEl('div', { cls: 'mp-val', text: scrUsd(l.valeur) }),
-          scrEl('div', { cls: 'mp-pv', text: l.pnl == null ? '–' : (sg(l.pnl) + scrUsd(l.pnl) + ' (' + sg(l.pnlPct) + (l.pnlPct * 100).toFixed(1) + ' %)'), style: l.pnl == null ? 'color:var(--text-muted)' : col(l.pnl) }),
-          scrEl('div', { cls: 'mp-w', text: (w * 100).toFixed(1) + ' % du portefeuille' })] })] }));
+          scrEl('div', { cls: 'mp-pv', kids: [
+            scrEl('span', { cls: 'pv-t', text: l.pnl == null ? '–' : (sg(l.pnl) + scrUsd(l.pnl) + ' (' + (l.pnlPct == null ? '–' : pctTxt(l.pnlPct, 1)) + ')'), style: l.pnl == null ? 'color:var(--text-muted)' : col(l.pnl) }),
+            scrEl('span', { cls: 'pv-j', text: !l.dayOk ? '–' : (sg(l.day) + scrUsd(l.day) + ' (' + pctTxt(l.dayPct, 2) + ')'), style: !l.dayOk ? 'color:var(--text-muted)' : col(l.day) })] }),
+          scrEl('div', { cls: 'mp-w', kids: [g.k === 'crypto' ? scrEl('span', { cls: 'pv-j', text: 'sur 24 h · ' }) : null,
+            document.createTextNode((w * 100).toFixed(1) + ' % du portefeuille')] })] })] }));
+      const r = rows.lastChild;
+      r._kv = l.valeur; r._kd = l.dayOk ? l.day : -1e15;   // cles de tri (valeur / variation du jour)
+      r.lastChild.onclick = () => mpPvSet(MP_PV === 'jour' ? 'total' : 'jour', box);
     });
+    rows.setAttribute('data-sort', '1');
     const card = scrEl('div', { cls: 'mp-card mp-grp' + (MP_CLOSED[g.k] ? ' closed' : '') });
-    const gpnl = g.ls.reduce((a, l) => a + (l.pnl || 0), 0);
+    const gpnl = g.ls.reduce((a, l) => a + (l.pnl || 0), 0), gday = g.ls.reduce((a, l) => a + (l.day || 0), 0);
+    const gdayPct = (g.value - gday) > 0 ? gday / (g.value - gday) : 0;
     const head = scrEl('div', { cls: 'mp-grp-head', kids: [
       scrEl('span', { cls: 'mp-dot', style: 'background:' + MP_CAT[g.k][1] }),
       scrEl('div', { kids: [scrEl('div', { cls: 'mp-gname', text: MP_CAT[g.k][0] }),
-        scrEl('div', { cls: 'mp-tk', text: g.ls.length + (g.ls.length > 1 ? ' lignes' : ' ligne') + ' · ', kids: [scrEl('span', { text: sg(gpnl) + scrUsd(gpnl), style: 'font-weight:700;' + col(gpnl) })] })] }),
+        scrEl('div', { cls: 'mp-tk', text: g.ls.length + (g.ls.length > 1 ? ' lignes' : ' ligne') + ' · ', kids: [
+          scrEl('span', { cls: 'pv-t', text: sg(gpnl) + scrUsd(gpnl), style: 'font-weight:700;' + col(gpnl) }),
+          scrEl('span', { cls: 'pv-j', text: sg(gday) + scrUsd(gday) + ' (' + pctTxt(gdayPct, 2) + ')', style: 'font-weight:700;' + col(gday) })] })] }),
       scrEl('span', { cls: 'mp-gval', text: scrUsd(g.value) }),
       scrEl('span', { cls: 'mp-gpct', text: (g.value / tot * 100).toFixed(1) + ' %' }),
       scrEl('span', { cls: 'mp-chev', text: '▾' })] });
@@ -11469,6 +11515,7 @@ function scrMobilePortfolio(pos) {
     card.append(head, rows);
     box.appendChild(card);
   });
+  mpPvApply(box);
   return box;
 }
 // ONGLET TRADING SUR MOBILE : meme modele que l'onglet Actions (scrMobilePortfolio), pour le compte IG.
