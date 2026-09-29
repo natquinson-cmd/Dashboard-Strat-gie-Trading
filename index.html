@@ -1316,6 +1316,11 @@
   #tab-accueil .m-lbl { font-size: 0.64rem; letter-spacing: .06em; text-transform: uppercase; font-weight: 700; color: var(--text-secondary); }
   #tab-accueil .m-big { font-size: 2.2rem; font-weight: 800; line-height: 1.1; margin-top: 4px; color: var(--text-primary); }
   #tab-accueil .m-sub { font-size: 0.78rem; color: var(--text-secondary); margin-top: 5px; }
+  #tab-accueil .m-hero-top { display: flex; align-items: flex-end; justify-content: space-between; gap: 6px 12px; flex-wrap: wrap; }
+  #tab-accueil .m-spark { flex: 1 1 90px; max-width: 160px; }
+  #tab-accueil .m-spark svg { display: block; width: 100%; height: auto; }
+  #tab-accueil .m-spark-cap { font-size: 0.6rem; color: var(--text-muted); text-align: right; margin-top: 2px; }
+  #tab-accueil .m-src { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 7px; vertical-align: 0; }
   #tab-accueil .m-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
   #tab-accueil .m-card { padding: 12px 14px; border-radius: 14px; }
   #tab-accueil .m-mid { font-size: 1.4rem; font-weight: 800; margin-top: 3px; line-height: 1.15; }
@@ -4142,6 +4147,28 @@ function ttlAthDaily() {
     if (tot > ath) { ath = tot; athDate = d; }
   });
   return { ath: ath, athDate: athDate, jours: liste.length };
+}
+// Capital total jour par jour (IG + actions + Darwinex), meme cumul par source que ttlAthDaily.
+function ttlTotalSeries() {
+  const fx = ttlEurPerUsd();
+  const igEv = [];
+  (typeof realDeposits !== 'undefined' ? realDeposits : []).forEach(d => igEv.push([d.date || '', d.amount || 0]));
+  (typeof realTrades !== 'undefined' ? realTrades : []).forEach(t => igEv.push([t[0] || '', t[2] || 0]));
+  (typeof realDividends !== 'undefined' ? realDividends : []).forEach(d => igEv.push([d.date || '', d.amount || 0]));
+  (typeof realFees !== 'undefined' ? realFees : []).forEach(f => igEv.push([f.date || '', f.amount || 0]));
+  igEv.sort((a, b) => String(a[0]).localeCompare(String(b[0])));
+  const sh = ttlStockHist(), dwK = ttlDwxDates(), jours = new Set();
+  igEv.forEach(e => { if (e[0]) jours.add(String(e[0]).slice(0, 10)); });
+  sh.forEach(h => jours.add(h.date));
+  dwK.forEach(k => jours.add(k));
+  let ig = 0, stk = null, dwx = null, iEv = 0, iSh = 0, iDw = 0;
+  return Array.from(jours).sort().map(d => {
+    while (iEv < igEv.length && igEv[iEv][0] && String(igEv[iEv][0]).slice(0, 10) <= d) { ig += igEv[iEv][1]; iEv++; }
+    while (iSh < sh.length && sh[iSh].date <= d) { stk = sh[iSh].value; iSh++; }
+    while (iDw < dwK.length && dwK[iDw] <= d) { dwx = darwinexDaily[dwK[iDw]].value; iDw++; }
+    const sv = stk != null ? stk * fx : 0, dv = dwx != null ? dwx : 0;
+    return { date: d, value: ig + sv + dv, ig: ig, stk: sv, dwx: dv };
+  });
 }
 function ttlEquityAtMonthStart(y, m) {
   const target = y + '-' + String(m+1).padStart(2,'0');
@@ -7044,6 +7071,35 @@ function mMoreBtn() {   // bouton construit en JS (onglet Portefeuille d'actions
   b.onclick = () => mToggleMore(b);
   return b;
 }
+// Mini-courbe (sans axes) pour la carte Capital total de l'accueil mobile.
+// Couleur de chaque source, identique a Trading total (TTL_COL), en variante Baggr sur le theme fonce.
+function mSrcCol(k) {
+  const dark = { ig: '#de6058', stk: '#3f76ed', dwx: '#efc560' };
+  return THEME === 'dark' ? dark[k] : TTL_COL[k];
+}
+function mSpark(serie) {
+  const pts = (serie || []).filter((p) => p && p.value > 0);
+  if (pts.length < 2) return scrEl('span');
+  const NS = 'http://www.w3.org/2000/svg', W = 160, Hh = 62, pd = 2;
+  const mx = Math.max.apply(null, pts.map((p) => p.value)) || 1;
+  const x = (i) => pd + i * (W - 2 * pd) / (pts.length - 1), y = (v) => pd + (1 - v / mx) * (Hh - 2 * pd);
+  const svg = document.createElementNS(NS, 'svg');
+  svg.setAttribute('viewBox', '0 0 ' + W + ' ' + Hh);
+  const mk = (t, a) => { const e = document.createElementNS(NS, t); Object.keys(a).forEach((k) => e.setAttribute(k, a[k])); svg.appendChild(e); return e; };
+  // aires empilees : Trading Auto en bas, puis Actions, puis Darwinex
+  let bas = pts.map(() => 0);
+  ['ig', 'stk', 'dwx'].forEach((k) => {
+    const haut = pts.map((p, i) => bas[i] + (p[k] || 0));
+    let d = '';
+    haut.forEach((v, i) => { d += (i ? 'L' : 'M') + x(i).toFixed(1) + ' ' + y(v).toFixed(1) + ' '; });
+    for (let i = pts.length - 1; i >= 0; i--) d += 'L' + x(i).toFixed(1) + ' ' + y(bas[i]).toFixed(1) + ' ';
+    mk('path', { d: d + 'Z', fill: mSrcCol(k), 'fill-opacity': 0.9, stroke: 'none' });
+    bas = haut;
+  });
+  const cap = 'depuis ' + new Date(pts[0].date + 'T12:00:00').toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' });
+  return scrEl('div', { cls: 'm-spark', attrs: { title: 'Capital total jour par jour, versements compris : Trading Auto, actions et Darwinex empilés' },
+    kids: [svg, scrEl('div', { cls: 'm-spark-cap', text: cap })] });
+}
 // ECRAN ACCUEIL MOBILE : l'essentiel en un coup d'oeil, sans defiler.
 function renderMobileHome() {
   const box = document.getElementById('tab-accueil');
@@ -7057,9 +7113,12 @@ function renderMobileHome() {
   const pct = (num, den) => (den > 0 && isFinite(num)) ? num / den * 100 : null;
   const kids = [];
   // 1. capital total : Trading Auto + actions + Darwinex (la poche des enfants est a part)
+  let spark = scrEl('span');
+  try { spark = mSpark(ttlTotalSeries()); } catch (e) {}
   kids.push(scrEl('div', { cls: 'm-hero', kids: [
-    scrEl('div', { cls: 'm-lbl', text: 'Capital total' }),
-    scrEl('div', { cls: 'm-big', text: E(A.capTotal) }),
+    scrEl('div', { cls: 'm-hero-top', kids: [
+      scrEl('div', { kids: [scrEl('div', { cls: 'm-lbl', text: 'Capital total' }), scrEl('div', { cls: 'm-big', text: E(A.capTotal) })] }),
+      spark] }),
     scrEl('div', { cls: 'm-sub', kids: [
       scrEl('span', { text: (A.pnlTotal >= 0 ? '▲ ' : '▼ ') + S(A.pnlTotal) + ' (' + P(A.pnlPct) + ')', style: 'font-weight:700;' + col(A.pnlTotal) }),
       document.createTextNode(' sur ' + E(A.invTotal) + ' investis')] })] }));
@@ -7082,11 +7141,12 @@ function renderMobileHome() {
   const cMonth = card(monthNamesFull[now.getMonth()], pm, pct(pm, ttlEquityAtMonthStart(now.getFullYear(), now.getMonth())));
   kids.push(scrEl('div', { cls: 'm-grid2', kids: [cDay, cMonth] }));
   // 3. les poches : valeur et plus-value totale en % des apports ; toucher une ligne ouvre l'onglet
-  const row = (name, note, val, p, go, dot, dotTip) => {
+  // src : couleur de la source (legende de la mini-courbe) ; noteCol : couleur du sous-titre (regime de l'algo)
+  const row = (name, note, val, p, go, src, noteCol, noteTip) => {
     const r = scrEl('div', { cls: 'm-row', kids: [
       scrEl('div', { kids: [
-        scrEl('div', { cls: 'm-name', kids: [document.createTextNode(name)].concat(dot ? [scrEl('span', { cls: 'm-dot', attrs: { title: dotTip || '' }, style: 'background:' + dot })] : []) }),
-        scrEl('div', { cls: 'm-note', text: note })] }),
+        scrEl('div', { cls: 'm-name', kids: (src ? [scrEl('span', { cls: 'm-src', style: 'background:' + src })] : []).concat([document.createTextNode(name)]) }),
+        scrEl('div', { cls: 'm-note', text: note, attrs: noteTip ? { title: noteTip } : {}, style: noteCol ? 'color:' + noteCol + ';font-weight:600' : '' })] }),
       scrEl('div', { cls: 'm-val', kids: [
         scrEl('div', { cls: 'm-v', text: val == null ? '–' : E(val) }),
         scrEl('div', { cls: 'm-p', text: p == null ? '–' : P(p), style: p == null ? 'color:var(--text-muted)' : col(p) })] }),
@@ -7100,9 +7160,10 @@ function renderMobileHome() {
   const cbCol = !cb ? '#9aa7b4' : (cbDeg ? '#dd5f66' : (cbSusp ? '#e0a526' : '#1d9e74'));
   const cbTxt = !cb ? 'régime non évaluable' : (cbDeg ? 'algo : dégradation avérée' : (cb.pval < 0.10 ? 'algo : rupture suspectée' : 'algo : aucune rupture'));
   kids.push(scrEl('div', { cls: 'm-list', kids: [
-    row('Trading Auto', cbTxt, A.igNow, pct(A.igPnl, A.igDep), () => mGo('trading', 'real'), cbCol, 'Régime de l’algo (moniteur CUSUM)'),
-    row('Actions', 'portefeuille Revolut', A.stkNow, pct(A.stkPnl, A.stkInv), () => mGo('trading', 'screener')),
-    row('Darwinex', 'compte investisseur', A.dwxNow, pct(A.dwxPnl, A.dwxInv), () => mGo('trading', 'darwinex'))] }));
+    row('Trading Auto', cbTxt, A.igNow, pct(A.igPnl, A.igDep), () => mGo('trading', 'real'), mSrcCol('ig'), cbCol,
+      'Régime de l’algo (moniteur CUSUM) : vert = aucune rupture, orange = rupture suspectée, rouge = dégradation avérée'),
+    row('Actions', 'portefeuille Revolut', A.stkNow, pct(A.stkPnl, A.stkInv), () => mGo('trading', 'screener'), mSrcCol('stk')),
+    row('Darwinex', 'compte investisseur', A.dwxNow, pct(A.dwxPnl, A.dwxInv), () => mGo('trading', 'darwinex'), mSrcCol('dwx'))] }));
   let k = null;
   try { k = kidsCompute(); } catch (e) {}
   if (k && k.value != null) kids.push(scrEl('div', { cls: 'm-list', kids: [
