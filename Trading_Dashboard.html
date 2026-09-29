@@ -6994,6 +6994,7 @@ M_MQ.addEventListener('change', (e) => {
   if (!e.matches && currentTab === 'accueil') switchTab('total');   // l'accueil mobile n'existe pas sur PC
   if (e.matches && currentTab === 'screener') renderScreenerTab();   // construit l'ecran Actions mobile
   if (e.matches && currentTab === 'real') renderMobileReal();
+  if (e.matches && currentTab === 'overview' && typeof renderPortfolioTab === 'function') renderPortfolioTab('overview');
   mNavSync();
 });
 function mGo(group, tab) {
@@ -11187,7 +11188,7 @@ function mpCompact(usd) {   // graduation courte : 27 k$ / 23 k€
   const v = usdToDisp(usd), sym = scrDispSym();
   return Math.abs(v) >= 1000 ? (Math.round(v / 100) / 10).toLocaleString('fr-FR') + ' k' + sym : Math.round(v) + ' ' + sym;
 }
-function mpCurve(hist, fmtY) {   // fmtY : formateur des graduations (defaut : devise du portefeuille d'actions)
+function mpCurve(hist, fmtY, firstLbl) {   // fmtY : formateur des graduations (defaut : devise du portefeuille d'actions)
   const NS = 'http://www.w3.org/2000/svg', W = 340, Hh = 150, pl = 4, pr = 44, pt = 10, pb = 22;
   const pts = (hist || []).filter((h) => h && h.value > 0);
   if (pts.length < 2) return scrEl('div', { cls: 'mp-sub', text: 'La courbe apparaît après deux jours de suivi.' });
@@ -11210,7 +11211,7 @@ function mpCurve(hist, fmtY) {   // fmtY : formateur des graduations (defaut : d
   const lx = x(pts.length - 1), ly = y(vals[vals.length - 1]);
   mk('circle', { cx: lx.toFixed(1), cy: ly.toFixed(1), r: 4.5, fill: '#3563e9', stroke: '#ffffff', 'stroke-width': 2 });
   const d0 = new Date(pts[0].date + 'T12:00:00');
-  mk('text', { x: pl, y: Hh - 5, 'font-size': 10, fill: '#8a97a8' }).textContent = d0.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+  mk('text', { x: pl, y: Hh - 5, 'font-size': 10, fill: '#8a97a8' }).textContent = firstLbl || d0.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
   mk('text', { x: W - pr, y: Hh - 5, 'font-size': 10, fill: '#8a97a8', 'text-anchor': 'end' }).textContent = 'Aujourd’hui';
   return svg;
 }
@@ -12781,6 +12782,8 @@ function renderPortfolioTab(tab) {
   }
   // Onglet Darwinex : il vit dans le groupe TRADING. Les KPI portefeuille (capital brut des
   // 6 plateformes, emprunts, revenu net/mois) n'ont rien a y faire et repetent le bandeau.
+  const mInv = (tab === 'overview');   // mobile : ecran simplifie en tete de la vue d'ensemble
+  if (mInv) h += '<div class="m-only" id="mInv"></div><div class="m-sec">';
   if (tab !== 'darwinex') h += invHeroFrame(t);
 
   // Sync indicator
@@ -12799,7 +12802,10 @@ function renderPortfolioTab(tab) {
   // Footer
   h += `<div style="text-align:center;margin-top:32px;font-size:12px;color:var(--text-secondary);opacity:0.4">Portfolio Dashboard — ${portfolioData.months.length} mois — Dernier : ${portfolioData.months.length > 0 ? invFmMonth(portfolioData.months[portfolioData.months.length - 1]) : ''}</div>`;
 
+  if (mInv) h += '</div><button type="button" class="m-more-btn" onclick="mToggleMore(this)">Afficher les analyses détaillées</button>';
+
   container.innerHTML = h;
+  if (mInv) renderMobileInvest(t, li);
 
   // Build charts after DOM
   requestAnimationFrame(() => {
@@ -12938,6 +12944,117 @@ function invSourcesCardHtml(t) {
       + '<td title="' + etat[2] + '" style="padding:6px 8px;border-bottom:1px solid var(--border);text-align:right;font-weight:700;white-space:nowrap;cursor:help;color:' + etat[1] + '">' + etat[0] + '</td></tr>';
   });
   return h + '</tbody></table></div></div>';
+}
+// ONGLET PORTFOLIO SUR MOBILE : meme modele que les onglets Actions et Trading (scrMobilePortfolio).
+function renderMobileInvest(t, li) {
+  const box = document.getElementById('mInv');
+  if (!box || !M_MQ.matches || !portfolioData) return;
+  const d = portfolioData;
+  const E = (v) => fmt(v) + ' €';
+  const S = (v) => (v >= 0 ? '+' : '') + fmt(v) + ' €';
+  const col = (v) => 'color:' + (v >= 0 ? 'var(--positive)' : 'var(--negative)');
+  const mois = (ym) => ym ? monthNamesFull[parseInt(ym.slice(5, 7), 10) - 1].toLowerCase() : '';
+  const ym = d.months[li] || '', prevYm = li > 0 ? d.months[li - 1] : '';
+  const kids = [];
+  // 1. patrimoine brut, evolution, net et emprunts, revenus du mois
+  const dBrut = (t.tp_prev != null) ? t.tp - t.tp_prev : null;
+  kids.push(scrEl('div', { cls: 'mp-card', kids: [
+    scrEl('div', { cls: 'mp-lbl', text: 'Patrimoine brut investi · fin ' + mois(ym) + ' ' + ym.slice(0, 4) }),
+    scrEl('div', { cls: 'mp-big', text: E(t.tp) }),
+    ...(dBrut != null && Math.abs(dBrut) >= 1 ? [scrEl('div', { cls: 'mp-sub', kids: [scrEl('b', { text: (dBrut >= 0 ? '▲ ' : '▼ ') + S(dBrut), style: col(dBrut) }),
+      document.createTextNode(' vs fin ' + mois(prevYm))] })] : []),
+    scrEl('div', { cls: 'mp-sub', kids: [document.createTextNode('Net '), scrEl('b', { text: E(t.nc), style: 'color:var(--text-primary)' }),
+      document.createTextNode(' après ' + E(t.tl) + ' d’emprunts')] }),
+    scrEl('div', { cls: 'mp-sub', kids: [document.createTextNode('Revenus d’' + mois(ym) + ' '), scrEl('b', { text: S(t.lmi), style: col(t.lmi) }),
+      document.createTextNode(' · net '), scrEl('b', { text: S(t.nmi), style: col(t.nmi) }), document.createTextNode(' après remboursements')] })] }));
+  // 2. courbe du patrimoine brut, mois par mois
+  const serie = [];
+  for (let i = 0; i <= li; i++) {
+    const v = d.platforms.reduce((a, p) => a + invToEur(p, (d.principal[p] || [])[i] || 0), 0);
+    if (v > 0) serie.push({ date: d.months[i] + '-15', value: v });
+  }
+  const eurK = (v) => Math.abs(v) >= 1000 ? Math.round(v / 1000).toLocaleString('fr-FR') + ' k€' : Math.round(v) + ' €';
+  const first = serie.length ? new Date(serie[0].date + 'T12:00:00').toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' }) : '';
+  kids.push(scrEl('div', { cls: 'mp-card', kids: [scrEl('div', { cls: 'mp-lbl', text: 'Évolution du patrimoine brut', style: 'margin-bottom:6px' }), mpCurve(serie, eurK, first)] }));
+  // 3. repartition par nature de risque, et la plus grosse exposition
+  const plats = d.platforms.map((p, i) => {
+    let cum = 0;
+    for (let j = 0; j <= li; j++) cum += invToEur(p, (d.interests[p] || [])[j] || 0);
+    return { p: p, i: i, v: invToEur(p, (d.principal[p] || [])[li] || 0), rev: invToEur(p, (d.interests[p] || [])[li] || 0), cum: cum, nat: INV_NATURE[p] || 'autre' };
+  }).filter((x) => x.v > 0);
+  const tot = plats.reduce((a, x) => a + x.v, 0) || 1;
+  const nats = Object.keys(INV_NATURE_LIB).map((k) => {
+    const ps = plats.filter((x) => x.nat === k).sort((a, b) => b.v - a.v);
+    return { k: k, ps: ps, v: ps.reduce((a, x) => a + x.v, 0), rev: ps.reduce((a, x) => a + x.rev, 0) };
+  }).filter((g) => g.ps.length).sort((a, b) => b.v - a.v);
+  const top = plats.slice().sort((a, b) => b.v - a.v)[0];
+  const topPct = top ? top.v / tot * 100 : 0;
+  const donut = mpDonut(nats.map((g) => ({ value: g.v, color: INV_NATURE_LIB[g.k][1] })), E(t.tp));
+  const lbs = donut.querySelectorAll('text');
+  if (lbs.length) lbs[lbs.length - 1].textContent = 'brut investi';
+  kids.push(scrEl('div', { cls: 'mp-card', kids: [
+    scrEl('div', { cls: 'mp-lbl', text: 'Par nature de risque' }),
+    scrEl('div', { cls: 'mp-donut', kids: [donut] }),
+    ...(top ? [scrEl('div', { cls: 'mp-foot', kids: [document.createTextNode('Plus grosse exposition : ' + top.p + ' '),
+      scrEl('b', { text: topPct.toFixed(0) + ' % du brut', style: 'color:' + (topPct >= 60 ? 'var(--negative)' : (topPct >= 40 ? '#b45309' : 'var(--text-primary)')) })] })] : [])] }));
+  // 4. une carte par nature : les plateformes, avec leurs revenus
+  const maxV = Math.max.apply(null, plats.map((x) => x.v)) || 1;
+  const card = (key, head, rows) => {
+    const c = scrEl('div', { cls: 'mp-card mp-grp' + (MP_CLOSED[key] ? ' closed' : '') });
+    head.onclick = () => { MP_CLOSED[key] = !MP_CLOSED[key]; c.classList.toggle('closed', !!MP_CLOSED[key]); };
+    c.append(head, rows);
+    return c;
+  };
+  nats.forEach((g) => {
+    const rows = scrEl('div', { cls: 'mp-rows' });
+    g.ps.forEach((x) => {
+      const c = invColor(x.p, x.i), marche = INV_MARKET_PLATFORMS.indexOf(x.p) >= 0;
+      rows.appendChild(scrEl('div', { cls: 'mp-row', kids: [
+        scrEl('div', { cls: 'mt-side', text: x.p.slice(0, 2).toUpperCase(), style: 'background:' + invHexToRgba(c, 0.16) + ';color:' + c }),
+        scrEl('div', { cls: 'mp-mid', kids: [
+          scrEl('div', { cls: 'mp-name', text: x.p }),
+          scrEl('div', { cls: 'mp-tk', kids: [document.createTextNode((marche ? 'résultats cumulés ' : 'revenus cumulés ')), scrEl('span', { text: S(x.cum), style: 'font-weight:700;' + col(x.cum) })] }),
+          scrEl('div', { cls: 'mp-bar', kids: [scrEl('i', { style: 'width:' + (x.v / maxV * 100).toFixed(1) + '%;background:' + INV_NATURE_LIB[g.k][1] })] })] }),
+        scrEl('div', { cls: 'mp-right', kids: [
+          scrEl('div', { cls: 'mp-val', text: E(x.v) }),
+          scrEl('div', { cls: 'mp-pv', text: S(x.rev) + ' en ' + mois(ym), style: col(x.rev) }),
+          scrEl('div', { cls: 'mp-w', text: (x.v / tot * 100).toFixed(1) + ' % du brut' })] })] }));
+    });
+    kids.push(card(g.k, scrEl('div', { cls: 'mp-grp-head', kids: [
+      scrEl('span', { cls: 'mp-dot', style: 'background:' + INV_NATURE_LIB[g.k][1] }),
+      scrEl('div', { kids: [scrEl('div', { cls: 'mp-gname', text: INV_NATURE_LIB[g.k][0] }),
+        scrEl('div', { cls: 'mp-tk', kids: [document.createTextNode(g.ps.length + (g.ps.length > 1 ? ' plateformes · ' : ' plateforme · ')),
+          scrEl('span', { text: S(g.rev) + ' en ' + mois(ym), style: 'font-weight:700;' + col(g.rev) })] })] }),
+      scrEl('span', { cls: 'mp-gval', text: E(g.v) }),
+      scrEl('span', { cls: 'mp-gpct', text: (g.v / tot * 100).toFixed(1) + ' %' }),
+      scrEl('span', { cls: 'mp-chev', text: '▾' })] }), rows));
+  });
+  // 5. emprunts : restant du et mensualite
+  const loans = (d.loanNames || []).map((l, i) => ({ l: l, i: i, v: invLoanToEur(l, (d.loans[l] || [])[li] || 0), m: Number((d.loanMonthlyPayments || {})[l]) || 0 }))
+    .filter((x) => x.v > 0).sort((a, b) => b.v - a.v);
+  if (loans.length) {
+    const rows = scrEl('div', { cls: 'mp-rows' });
+    const maxL = Math.max.apply(null, loans.map((x) => x.v)) || 1;
+    loans.forEach((x) => {
+      const c = INV_LC[x.i % 3];
+      rows.appendChild(scrEl('div', { cls: 'mp-row', kids: [
+        scrEl('div', { cls: 'mt-side', text: x.l.replace(/^Emprunt\s+/i, '').slice(0, 2).toUpperCase(), style: 'background:' + invHexToRgba(c, 0.16) + ';color:' + c }),
+        scrEl('div', { cls: 'mp-mid', kids: [
+          scrEl('div', { cls: 'mp-name', text: x.l }),
+          scrEl('div', { cls: 'mp-tk', text: x.m > 0 ? E(x.m) + ' par mois' : 'mensualité non renseignée' }),
+          scrEl('div', { cls: 'mp-bar', kids: [scrEl('i', { style: 'width:' + (x.v / maxL * 100).toFixed(1) + '%;background:var(--negative)' })] })] }),
+        scrEl('div', { cls: 'mp-right', kids: [
+          scrEl('div', { cls: 'mp-val', text: E(x.v) }),
+          scrEl('div', { cls: 'mp-w', text: 'restant dû' })] })] }));
+    });
+    kids.push(card('loans', scrEl('div', { cls: 'mp-grp-head', kids: [
+      scrEl('span', { cls: 'mp-dot', style: 'background:var(--negative)' }),
+      scrEl('div', { kids: [scrEl('div', { cls: 'mp-gname', text: 'Emprunts' }),
+        scrEl('div', { cls: 'mp-tk', text: loans.length + (loans.length > 1 ? ' emprunts · ' : ' emprunt · ') + E(t.tmp) + ' par mois' })] }),
+      scrEl('span', { cls: 'mp-gval', text: '-' + E(t.tl), style: 'color:var(--negative)' }),
+      scrEl('span', { cls: 'mp-chev', text: '▾' })] }), rows));
+  }
+  box.replaceChildren(...kids);
 }
 // ── Overview ──
 function invRenderOverview(t, labels, li) {
