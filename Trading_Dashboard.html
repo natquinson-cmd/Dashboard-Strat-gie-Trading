@@ -4042,7 +4042,10 @@ function ttlStockHist() {
   return [];
 }
 function ttlDwxDates() {
-  return Object.keys(darwinexDaily || {}).filter(k => /^\d{4}-\d{2}-\d{2}$/.test(k) && darwinexDaily[k] && typeof darwinexDaily[k].value === 'number' && darwinexDaily[k].value > 0).sort();
+  const ks = Object.keys(darwinexDaily || {}).filter(k => /^\d{4}-\d{2}-\d{2}$/.test(k) && darwinexDaily[k] && typeof darwinexDaily[k].value === 'number' && isFinite(darwinexDaily[k].value)).sort();
+  // un zero AVANT le premier versement ne compte pas ; APRES, il dit que le compte est solde (retrait total du 29/09/2026)
+  const i0 = ks.findIndex(k => darwinexDaily[k].value > 0);
+  return i0 < 0 ? [] : ks.slice(i0);
 }
 function ttlDailyMap() {
   const fx = ttlEurPerUsd(), map = {};
@@ -4149,6 +4152,13 @@ function ttlAthDaily() {
   return { ath: ath, athDate: athDate, jours: liste.length };
 }
 // Capital total jour par jour (IG + actions + Darwinex), meme cumul par source que ttlAthDaily.
+// Compte Darwinex solde : valeur retombee a zero apres le retrait total (29/09/2026).
+function dwxSolde(v) { return Object.keys(darwinexDaily || {}).length > 0 && Math.abs(v) < 1; }
+// Depots bruts Darwinex (versements positifs, retraits exclus) : la base du % d'un compte solde,
+// dont les apports nets (depots - retraits) ne valent plus que -P&L.
+function dwxGrossIn() {
+  return Object.values(darwinexDaily || {}).reduce((a, x) => a + (x && x.deposit > 0 ? x.deposit : 0), 0);
+}
 function ttlTotalSeries() {
   const fx = ttlEurPerUsd();
   const igEv = [];
@@ -4253,7 +4263,7 @@ function renderTotalTab() {
   ];
   const foot = '<span>' + dot('ig') + 'Trading Auto <b>' + fmt(Math.round(igNow)) + ' €</b></span>'
     + '<span>' + dot('stk') + 'Actions <b>' + fmt(Math.round(stkNow)) + ' €</b>' + (stkUsd ? ' (' + fmt(Math.round(stkUsd)) + ' $)' : '') + '</span>'
-    + '<span>' + dot('dwx') + 'Darwinex <b>' + fmt(Math.round(dwxNow)) + ' €</b></span>';
+    + '<span>' + dot('dwx') + 'Darwinex <b>' + (dwxSolde(dwxNow) ? 'soldé' : fmt(Math.round(dwxNow)) + ' €') + '</b></span>';
   document.getElementById('ttlHero').innerHTML = heroFrameHtml({
     title: 'Patrimoine de trading consolidé · IG + actions + Darwinex, en euros', band: '', bandId: 'ttlDaySummary', cells: cells, foot: foot });
   document.getElementById('ttlKpi').replaceChildren();
@@ -7165,7 +7175,8 @@ function renderMobileHome() {
     row('Trading Auto', cbTxt, A.igNow, pct(A.igPnl, A.igDep), () => mGo('trading', 'real'), mSrcCol('ig'), cbCol,
       'Régime de l’algo (moniteur CUSUM) : vert = aucune rupture, orange = rupture suspectée, rouge = dégradation avérée'),
     row('Actions', 'portefeuille Revolut', A.stkNow, pct(A.stkPnl, A.stkInv), () => mGo('trading', 'screener'), mSrcCol('stk')),
-    row('Darwinex', 'retrait en cours · historique conservé', A.dwxNow, pct(A.dwxPnl, A.dwxInv), null, mSrcCol('dwx'))] }));   // plus d'onglet Darwinex
+    row('Darwinex', dwxSolde(A.dwxNow) ? 'compte soldé · historique conservé' : 'retrait en cours · historique conservé', A.dwxNow,
+      pct(A.dwxPnl, dwxSolde(A.dwxNow) ? dwxGrossIn() : A.dwxInv), null, mSrcCol('dwx'))] }));   // plus d'onglet Darwinex
   let k = null;
   try { k = kidsCompute(); } catch (e) {}
   if (k && k.value != null) kids.push(scrEl('div', { cls: 'm-list', kids: [
