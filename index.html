@@ -1233,6 +1233,60 @@
   .fold-btn:hover, .fold-btn.on { color: #3563e9; }
   html[data-theme="dark"] .fold-btn:hover, html[data-theme="dark"] .fold-btn.on { color: #5c8aee; }
   .fold-body { margin-top: 4px; }
+  /* ═══ VUE MOBILE SIMPLIFIÉE : html.m-mode (largeur <= 700 px), posé par le script ═══ */
+  #mDate, #mDot, #mNav, #mPlus { display: none; }
+  html.m-mode .header { flex-wrap: nowrap; margin-bottom: 12px; gap: 8px; }
+  html.m-mode .header::after { display: none; }
+  html.m-mode .header p, html.m-mode .group-btn, html.m-mode #subTabBar { display: none !important; }
+  html.m-mode .header h1 { font-size: 1.2rem; margin-bottom: 0; gap: 9px; }
+  html.m-mode .header h1 .title-accent { display: none; }
+  html.m-mode .group-bar { display: flex; align-items: center; margin-left: auto; flex-wrap: nowrap; gap: 0; }
+  html.m-mode .theme-btn { width: 34px; height: 34px; }
+  html.m-mode #mDate { display: inline; font-size: 0.78rem; color: var(--text-secondary); white-space: nowrap; }
+  html.m-mode #mDot { display: inline-block; width: 12px; height: 12px; border-radius: 50%; border: none; padding: 0; margin: 0 10px; cursor: pointer; background: #b7c0ca; }
+  html.m-mode #mDot.ok { background: #1d9e74; }
+  html.m-mode #mDot.bad { background: #dd5f66; box-shadow: 0 0 0 4px rgba(221,95,102,0.22); }
+  html[data-theme="dark"].m-mode #mDot.ok { background: #66bb6a; }
+  html[data-theme="dark"].m-mode #mDot.bad { background: #ff5252; }
+  html.m-mode #healthBar, html.m-mode .fresh-badge, html.m-mode #igSyncStatus, html.m-mode #pontStatus, html.m-mode #dashFooter { display: none !important; }
+  html.m-mode.m-hb-open #healthBar { display: flex !important; margin: 0 0 12px; }
+  html.m-mode body { padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
+  html.m-mode #mNav { display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 900; background: var(--bg-card);
+    border-top: 1px solid var(--border); padding: 6px 4px calc(6px + env(safe-area-inset-bottom)); box-shadow: 0 -4px 16px rgba(34,49,77,0.08); }
+  #mNav button { flex: 1; border: none; background: none; display: flex; flex-direction: column; align-items: center; gap: 2px;
+    font: inherit; font-size: 0.66rem; font-weight: 600; color: var(--text-secondary); padding: 4px 0; cursor: pointer; }
+  #mNav button svg { width: 22px; height: 22px; }
+  #mNav button.on { color: #3563e9; }
+  html[data-theme="dark"] #mNav button.on { color: #5c8aee; }
+  html.m-mode #mPlus.open { display: block; position: fixed; left: 0; right: 0; bottom: calc(62px + env(safe-area-inset-bottom)); z-index: 899;
+    background: var(--bg-card); border-top: 1px solid var(--border); border-radius: 16px 16px 0 0; padding: 12px 14px 8px; box-shadow: 0 -10px 30px rgba(0,0,0,0.18); }
+  #mPlus .m-plus-title { font-size: 0.62rem; letter-spacing: .08em; text-transform: uppercase; font-weight: 800; color: var(--text-secondary); margin: 2px 2px 6px; }
+  #mPlus .m-plus-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 10px; }
+  #mPlus button { text-align: left; border: 1px solid var(--border); background: var(--bg-primary); border-radius: 10px; padding: 10px 12px;
+    font: inherit; font-size: 0.8rem; font-weight: 600; color: var(--text-primary); cursor: pointer; }
+  /* écran Accueil */
+  #tab-accueil .m-hero, #tab-accueil .m-card, #tab-accueil .m-list { background: var(--bg-card); border: 1px solid var(--border); }
+  #tab-accueil .m-hero { padding: 16px 18px; border-radius: 16px; margin-bottom: 10px;
+    background-image: linear-gradient(135deg, rgba(95,139,242,0.10), rgba(29,158,116,0.05)); }
+  #tab-accueil .m-lbl { font-size: 0.64rem; letter-spacing: .06em; text-transform: uppercase; font-weight: 700; color: var(--text-secondary); }
+  #tab-accueil .m-big { font-size: 2.2rem; font-weight: 800; line-height: 1.1; margin-top: 4px; color: var(--text-primary); }
+  #tab-accueil .m-sub { font-size: 0.78rem; color: var(--text-secondary); margin-top: 5px; }
+  #tab-accueil .m-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+  #tab-accueil .m-card { padding: 12px 14px; border-radius: 14px; }
+  #tab-accueil .m-mid { font-size: 1.4rem; font-weight: 800; margin-top: 3px; line-height: 1.15; }
+  #tab-accueil .m-pct { font-size: 0.78rem; font-weight: 700; margin-top: 2px; }
+  #tab-accueil .m-list { border-radius: 14px; padding: 0 14px; margin-bottom: 10px; }
+  #tab-accueil .m-row { display: flex; align-items: center; gap: 10px; padding: 12px 0; border-bottom: 1px solid var(--border); cursor: pointer; }
+  #tab-accueil .m-row:last-child { border-bottom: none; }
+  #tab-accueil .m-name { font-weight: 700; font-size: 0.92rem; color: var(--text-primary); }
+  #tab-accueil .m-note { font-size: 0.7rem; color: var(--text-muted); margin-top: 1px; }
+  #tab-accueil .m-val { margin-left: auto; text-align: right; }
+  #tab-accueil .m-v { font-weight: 800; font-size: 1rem; color: var(--text-primary); }
+  #tab-accueil .m-p { font-size: 0.76rem; font-weight: 700; }
+  #tab-accueil .m-chev { color: var(--text-muted); font-size: 1.2rem; line-height: 1; }
+  #tab-accueil .m-dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; margin-left: 7px; vertical-align: 1px; }
+  html[data-theme="dark"] #tab-accueil { --positive: #81c784; }
+  html[data-theme="dark"] #tab-accueil .m-hero { background-image: linear-gradient(135deg, rgba(63,118,237,0.14), rgba(102,187,106,0.05)); }
   /* Santé des données : une ligne discrète sous les onglets, sur toutes les pages. Couleurs en classes
      (et non en style inline) pour que le thème foncé les reprenne sans passer par le moteur de thème. */
   .health-bar { display: flex; justify-content: center; align-items: center; gap: 4px 14px; flex-wrap: wrap;
@@ -1372,6 +1426,7 @@
     <div class="group-bar">
       <button class="group-btn active" onclick="switchGroup('trading')">Trading</button>
       <button class="group-btn" onclick="switchGroup('invest')">Portfolio</button>
+      <span id="mDate"></span><button type="button" id="mDot" onclick="document.documentElement.classList.toggle('m-hb-open')" aria-label="État des données"></button>
       <div class="ccy-toggle" id="ccyToggle" hidden title="Devise d'affichage du portefeuille d'actions et du screener (le reste du dashboard est en euros)">
         <button type="button" data-ccy="USD" onclick="ccySet('USD')">$</button><button type="button" data-ccy="EUR" onclick="ccySet('EUR')">€</button>
       </div>
@@ -1386,6 +1441,14 @@
 
   <!-- SANTE DES DONNEES : age de chaque collecteur du VPS, sur toutes les pages (renderHealthBar) -->
   <div class="health-bar" id="healthBar"></div>
+
+  <!-- VUE MOBILE : ecran Accueil (rempli par renderMobileHome), barre du bas, menu Plus -->
+  <div id="tab-accueil" class="tab-content"></div>
+  <div id="mPlus">
+    <div class="m-plus-title">Trading</div><div class="m-plus-grid"><button type="button" onclick="mGo('trading','total')">Trading total</button><button type="button" onclick="mGo('trading','darwinex')">Darwinex</button><button type="button" onclick="mGo('trading','enfants')">Enfants</button><button type="button" onclick="mGo('trading','fixed')">Backtests</button><button type="button" onclick="mGo('trading','opportunites')">Opportunités IA</button></div>
+    <div class="m-plus-title">Portfolio</div><div class="m-plus-grid"><button type="button" onclick="mGo('invest','interests')">Intérêts</button><button type="button" onclick="mGo('invest','evolution')">Évolution</button><button type="button" onclick="mGo('invest','loans')">Emprunts</button><button type="button" onclick="mGo('invest','realestate')">Immobilier</button><button type="button" onclick="mGo('invest','simulateur')">Rembourser vs Placer</button><button type="button" onclick="mGo('invest','repartition')">Lendermarket</button><button type="button" onclick="mGo('invest','update')">Mise à jour</button></div>
+  </div>
+  <nav id="mNav"><button type="button" data-k="home" onclick="mGo('trading','accueil')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/></svg>Accueil</button><button type="button" data-k="trading" onclick="mGo('trading','real')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 17 9 11 13 15 21 7"/><polyline points="15 7 21 7 21 13"/></svg>Trading</button><button type="button" data-k="actions" onclick="mGo('trading','screener')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V11"/><path d="M10 20V5"/><path d="M16 20v-8"/><path d="M22 20H2"/></svg>Actions</button><button type="button" data-k="portfolio" onclick="mGo('invest','overview')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="14" rx="2"/><path d="M3 10h18"/><path d="M16 14h2"/></svg>Portfolio</button><button type="button" data-k="plus" onclick="mPlusToggle(event)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/></svg>Plus</button></nav>
 
   <!-- ═══════════════════════ TAB 0 : REAL TRADING ═══════════════════════ -->
   <div id="tab-total" class="tab-content active">
@@ -4040,7 +4103,9 @@ function ttlEquityAtMonthStart(y, m) {
   return base;
 }
 
-function renderTotalTab() {
+// Calculs de l'onglet Trading total, partages avec l'ecran Accueil mobile (memes chiffres partout).
+// Met aussi a jour ttlDayData, ttlSeries, ttlEqMonths et ttlMonthPnl.
+function ttlCompute() {
   const fx = ttlEurPerUsd();
   const igDep = (typeof getTotalDeposits === 'function') ? getTotalDeposits() : 0;
   const igTrades = (typeof realTrades !== 'undefined' && realTrades) ? realTrades.reduce((a,t) => a+(t[2]||0), 0) : 0;
@@ -4064,6 +4129,10 @@ function renderTotalTab() {
   ttlEqMonths = { months: ttlSeries.months, total: ttlSeries.months.map((_,i) => (ttlSeries.ig[i]||0)+(ttlSeries.stk[i]||0)+(ttlSeries.dwx[i]||0)) };
   ttlMonthPnl = {};
   Object.keys(ttlDayData).forEach(d => { const ym = d.slice(0,7); const o = ttlMonthPnl[ym] || (ttlMonthPnl[ym] = { ig:0, stk:0, dwx:0, total:0 }); o.ig += ttlDayData[d].ig; o.stk += ttlDayData[d].stk; o.dwx += ttlDayData[d].dwx; o.total += ttlDayData[d].total; });
+  return { fx, igDep, igNow, igPnl, stkUsd, stkNow, stkPnl, stkInv, dwxNow, dwxPnl, dwxInv, capTotal, pnlTotal, invTotal, pnlPct };
+}
+function renderTotalTab() {
+  const { igNow, igPnl, stkUsd, stkNow, stkPnl, dwxNow, dwxPnl, capTotal, pnlTotal, invTotal, pnlPct } = ttlCompute();
 
   // Le jour même compte aussi : si le patrimoine actuel dépasse tous les points passés,
   // c'est un vrai plus-haut. Ce qui changeait, c'est que les pics intra-mois étaient perdus.
@@ -4129,6 +4198,15 @@ function renderTotalTab() {
   ttlBuildDaily(); ttlBuildMonthly(); ttlBuildRiskReturn(); ttlBuildYearHeat();
 }
 
+// Variation du jour des lignes detenues, de la plus forte hausse a la plus forte baisse. Source :
+// stocks/screener/livePrices/prices (2 Ko, ecoute par loadHealthBar) ; la carte des cours complete, elle,
+// n'est chargee que sur l'onglet Portefeuille d'actions.
+function ttlMovers() {
+  const court = (t) => String(t).replace(/(\.[A-Z]{1,3}|-USD)$/, '');
+  const lp = Array.isArray(TTL_LP) ? TTL_LP : (TTL_LP ? Object.values(TTL_LP) : []);
+  return lp.map((d) => (d && d.ticker && d.changePct != null && isFinite(d.changePct)) ? { t: court(d.ticker), c: d.changePct } : null)
+    .filter(Boolean).sort((a, b) => b.c - a.c);
+}
 // RESUME DU JOUR (Trading total), une ligne en tete du cadre : ce qu'il faut savoir en ouvrant le
 // dashboard, sans descendre. P&L du dernier jour toutes sources, la ligne du portefeuille qui a le plus
 // monte et celle qui a le plus baisse, puis les alertes (collecteur en panne, regime algo, Darwinex).
@@ -4150,12 +4228,7 @@ function renderTtlDaySummary() {
     out.push(item(mk('span', lib + ' : '), mk('b', (v >= 0 ? '+' : '') + fmt(v) + ' €', col(v))));
   }
   // 2. plus forte hausse et plus forte baisse du portefeuille d'actions (variation du jour des cours)
-  const court = (t) => String(t).replace(/(\.[A-Z]{1,3}|-USD)$/, '');
-  // source : stocks/screener/livePrices/prices (les lignes detenues, 2 Ko), ecoute par loadHealthBar ;
-  // la carte des cours complete, elle, n'est chargee que sur l'onglet Portefeuille d'actions
-  const lp = Array.isArray(TTL_LP) ? TTL_LP : (TTL_LP ? Object.values(TTL_LP) : []);
-  const mv = lp.map((d) => (d && d.ticker && d.changePct != null && isFinite(d.changePct)) ? { t: court(d.ticker), c: d.changePct } : null)
-    .filter(Boolean).sort((a, b) => b.c - a.c);
+  const mv = ttlMovers();
   if (mv.length >= 2) {
     const pc = (m) => m.t + ' ' + (m.c >= 0 ? '+' : '') + (m.c * 100).toFixed(1) + ' %';
     out.push(item(mk('span', 'Actions : '), mk('b', '▲ ' + pc(mv[0]), col(mv[0].c)), mk('span', ' · '), mk('b', '▼ ' + pc(mv[mv.length - 1]), col(mv[mv.length - 1].c))));
@@ -5463,6 +5536,7 @@ function renderHealthBar() {
   const open = HB_OPEN && items.find(i => i.key === HB_OPEN);
   if (open) el.appendChild(mk('div', 'hb-detail', open.label + ' : ' + open.tip));
   if (typeof renderTtlDaySummary === 'function') renderTtlDaySummary();   // ses alertes lisent ces statuts
+  mDotSync();
 }
 function loadHealthBar() {
   if (typeof db === 'undefined' || !db) return Promise.resolve();
@@ -5475,7 +5549,7 @@ function loadHealthBar() {
   sub('dashboard/pontIG', 'pont');
   sub('igSyncStatus', 'igSync');
   sub('stocks/kidsPrice/at', 'kids');
-  try { db.ref('stocks/screener/livePrices/prices').on('value', (x) => { TTL_LP = x.val(); renderTtlDaySummary(); }); } catch (e) {}
+  try { db.ref('stocks/screener/livePrices/prices').on('value', (x) => { TTL_LP = x.val(); renderTtlDaySummary(); if (currentTab === 'accueil') renderMobileHome(); }); } catch (e) {}
   renderHealthBar();
   setInterval(renderHealthBar, 60000);   // les ages vieillissent meme sans nouvel evenement
   return Promise.resolve();
@@ -6842,6 +6916,135 @@ function initCapitalSlider(tabName) {
 // ══════════════════════════════════════════════════════════════
 let currentGroup = 'trading';
 let currentTab = 'total';
+// ═════════════════════════════════════════════════════════════════
+// VUE MOBILE SIMPLIFIEE (largeur <= 700 px) : ecran Accueil par defaut, barre de navigation en bas,
+// en-tete sur une ligne avec un seul point d'etat des donnees. La version PC ne change pas.
+// ═════════════════════════════════════════════════════════════════
+const M_MQ = window.matchMedia('(max-width: 700px)');
+document.documentElement.classList.toggle('m-mode', M_MQ.matches);
+if (M_MQ.matches) {
+  currentTab = 'accueil';
+  const tt = document.getElementById('tab-total'), ta = document.getElementById('tab-accueil');
+  if (tt) tt.classList.remove('active');
+  if (ta) ta.classList.add('active');
+}
+(function () {
+  const d = document.getElementById('mDate');
+  if (d) d.textContent = new Date().toLocaleDateString('fr-FR', { weekday: 'short', day: '2-digit', month: '2-digit' });
+})();
+M_MQ.addEventListener('change', (e) => {
+  document.documentElement.classList.toggle('m-mode', e.matches);
+  if (!e.matches && currentTab === 'accueil') switchTab('total');   // l'accueil mobile n'existe pas sur PC
+  mNavSync();
+});
+function mGo(group, tab) {
+  mPlusClose();
+  if (group !== currentGroup) switchGroup(group);
+  if (tab && tab !== currentTab) switchTab(tab);
+  window.scrollTo(0, 0);
+  mNavSync();
+}
+function mNavSync() {
+  const nav = document.getElementById('mNav');
+  if (!nav) return;
+  const k = currentTab === 'accueil' ? 'home' : (currentTab === 'real' ? 'trading' : (currentTab === 'screener' ? 'actions'
+    : (currentGroup === 'invest' ? 'portfolio' : 'plus')));
+  nav.querySelectorAll('button').forEach((b) => b.classList.toggle('on', b.dataset.k === k));
+}
+function mPlusClose() { const p = document.getElementById('mPlus'); if (p) p.classList.remove('open'); }
+function mPlusToggle(ev) {
+  if (ev) ev.stopPropagation();
+  const p = document.getElementById('mPlus');
+  if (p) p.classList.toggle('open');
+}
+document.addEventListener('click', (e) => {
+  const p = document.getElementById('mPlus');
+  if (p && p.classList.contains('open') && !p.contains(e.target)) p.classList.remove('open');
+});
+// Point d'etat en haut a droite : vert si tous les collecteurs vont bien, rouge si l'un est en panne
+// (meme jugement que la barre sante, qui reste accessible en touchant le point).
+function mDotSync() {
+  const d = document.getElementById('mDot');
+  if (!d || typeof hbItems !== 'function') return;
+  const items = hbItems(), bad = items.filter((i) => i.level === 'bad');
+  d.className = bad.length ? 'bad' : (items.some((i) => i.level === 'wait') ? '' : 'ok');
+  d.title = bad.length ? ('En panne : ' + bad.map((i) => i.label).join(', ') + '. Touche pour le détail.') : 'Données à jour. Touche pour le détail.';
+}
+// ECRAN ACCUEIL MOBILE : l'essentiel en un coup d'oeil, sans defiler.
+function renderMobileHome() {
+  const box = document.getElementById('tab-accueil');
+  if (!box) return;
+  let A;
+  try { A = ttlCompute(); } catch (e) { box.replaceChildren(scrEl('div', { cls: 'm-card', text: 'Données en cours de chargement…' })); return; }
+  const E = (v) => fmt(v) + ' €';
+  const S = (v) => (v >= 0 ? '+' : '') + fmt(v) + ' €';
+  const P = (v, dec) => (v >= 0 ? '+' : '') + v.toFixed(dec == null ? 1 : dec) + ' %';
+  const col = (v) => 'color:' + (v >= 0 ? 'var(--positive)' : 'var(--negative)');
+  const pct = (num, den) => (den > 0 && isFinite(num)) ? num / den * 100 : null;
+  const kids = [];
+  // 1. capital total : Trading Auto + actions + Darwinex (la poche des enfants est a part)
+  kids.push(scrEl('div', { cls: 'm-hero', kids: [
+    scrEl('div', { cls: 'm-lbl', text: 'Capital total' }),
+    scrEl('div', { cls: 'm-big', text: E(A.capTotal) }),
+    scrEl('div', { cls: 'm-sub', kids: [
+      scrEl('span', { text: (A.pnlTotal >= 0 ? '▲ ' : '▼ ') + S(A.pnlTotal) + ' (' + P(A.pnlPct) + ')', style: 'font-weight:700;' + col(A.pnlTotal) }),
+      document.createTextNode(' sur ' + E(A.invTotal) + ' investis')] })] }));
+  // 2. aujourd'hui (ou derniere seance) et mois en cours : montant + % du capital de debut de mois,
+  //    la meme base que les calendriers de Trading total
+  const card = (lbl, v, p, vide) => scrEl('div', { cls: 'm-card', kids: [
+    scrEl('div', { cls: 'm-lbl', text: lbl }),
+    scrEl('div', { cls: 'm-mid', text: v == null ? '–' : S(v), style: v == null ? '' : col(v) }),
+    scrEl('div', { cls: 'm-pct', text: p == null ? (vide || '') : P(p, 2), style: p == null ? 'color:var(--text-muted)' : col(p) })] });
+  const dd = ttlDayData || {}, jours = Object.keys(dd).sort(), auj = scrLocalDay(new Date());
+  const dk = dd[auj] ? auj : jours[jours.length - 1];
+  let cDay = card("Aujourd'hui", null, null, 'pas encore de séance');
+  if (dk) {
+    const v = dd[dk].total || 0, base = ttlEquityAtMonthStart(+dk.slice(0, 4), +dk.slice(5, 7) - 1);
+    const lib = dk === auj ? "Aujourd'hui" : new Date(dk + 'T12:00:00').toLocaleDateString('fr-FR', { weekday: 'long', day: '2-digit', month: '2-digit' });
+    cDay = card(lib, v, pct(v, base));
+  }
+  const now = new Date(), ym = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+  const pm = (ttlMonthPnl[ym] || {}).total || 0;
+  const cMonth = card(monthNamesFull[now.getMonth()], pm, pct(pm, ttlEquityAtMonthStart(now.getFullYear(), now.getMonth())));
+  kids.push(scrEl('div', { cls: 'm-grid2', kids: [cDay, cMonth] }));
+  // 3. les poches : valeur et plus-value totale en % des apports ; toucher une ligne ouvre l'onglet
+  const row = (name, note, val, p, go, dot, dotTip) => {
+    const r = scrEl('div', { cls: 'm-row', kids: [
+      scrEl('div', { kids: [
+        scrEl('div', { cls: 'm-name', kids: [document.createTextNode(name)].concat(dot ? [scrEl('span', { cls: 'm-dot', attrs: { title: dotTip || '' }, style: 'background:' + dot })] : []) }),
+        scrEl('div', { cls: 'm-note', text: note })] }),
+      scrEl('div', { cls: 'm-val', kids: [
+        scrEl('div', { cls: 'm-v', text: val == null ? '–' : E(val) }),
+        scrEl('div', { cls: 'm-p', text: p == null ? '–' : P(p), style: p == null ? 'color:var(--text-muted)' : col(p) })] }),
+      scrEl('span', { cls: 'm-chev', text: '›' })] });
+    r.onclick = go;
+    return r;
+  };
+  let cb = null;
+  try { cb = computeCusumBreak(null); } catch (e) {}
+  const cbDeg = cb && cb.pval < 0.05 && cb.degrade, cbSusp = cb && (cb.pval < 0.10 || cb.S >= 3);
+  const cbCol = !cb ? '#9aa7b4' : (cbDeg ? '#dd5f66' : (cbSusp ? '#e0a526' : '#1d9e74'));
+  const cbTxt = !cb ? 'régime non évaluable' : (cbDeg ? 'algo : dégradation avérée' : (cb.pval < 0.10 ? 'algo : rupture suspectée' : 'algo : aucune rupture'));
+  kids.push(scrEl('div', { cls: 'm-list', kids: [
+    row('Trading Auto', cbTxt, A.igNow, pct(A.igPnl, A.igDep), () => mGo('trading', 'real'), cbCol, 'Régime de l’algo (moniteur CUSUM)'),
+    row('Actions', 'portefeuille Revolut', A.stkNow, pct(A.stkPnl, A.stkInv), () => mGo('trading', 'screener')),
+    row('Darwinex', 'compte investisseur', A.dwxNow, pct(A.dwxPnl, A.dwxInv), () => mGo('trading', 'darwinex'))] }));
+  let k = null;
+  try { k = kidsCompute(); } catch (e) {}
+  if (k && k.value != null) kids.push(scrEl('div', { cls: 'm-list', kids: [
+    row('Enfants', 'poche séparée, hors capital total', k.value, k.pnlPct != null ? k.pnlPct * 100 : null, () => mGo('trading', 'enfants'))] }));
+  // 4. actions du jour : plus forte hausse et plus forte baisse
+  const mv = ttlMovers();
+  if (mv.length >= 2) {
+    const pc = (m) => m.t + ' ' + (m.c >= 0 ? '+' : '') + (m.c * 100).toFixed(1) + ' %', lo = mv[mv.length - 1];
+    kids.push(scrEl('div', { cls: 'm-card', kids: [
+      scrEl('div', { cls: 'm-lbl', text: 'Actions du jour' }),
+      scrEl('div', { style: 'display:flex;justify-content:space-between;gap:10px;margin-top:6px;font-weight:700;font-size:0.92rem', kids: [
+        scrEl('span', { text: '▲ ' + pc(mv[0]), style: col(mv[0].c) }),
+        scrEl('span', { text: '▼ ' + pc(lo), style: col(lo.c) })] })] }));
+  }
+  box.replaceChildren(...kids);
+}
 const tabRendered = { real: false, fixed: false, reinvest: false };
 
 // Logos officiels des plateformes (favicons/marques reelles) pour les onglets
@@ -6876,7 +7079,7 @@ const GROUP_TABS = {
   ]
 };
 
-const ALL_TAB_IDS = ['total', 'real', 'fixed', 'reinvest', 'overview', 'interests', 'evolution', 'loans', 'realestate', 'darwinex', 'simulateur', 'repartition', 'screener', 'opportunites', 'enfants', 'update'];
+const ALL_TAB_IDS = ['accueil', 'total', 'real', 'fixed', 'reinvest', 'overview', 'interests', 'evolution', 'loans', 'realestate', 'darwinex', 'simulateur', 'repartition', 'screener', 'opportunites', 'enfants', 'update'];
 
 // Dernier backtest consulte (fixe ou reinvesti), pour que l'onglet « Backtests » le rouvre.
 function btLastTab() {
@@ -6964,6 +7167,8 @@ function activateTab(tab) {
   const el = document.getElementById('tab-' + tab);
   if (el) el.classList.add('active');
   ccyToggleSync();   // selecteur $ / € de l'en-tete : visible la ou il agit
+  mNavSync();
+  if (tab === 'accueil') { renderMobileHome(); return; }
   if (tab === 'fixed' || tab === 'reinvest') { try { localStorage.setItem('btLastTab', tab); } catch (e) {} }
 
   // Trading total : agrégat des 3 sources (rendu autonome)
@@ -9506,7 +9711,7 @@ function scrFreshness(iso) {
 function scrFreshBadge(iso, titreCtx) {
   const f = scrFreshness(iso);
   if (!f) return scrEl('span');
-  return scrEl('span', { attrs: { title: titreCtx ? (titreCtx + ' Dernière mise à jour ' + f.age + '.') : f.title }, text: (f.level === 'bad' ? '⚠ ' : '') + f.age,
+  return scrEl('span', { cls: 'fresh-badge', attrs: { title: titreCtx ? (titreCtx + ' Dernière mise à jour ' + f.age + '.') : f.title }, text: (f.level === 'bad' ? '⚠ ' : '') + f.age,
     style: 'margin-left:8px;padding:1px 9px;border-radius:20px;font-size:0.7rem;font-weight:800;'
       + 'cursor:help;white-space:nowrap;color:' + f.fg + ';background:' + f.bg });
 }
@@ -9559,6 +9764,7 @@ function scrLiveFreshness(atIso) {
 // "cours" = dernier echange en bourse, "collecte" = dernier passage du cron. Les afficher tous les
 // deux leve l'ambiguite du matin (cours de la veille alors que la collecte vient d'avoir lieu).
 function scrLiveBadgeUpdate(el, atIso, marketMs, extraTip) {
+  el.classList.add('fresh-badge');   // masquee sur mobile (le point d'etat de l'en-tete la resume)
   const f = scrLiveFreshness(atIso);
   const fg = f ? f.fg : '#9aa7b4';
   const hm = (ms) => new Date(ms).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
@@ -13252,7 +13458,7 @@ function invRenderDarwinex() {
   h += `<div class="inv-card" style="background:linear-gradient(135deg, rgba(95,139,242,0.08), rgba(29,158,116,0.04));border:1px solid rgba(95,139,242,0.18);padding:18px 24px;margin-bottom:20px">`;
   h += `<div style="display:flex;justify-content:space-between;align-items:baseline;gap:14px;flex-wrap:wrap;margin-bottom:16px">`;
   h += `<div style="font-size:0.7rem;letter-spacing:1px;color:var(--text-secondary);text-transform:uppercase;font-weight:700">Darwinex Classic · compte investisseur</div>`;
-  h += `<div style="font-size:0.74rem;color:var(--text-secondary)">${freshness}</div>`;
+  h += `<div class="fresh-badge" style="font-size:0.74rem;color:var(--text-secondary)">${freshness}</div>`;
   h += `</div>`;
   h += `<div style="display:flex;flex-wrap:wrap;align-items:flex-start;row-gap:18px">`;
   h += dwxCell('Valeur actuelle', fmtE(d.currentValue||0),
@@ -14999,6 +15205,8 @@ Promise.all([
   renderTotalTab();
   tabRendered.total = true;
   renderSubTabs();
+  if (currentTab === 'accueil') renderMobileHome();
+  mNavSync();
   displayDashTimestamp();
   // après un changement de thème (rechargement), on revient sur l'onglet où l'on était
   try {
