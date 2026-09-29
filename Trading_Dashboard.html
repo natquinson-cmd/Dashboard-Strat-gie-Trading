@@ -7021,6 +7021,7 @@ M_MQ.addEventListener('change', (e) => {
   if (!e.matches && currentTab === 'accueil') switchTab('total');   // l'accueil mobile n'existe pas sur PC
   if (e.matches && currentTab === 'screener') renderScreenerTab();   // construit l'ecran Actions mobile
   if (e.matches && currentTab === 'real') renderMobileReal();
+  if (e.matches && currentTab === 'enfants') renderEnfantsTab();
   if (e.matches && currentTab === 'overview' && typeof renderPortfolioTab === 'function') renderPortfolioTab('overview');
   mNavSync();
 });
@@ -8765,6 +8766,90 @@ async function renderOppTab() {
   else oppRenderPepites(body);
 }
 
+// ONGLET ENFANTS SUR MOBILE : meme modele que les onglets Actions, Trading et Portfolio.
+function mKidsScreen(o) {
+  const cfg = o.cfg, agg = o.agg, box = scrEl('div');
+  const E = (v) => fmt(v) + ' €';
+  const S = (v) => (v >= 0 ? '+' : '') + fmt(v) + ' €';
+  const P = (v, dec) => (v >= 0 ? '+' : '') + (v * 100).toFixed(dec == null ? 1 : dec) + ' %';
+  const col = (v) => 'color:' + (v >= 0 ? 'var(--positive)' : 'var(--negative)');
+  const eurK = (v) => Math.abs(v) >= 1000 ? (Math.round(v / 100) / 10).toLocaleString('fr-FR') + ' k€' : Math.round(v) + ' €';
+  if (agg.value == null) { box.appendChild(scrEl('div', { cls: 'mp-card', text: 'Cours de l’ETF indisponible pour l’instant.' })); return box; }
+  const tk = String(cfg.ticker || '').replace(/\.[A-Z]{1,3}$/, '');
+  // 1. valeur, jour, plus-value, mois
+  const lignes = [scrEl('div', { cls: 'mp-lbl', text: 'Épargne des enfants · ' + tk }), scrEl('div', { cls: 'mp-big', text: E(agg.value) })];
+  if (o.kDay != null) lignes.push(scrEl('div', { cls: 'mp-sub', kids: [scrEl('b', { text: (o.kDay >= 0 ? '▲ ' : '▼ ') + S(o.kDay) + (o.kDayPct != null ? ' (' + P(o.kDayPct, 2) + ')' : ''), style: col(o.kDay) }),
+    document.createTextNode(' sur la journée')] }));
+  if (agg.pnl != null) lignes.push(scrEl('div', { cls: 'mp-sub', kids: [document.createTextNode('Plus-value '), scrEl('b', { text: S(agg.pnl) + ' (' + P(agg.pnlPct) + ')', style: col(agg.pnl) }),
+    document.createTextNode(' sur ' + E(agg.invested) + ' versés')] }));
+  if (o.kMonth != null) lignes.push(scrEl('div', { cls: 'mp-sub', kids: [document.createTextNode(monthNamesFull[new Date().getMonth()] + ' '),
+    scrEl('b', { text: S(o.kMonth) + (o.kMonthPct != null ? ' (' + P(o.kMonthPct) + ')' : ''), style: col(o.kMonth) })] }));
+  box.appendChild(scrEl('div', { cls: 'mp-card', kids: lignes }));
+  // 2. courbe de la valeur de la poche
+  box.appendChild(scrEl('div', { cls: 'mp-card', kids: [scrEl('div', { cls: 'mp-lbl', text: 'Évolution de la poche', style: 'margin-bottom:6px' }), mpCurve(o.serie, eurK)] }));
+  // 3. repartition entre les enfants (par les parts)
+  const kids = agg.kids.filter((k) => k.units > 0);
+  const donut = mpDonut(kids.map((k, i) => ({ value: k.units, color: kidColor(k.child, i) })), E(agg.value));
+  const lbs = donut.querySelectorAll('text');
+  if (lbs.length) lbs[lbs.length - 1].textContent = 'valeur de la poche';
+  box.appendChild(scrEl('div', { cls: 'mp-card', kids: [scrEl('div', { cls: 'mp-lbl', text: 'Répartition entre les enfants' }), scrEl('div', { cls: 'mp-donut', kids: [donut] })] }));
+  // 4. par enfant : parts, verse, valeur, plus-value, part du pot
+  const maxU = Math.max.apply(null, kids.map((k) => k.units)) || 1;
+  const rows = scrEl('div', { cls: 'mp-rows' });
+  kids.forEach((k, i) => {
+    const c = kidColor(k.child, i);
+    rows.appendChild(scrEl('div', { cls: 'mp-row', kids: [
+      scrEl('div', { cls: 'mt-side', text: String(k.child).slice(0, 1).toUpperCase(), style: 'border-radius:50%;font-size:0.9rem;background:' + c + ';color:' + (mpLight(c) ? '#22303f' : '#ffffff') }),
+      scrEl('div', { cls: 'mp-mid', kids: [
+        scrEl('div', { cls: 'mp-name', text: k.child }),
+        scrEl('div', { cls: 'mp-tk', text: (+k.units.toFixed(3)).toLocaleString('fr-FR') + ' parts · versé ' + E(k.invested) }),
+        scrEl('div', { cls: 'mp-bar', kids: [scrEl('i', { style: 'width:' + (k.units / maxU * 100).toFixed(1) + '%;background:' + c })] })] }),
+      scrEl('div', { cls: 'mp-right', kids: [
+        scrEl('div', { cls: 'mp-val', text: k.value == null ? '–' : E(k.value) }),
+        scrEl('div', { cls: 'mp-pv', text: k.pnl == null ? '–' : S(k.pnl) + (k.pct != null ? ' (' + P(k.pct) + ')' : ''), style: k.pnl == null ? 'color:var(--text-muted)' : col(k.pnl) }),
+        scrEl('div', { cls: 'mp-w', text: (k.share * 100).toFixed(1) + ' % du pot' })] })] }));
+  });
+  const cKids = scrEl('div', { cls: 'mp-card mp-grp' + (MP_CLOSED.kids ? ' closed' : '') });
+  const hKids = scrEl('div', { cls: 'mp-grp-head', kids: [
+    scrEl('div', { kids: [scrEl('div', { cls: 'mp-gname', text: 'Par enfant' }), scrEl('div', { cls: 'mp-tk', text: kids.length + ' enfants · ' + (+agg.units.toFixed(3)).toLocaleString('fr-FR') + ' parts au total' })] }),
+    scrEl('span', { cls: 'mp-gval', text: E(agg.value) }),
+    scrEl('span', { cls: 'mp-chev', text: '▾' })] });
+  hKids.onclick = () => { MP_CLOSED.kids = !MP_CLOSED.kids; cKids.classList.toggle('closed', !!MP_CLOSED.kids); };
+  cKids.append(hKids, rows);
+  box.appendChild(cKids);
+  // 5. derniers versements (repliee par defaut)
+  const jr = kidsJournal().slice(-8).reverse();
+  if (jr.length) {
+    const rj = scrEl('div', { cls: 'mp-rows' });
+    jr.forEach((v) => {
+      const i = kids.findIndex((k) => kidKey(k.child) === kidKey(v.child)), c = kidColor(v.child, i < 0 ? 0 : i);
+      rj.appendChild(scrEl('div', { cls: 'mp-row', kids: [
+        scrEl('span', { cls: 'mp-dot', style: 'margin-top:5px;background:' + c }),
+        scrEl('div', { cls: 'mp-mid', kids: [
+          scrEl('div', { cls: 'mp-name', text: v.child }),
+          scrEl('div', { cls: 'mp-tk', text: new Date(v.date + 'T12:00:00').toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })
+            + (v.source === 'lendermarket' ? ' · Lendermarket' : '') })] }),
+        scrEl('div', { cls: 'mp-right', kids: [
+          scrEl('div', { cls: 'mp-val', text: E(v.amount) }),
+          scrEl('div', { cls: 'mp-w', text: (+v.units.toFixed(3)).toLocaleString('fr-FR') + ' parts' })] })] }));
+    });
+    const openV = MP_CLOSED.versements === false;   // repliee tant qu'on ne l'a pas ouverte
+    const cV = scrEl('div', { cls: 'mp-card mp-grp' + (openV ? '' : ' closed') });
+    const hV = scrEl('div', { cls: 'mp-grp-head', kids: [
+      scrEl('div', { kids: [scrEl('div', { cls: 'mp-gname', text: 'Derniers versements' }), scrEl('div', { cls: 'mp-tk', text: jr.length + ' plus récents' })] }),
+      scrEl('span', { cls: 'mp-chev', text: '▾', style: 'margin-left:auto' })] });
+    hV.onclick = () => { const closed = cV.classList.toggle('closed'); MP_CLOSED.versements = closed; };
+    cV.append(hV, rj);
+    box.appendChild(cV);
+  }
+  // 6. projection a l'horizon choisi (hypothese, pas une promesse)
+  const y = cfg.horizonYears, r = cfg.annualReturn, proj = agg.value * Math.pow(1 + r, y);
+  box.appendChild(scrEl('div', { cls: 'mp-card', kids: [
+    scrEl('div', { cls: 'mp-lbl', text: 'Projection à ' + y + ' ans' }),
+    scrEl('div', { style: 'font-size:1.4rem;font-weight:800;margin-top:3px;color:var(--text-primary)', text: E(proj) }),
+    scrEl('div', { cls: 'mp-sub', text: 'sans nouveau versement, à ' + (r * 100).toFixed(1) + ' % par an : une hypothèse, pas une promesse' })] }));
+  return box;
+}
 function renderEnfantsTab() {
   const c = document.getElementById('tab-enfants');
   if (!c) return;
@@ -9093,7 +9178,12 @@ function renderEnfantsTab() {
   wrap.appendChild(scrFoldNote('Comment cette poche est comptée', scrEl('div', { style: 'font-size:0.68rem;color:#9aa7b4;line-height:1.5',
     text: 'Cette poche est totalement isolée du reste du dashboard : elle n’est comptée ni dans ton capital, ni dans ta performance, ni dans ta répartition. La répartition entre enfants repose sur le NOMBRE DE PARTS de chacun, jamais sur un pourcentage figé, pour rester exacte quels que soient les cours au moment de chaque versement.' }), 'kidsIsole', 'margin-top:12px'));
   const outer = scrEl('div');
-  outer.appendChild(hero); outer.appendChild(wrap);
+  // mobile : l'ecran simplifie en tete, le contenu PC (reglages et saisie compris) derriere le bouton
+  if (M_MQ.matches) outer.appendChild(scrEl('div', { cls: 'm-only', kids: [mKidsScreen({ cfg: cfg, agg: agg, serie: serie, kDay: kDay, kDayPct: kDayPct, kMonth: kMonth, kMonthPct: kMonthPct })] }));
+  hero.classList.add('m-sec'); wrap.classList.add('m-sec');
+  const mBtn = scrEl('button', { cls: 'm-more-btn', attrs: { type: 'button' }, text: c.classList.contains('m-open') ? 'Masquer les analyses détaillées' : 'Afficher les analyses détaillées' });
+  mBtn.onclick = () => mToggleMore(mBtn);
+  outer.appendChild(hero); outer.appendChild(wrap); outer.appendChild(mBtn);
   c.replaceChildren(outer);
 }
 
@@ -11276,8 +11366,13 @@ function mpCurve(hist, fmtY, firstLbl) {   // fmtY : formateur des graduations (
   mk('text', { x: W - pr, y: Hh - 5, 'font-size': 10, fill: '#8a97a8', 'text-anchor': 'end' }).textContent = 'Aujourd’hui';
   return svg;
 }
+function mpLight(hex) {   // couleur claire (jaune fluo...) : etiquette en encre sombre, sinon illisible
+  const h = String(hex || '').replace('#', '');
+  if (h.length !== 6) return false;
+  return (0.299 * parseInt(h.slice(0, 2), 16) + 0.587 * parseInt(h.slice(2, 4), 16) + 0.114 * parseInt(h.slice(4, 6), 16)) / 255 > 0.72;
+}
 function mpDonut(items, centre) {
-  const NS = 'http://www.w3.org/2000/svg', S = 210, c = S / 2, r = 76, sw = 34, C = 2 * Math.PI * r;
+  const NS = 'http://www.w3.org/2000/svg', S = 210, c = S / 2, r = 74, sw = 42, C = 2 * Math.PI * r;   // anneau large : les % tiennent dedans meme sur les cotes
   const tot = items.reduce((a, it) => a + it.value, 0) || 1;
   const svg = document.createElementNS(NS, 'svg');
   svg.setAttribute('viewBox', '0 0 ' + S + ' ' + S); svg.setAttribute('width', S); svg.setAttribute('height', S);
@@ -11290,7 +11385,7 @@ function mpDonut(items, centre) {
       'stroke-dashoffset': (-acc).toFixed(2), transform: 'rotate(-90 ' + c + ' ' + c + ')' });
     const share = it.value / tot, ang = (acc + len / 2) / C * 2 * Math.PI - Math.PI / 2;
     if (share >= 0.04) mk('text', { x: (c + r * Math.cos(ang)).toFixed(1), y: (c + r * Math.sin(ang) + 4).toFixed(1), 'text-anchor': 'middle',
-      'font-size': 11.5, 'font-weight': 800, fill: '#ffffff' }).textContent = (share * 100).toFixed(1) + ' %';
+      'font-size': 10.5, 'font-weight': 800, fill: mpLight(it.color) ? '#22303f' : '#ffffff' }).textContent = (share * 100).toFixed(1) + ' %';
     acc += len;
   });
   mk('text', { x: c, y: c + 2, 'text-anchor': 'middle', 'font-size': 19, 'font-weight': 800, fill: 'var(--text-primary)' }).textContent = centre;
