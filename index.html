@@ -11421,10 +11421,6 @@ try { if (localStorage.getItem('mpPvMode') === 'jour') MP_PV = 'jour'; } catch (
 function mpPvApply(box) {
   box.classList.toggle('mp-jour', MP_PV === 'jour');
   box.querySelectorAll('.mp-pvseg button').forEach((b) => b.classList.toggle('on', b.getAttribute('data-m') === MP_PV));
-  // ordre des lignes : par valeur en total ; de la plus forte hausse a la plus forte baisse en jour
-  box.querySelectorAll('.mp-rows[data-sort]').forEach((rs) => {
-    Array.from(rs.children).sort((a, b) => MP_PV === 'jour' ? (b._kd - a._kd) : (b._kv - a._kv)).forEach((r) => rs.appendChild(r));
-  });
 }
 function mpPvSet(m, box) {
   MP_PV = m;
@@ -11494,11 +11490,9 @@ function scrMobilePortfolio(pos) {
             scrEl('span', { cls: 'pv-j', text: !l.dayOk ? '–' : (sg(l.day) + scrUsd(l.day) + ' (' + pctTxt(l.dayPct, 2) + ')'), style: !l.dayOk ? 'color:var(--text-muted)' : col(l.day) })] }),
           scrEl('div', { cls: 'mp-w', kids: [g.k === 'crypto' ? scrEl('span', { cls: 'pv-j', text: 'sur 24 h · ' }) : null,
             document.createTextNode((w * 100).toFixed(1) + ' % du portefeuille')] })] })] }));
-      const r = rows.lastChild;
-      r._kv = l.valeur; r._kd = l.dayOk ? l.day : -1e15;   // cles de tri (valeur / variation du jour)
-      r.lastChild.onclick = () => mpPvSet(MP_PV === 'jour' ? 'total' : 'jour', box);
+      // meme ordre (poids dans le portefeuille) dans les deux vues : seul le chiffre change
+      rows.lastChild.lastChild.onclick = () => mpPvSet(MP_PV === 'jour' ? 'total' : 'jour', box);
     });
-    rows.setAttribute('data-sort', '1');
     const card = scrEl('div', { cls: 'mp-card mp-grp' + (MP_CLOSED[g.k] ? ' closed' : '') });
     const gpnl = g.ls.reduce((a, l) => a + (l.pnl || 0), 0), gday = g.ls.reduce((a, l) => a + (l.day || 0), 0);
     const gdayPct = (g.value - gday) > 0 ? gday / (g.value - gday) : 0;
