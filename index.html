@@ -7022,6 +7022,7 @@ M_MQ.addEventListener('change', (e) => {
   if (e.matches && currentTab === 'screener') renderScreenerTab();   // construit l'ecran Actions mobile
   if (e.matches && currentTab === 'real') renderMobileReal();
   if (e.matches && currentTab === 'enfants') renderEnfantsTab();
+  if (e.matches && currentTab === 'darwinex' && typeof renderPortfolioTab === 'function') renderPortfolioTab('darwinex');
   if (e.matches && currentTab === 'overview' && typeof renderPortfolioTab === 'function') renderPortfolioTab('overview');
   mNavSync();
 });
@@ -12938,8 +12939,8 @@ function renderPortfolioTab(tab) {
   }
   // Onglet Darwinex : il vit dans le groupe TRADING. Les KPI portefeuille (capital brut des
   // 6 plateformes, emprunts, revenu net/mois) n'ont rien a y faire et repetent le bandeau.
-  const mInv = (tab === 'overview');   // mobile : ecran simplifie en tete de la vue d'ensemble
-  if (mInv) h += '<div class="m-only" id="mInv"></div><div class="m-sec">';
+  const mInv = (tab === 'overview' || tab === 'darwinex');   // mobile : ecran simplifie en tete (vue d'ensemble, Darwinex)
+  if (mInv) h += '<div class="m-only" id="' + (tab === 'darwinex' ? 'mDwx' : 'mInv') + '"></div><div class="m-sec">';
   if (tab !== 'darwinex') h += invHeroFrame(t);
 
   // Sync indicator
@@ -12961,7 +12962,7 @@ function renderPortfolioTab(tab) {
   if (mInv) h += '</div><button type="button" class="m-more-btn" onclick="mToggleMore(this)">Afficher les analyses détaillées</button>';
 
   container.innerHTML = h;
-  if (mInv) renderMobileInvest(t, li);
+  if (mInv) { if (tab === 'darwinex') renderMobileDarwinex(); else renderMobileInvest(t, li); }
 
   // Build charts after DOM
   requestAnimationFrame(() => {
@@ -13210,6 +13211,108 @@ function renderMobileInvest(t, li) {
       scrEl('span', { cls: 'mp-gval', text: '-' + E(t.tl), style: 'color:var(--negative)' }),
       scrEl('span', { cls: 'mp-chev', text: '▾' })] }), rows));
   }
+  box.replaceChildren(...kids);
+}
+// ONGLET DARWINEX SUR MOBILE : meme modele que les autres onglets mobiles.
+const MD_COLORS = ['#e6b422', '#8b5cf6', '#2eb5a0', '#3563e9', '#f97316', '#ec4899'];
+function renderMobileDarwinex() {
+  const box = document.getElementById('mDwx');
+  if (!box || !M_MQ.matches) return;
+  const d = darwinexData || {};
+  const E = (v) => fmt(v) + ' €';
+  const S = (v) => (v >= 0 ? '+' : '') + fmt(v) + ' €';
+  const P = (v, dec) => (v >= 0 ? '+' : '') + v.toFixed(dec == null ? 1 : dec) + ' %';
+  const col = (v) => 'color:' + (v >= 0 ? 'var(--positive)' : 'var(--negative)');
+  const eurK = (v) => Math.abs(v) >= 1000 ? (Math.round(v / 100) / 10).toLocaleString('fr-FR') + ' k€' : Math.round(v) + ' €';
+  const jour = (k, opt) => new Date(k + 'T12:00:00').toLocaleDateString('fr-FR', opt || { weekday: 'long', day: '2-digit', month: '2-digit' });
+  const dd = dwxComputeDaily(), ks = Object.keys(dd).sort();
+  const val = d.currentValue || 0, inv = d.invested || 0, pnl = val - inv, fees = d.feesTotal || 0;
+  const kids = [];
+  // 1. valeur, derniere seance, plus-value, mois, frais
+  const lignes = [scrEl('div', { cls: 'mp-lbl', text: 'Darwinex · compte investisseur' }), scrEl('div', { cls: 'mp-big', text: E(val) })];
+  const lk = ks[ks.length - 1];
+  if (lk) {
+    const x = dd[lk], pc = x.prevValue > 0 ? x.pnl / x.prevValue * 100 : 0;
+    lignes.push(scrEl('div', { cls: 'mp-sub', kids: [scrEl('b', { text: (x.pnl >= 0 ? '▲ ' : '▼ ') + S(x.pnl) + ' (' + P(pc, 2) + ')', style: col(x.pnl) }), document.createTextNode(' ' + jour(lk))] }));
+  }
+  lignes.push(scrEl('div', { cls: 'mp-sub', kids: [document.createTextNode('Plus-value '), scrEl('b', { text: S(pnl) + ' (' + P(inv > 0 ? pnl / inv * 100 : 0) + ')', style: col(pnl) }),
+    document.createTextNode(' nette de frais, sur ' + E(inv))] }));
+  const now = new Date(), ym = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+  const mPnl = ks.filter((k) => k.indexOf(ym) === 0).reduce((a, k) => a + dd[k].pnl, 0);
+  lignes.push(scrEl('div', { cls: 'mp-sub', kids: [document.createTextNode(monthNamesFull[now.getMonth()] + ' '), scrEl('b', { text: S(mPnl) + ' (' + P(dwxMonthPct(dd, ym)) + ')', style: col(mPnl) }),
+    document.createTextNode(' · frais cumulés ' + E(fees))] }));
+  kids.push(scrEl('div', { cls: 'mp-card', kids: lignes }));
+  // 2. courbe de la valeur
+  const serie = Object.keys(darwinexDaily || {}).filter((k) => /^\d{4}-\d{2}-\d{2}$/.test(k) && darwinexDaily[k] && darwinexDaily[k].value > 0).sort()
+    .map((k) => ({ date: k, value: darwinexDaily[k].value }));
+  kids.push(scrEl('div', { cls: 'mp-card', kids: [scrEl('div', { cls: 'mp-lbl', text: 'Évolution de la valeur', style: 'margin-bottom:6px' }), mpCurve(serie, eurK)] }));
+  // 3. repartition par DARWIN (allocation du dernier releve) et 4. carte par DARWIN
+  const dts = dwxDarwinDates(), dw = dts.length ? (darwinexDaily[dts[dts.length - 1]].darwins || {}) : {};
+  const lst = Object.keys(dw).map((n, i) => ({ n: n, alloc: +dw[n].alloc || 0, pnl: +dw[n].pnl || 0, pct: +dw[n].pct || 0 }))
+    .filter((x) => x.alloc > 0).sort((a, b) => b.alloc - a.alloc).map((x, i) => Object.assign(x, { c: MD_COLORS[i % MD_COLORS.length], v: val * x.alloc / 100 }));
+  if (lst.length) {
+    const donut = mpDonut(lst.map((x) => ({ value: x.alloc, color: x.c })), E(val));
+    const lbs = donut.querySelectorAll('text');
+    if (lbs.length) lbs[lbs.length - 1].textContent = 'valeur du compte';
+    kids.push(scrEl('div', { cls: 'mp-card', kids: [scrEl('div', { cls: 'mp-lbl', text: 'Répartition par DARWIN' }), scrEl('div', { cls: 'mp-donut', kids: [donut] })] }));
+    const rows = scrEl('div', { cls: 'mp-rows' });
+    const maxA = Math.max.apply(null, lst.map((x) => x.alloc)) || 1;
+    lst.forEach((x) => {
+      rows.appendChild(scrEl('div', { cls: 'mp-row', kids: [
+        scrEl('div', { cls: 'mt-side', text: x.n.slice(0, 4), style: 'font-size:0.58rem;background:' + invHexToRgba(x.c, 0.18) + ';color:' + (mpLight(x.c) ? '#8a6d1f' : x.c) }),
+        scrEl('div', { cls: 'mp-mid', kids: [
+          scrEl('div', { cls: 'mp-name', text: x.n }),
+          scrEl('div', { cls: 'mp-tk', kids: [document.createTextNode('rendement '), scrEl('span', { text: P(x.pct), style: 'font-weight:700;' + col(x.pct) })] }),
+          scrEl('div', { cls: 'mp-bar', kids: [scrEl('i', { style: 'width:' + (x.alloc / maxA * 100).toFixed(1) + '%;background:' + x.c })] })] }),
+        scrEl('div', { cls: 'mp-right', kids: [
+          scrEl('div', { cls: 'mp-val', text: E(x.v) }),
+          scrEl('div', { cls: 'mp-pv', text: S(x.pnl), style: col(x.pnl) }),
+          scrEl('div', { cls: 'mp-w', text: x.alloc.toFixed(1) + ' % du compte' })] })] }));
+    });
+    rows.appendChild(scrEl('div', { cls: 'mp-foot', text: 'Résultat et rendement de chaque DARWIN tels qu’affichés par Darwinex : ils ne s’additionnent pas avec la plus-value du compte, nette des frais et du retrait.' }));
+    const card = scrEl('div', { cls: 'mp-card mp-grp' + (MP_CLOSED.dwx ? ' closed' : '') });
+    const head = scrEl('div', { cls: 'mp-grp-head', kids: [
+      scrEl('div', { kids: [scrEl('div', { cls: 'mp-gname', text: 'Par DARWIN' }),
+        scrEl('div', { cls: 'mp-tk', text: lst.length + ' DARWINs · relevé du ' + jour(dts[dts.length - 1], { day: '2-digit', month: '2-digit' }) })] }),
+      scrEl('span', { cls: 'mp-gval', text: E(val) }),
+      scrEl('span', { cls: 'mp-chev', text: '▾' })] });
+    head.onclick = () => { MP_CLOSED.dwx = !MP_CLOSED.dwx; card.classList.toggle('closed', !!MP_CLOSED.dwx); };
+    card.append(head, rows);
+    kids.push(card);
+  }
+  // 5. dernieres seances
+  const last = ks.slice(-8).reverse();
+  if (last.length) {
+    const rows = scrEl('div', { cls: 'mp-rows' });
+    const maxP = Math.max.apply(null, last.map((k) => Math.abs(dd[k].pnl))) || 1;
+    last.forEach((k) => {
+      const x = dd[k], pc = x.prevValue > 0 ? x.pnl / x.prevValue * 100 : 0, fee = (darwinexDaily[k] && darwinexDaily[k].fee) || 0;
+      rows.appendChild(scrEl('div', { cls: 'mp-row', kids: [
+        scrEl('div', { cls: 'mp-mid', kids: [
+          scrEl('div', { cls: 'mp-name', text: jour(k, { weekday: 'short', day: '2-digit', month: '2-digit' }) }),
+          scrEl('div', { cls: 'mp-tk', text: 'valeur ' + E(x.value) + (fee <= -5 ? ' · commission ' + fmt(fee) + ' €' : '') + (x.deposit ? ' · flux ' + S(x.deposit) : '') }),
+          scrEl('div', { cls: 'mp-bar', kids: [scrEl('i', { style: 'width:' + (Math.abs(x.pnl) / maxP * 100).toFixed(1) + '%;background:' + (x.pnl >= 0 ? 'var(--positive)' : 'var(--negative)') })] })] }),
+        scrEl('div', { cls: 'mp-right', kids: [
+          scrEl('div', { cls: 'mp-val', text: S(x.pnl), style: col(x.pnl) }),
+          scrEl('div', { cls: 'mp-w', text: P(pc, 2) })] })] }));
+    });
+    const card = scrEl('div', { cls: 'mp-card mp-grp' + (MP_CLOSED.dwxJours ? ' closed' : '') });
+    const head = scrEl('div', { cls: 'mp-grp-head', kids: [
+      scrEl('div', { kids: [scrEl('div', { cls: 'mp-gname', text: 'Dernières séances' }), scrEl('div', { cls: 'mp-tk', text: last.length + ' plus récentes' })] }),
+      scrEl('span', { cls: 'mp-chev', text: '▾', style: 'margin-left:auto' })] });
+    head.onclick = () => { MP_CLOSED.dwxJours = !MP_CLOSED.dwxJours; card.classList.toggle('closed', !!MP_CLOSED.dwxJours); };
+    card.append(head, rows);
+    kids.push(card);
+  }
+  // 6. frais : cumul et commissions de performance relevees (champ `fee` ecrit par le collecteur)
+  const comm = Object.keys(darwinexDaily || {}).filter((k) => /^\d{4}-\d{2}-\d{2}$/.test(k) && darwinexDaily[k] && darwinexDaily[k].fee <= -5).sort().reverse();
+  const fr = [scrEl('div', { cls: 'mp-lbl', text: 'Frais' }),
+    scrEl('div', { style: 'font-size:1.4rem;font-weight:800;margin-top:3px;color:var(--negative)', text: '-' + E(fees) }),
+    scrEl('div', { cls: 'mp-sub', text: (inv > 0 ? (fees / inv * 100).toFixed(1) + ' % de l’investi · ' : '') + 'gestion et commissions de performance cumulées' })];
+  comm.slice(0, 4).forEach((k) => fr.push(scrEl('div', { style: 'display:flex;justify-content:space-between;font-size:0.8rem;padding-top:7px;margin-top:7px;border-top:1px solid var(--border)', kids: [
+    scrEl('span', { text: 'Commission du ' + jour(k, { day: '2-digit', month: '2-digit' }), style: 'color:var(--text-secondary)' }),
+    scrEl('b', { text: fmt(darwinexDaily[k].fee) + ' €', style: 'color:var(--negative)' })] })));
+  kids.push(scrEl('div', { cls: 'mp-card', kids: fr }));
   box.replaceChildren(...kids);
 }
 // ── Overview ──
