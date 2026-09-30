@@ -234,6 +234,32 @@ const igFeed = createIgFeed(log, () => {
   }, 1000);
 });
 
+// Sens des positions ouvertes : fleche verte vers le haut = achat, rouge vers le bas = vente, puis l'instrument.
+const shortName = p => {
+  const h = (p.epic + ' ' + p.name).toUpperCase();
+  if (/NASDAQ|US TECH/.test(h)) return 'NDX';
+  if (/DAX|ALLEMAGNE|GERMANY/.test(h)) return 'DAX';
+  if (/SPTRD|US 500/.test(h)) return 'SPX';
+  return (p.name.split(' ')[0] || '?').slice(0, 6).toUpperCase();
+};
+function posLine(s) {
+  const list = s.status === 'ok' && s.positions && s.positions.list;
+  if (!list || !list.length) return '';
+  const items = list.slice(0, 2).map(p => ({ buy: p.direction === 'BUY', txt: shortName(p) + (list.length === 1 ? (p.direction === 'BUY' ? ' ACHAT' : ' VENTE') : '') }));
+  const w = it => 24 + it.txt.length * 10.5;   // fleche + texte (17 px gras)
+  const total = items.reduce((a, it) => a + w(it), 0) + (items.length - 1) * 10;
+  let x = 72 - total / 2, out = '';
+  items.forEach(it => {
+    const cx = x + 9, cy = 90, c = it.buy ? C.pos : C.neg;
+    out += '<polygon points="' + (it.buy
+      ? (cx - 9) + ',' + (cy + 8) + ' ' + (cx + 9) + ',' + (cy + 8) + ' ' + cx + ',' + (cy - 9)
+      : (cx - 9) + ',' + (cy - 8) + ' ' + (cx + 9) + ',' + (cy - 8) + ' ' + cx + ',' + (cy + 9)) + '" fill="' + c + '"/>'
+      + '<text x="' + (x + 24) + '" y="' + (cy + 6) + '" font-family="Segoe UI, Arial" font-weight="800" font-size="17" fill="' + C.txt + '">' + esc(it.txt) + '</text>';
+    x += w(it) + 10;
+  });
+  return out;
+}
+
 // P&L latent des algos (positions ouvertes du compte IG, en direct) + realise du jour (synchro IG du dashboard).
 function renderAlgos() {
   const s = igFeed.state, a = s.account;
@@ -254,7 +280,7 @@ function renderAlgos() {
     + '<rect x="0" y="0" width="144" height="6" fill="' + color + '"/>'
     + '<text x="72" y="22" ' + F + ' font-size="14" fill="' + C.dim + '">ALGOS LIVE</text>'
     + '<text x="72" y="64" ' + F + ' font-size="' + (big.length > 7 ? 27 : 32) + '" fill="' + color + '">' + esc(big) + '</text>'
-    + '<text x="72" y="95" ' + F + ' font-size="15" fill="' + C.dim + '">' + esc(line2) + '</text>'
+    + (posLine(s) || '<text x="72" y="95" ' + F + ' font-size="15" fill="' + C.dim + '">' + esc(line2) + '</text>')
     + (realise != null ? '<text x="72" y="128" ' + F + ' font-size="15" fill="' + col(realise) + '">' + esc('réalisé ' + (Math.abs(realise) < 0.5 ? '0 €' : sEur(realise))) + '</text>' : '')
     + '</svg>';
   return 'data:image/svg+xml;charset=utf8,' + encodeURIComponent(svg);

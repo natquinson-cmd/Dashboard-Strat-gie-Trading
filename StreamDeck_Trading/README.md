@@ -30,7 +30,7 @@ Après une modification : `npm install` dans le dossier du plugin si besoin, pui
 
 ## Flux IG temps réel (`ig.js`)
 - Copier `ig_config.example.json` en `ig_config.json` et y mettre ses identifiants IG (ceux du pont). Fichier ignoré par git, jamais journalisé.
-- Connexion `/session`, puis flux Lightstreamer : `MARKET:<epic>` (BID, OFFER, CHANGE_PCT) pour DAX / Nasdaq 100 / S&P 500, `ACCOUNT:<id>` (PNL) pour le P&L latent. `/positions` interrogé une fois par minute. Aucune requête d'ordre.
+- Connexion `/session`, puis flux Lightstreamer : `MARKET:<epic>` (BID, OFFER, CHANGE_PCT) pour DAX / Nasdaq 100 / S&P 500, `ACCOUNT:<id>` (PNL) pour le P&L latent. `/positions` lu à la connexion, puis seulement quand le flux `TRADE:<id>` (OPU) annonce une ouverture/fermeture, et toutes les 5 min par sécurité. Aucune requête d'ordre.
 - Affichage redessiné au plus 1 fois par seconde. Point bleu sur une touche d'indice = prix IG en direct (sinon repli Yahoo).
-- Touche ALGOS LIVE : P&L latent des positions ouvertes (en direct), nombre de positions, réalisé du jour (trades synchronisés dans le dashboard). Appui : onglet Trading Auto.
+- Touche ALGOS LIVE : P&L latent des positions ouvertes (en direct), flèche de sens (verte achat, rouge vente) et instrument, réalisé du jour (trades synchronisés dans le dashboard). Appui : onglet Trading Auto.
 - Session renouvelée toutes les 5 h ; en cas d'échec, nouvel essai toutes les 2 min, raison affichée sur la touche et dans `plugin.log`.

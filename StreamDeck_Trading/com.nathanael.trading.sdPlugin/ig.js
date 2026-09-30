@@ -84,10 +84,18 @@ function createIgFeed(log, onChange) {
     candidates = out;
   }
 
+  // Positions ouvertes (sens, instrument). Lues a la connexion, puis seulement quand le flux TRADE annonce
+  // une ouverture ou une fermeture, avec un filet de securite toutes les 5 min : quelques requetes par jour.
+  let posDebounce = null;
+  const refreshPositionsSoon = () => { if (!posDebounce) posDebounce = setTimeout(() => { posDebounce = null; pollPositions(); }, 2000); };
   async function pollPositions() {
     try {
       const b = (await rest('/positions')).body;
-      state.positions = { count: (b.positions || []).length, at: Date.now() };
+      const list = (b.positions || []).map(p => ({
+        direction: (p.position || {}).direction, size: Number((p.position || {}).size) || 0,
+        epic: (p.market || {}).epic || '', name: (p.market || {}).instrumentName || '',
+      }));
+      state.positions = { count: list.length, list, at: Date.now() };
       onChange();
     } catch (e) {
       if (e.status === 401 || e.status === 403) { restart('session expirée'); return; }
@@ -143,6 +151,14 @@ function createIgFeed(log, onChange) {
       onSubscriptionError(code, msg) { log('IG abonnement compte : ' + code + ' ' + msg); },
     });
     client.subscribe(acc);
+
+    // OPU = mise a jour d'une position (ouverture, modification, fermeture) poussee par IG
+    const trade = new Subscription('DISTINCT', ['TRADE:' + session.accountId], ['OPU']);
+    trade.addListener({
+      onItemUpdate(u) { if (u.getValue('OPU')) refreshPositionsSoon(); },
+      onSubscriptionError(code, msg) { log('IG abonnement positions : ' + code + ' ' + msg); },
+    });
+    client.subscribe(trade);
     client.connect();
   }
 
@@ -165,7 +181,7 @@ function createIgFeed(log, onChange) {
     await resolveEpics();
     subscribe();
     pollPositions();
-    posTimer = setInterval(pollPositions, 60000);
+    posTimer = setInterval(pollPositions, 5 * 60000);
   }
 
   // Les jetons IG expirent apres ~6 h : reconnexion preventive toutes les 5 h.
