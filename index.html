@@ -1309,6 +1309,9 @@
   .mp-pvbar { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; justify-content: space-between; gap: 10px;
     background: var(--bg-primary); padding: 8px 2px; margin: -2px 0 8px; }
   .mp-pvseg button { padding: 7px 16px; font-size: 0.8rem; }
+  /* periode de la courbe du capital (ecran mobile Trading) */
+  .mt-curvehead { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+  .mt-curveseg button { padding: 5px 12px; font-size: 0.74rem; }
   .mp-right.mp-tap { cursor: pointer; -webkit-tap-highlight-color: transparent; border-radius: 8px; }
   .mp-right.mp-tap:active { background: var(--border); }
   html[data-theme="dark"] .mp-card { --positive: #81c784; }
@@ -11514,6 +11517,9 @@ function scrMobilePortfolio(pos) {
 }
 // ONGLET TRADING SUR MOBILE : meme modele que l'onglet Actions (scrMobilePortfolio), pour le compte IG.
 const MT_STRAT = { NASDAQ: ['Nasdaq 100', '#2eb5a0'], DAX: ['DAX 40', '#5f8bf2'] };
+// Periode de la courbe du capital sur mobile : 'mois' (mois glissant) ou 'tout'. Retenue d'une visite a l'autre.
+let MT_CURVE = 'tout';
+try { if (localStorage.getItem('mtCurve') === 'mois') MT_CURVE = 'mois'; } catch (e) {}
 function renderMobileReal() {
   const box = document.getElementById('mReal');
   if (!box || !M_MQ.matches) return;
@@ -11556,8 +11562,31 @@ function renderMobileReal() {
       document.createTextNode(' ' + dayLib)] }),
     scrEl('div', { cls: 'mp-sub', kids: [document.createTextNode(monthNamesFull[now.getMonth()] + ' '), scrEl('b', { text: S(mPnl) + ' (' + P(mPct) + ')', style: col(mPnl) }),
       document.createTextNode(rm ? ' · rendement ' : ''), ...(rm ? [scrEl('b', { text: P(rm.twrPct) + ' (TWR)', style: col(rm.twrPct) })] : [])] })] }));
-  // 2. courbe du capital
-  box.appendChild(scrEl('div', { cls: 'mp-card', kids: [scrEl('div', { cls: 'mp-lbl', text: 'Évolution du capital', style: 'margin-bottom:6px' }), mpCurve(serie, eurK)] }));
+  // 2. courbe du capital : dernier mois glissant ou tout l'historique
+  const curveBox = scrEl('div');
+  const seg = scrEl('div', { cls: 'scr-seg mt-curveseg' });
+  const drawCurve = () => {
+    let pts = serie;
+    if (MT_CURVE === 'mois') {
+      // meme jour le mois precedent (31 -> dernier jour du mois precedent)
+      const c = new Date(), jour = c.getDate();
+      c.setDate(1); c.setMonth(c.getMonth() - 1);
+      c.setDate(Math.min(jour, new Date(c.getFullYear(), c.getMonth() + 1, 0).getDate()));
+      const cut = scrLocalDay(c), avant = serie.filter((p) => p.date < cut);
+      // la courbe part du capital a la date de debut, puis suit chaque jour de la periode
+      pts = (avant.length ? [{ date: cut, value: avant[avant.length - 1].value }] : []).concat(serie.filter((p) => p.date >= cut));
+    }
+    curveBox.replaceChildren(mpCurve(pts, eurK));
+    seg.querySelectorAll('button').forEach((b) => b.classList.toggle('on', b.getAttribute('data-m') === MT_CURVE));
+  };
+  [['mois', '1 mois'], ['tout', 'Tout']].forEach((o) => {
+    const b = scrEl('button', { text: o[1], attrs: { type: 'button', 'data-m': o[0] } });
+    b.onclick = () => { MT_CURVE = o[0]; try { localStorage.setItem('mtCurve', o[0]); } catch (e) {} drawCurve(); };
+    seg.appendChild(b);
+  });
+  drawCurve();
+  box.appendChild(scrEl('div', { cls: 'mp-card', kids: [
+    scrEl('div', { cls: 'mt-curvehead', kids: [scrEl('div', { cls: 'mp-lbl', text: 'Évolution du capital' }), seg] }), curveBox] }));
   // 3. repartition des gains par strategie
   const strat = ['NASDAQ', 'DAX'].map((k) => {
     const ts = trades.filter((t) => t[1] === k);
