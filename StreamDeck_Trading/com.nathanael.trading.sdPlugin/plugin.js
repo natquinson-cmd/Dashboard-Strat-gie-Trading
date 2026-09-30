@@ -134,7 +134,12 @@ async function fetchIndex(name) {
   const prev = m.meta.chartPreviousClose || m.meta.previousClose;
   const pct = m.meta.regularMarketChangePercent != null ? m.meta.regularMarketChangePercent : (prev ? (m.meta.regularMarketPrice / prev - 1) * 100 : 0);
   const reg = (m.meta.currentTradingPeriod || {}).regular || {};
-  return { price: m.meta.regularMarketPrice, pct, at: m.meta.regularMarketTime * 1000, open: reg.start ? reg.start * 1000 : null, close: reg.end ? reg.end * 1000 : null };
+  // courbe de la seance : points minute (sans les trous), ramenes a 72 points max
+  const ts = m.timestamp || [], cl = ((m.indicators || {}).quote || [{}])[0].close || [];
+  let pts = [];
+  for (let i = 0; i < ts.length; i++) if (cl[i] != null && isFinite(cl[i])) pts.push([ts[i] * 1000, cl[i]]);
+  if (pts.length > 72) { const step = pts.length / 72; pts = Array.from({ length: 72 }, (_, i) => pts[Math.min(pts.length - 1, Math.round((i + 1) * step) - 1)]); }
+  return { price: m.meta.regularMarketPrice, pct, prev, pts, at: m.meta.regularMarketTime * 1000, open: reg.start ? reg.start * 1000 : null, close: reg.end ? reg.end * 1000 : null };
 }
 async function refreshIndices() {
   await Promise.all(Object.keys(INDICES).map(async n => {
@@ -148,15 +153,45 @@ async function refreshIndices() {
   for (const [c, n] of contexts) if (INDICES[n]) paint(c);
 }
 // Ouvert = dans les horaires de seance de la place (Yahoo diffuse le DAX avec ~15 min de retard, l'age du cours ne suffit pas).
+// Mise en page : la variation du jour en gros et en couleur, la courbe de la seance (meme couleur, ligne
+// pointillee = cloture de la veille), le cours en petit en bas.
 function renderIndex(name) {
   const q = quotes[name], lab = INDICES[name].label;
   if (!q) return key({ label: lab, value: '…', sub: 'chargement', color: C.dim });
   if (q.error) return key({ label: lab, value: '?', sub: q.error.slice(0, 16), color: C.neg, accent: C.neg });
   const now = Date.now();
   const live = !q.failed && (q.open && q.close ? now >= q.open && now <= q.close : now - q.at < 20 * 60000);
-  return key({ label: lab, value: nfIdx.format(q.price).replace(/\s/g, ' '), valueSize: 30,
-    sub: sPct(q.pct) + (live ? '' : ' · ' + (q.failed ? 'figé' : 'clôt.')),
-    color: live ? col(q.pct) : C.txt, accent: live ? col(q.pct) : C.gray });
+  const color = Math.abs(q.pct) < 0.005 ? C.txt : (q.pct > 0 ? C.pos : C.neg);
+  const F = 'font-family="Segoe UI, Arial"';
+  let chart = '';
+  const pts = q.pts || [];
+  if (pts.length > 1) {
+    const X0 = 6, X1 = 138, Y0 = 66, Y1 = 116;
+    // en seance : l'axe couvre toute la seance, la courbe avance au fil de la journee
+    const last = pts[pts.length - 1][0];
+    const inSession = q.open && q.close && last >= q.open && last <= q.close;
+    const t0 = inSession ? q.open : pts[0][0], t1 = inSession ? q.close : last;
+    const vals = pts.map(p => p[1]).concat(q.prev ? [q.prev] : []);
+    const lo = Math.min(...vals), hi = Math.max(...vals), span = (hi - lo) || 1;
+    const x = t => X0 + (X1 - X0) * Math.max(0, Math.min(1, (t - t0) / ((t1 - t0) || 1)));
+    const y = v => Y1 - (Y1 - Y0) * (v - lo) / span;
+    const line = pts.map(p => x(p[0]).toFixed(1) + ',' + y(p[1]).toFixed(1)).join(' ');
+    const base = y(q.prev || pts[0][1]).toFixed(1);
+    chart = '<polygon points="' + x(pts[0][0]).toFixed(1) + ',' + base + ' ' + line + ' ' + x(last).toFixed(1) + ',' + base + '" fill="' + color + '" fill-opacity="0.18"/>'
+      + '<line x1="' + X0 + '" y1="' + base + '" x2="' + X1 + '" y2="' + base + '" stroke="' + C.dim + '" stroke-width="1.5" stroke-dasharray="3 3" opacity="0.7"/>'
+      + '<polyline points="' + line + '" fill="none" stroke="' + color + '" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>';
+  }
+  const pctTxt = sPct(q.pct).replace(' %', '%');
+  const bottom = nfIdx.format(q.price).replace(/\s/g, ' ') + (live ? '' : q.failed ? ' · figé' : ' · clôt.');
+  const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="144" height="144" viewBox="0 0 144 144">'
+    + '<rect width="144" height="144" fill="' + C.bg + '"/>'
+    + '<rect x="0" y="0" width="144" height="6" fill="' + (live ? color : C.gray) + '"/>'
+    + '<text x="72" y="25" text-anchor="middle" ' + F + ' font-size="15" font-weight="700" fill="' + C.dim + '">' + esc(lab) + '</text>'
+    + '<text x="72" y="58" text-anchor="middle" ' + F + ' font-size="' + (pctTxt.length > 7 ? 28 : 32) + '" font-weight="800" fill="' + color + '">' + esc(pctTxt) + '</text>'
+    + chart
+    + '<text x="72" y="137" text-anchor="middle" ' + F + ' font-size="15" font-weight="600" fill="' + C.dim + '">' + esc(bottom) + '</text>'
+    + '</svg>';
+  return 'data:image/svg+xml;charset=utf8,' + encodeURIComponent(svg);
 }
 
 // ── Connexion au logiciel Stream Deck ─────────────────────────────────────

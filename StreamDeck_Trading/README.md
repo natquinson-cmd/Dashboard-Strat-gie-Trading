@@ -12,7 +12,8 @@ Plugin Stream Deck (15 touches) branché sur le Trading Dashboard.
 | ENFANTS | valeur de la poche VWCE des enfants (parts x cours), % sur versé | fenêtre de détail par enfant |
 
 ## Indices en direct (2e rangée, Yahoo, toutes les 20 s)
-DAX, Nasdaq 100, S&P 500 : cours et variation du jour. Couleur seulement pendant la séance de la place,
+DAX, Nasdaq 100, S&P 500 : variation du jour en gros et en couleur, courbe de la séance (même couleur, pointillé = clôture de la veille,
+l axe couvre toute la séance donc la courbe avance dans la journée), cours en petit en bas. Couleur de la barre du haut
 gris et « clôt. » en dehors. Appui : graphique TradingView dans Chrome.
 
 ## Fonctionnement
