@@ -41,3 +41,5 @@ Après une modification : `npm install` dans le dossier du plugin si besoin, pui
   Kernel-PnP 410 (un périphérique démarre) et à l'ouverture de session. Elle lance `lancer_si_branche.vbs` → `.ps1`, qui ne démarre
   le logiciel que si un périphérique Elgato (`USB\VID_0FD9`) est présent et que le logiciel ne tourne pas déjà.
 - Retour arrière : `schtasks /Delete /TN "Stream Deck - lancement au branchement" /F`, puis réactiver « Lancer au démarrage » dans les préférences Stream Deck.
+- Au débranchement : le plugin reçoit `deviceDidDisconnect` et lance `fermer_si_debranche.ps1` (détaché), qui attend 5 s,
+  revérifie l'absence de `USB\VID_0FD9` puis ferme le logiciel (normalement, puis de force s'il ne répond pas).

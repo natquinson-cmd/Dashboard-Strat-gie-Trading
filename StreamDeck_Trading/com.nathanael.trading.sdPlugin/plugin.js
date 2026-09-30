@@ -68,28 +68,46 @@ function staleOr(render) {
   const img = render();
   return img;
 }
+function pnlKey(label, montant, pct, c) {
+  const F = 'font-family="Segoe UI, Arial" text-anchor="middle" font-weight="800"';
+  const pc = pct == null ? '' : sPct(pct).replace(' %', '%');
+  const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="144" height="144" viewBox="0 0 144 144">'
+    + '<rect width="144" height="144" fill="' + C.bg + '"/>'
+    + '<rect x="0" y="0" width="144" height="6" fill="' + (lastError ? C.warn : c) + '"/>'
+    + '<text x="72" y="22" ' + F + ' font-size="14" fill="' + C.dim + '">' + esc(lastError ? label + ' · FIGÉ' : label) + '</text>'
+    + '<text x="72" y="66" ' + F + ' font-size="' + (montant.length > 7 ? 28 : 32) + '" fill="' + c + '">' + esc(montant) + '</text>'
+    + (pc ? '<text x="72" y="112" ' + F + ' font-size="' + (pc.length > 7 ? 25 : 29) + '" fill="' + c + '">' + esc(pc) + '</text>' : '')
+    + '</svg>';
+  return 'data:image/svg+xml;charset=utf8,' + encodeURIComponent(svg);
+}
 const RENDER = {
   capital() {
-    return staleOr(() => key({
-      label: 'CAPITAL', value: eur(data.capTotal),
-      sub: lastError ? 'figé ' + hhmm(data.computedAt) : sPct(data.pnlPct),
-      color: C.txt, accent: lastError ? C.warn : col(data.pnlTotal),
-    }));
+    // capital en blanc, puis le % de P&L cumulé en gros et en couleur, et le P&L en euros en petit
+    return staleOr(() => {
+      const c = col(data.pnlTotal), pc = sPct(data.pnlPct).replace(' %', '%');
+      const F = 'font-family="Segoe UI, Arial" text-anchor="middle" font-weight="800"';
+      const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="144" height="144" viewBox="0 0 144 144">'
+        + '<rect width="144" height="144" fill="' + C.bg + '"/>'
+        + '<rect x="0" y="0" width="144" height="6" fill="' + (lastError ? C.warn : c) + '"/>'
+        + '<text x="72" y="22" ' + F + ' font-size="14" fill="' + C.dim + '">' + (lastError ? 'CAPITAL · FIGÉ ' + hhmm(data.computedAt) : 'CAPITAL') + '</text>'
+        + '<text x="72" y="60" ' + F + ' font-size="31" fill="' + C.txt + '">' + esc(eur(data.capTotal)) + '</text>'
+        + '<text x="72" y="98" ' + F + ' font-size="' + (pc.length > 7 ? 25 : 29) + '" fill="' + c + '">' + esc(pc) + '</text>'
+        + '<text x="72" y="128" ' + F + ' font-size="16" fill="' + c + '">' + esc(sEur(data.pnlTotal)) + '</text>'
+        + '</svg>';
+      return 'data:image/svg+xml;charset=utf8,' + encodeURIComponent(svg);
+    });
   },
+  // meme format que Capital : montant en gros, % en gros et en couleur en dessous
   pnljour() {
     return staleOr(() => {
       const t = data.today.total, base = data.capTotal - t;
-      return key({ label: 'P&L JOUR', value: Math.abs(t) < 0.5 ? '0 €' : sEur(t),
-        sub: lastError ? 'figé ' + hhmm(data.computedAt) : (base > 0 ? sPct(t / base * 100) : ''),
-        color: col(t), accent: lastError ? C.warn : col(t) });
+      return pnlKey('P&L JOUR', Math.abs(t) < 0.5 ? '0 €' : sEur(t), base > 0 ? t / base * 100 : null, col(t));
     });
   },
   pnlmois() {
     return staleOr(() => {
       const t = data.month.total;
-      return key({ label: 'P&L ' + MOIS[new Date().getMonth()], value: sEur(t),
-        sub: lastError ? 'figé ' + hhmm(data.computedAt) : (data.monthBase > 0 ? sPct(t / data.monthBase * 100) : ''),
-        color: col(t), accent: lastError ? C.warn : col(t) });
+      return pnlKey('P&L ' + MOIS[new Date().getMonth()], sEur(t), data.monthBase > 0 ? t / data.monthBase * 100 : null, col(t));
     });
   },
   // Pont IG : jamais vert par defaut, la couleur se juge sur l'age du dernier signal.
@@ -394,6 +412,15 @@ ws.on('message', raw => {
   let m; try { m = JSON.parse(raw); } catch (e) { return; }
   if (m.event === 'willAppear') { contexts.set(m.context, actionName(m.action)); log('touche affichee : ' + actionName(m.action)); paint(m.context); }
   else if (m.event === 'willDisappear') contexts.delete(m.context);
+  // Stream Deck debranche : un script detache (qui survit a la fermeture du logiciel) revérifie et ferme le logiciel.
+  // Le relancement au rebranchement est fait par la tache planifiee « Stream Deck - lancement au branchement ».
+  else if (m.event === 'deviceDidDisconnect') {
+    log('Stream Deck debranche : fermeture du logiciel si toujours absent dans 5 s');
+    const p = spawn('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden', '-File', path.join(__dirname, 'fermer_si_debranche.ps1')],
+      { detached: true, stdio: 'ignore', windowsHide: true });
+    p.on('error', e => log('fermeture : ' + e.message));
+    p.unref();
+  }
   else if (m.event === 'keyDown') {
     const f = PRESS[actionName(m.action)];
     if (f) Promise.resolve(f(m.context)).catch(e => log('touche : ' + e.message));
