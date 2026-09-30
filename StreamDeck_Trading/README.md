@@ -34,3 +34,10 @@ Après une modification : `npm install` dans le dossier du plugin si besoin, pui
 - Affichage redessiné au plus 1 fois par seconde. Point bleu sur une touche d'indice = prix IG en direct (sinon repli Yahoo).
 - Touche ALGOS LIVE : P&L latent des positions ouvertes (en direct), flèche de sens (verte achat, rouge vente) et instrument, réalisé du jour (trades synchronisés dans le dashboard). Appui : onglet Trading Auto.
 - Session renouvelée toutes les 5 h ; en cas d'échec, nouvel essai toutes les 2 min, raison affichée sur la touche et dans `plugin.log`.
+
+## Lancement au branchement (pas au démarrage de Windows)
+- L'entrée « Stream Deck » de `HKCU\...\CurrentVersion\Run` a été retirée (valeur d'origine dans `run_entry_origine.txt`).
+- Tâche planifiée « Stream Deck - lancement au branchement » (`tache_lancement_au_branchement.xml`) : déclenchée par l'événement
+  Kernel-PnP 410 (un périphérique démarre) et à l'ouverture de session. Elle lance `lancer_si_branche.vbs` → `.ps1`, qui ne démarre
+  le logiciel que si un périphérique Elgato (`USB\VID_0FD9`) est présent et que le logiciel ne tourne pas déjà.
+- Retour arrière : `schtasks /Delete /TN "Stream Deck - lancement au branchement" /F`, puis réactiver « Lancer au démarrage » dans les préférences Stream Deck.
