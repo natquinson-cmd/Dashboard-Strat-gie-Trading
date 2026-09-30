@@ -1,0 +1,107 @@
+{
+  "Name": "Trading Nathanaël",
+  "Version": "1.0.0.0",
+  "Author": "Nathanaël",
+  "Description": "Touches en direct du Trading Dashboard (capital, P&L, pont IG) et prise de notes d'idées.",
+  "Icon": "imgs/plugin",
+  "CategoryIcon": "imgs/category",
+  "Category": "Trading",
+  "CodePath": "plugin.js",
+  "Nodejs": {
+    "Version": "20",
+    "Debug": "disabled"
+  },
+  "SDKVersion": 2,
+  "Software": {
+    "MinimumVersion": "6.5"
+  },
+  "OS": [
+    {
+      "Platform": "windows",
+      "MinimumVersion": "10"
+    }
+  ],
+  "UUID": "com.nathanael.trading",
+  "Actions": [
+    {
+      "UUID": "com.nathanael.trading.capital",
+      "Name": "Capital total",
+      "Icon": "imgs/action",
+      "Tooltip": "Capital total (IG + actions + Darwinex). Appui : ouvre le dashboard.",
+      "States": [
+        {
+          "Image": "imgs/key"
+        }
+      ],
+      "Controllers": [
+        "Keypad"
+      ],
+      "SupportedInMultiActions": false,
+      "UserTitleEnabled": false
+    },
+    {
+      "UUID": "com.nathanael.trading.pnljour",
+      "Name": "P&L du jour",
+      "Icon": "imgs/action",
+      "Tooltip": "P&L du jour toutes sources. Appui : mise à jour immédiate.",
+      "States": [
+        {
+          "Image": "imgs/key"
+        }
+      ],
+      "Controllers": [
+        "Keypad"
+      ],
+      "SupportedInMultiActions": false,
+      "UserTitleEnabled": false
+    },
+    {
+      "UUID": "com.nathanael.trading.pnlmois",
+      "Name": "P&L du mois",
+      "Icon": "imgs/action",
+      "Tooltip": "P&L du mois en cours. Appui : ouvre le dashboard.",
+      "States": [
+        {
+          "Image": "imgs/key"
+        }
+      ],
+      "Controllers": [
+        "Keypad"
+      ],
+      "SupportedInMultiActions": false,
+      "UserTitleEnabled": false
+    },
+    {
+      "UUID": "com.nathanael.trading.pont",
+      "Name": "Pont IG",
+      "Icon": "imgs/action",
+      "Tooltip": "Santé du pont IG / MT5, jugée sur l'âge du dernier signal. Appui : détail.",
+      "States": [
+        {
+          "Image": "imgs/key"
+        }
+      ],
+      "Controllers": [
+        "Keypad"
+      ],
+      "SupportedInMultiActions": false,
+      "UserTitleEnabled": false
+    },
+    {
+      "UUID": "com.nathanael.trading.idee",
+      "Name": "Noter une idée",
+      "Icon": "imgs/action",
+      "Tooltip": "Appui : note une idée dans Idees_Trading.md.",
+      "States": [
+        {
+          "Image": "imgs/key"
+        }
+      ],
+      "Controllers": [
+        "Keypad"
+      ],
+      "SupportedInMultiActions": false,
+      "UserTitleEnabled": false
+    }
+  ]
+}

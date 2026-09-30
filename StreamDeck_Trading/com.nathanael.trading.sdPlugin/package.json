@@ -1,0 +1,1 @@
+{"name":"com.nathanael.trading","version":"1.0.0","private":true,"main":"plugin.js","dependencies":{"acorn":"^8.18.0","ws":"^8.22.0"}}
