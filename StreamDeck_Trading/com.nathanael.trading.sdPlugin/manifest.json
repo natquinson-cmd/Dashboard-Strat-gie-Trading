@@ -1,8 +1,8 @@
 {
   "Name": "Trading Nathanaël",
-  "Version": "1.0.0.0",
+  "Version": "1.1.0.0",
   "Author": "Nathanaël",
-  "Description": "Touches en direct du Trading Dashboard (capital, P&L, pont IG) et prise de notes d'idées.",
+  "Description": "Touches en direct du Trading Dashboard (capital, P&L, pont IG, poche enfants) et indices DAX, Nasdaq 100, S&P 500.",
   "Icon": "imgs/plugin",
   "CategoryIcon": "imgs/category",
   "Category": "Trading",
@@ -88,10 +88,58 @@
       "UserTitleEnabled": false
     },
     {
-      "UUID": "com.nathanael.trading.idee",
-      "Name": "Noter une idée",
+      "UUID": "com.nathanael.trading.enfants",
+      "Name": "Poche enfants",
       "Icon": "imgs/action",
-      "Tooltip": "Appui : note une idée dans Idees_Trading.md.",
+      "Tooltip": "Valeur de la poche VWCE des enfants. Appui : détail par enfant.",
+      "States": [
+        {
+          "Image": "imgs/key"
+        }
+      ],
+      "Controllers": [
+        "Keypad"
+      ],
+      "SupportedInMultiActions": false,
+      "UserTitleEnabled": false
+    },
+    {
+      "UUID": "com.nathanael.trading.dax",
+      "Name": "DAX",
+      "Icon": "imgs/action",
+      "Tooltip": "DAX en direct. Appui : graphique TradingView.",
+      "States": [
+        {
+          "Image": "imgs/key"
+        }
+      ],
+      "Controllers": [
+        "Keypad"
+      ],
+      "SupportedInMultiActions": false,
+      "UserTitleEnabled": false
+    },
+    {
+      "UUID": "com.nathanael.trading.ndx",
+      "Name": "Nasdaq 100",
+      "Icon": "imgs/action",
+      "Tooltip": "Nasdaq 100 en direct. Appui : graphique TradingView.",
+      "States": [
+        {
+          "Image": "imgs/key"
+        }
+      ],
+      "Controllers": [
+        "Keypad"
+      ],
+      "SupportedInMultiActions": false,
+      "UserTitleEnabled": false
+    },
+    {
+      "UUID": "com.nathanael.trading.spx",
+      "Name": "S&P 500",
+      "Icon": "imgs/action",
+      "Tooltip": "S&P 500 en direct. Appui : graphique TradingView.",
       "States": [
         {
           "Image": "imgs/key"

@@ -85,11 +85,12 @@ async function compute(opts) {
   const html = await loadDashboardSource(opts.dashboardPath);
   const code = extractFunctions(html);
 
-  const [trades, deposits, fees, dividends, posHist, dwxDaily, livePrices, myPositions, quality, pont, igSync, fx] = await Promise.all([
+  const [trades, deposits, fees, dividends, posHist, dwxDaily, livePrices, myPositions, quality, pont, igSync, fx, kids, kidsPrice] = await Promise.all([
     getJson(fbUrl('trades')), getJson(fbUrl('deposits')), getJson(fbUrl('fees')), getJson(fbUrl('dividends')),
     getJson(fbUrl('stocks/screener/positionsHistory')), getJson(fbUrl('dashboard/darwinex/daily')),
     getJson(fbUrl('stocks/screener/livePrices')), getJson(fbUrl('stocks/screener/myPositions')),
     getJson(fbUrl('stocks/screener/quality')), getJson(fbUrl('dashboard/pontIG')), getJson(fbUrl('igSyncStatus')), getFx(),
+    getJson(fbUrl('stocks/kids')), getJson(fbUrl('stocks/kidsPrice')),
   ]);
 
   const store = {};
@@ -139,7 +140,22 @@ async function compute(opts) {
     });
   })()`, ctx, { timeout: 10000 });
 
-  return Object.assign(JSON.parse(r), { pont: pont || null, igSync: igSync || null, computedAt: Date.now() });
+  return Object.assign(JSON.parse(r), { pont: pont || null, igSync: igSync || null, kids: kidsPocket(kids, kidsPrice), computedAt: Date.now() });
+}
+
+// Poche enfants (onglet Enfants, modele en PARTS de VWCE) : parts x cours, par enfant.
+// Poche separee du capital personnel, jamais melangee aux chiffres ci-dessus.
+function kidsPocket(kids, price) {
+  const px = price && Number(price.price);
+  if (!kids || !(px > 0)) return null;
+  const by = {};
+  asList(kids.contributions).forEach(c => {
+    const o = by[c.child] || (by[c.child] = { child: c.child, units: 0, paid: 0 });
+    o.units += Number(c.units) || 0; o.paid += Number(c.amount) || 0;
+  });
+  const children = Object.values(by).map(o => Object.assign(o, { value: o.units * px })).sort((a, b) => b.value - a.value);
+  const value = children.reduce((a, o) => a + o.value, 0), paid = children.reduce((a, o) => a + o.paid, 0);
+  return { value, paid, pnl: value - paid, pct: paid > 0 ? (value - paid) / paid * 100 : 0, price: px, ticker: price.ticker, priceAt: price.marketAt || price.at, children };
 }
 
 module.exports = { compute, extractFunctions };

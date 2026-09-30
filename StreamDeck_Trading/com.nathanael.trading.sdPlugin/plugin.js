@@ -11,8 +11,8 @@ const { compute } = require('./engine');
 const CONFIG = {
   dashboardPath: 'C:/Users/quinson/Desktop/Claude/Trading_Dashboard.html',
   dashboardUrl: 'https://natquinson-cmd.github.io/Dashboard-Strat-gie-Trading/',
-  ideasFile: 'C:/Users/quinson/Desktop/Claude/Idees_Trading.md',
   refreshMs: 60000,
+  indexRefreshMs: 20000,
 };
 const LOG = path.join(__dirname, 'plugin.log');
 function log(msg) {
@@ -105,15 +105,59 @@ const RENDER = {
     if (p.dryRun && color === C.pos) value = 'TEST';
     return key({ label: 'PONT IG', value, sub: isFinite(age) ? ago(age) : '', color, accent: color });
   },
-  idee() {
-    let n = 0;
-    try {
-      const today = new Date().toISOString().slice(0, 10);
-      n = fs.readFileSync(CONFIG.ideasFile, 'utf8').split('\n').filter(l => l.startsWith('- ' + today)).length;
-    } catch (e) { /* fichier pas encore cree */ }
-    return key({ label: 'IDÉE', value: '+', valueSize: 54, sub: n ? n + " aujourd'hui" : 'noter', color: C.blue, accent: C.blue });
+  // Poche enfants (VWCE en parts), separee du capital personnel.
+  enfants() {
+    if (!data || !data.kids) return key({ label: 'ENFANTS', value: '?', sub: lastError ? lastError.slice(0, 16) : 'chargement', color: C.gray });
+    const k = data.kids;
+    return key({ label: 'ENFANTS', value: eur(k.value), sub: lastError ? 'figé ' + hhmm(data.computedAt) : sPct(k.pct),
+      color: C.txt, accent: lastError ? C.warn : col(k.pnl) });
   },
+  dax: () => renderIndex('dax'),
+  ndx: () => renderIndex('ndx'),
+  spx: () => renderIndex('spx'),
 };
+
+// ── Indices en direct (Yahoo Finance, cours du marché au comptant) ─────────
+const INDICES = {
+  dax: { symbol: '^GDAXI', label: 'DAX', tv: 'XETR:DAX' },
+  ndx: { symbol: '^NDX', label: 'NASDAQ 100', tv: 'NASDAQ:NDX' },
+  spx: { symbol: '^GSPC', label: 'S&P 500', tv: 'SP:SPX' },
+};
+const quotes = {};   // nom -> { price, pct, at } ou { error }
+const nfIdx = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 });
+async function fetchIndex(name) {
+  const r = await fetch('https://query1.finance.yahoo.com/v8/finance/chart/' + encodeURIComponent(INDICES[name].symbol) + '?interval=1m&range=1d',
+    { headers: { 'User-Agent': 'Mozilla/5.0' }, signal: AbortSignal.timeout(10000) });
+  if (!r.ok) throw new Error('Yahoo HTTP ' + r.status);
+  const m = (((await r.json()).chart || {}).result || [])[0];
+  if (!m || !m.meta || m.meta.regularMarketPrice == null) throw new Error('cours absent');
+  const prev = m.meta.chartPreviousClose || m.meta.previousClose;
+  const pct = m.meta.regularMarketChangePercent != null ? m.meta.regularMarketChangePercent : (prev ? (m.meta.regularMarketPrice / prev - 1) * 100 : 0);
+  const reg = (m.meta.currentTradingPeriod || {}).regular || {};
+  return { price: m.meta.regularMarketPrice, pct, at: m.meta.regularMarketTime * 1000, open: reg.start ? reg.start * 1000 : null, close: reg.end ? reg.end * 1000 : null };
+}
+async function refreshIndices() {
+  await Promise.all(Object.keys(INDICES).map(async n => {
+    try { quotes[n] = await fetchIndex(n); }
+    catch (e) {
+      if (!quotes[n] || !quotes[n].price) quotes[n] = { error: String(e.message || e) };
+      else quotes[n].failed = true;
+      log('indice ' + n + ' : ' + (e.message || e));
+    }
+  }));
+  for (const [c, n] of contexts) if (INDICES[n]) paint(c);
+}
+// Ouvert = dans les horaires de seance de la place (Yahoo diffuse le DAX avec ~15 min de retard, l'age du cours ne suffit pas).
+function renderIndex(name) {
+  const q = quotes[name], lab = INDICES[name].label;
+  if (!q) return key({ label: lab, value: '…', sub: 'chargement', color: C.dim });
+  if (q.error) return key({ label: lab, value: '?', sub: q.error.slice(0, 16), color: C.neg, accent: C.neg });
+  const now = Date.now();
+  const live = !q.failed && (q.open && q.close ? now >= q.open && now <= q.close : now - q.at < 20 * 60000);
+  return key({ label: lab, value: nfIdx.format(q.price).replace(/\s/g, ' '), valueSize: 30,
+    sub: sPct(q.pct) + (live ? '' : ' · ' + (q.failed ? 'figé' : 'clôt.')),
+    color: live ? col(q.pct) : C.txt, accent: live ? col(q.pct) : C.gray });
+}
 
 // ── Connexion au logiciel Stream Deck ─────────────────────────────────────
 const contexts = new Map();   // context -> nom de l'action
@@ -159,21 +203,14 @@ function psRun(script, env) {
 }
 const popup = (title, msg) => psRun('Add-Type -AssemblyName PresentationFramework; [void][System.Windows.MessageBox]::Show($env:SD_MSG, $env:SD_TITLE)', { SD_MSG: msg, SD_TITLE: title });
 
-async function noteIdea(ctx) {
-  const out = await psRun("[Console]::OutputEncoding = [Text.Encoding]::UTF8; Add-Type -AssemblyName Microsoft.VisualBasic; [Microsoft.VisualBasic.Interaction]::InputBox('Ton idée (ticker, thèse, à vérifier...) :', 'Noter une idée de trading', '')");
-  const txt = out.replace(/\s+/g, ' ').trim();
-  if (!txt) return;
-  const d = new Date();
-  const stamp = d.toISOString().slice(0, 10) + ' ' + hhmm(d);
-  try {
-    if (!fs.existsSync(CONFIG.ideasFile)) fs.writeFileSync(CONFIG.ideasFile, '# Idées de trading\n\nNotées depuis le Stream Deck. Repérage, pas une décision.\n\n');
-    fs.appendFileSync(CONFIG.ideasFile, '- ' + stamp + ' : ' + txt + '\n');
-    send({ event: 'showOk', context: ctx });
-  } catch (e) {
-    log('idee : ' + e.message);
-    send({ event: 'showAlert', context: ctx });
-  }
-  paint(ctx);
+function kidsDetails() {
+  const k = data && data.kids;
+  if (!k) return popup('Poche enfants', lastError ? 'Échec de lecture : ' + lastError : 'Chargement en cours.');
+  const e = v => eur(v), sgn = v => (v > 0 ? '+' : '') + eur(v);
+  const lines = ['Poche enfants : ' + k.ticker + ' à ' + nf2.format(k.price) + ' € (cours de ' + hhmm(k.priceAt) + ')', ''];
+  k.children.forEach(c => lines.push(c.child + ' : ' + e(c.value) + '   (versé ' + e(c.paid) + ', ' + sgn(c.value - c.paid) + ', ' + nf2.format(c.units) + ' parts)'));
+  lines.push('', 'Total : ' + e(k.value) + ', versé ' + e(k.paid) + ', ' + sgn(k.pnl) + ' (' + sPct(k.pct) + ')');
+  return popup('Poche enfants', lines.join('\n'));
 }
 
 function pontDetails() {
@@ -193,12 +230,24 @@ function pontDetails() {
   return popup('État des ponts', lines.join('\n'));
 }
 
+// Ouvre un onglet Chrome (et non le navigateur par defaut) ; repli sur le navigateur par defaut si Chrome manque.
+const CHROME = 'C:/Program Files/Google/Chrome/Application/chrome.exe';
+function openChrome(url) {
+  if (!fs.existsSync(CHROME)) return send({ event: 'openUrl', payload: { url } });
+  const p = spawn(CHROME, [url], { detached: true, stdio: 'ignore' });
+  p.on('error', e => { log('chrome : ' + e.message); send({ event: 'openUrl', payload: { url } }); });
+  p.unref();
+}
+
 const PRESS = {
-  capital: () => send({ event: 'openUrl', payload: { url: CONFIG.dashboardUrl } }),
-  pnlmois: () => send({ event: 'openUrl', payload: { url: CONFIG.dashboardUrl } }),
+  capital: () => openChrome(CONFIG.dashboardUrl),
+  pnlmois: () => openChrome(CONFIG.dashboardUrl),
   pnljour: ctx => { send({ event: 'setImage', context: ctx, payload: { image: key({ label: 'P&L JOUR', value: '…', sub: 'mise à jour', color: C.dim }), target: 0 } }); refresh(); },
   pont: () => pontDetails(),
-  idee: ctx => noteIdea(ctx),
+  enfants: () => kidsDetails(),
+  dax: () => openChrome('https://www.tradingview.com/chart/?symbol=' + INDICES.dax.tv),
+  ndx: () => openChrome('https://www.tradingview.com/chart/?symbol=' + INDICES.ndx.tv),
+  spx: () => openChrome('https://www.tradingview.com/chart/?symbol=' + INDICES.spx.tv),
 };
 
 ws.on('open', () => {
@@ -206,6 +255,8 @@ ws.on('open', () => {
   log('plugin connecte (port ' + args.port + ')');
   refresh();
   setInterval(refresh, CONFIG.refreshMs);
+  refreshIndices();
+  setInterval(refreshIndices, CONFIG.indexRefreshMs);
   setInterval(() => { for (const [c, n] of contexts) if (n === 'pont') paint(c); }, 30000);   // l'age du pont avance meme sans nouvelles donnees
 });
 ws.on('message', raw => {
