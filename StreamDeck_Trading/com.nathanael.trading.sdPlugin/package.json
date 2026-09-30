@@ -1,1 +1,1 @@
-{"name":"com.nathanael.trading","version":"1.0.0","private":true,"main":"plugin.js","dependencies":{"acorn":"^8.18.0","ws":"^8.22.0"}}
+{"name":"com.nathanael.trading","version":"1.0.0","private":true,"main":"plugin.js","dependencies":{"acorn":"^8.18.0","lightstreamer-client-node":"^9.2.2","ws":"^8.22.0"}}

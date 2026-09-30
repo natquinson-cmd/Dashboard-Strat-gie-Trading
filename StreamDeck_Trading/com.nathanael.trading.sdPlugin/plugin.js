@@ -7,6 +7,7 @@ const path = require('path');
 const { spawn } = require('child_process');
 const WebSocket = require('ws');
 const { compute } = require('./engine');
+const { createIgFeed } = require('./ig');
 
 const CONFIG = {
   dashboardPath: 'C:/Users/quinson/Desktop/Claude/Trading_Dashboard.html',
@@ -122,6 +123,7 @@ const RENDER = {
       + '</svg>';
     return 'data:image/svg+xml;charset=utf8,' + encodeURIComponent(svg);
   },
+  algos: () => renderAlgos(),
   dax: () => renderIndex('dax'),
   ndx: () => renderIndex('ndx'),
   spx: () => renderIndex('spx'),
@@ -165,11 +167,20 @@ async function refreshIndices() {
 // Ouvert = dans les horaires de seance de la place (Yahoo diffuse le DAX avec ~15 min de retard, l'age du cours ne suffit pas).
 // Mise en page : la variation du jour en gros et en couleur, la courbe de la seance (meme couleur, ligne
 // pointillee = cloture de la veille), le cours en petit en bas.
+// Prix IG en direct s'il est frais : il remplace le cours Yahoo, et ses points prolongent la courbe Yahoo.
 function renderIndex(name) {
-  const q = quotes[name], lab = INDICES[name].label;
+  const lab = INDICES[name].label, now = Date.now();
+  const ig = igFeed.state.status === 'ok' && igFeed.state.prices[name];
+  const igLive = !!(ig && now - ig.at < 120000);
+  let q = quotes[name];
+  if (igLive) {
+    const base = (q && !q.error) ? q : { pts: [], at: ig.at };
+    const lastT = base.pts && base.pts.length ? base.pts[base.pts.length - 1][0] : 0;
+    q = Object.assign({}, base, { price: ig.mid, pct: ig.pct, at: ig.at, failed: false,
+      pts: (base.pts || []).concat((igTicks[name] || []).filter(p => p[0] > lastT)).concat([[ig.at, ig.mid]]) });
+  }
   if (!q) return key({ label: lab, value: '…', sub: 'chargement', color: C.dim });
   if (q.error) return key({ label: lab, value: '?', sub: q.error.slice(0, 16), color: C.neg, accent: C.neg });
-  const now = Date.now();
   const live = !q.failed && (q.open && q.close ? now >= q.open && now <= q.close : now - q.at < 20 * 60000);
   // marche ferme : toute la touche en gris (variation, courbe, cours), seules les seances ouvertes sont en couleur
   const color = !live ? C.gray : Math.abs(q.pct) < 0.005 ? C.txt : (q.pct > 0 ? C.pos : C.neg);
@@ -202,6 +213,49 @@ function renderIndex(name) {
     + '<text x="72" y="48" text-anchor="middle" ' + F + ' font-size="' + (pctTxt.length > 7 ? 22 : 24) + '" font-weight="800" fill="' + color + '">' + esc(pctTxt) + '</text>'
     + chart
     + '<text x="72" y="133" text-anchor="middle" ' + F + ' font-size="25" font-weight="800" fill="' + (live ? C.txt : C.gray) + '">' + esc(bottom) + '</text>'
+    + (igLive ? '<circle cx="9" cy="17" r="4" fill="' + C.blue + '"/>' : '')   // point bleu = prix IG temps reel
+    + '</svg>';
+  return 'data:image/svg+xml;charset=utf8,' + encodeURIComponent(svg);
+}
+
+// ── Flux IG temps reel ─────────────────────────────────────────────────────
+const igTicks = {};   // nom -> [[t, prix]] un point toutes les 30 s, pour prolonger la courbe
+let paintTimer = null;
+const igFeed = createIgFeed(log, () => {
+  const now = Date.now();
+  for (const [n, p] of Object.entries(igFeed.state.prices)) {
+    const arr = igTicks[n] || (igTicks[n] = []);
+    if (!arr.length || now - arr[arr.length - 1][0] >= 30000) { arr.push([p.at, p.mid]); if (arr.length > 1200) arr.shift(); }
+  }
+  // IG pousse plusieurs prix par seconde : on redessine au plus une fois par seconde
+  if (!paintTimer) paintTimer = setTimeout(() => {
+    paintTimer = null;
+    for (const [c, n] of contexts) if (INDICES[n] || n === 'algos') paint(c);
+  }, 1000);
+});
+
+// P&L latent des algos (positions ouvertes du compte IG, en direct) + realise du jour (synchro IG du dashboard).
+function renderAlgos() {
+  const s = igFeed.state, a = s.account;
+  const F = 'font-family="Segoe UI, Arial" text-anchor="middle" font-weight="800"';
+  const realise = data ? data.today.ig : null;
+  let big, color, line2;
+  if (s.status !== 'ok' || !a || Date.now() - a.at > 10 * 60000) {
+    big = s.status === 'connexion' ? '…' : 'IG ?'; color = s.status === 'erreur' ? C.neg : C.gray;
+    line2 = (s.error || (s.status === 'connexion' ? 'connexion' : 'flux arrêté')).slice(0, 18);
+  } else {
+    const n = s.positions ? s.positions.count : null;
+    big = n === 0 && Math.abs(a.pnl) < 0.5 ? '0 €' : sEur(a.pnl);
+    color = n === 0 ? C.gray : col(a.pnl);
+    line2 = n == null ? 'en cours' : n === 0 ? 'aucune position' : n + ' position' + (n > 1 ? 's' : '');
+  }
+  const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="144" height="144" viewBox="0 0 144 144">'
+    + '<rect width="144" height="144" fill="' + C.bg + '"/>'
+    + '<rect x="0" y="0" width="144" height="6" fill="' + color + '"/>'
+    + '<text x="72" y="22" ' + F + ' font-size="14" fill="' + C.dim + '">ALGOS LIVE</text>'
+    + '<text x="72" y="64" ' + F + ' font-size="' + (big.length > 7 ? 27 : 32) + '" fill="' + color + '">' + esc(big) + '</text>'
+    + '<text x="72" y="95" ' + F + ' font-size="15" fill="' + C.dim + '">' + esc(line2) + '</text>'
+    + (realise != null ? '<text x="72" y="128" ' + F + ' font-size="15" fill="' + col(realise) + '">' + esc('réalisé ' + (Math.abs(realise) < 0.5 ? '0 €' : sEur(realise))) + '</text>' : '')
     + '</svg>';
   return 'data:image/svg+xml;charset=utf8,' + encodeURIComponent(svg);
 }
@@ -279,6 +333,7 @@ function openChrome(url) {
 const PRESS = {
   capital: () => openChrome(CONFIG.dashboardUrl),
   pnlmois: () => openChrome(CONFIG.dashboardUrl),
+  algos: () => openChrome(CONFIG.dashboardUrl + '#real'),
   pnljour: ctx => { send({ event: 'setImage', context: ctx, payload: { image: key({ label: 'P&L JOUR', value: '…', sub: 'mise à jour', color: C.dim }), target: 0 } }); refresh(); },
   pont: () => pontDetails(),
   enfants: () => openChrome(CONFIG.dashboardUrl + '#enfants'),
@@ -293,6 +348,7 @@ ws.on('open', () => {
   refresh();
   setInterval(refresh, CONFIG.refreshMs);
   refreshIndices();
+  igFeed.start();
   setInterval(refreshIndices, CONFIG.indexRefreshMs);
   setInterval(() => { for (const [c, n] of contexts) if (n === 'pont') paint(c); }, 30000);   // l'age du pont avance meme sans nouvelles donnees
 });

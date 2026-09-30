@@ -1,6 +1,6 @@
 {
   "Name": "Trading Nathanaël",
-  "Version": "1.1.0.0",
+  "Version": "1.2.0.0",
   "Author": "Nathanaël",
   "Description": "Touches en direct du Trading Dashboard (capital, P&L, pont IG, poche enfants) et indices DAX, Nasdaq 100, S&P 500.",
   "Icon": "imgs/plugin",
@@ -140,6 +140,22 @@
       "Name": "S&P 500",
       "Icon": "imgs/action",
       "Tooltip": "S&P 500 en direct. Appui : graphique TradingView.",
+      "States": [
+        {
+          "Image": "imgs/key"
+        }
+      ],
+      "Controllers": [
+        "Keypad"
+      ],
+      "SupportedInMultiActions": false,
+      "UserTitleEnabled": false
+    },
+    {
+      "UUID": "com.nathanael.trading.algos",
+      "Name": "Algos live",
+      "Icon": "imgs/action",
+      "Tooltip": "P&L latent des positions IG en direct + réalisé du jour. Appui : onglet Trading Auto.",
       "States": [
         {
           "Image": "imgs/key"

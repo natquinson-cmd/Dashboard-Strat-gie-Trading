@@ -1,0 +1,12 @@
+{
+  "_comment": "Copier en ig_config.json (meme dossier) et renseigner TES identifiants IG, les memes que le pont. ig_config.json est ignore par git et jamais journalise.",
+  "apiKey": "TA_CLE_API_IG",
+  "username": "TON_IDENTIFIANT_IG",
+  "password": "TON_MOT_DE_PASSE_IG",
+  "accountId": "",
+  "epics": {
+    "dax": "IX.D.DAX.DAILY.IP",
+    "ndx": "IX.D.NASDAQ.IFE.IP",
+    "spx": "IX.D.SPTRD.DAILY.IP"
+  }
+}
