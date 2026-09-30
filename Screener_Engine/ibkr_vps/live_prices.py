@@ -4,7 +4,7 @@
 #    (cote VPS, pas de blocage CORS) et pousse dans stocks/screener/livePrices.
 # 2) Calcule la valeur et le montant investi du portefeuille (en USD, conversion FX) et ecrit
 #    un instantane du jour dans stocks/screener/positionsHistory/{YYYY-MM-DD} -> courbe + calendriers.
-# A planifier toutes les ~15 min pendant les heures de marche (le dernier run du jour = cloture).
+# Planifie toutes les 5 min (tache VPS DivKing_LivePrices, 15 min jusqu'au 30/09/2026) ; le dernier run du jour = cloture.
 #
 # Env : FIREBASE_DB_URL (+ FIREBASE_DB_SECRET ou GOOGLE_APPLICATION_CREDENTIALS si regles fermees)
 import json
@@ -251,7 +251,7 @@ def main():
     # --- Actualites des lignes detenues (fiche societe : comprendre un decrochage) ---
     # Rafraichies ICI et non dans le brief matinal : quand un titre plonge a 15h, des titres
     # publies le matin n'expliquent rien. Garde de 20 min pour ne pas marteler Yahoo, ce script
-    # pouvant tourner toutes les 15 min. Le filtre anti-bruit est celui du brief, deja teste.
+    # tournant toutes les 5 min. Le filtre anti-bruit est celui du brief, deja teste.
     try:
         from morning_brief import fetch_news
         prev = get(db, 'dashboard/positionNews') or {}
@@ -276,7 +276,7 @@ def main():
                     groupes.append({'ticker': t, 'items': items})
                     tot += len(items)
                 time.sleep(0.3)
-            # Resumes FRANCAIS : ce job tourne toutes les 15 min, il ne PRODUIT donc rien (ce
+            # Resumes FRANCAIS : ce job tourne toutes les 5 min, il ne PRODUIT donc rien (ce
             # serait des appels API a la chaine). Il se contente de RECOPIER, par URL, les resumes
             # deja produits, sans quoi ce push les effacerait. La production a lieu une fois par
             # jour dans morning_brief.py, et a la demande via le bouton Rafraichir.

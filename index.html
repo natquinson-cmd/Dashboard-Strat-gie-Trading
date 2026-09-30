@@ -5576,9 +5576,9 @@ function hbItems() {
     out.push({ key, label, t, level, tip: quoi + ' Dernier passage : ' + hbWhen(t) + '.'
       + (level === 'bad' ? ' ' + siBad : (level === 'warn' ? ' ' + siWarn : '')) });
   };
-  // Cours : toutes les ~15 min en seance ; une nuit de semaine en laisse ~10 h sans collecte.
+  // Cours : toutes les 5 min (30/09/2026, avant 15) ; une nuit de semaine en laisse ~10 h sans collecte.
   periodic('cours', 'Cours', hbMs(HB.cours), 14, 40,
-    'Cours des positions (live_prices.py sur le VPS, toutes les 15 min pendant les séances).',
+    'Cours des positions (live_prices.py sur le VPS, toutes les 5 min).',
     'Aucune collecte depuis plus d’une nuit de semaine : jour férié, ou tâche des cours arrêtée sur le VPS.',
     'COURS FIGÉS : valeurs, plus-values et rendements reposent sur des cours périmés. Vérifie la tâche planifiée des cours sur le VPS et son journal.');
   periodic('screener', 'Screener', hbMs(HB.screener), 30, 78,
@@ -5590,7 +5590,10 @@ function hbItems() {
     'Le brief du matin a sauté au moins une journée : vérifie la tâche planifiée du brief sur le VPS.',
     'BRIEF FIGÉ depuis plusieurs jours ouvrés : vérifie la tâche planifiée du brief sur le VPS.');
   // Darwinex : le collecteur ecrit lui-meme son statut (ok / expired / error) et sa raison.
-  if (!('dwx' in HB)) out.push({ key: 'dwx', label: 'Darwinex', t: NaN, level: 'wait', tip: 'Lecture en cours…' });
+  // Compte solde le 29/09/2026 : collecteur arrete, plus rien a surveiller (sinon pastille rouge a vie).
+  const dwK = (typeof darwinexDaily !== 'undefined') ? ttlDwxDates() : [];
+  if (dwK.length && dwxSolde(darwinexDaily[dwK[dwK.length - 1]].value)) { /* compte solde : pas de pastille */ }
+  else if (!('dwx' in HB)) out.push({ key: 'dwx', label: 'Darwinex', t: NaN, level: 'wait', tip: 'Lecture en cours…' });
   else {
     const cs = HB.dwx || {}, t = hbMs(cs.asOf);
     let level = hbLevel(t, 30, 78);
@@ -10251,7 +10254,7 @@ function scrHistArray(raw) {
     .map((k) => ({ date: k, value: Number(raw[k].value) || 0, invested: Number(raw[k].invested) || 0, lines: Array.isArray(raw[k].lines) ? raw[k].lines : null }));
 }
 // POINT "AUJOURD'HUI" EN DIRECT. Le calendrier et la courbe lisaient l'instantané du VPS chargé à l'ouverture
-// de l'onglet, le tableau les cours poussés toutes les 15 min : deux "journées" différentes à l'écran. Le point
+// de l'onglet, le tableau les cours poussés toutes les 5 min : deux "journées" différentes à l'écran. Le point
 // du jour est recalculé depuis les positions et les cours live (même formule que live_prices.py) à chaque
 // réception, et remplace l'instantané stocké du jour ; le soir il porte donc l'after-hours, comme le tableau.
 function scrLiveHistPoint() {

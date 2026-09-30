@@ -1,7 +1,7 @@
 @echo off
 REM live_prices.bat - cours "temps reel" des positions du dashboard.
-REM A planifier via le Planificateur de taches TOUTES LES ~15 MIN pendant les heures de marche
-REM (ex : declencheur repete toutes les 15 min, 15:30-22:00 heure FR pour le marche US).
+REM Planifie via le Planificateur de taches TOUTES LES 5 MIN (tache DivKing_LivePrices, /RI 5).
+REM Changer la cadence : schtasks /Change /TN "DivKing_LivePrices" /RI 5   (CMD administrateur)
 REM Prerequis : meme venv que le screener (requirements.txt deja installe).
 
 cd /d "%~dp0"
