@@ -16007,7 +16007,18 @@ Promise.all([
     if (r && r.tab === 'darwinex') r.tab = 'total';   // onglet retire
     if (r && r.group && r.tab) { if (r.group !== currentGroup) switchGroup(r.group); if (r.tab !== currentTab) switchTab(r.tab); }
   } catch (e) {}
+  // lien direct vers un onglet : index.html#enfants (touches du Stream Deck, favoris)
+  dashOpenHashTab();
 });
+function dashOpenHashTab() {
+  const tab = decodeURIComponent((location.hash || '').slice(1));
+  if (!tab) return;
+  const group = Object.keys(GROUP_TABS).find(g => GROUP_TABS[g].some(t => t.id === tab));
+  if (!group) return;
+  if (group !== currentGroup) switchGroup(group);
+  if (tab !== currentTab) switchTab(tab);
+}
+window.addEventListener('hashchange', dashOpenHashTab);
 </script>
 </body>
 </html>

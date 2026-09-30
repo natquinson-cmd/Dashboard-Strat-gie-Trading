@@ -36,7 +36,7 @@ function key({ label, value, sub, color, accent, valueSize }) {
     + '<rect x="0" y="0" width="144" height="8" fill="' + (accent || color || C.gray) + '"/>'
     + '<text x="72" y="36" text-anchor="middle" font-family="Segoe UI, Arial" font-size="17" font-weight="700" fill="' + C.dim + '">' + esc(label) + '</text>'
     + '<text x="72" y="' + (84 + (36 - vs) / 3) + '" text-anchor="middle" font-family="Segoe UI, Arial" font-size="' + vs + '" font-weight="800" fill="' + (color || C.txt) + '">' + esc(value) + '</text>'
-    + (sub ? '<text x="72" y="122" text-anchor="middle" font-family="Segoe UI, Arial" font-size="17" font-weight="600" fill="' + C.dim + '">' + esc(sub) + '</text>' : '')
+    + (sub ? '<text x="72" y="122" text-anchor="middle" font-family="Segoe UI, Arial" font-size="' + (String(sub).length > 13 ? 14 : 17) + '" font-weight="600" fill="' + C.dim + '">' + esc(sub) + '</text>' : '')
     + '</svg>';
   return 'data:image/svg+xml;charset=utf8,' + encodeURIComponent(svg);
 }
@@ -109,8 +109,18 @@ const RENDER = {
   enfants() {
     if (!data || !data.kids) return key({ label: 'ENFANTS', value: '?', sub: lastError ? lastError.slice(0, 16) : 'chargement', color: C.gray });
     const k = data.kids;
-    return key({ label: 'ENFANTS', value: eur(k.value), sub: lastError ? 'figé ' + hhmm(data.computedAt) : sPct(k.pct),
-      color: C.txt, accent: lastError ? C.warn : col(k.pnl) });
+    // plus-value et % en gros et en couleur, valeur totale de la poche en blanc en dessous
+    const c = col(k.pnl), pv = sEur(k.pnl), pc = sPct(k.pct).replace(' %', '%');
+    const F = 'font-family="Segoe UI, Arial" text-anchor="middle" font-weight="800"';
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="144" height="144" viewBox="0 0 144 144">'
+      + '<rect width="144" height="144" fill="' + C.bg + '"/>'
+      + '<rect x="0" y="0" width="144" height="6" fill="' + (lastError ? C.warn : c) + '"/>'
+      + '<text x="72" y="22" ' + F + ' font-size="14" fill="' + C.dim + '">' + (lastError ? 'ENFANTS · FIGÉ' : 'ENFANTS') + '</text>'
+      + '<text x="72" y="58" ' + F + ' font-size="' + (pv.length > 7 ? 27 : 32) + '" fill="' + c + '">' + esc(pv) + '</text>'
+      + '<text x="72" y="93" ' + F + ' font-size="' + (pc.length > 7 ? 25 : 29) + '" fill="' + c + '">' + esc(pc) + '</text>'
+      + '<text x="72" y="130" ' + F + ' font-size="24" fill="' + C.txt + '">' + esc(eur(k.value)) + '</text>'
+      + '</svg>';
+    return 'data:image/svg+xml;charset=utf8,' + encodeURIComponent(svg);
   },
   dax: () => renderIndex('dax'),
   ndx: () => renderIndex('ndx'),
@@ -161,12 +171,13 @@ function renderIndex(name) {
   if (q.error) return key({ label: lab, value: '?', sub: q.error.slice(0, 16), color: C.neg, accent: C.neg });
   const now = Date.now();
   const live = !q.failed && (q.open && q.close ? now >= q.open && now <= q.close : now - q.at < 20 * 60000);
-  const color = Math.abs(q.pct) < 0.005 ? C.txt : (q.pct > 0 ? C.pos : C.neg);
+  // marche ferme : toute la touche en gris (variation, courbe, cours), seules les seances ouvertes sont en couleur
+  const color = !live ? C.gray : Math.abs(q.pct) < 0.005 ? C.txt : (q.pct > 0 ? C.pos : C.neg);
   const F = 'font-family="Segoe UI, Arial"';
   let chart = '';
   const pts = q.pts || [];
   if (pts.length > 1) {
-    const X0 = 6, X1 = 138, Y0 = 66, Y1 = 116;
+    const X0 = 6, X1 = 138, Y0 = 58, Y1 = 104;
     // en seance : l'axe couvre toute la seance, la courbe avance au fil de la journee
     const last = pts[pts.length - 1][0];
     const inSession = q.open && q.close && last >= q.open && last <= q.close;
@@ -182,14 +193,15 @@ function renderIndex(name) {
       + '<polyline points="' + line + '" fill="none" stroke="' + color + '" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>';
   }
   const pctTxt = sPct(q.pct).replace(' %', '%');
-  const bottom = nfIdx.format(q.price).replace(/\s/g, ' ') + (live ? '' : q.failed ? ' · figé' : ' · clôt.');
+  const bottom = nfIdx.format(q.price).replace(/\s/g, ' ');
+  const title = lab + (live ? '' : q.failed ? ' · FIGÉ' : ' · CLÔT.');
   const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="144" height="144" viewBox="0 0 144 144">'
     + '<rect width="144" height="144" fill="' + C.bg + '"/>'
     + '<rect x="0" y="0" width="144" height="6" fill="' + (live ? color : C.gray) + '"/>'
-    + '<text x="72" y="25" text-anchor="middle" ' + F + ' font-size="15" font-weight="700" fill="' + C.dim + '">' + esc(lab) + '</text>'
-    + '<text x="72" y="58" text-anchor="middle" ' + F + ' font-size="' + (pctTxt.length > 7 ? 28 : 32) + '" font-weight="800" fill="' + color + '">' + esc(pctTxt) + '</text>'
+    + '<text x="72" y="22" text-anchor="middle" ' + F + ' font-size="' + (title.length > 14 ? 12 : 14) + '" font-weight="700" fill="' + C.dim + '">' + esc(title) + '</text>'
+    + '<text x="72" y="48" text-anchor="middle" ' + F + ' font-size="' + (pctTxt.length > 7 ? 22 : 24) + '" font-weight="800" fill="' + color + '">' + esc(pctTxt) + '</text>'
     + chart
-    + '<text x="72" y="137" text-anchor="middle" ' + F + ' font-size="15" font-weight="600" fill="' + C.dim + '">' + esc(bottom) + '</text>'
+    + '<text x="72" y="133" text-anchor="middle" ' + F + ' font-size="25" font-weight="800" fill="' + (live ? C.txt : C.gray) + '">' + esc(bottom) + '</text>'
     + '</svg>';
   return 'data:image/svg+xml;charset=utf8,' + encodeURIComponent(svg);
 }
@@ -238,16 +250,6 @@ function psRun(script, env) {
 }
 const popup = (title, msg) => psRun('Add-Type -AssemblyName PresentationFramework; [void][System.Windows.MessageBox]::Show($env:SD_MSG, $env:SD_TITLE)', { SD_MSG: msg, SD_TITLE: title });
 
-function kidsDetails() {
-  const k = data && data.kids;
-  if (!k) return popup('Poche enfants', lastError ? 'Échec de lecture : ' + lastError : 'Chargement en cours.');
-  const e = v => eur(v), sgn = v => (v > 0 ? '+' : '') + eur(v);
-  const lines = ['Poche enfants : ' + k.ticker + ' à ' + nf2.format(k.price) + ' € (cours de ' + hhmm(k.priceAt) + ')', ''];
-  k.children.forEach(c => lines.push(c.child + ' : ' + e(c.value) + '   (versé ' + e(c.paid) + ', ' + sgn(c.value - c.paid) + ', ' + nf2.format(c.units) + ' parts)'));
-  lines.push('', 'Total : ' + e(k.value) + ', versé ' + e(k.paid) + ', ' + sgn(k.pnl) + ' (' + sPct(k.pct) + ')');
-  return popup('Poche enfants', lines.join('\n'));
-}
-
 function pontDetails() {
   if (!data) return popup('Pont IG', lastError ? 'Échec de lecture : ' + lastError : 'Chargement en cours.');
   const p = data.pont || {}, s = data.igSync || {};
@@ -279,7 +281,7 @@ const PRESS = {
   pnlmois: () => openChrome(CONFIG.dashboardUrl),
   pnljour: ctx => { send({ event: 'setImage', context: ctx, payload: { image: key({ label: 'P&L JOUR', value: '…', sub: 'mise à jour', color: C.dim }), target: 0 } }); refresh(); },
   pont: () => pontDetails(),
-  enfants: () => kidsDetails(),
+  enfants: () => openChrome(CONFIG.dashboardUrl + '#enfants'),
   dax: () => openChrome('https://www.tradingview.com/chart/?symbol=' + INDICES.dax.tv),
   ndx: () => openChrome('https://www.tradingview.com/chart/?symbol=' + INDICES.ndx.tv),
   spx: () => openChrome('https://www.tradingview.com/chart/?symbol=' + INDICES.spx.tv),
