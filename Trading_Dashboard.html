@@ -14378,6 +14378,8 @@ function loadDarwinexDailyFromFirebase() {
   return db.ref('dashboard/darwinex/daily').once('value').then(snap => {
     const v = snap.val();
     darwinexDaily = (v && typeof v === 'object') ? v : {};
+    // la barre de sante masque Darwinex une fois le compte solde : la redessiner des que la serie arrive
+    if (typeof renderHealthBar === 'function') renderHealthBar();
   }).catch(() => { darwinexDaily = {}; });
 }
 
