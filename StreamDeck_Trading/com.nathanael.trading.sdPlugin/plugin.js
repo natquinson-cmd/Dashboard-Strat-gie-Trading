@@ -291,7 +291,7 @@ function renderAlgos() {
     + '<rect x="0" y="0" width="144" height="6" fill="' + color + '"/>'
     + '<text x="72" y="22" ' + F + ' font-size="14" fill="' + C.dim + '">ALGOS LIVE</text>'
     + '<text x="72" y="56" ' + F + ' font-size="' + (big.length > 7 ? 26 : 30) + '" fill="' + color + '">' + esc(big) + '</text>'
-    + (pts != null ? '<text x="72" y="78" ' + F + ' font-size="15" fill="' + color + '">' + esc(sPts(pts)) + '</text>' : '')
+    + (pts != null ? '<text x="72" y="80" ' + F + ' font-size="19" fill="' + color + '">' + esc(sPts(pts)) + '</text>' : '')
     + (posLine(s) || '<text x="72" y="95" ' + F + ' font-size="15" fill="' + C.dim + '">' + esc(line2) + '</text>')
     + (realise != null ? '<text x="72" y="128" ' + F + ' font-size="15" fill="' + col(realise) + '">' + esc('réalisé ' + (Math.abs(realise) < 0.5 ? '0 €' : sEur(realise))) + '</text>' : '')
     + '</svg>';
