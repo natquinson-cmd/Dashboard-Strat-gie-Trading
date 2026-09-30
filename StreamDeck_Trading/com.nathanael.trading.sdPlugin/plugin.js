@@ -76,7 +76,7 @@ function pnlKey(label, montant, pct, c) {
     + '<rect x="0" y="0" width="144" height="6" fill="' + (lastError ? C.warn : c) + '"/>'
     + '<text x="72" y="22" ' + F + ' font-size="14" fill="' + C.dim + '">' + esc(lastError ? label + ' · FIGÉ' : label) + '</text>'
     + '<text x="72" y="66" ' + F + ' font-size="' + (montant.length > 7 ? 28 : 32) + '" fill="' + c + '">' + esc(montant) + '</text>'
-    + (pc ? '<text x="72" y="112" ' + F + ' font-size="' + (pc.length > 7 ? 25 : 29) + '" fill="' + c + '">' + esc(pc) + '</text>' : '')
+    + (pc ? '<text x="72" y="112" ' + F + ' font-size="' + (pc.length > 7 ? 22 : 25) + '" fill="' + c + '">' + esc(pc) + '</text>' : '')
     + '</svg>';
   return 'data:image/svg+xml;charset=utf8,' + encodeURIComponent(svg);
 }
@@ -91,7 +91,7 @@ const RENDER = {
         + '<rect x="0" y="0" width="144" height="6" fill="' + (lastError ? C.warn : c) + '"/>'
         + '<text x="72" y="22" ' + F + ' font-size="14" fill="' + C.dim + '">' + (lastError ? 'CAPITAL · FIGÉ ' + hhmm(data.computedAt) : 'CAPITAL') + '</text>'
         + '<text x="72" y="60" ' + F + ' font-size="31" fill="' + C.txt + '">' + esc(eur(data.capTotal)) + '</text>'
-        + '<text x="72" y="98" ' + F + ' font-size="' + (pc.length > 7 ? 25 : 29) + '" fill="' + c + '">' + esc(pc) + '</text>'
+        + '<text x="72" y="98" ' + F + ' font-size="' + (pc.length > 7 ? 22 : 25) + '" fill="' + c + '">' + esc(pc) + '</text>'
         + '<text x="72" y="128" ' + F + ' font-size="16" fill="' + c + '">' + esc(sEur(data.pnlTotal)) + '</text>'
         + '</svg>';
       return 'data:image/svg+xml;charset=utf8,' + encodeURIComponent(svg);
@@ -136,7 +136,7 @@ const RENDER = {
       + '<rect x="0" y="0" width="144" height="6" fill="' + (lastError ? C.warn : c) + '"/>'
       + '<text x="72" y="22" ' + F + ' font-size="14" fill="' + C.dim + '">' + (lastError ? 'ENFANTS · FIGÉ' : 'ENFANTS') + '</text>'
       + '<text x="72" y="58" ' + F + ' font-size="' + (pv.length > 7 ? 27 : 32) + '" fill="' + c + '">' + esc(pv) + '</text>'
-      + '<text x="72" y="93" ' + F + ' font-size="' + (pc.length > 7 ? 25 : 29) + '" fill="' + c + '">' + esc(pc) + '</text>'
+      + '<text x="72" y="93" ' + F + ' font-size="' + (pc.length > 7 ? 22 : 25) + '" fill="' + c + '">' + esc(pc) + '</text>'
       + '<text x="72" y="130" ' + F + ' font-size="24" fill="' + C.txt + '">' + esc(eur(k.value)) + '</text>'
       + '</svg>';
     return 'data:image/svg+xml;charset=utf8,' + encodeURIComponent(svg);
