@@ -19,16 +19,22 @@ function createIgFeed(log, onChange) {
     error: null,
     prices: {},           // nom -> { mid, pct, marketState, at }
     account: null,        // { pnl, equity, at }
-    positions: null,      // { count, at }
+    positions: null,      // { count, list, at }
+    quotes: {},           // epic -> { bid, offer, at } (indices + instruments des positions)
   };
-  let candidates = {};
+  let candidates = {}, retryDelay = 120000;
+  const epicSubs = new Set();   // epics deja abonnes sur le client courant
   let cfg = null, session = null, client = null, posTimer = null, retryTimer = null, stopped = false;
 
-  function fail(msg) {
+  // Prudence envers la cle API partagee avec le pont : on espace les essais (2, 4, 8... 30 min max) et on
+  // n'insiste JAMAIS sur des identifiants refuses (risque de blocage du compte, donc du pont).
+  function fail(msg, noRetry) {
     state.status = 'erreur'; state.error = msg;
-    log('IG : ' + msg);
+    log('IG : ' + msg + (noRetry ? ' (plus de nouvel essai, relancer le Stream Deck)' : ' (nouvel essai dans ' + Math.round(retryDelay / 60000) + ' min)'));
     onChange();
-    if (!stopped && !retryTimer) retryTimer = setTimeout(() => { retryTimer = null; start(); }, 120000);   // nouvel essai dans 2 min
+    if (noRetry || stopped || retryTimer) return;
+    retryTimer = setTimeout(() => { retryTimer = null; start(); }, retryDelay);
+    retryDelay = Math.min(retryDelay * 2, 30 * 60000);
   }
 
   async function rest(p, opts) {
@@ -92,10 +98,11 @@ function createIgFeed(log, onChange) {
     try {
       const b = (await rest('/positions')).body;
       const list = (b.positions || []).map(p => ({
-        direction: (p.position || {}).direction, size: Number((p.position || {}).size) || 0,
+        direction: (p.position || {}).direction, size: Number((p.position || {}).size) || 0, level: Number((p.position || {}).level) || 0,
         epic: (p.market || {}).epic || '', name: (p.market || {}).instrumentName || '',
       }));
       state.positions = { count: list.length, list, at: Date.now() };
+      list.forEach(p => { if (p.epic && client) subscribeEpic(client, p.epic); });
       onChange();
     } catch (e) {
       if (e.status === 401 || e.status === 403) { restart('session expirée'); return; }
@@ -115,10 +122,27 @@ function createIgFeed(log, onChange) {
         const bid = parseFloat(u.getValue('BID')), offer = parseFloat(u.getValue('OFFER'));
         if (!isFinite(bid) || !isFinite(offer)) return;
         if (first) { first = false; log('IG : ' + n + ' en direct via ' + epic); }
+        state.quotes[epic] = { bid, offer, at: Date.now() };
         state.prices[n] = { mid: (bid + offer) / 2, pct: parseFloat(u.getValue('CHANGE_PCT')) || 0, marketState: u.getValue('MARKET_STATE'), at: Date.now(), epic };
         onChange();
       },
       onSubscriptionError(code, msg) { log('IG : ' + epic + ' refusé (' + code + ' ' + msg + '), essai suivant'); subscribeIndex(me, n, i + 1); },
+    });
+    epicSubs.add(epic);
+    me.subscribe(sub);
+  }
+
+  // Cours d'un instrument en position qui n'est pas deja suivi (pour les points de P&L)
+  function subscribeEpic(me, epic) {
+    if (epicSubs.has(epic)) return;
+    epicSubs.add(epic);
+    const sub = new Subscription('MERGE', ['MARKET:' + epic], ['BID', 'OFFER']);
+    sub.addListener({
+      onItemUpdate(u) {
+        const bid = parseFloat(u.getValue('BID')), offer = parseFloat(u.getValue('OFFER'));
+        if (isFinite(bid) && isFinite(offer)) { state.quotes[epic] = { bid, offer, at: Date.now() }; onChange(); }
+      },
+      onSubscriptionError(code, msg) { log('IG : cours de ' + epic + ' refusé (' + code + ' ' + msg + ')'); },
     });
     me.subscribe(sub);
   }
@@ -130,7 +154,7 @@ function createIgFeed(log, onChange) {
     client.addListener({
       onStatusChange(s) {
         if (client !== me) return;   // ancien client en cours de fermeture
-        if (s.startsWith('CONNECTED:')) { if (state.status !== 'ok') { state.status = 'ok'; state.error = null; log('IG : flux connecté (' + s + ')'); onChange(); } }
+        if (s.startsWith('CONNECTED:')) { retryDelay = 120000; if (state.status !== 'ok') { state.status = 'ok'; state.error = null; log('IG : flux connecté (' + s + ')'); onChange(); } }
         else if (s === 'DISCONNECTED' && !stopped) fail('flux coupé');
       },
       onServerError(code, msg) { if (client === me) fail('serveur de flux ' + code + ' ' + msg); },
@@ -165,6 +189,7 @@ function createIgFeed(log, onChange) {
   function stopClient() {
     if (posTimer) { clearInterval(posTimer); posTimer = null; }
     if (client) { try { client.disconnect(); } catch (e) { /* deja coupe */ } client = null; }
+    epicSubs.clear();
   }
   function restart(why) { log('IG : reconnexion (' + why + ')'); stopClient(); start(); }
 
@@ -177,7 +202,11 @@ function createIgFeed(log, onChange) {
     }
     state.status = 'connexion'; onChange();
     try { await login(); }
-    catch (e) { fail('connexion refusée : ' + e.message); return; }
+    catch (e) {
+      const bad = /invalid\.details|error\.security|account-disabled|api-key-(invalid|disabled|revoked)|accountId/i.test(e.message);
+      fail('connexion refusée : ' + e.message, bad);
+      return;
+    }
     await resolveEpics();
     subscribe();
     pollPositions();

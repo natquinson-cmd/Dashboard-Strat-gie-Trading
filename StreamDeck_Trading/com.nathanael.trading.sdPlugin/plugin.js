@@ -250,7 +250,7 @@ function posLine(s) {
   const total = items.reduce((a, it) => a + w(it), 0) + (items.length - 1) * 10;
   let x = 72 - total / 2, out = '';
   items.forEach(it => {
-    const cx = x + 9, cy = 90, c = it.buy ? C.pos : C.neg;
+    const cx = x + 9, cy = 99, c = it.buy ? C.pos : C.neg;
     out += '<polygon points="' + (it.buy
       ? (cx - 9) + ',' + (cy + 8) + ' ' + (cx + 9) + ',' + (cy + 8) + ' ' + cx + ',' + (cy - 9)
       : (cx - 9) + ',' + (cy - 8) + ' ' + (cx + 9) + ',' + (cy - 8) + ' ' + cx + ',' + (cy + 9)) + '" fill="' + c + '"/>'
@@ -261,8 +261,19 @@ function posLine(s) {
 }
 
 // P&L latent des algos (positions ouvertes du compte IG, en direct) + realise du jour (synchro IG du dashboard).
+// Points de P&L : cours de sortie (bid pour un achat, offer pour une vente) moins le niveau d'ouverture.
+// Seulement quand toutes les positions sont sur le meme instrument (sinon additionner des points n'a pas de sens).
+function openPoints(s) {
+  const list = s.positions && s.positions.list;
+  if (!list || !list.length || new Set(list.map(p => p.epic)).size > 1) return null;
+  const q = s.quotes[list[0].epic];
+  if (!q || Date.now() - q.at > 120000) return null;
+  return list.reduce((a, p) => a + (p.direction === 'BUY' ? q.bid - p.level : p.level - q.offer), 0) / list.length;
+}
+const sPts = v => (v > 0 ? '+' : '') + nf1.format(v).replace(/\s/g, ' ') + ' pts';
 function renderAlgos() {
   const s = igFeed.state, a = s.account;
+  const pts = s.status === 'ok' ? openPoints(s) : null;
   const F = 'font-family="Segoe UI, Arial" text-anchor="middle" font-weight="800"';
   const realise = data ? data.today.ig : null;
   let big, color, line2;
@@ -279,7 +290,8 @@ function renderAlgos() {
     + '<rect width="144" height="144" fill="' + C.bg + '"/>'
     + '<rect x="0" y="0" width="144" height="6" fill="' + color + '"/>'
     + '<text x="72" y="22" ' + F + ' font-size="14" fill="' + C.dim + '">ALGOS LIVE</text>'
-    + '<text x="72" y="64" ' + F + ' font-size="' + (big.length > 7 ? 27 : 32) + '" fill="' + color + '">' + esc(big) + '</text>'
+    + '<text x="72" y="56" ' + F + ' font-size="' + (big.length > 7 ? 26 : 30) + '" fill="' + color + '">' + esc(big) + '</text>'
+    + (pts != null ? '<text x="72" y="78" ' + F + ' font-size="15" fill="' + color + '">' + esc(sPts(pts)) + '</text>' : '')
     + (posLine(s) || '<text x="72" y="95" ' + F + ' font-size="15" fill="' + C.dim + '">' + esc(line2) + '</text>')
     + (realise != null ? '<text x="72" y="128" ' + F + ' font-size="15" fill="' + col(realise) + '">' + esc('réalisé ' + (Math.abs(realise) < 0.5 ? '0 €' : sEur(realise))) + '</text>' : '')
     + '</svg>';
