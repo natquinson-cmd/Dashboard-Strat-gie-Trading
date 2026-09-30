@@ -9,7 +9,9 @@ const { LightstreamerClient, Subscription } = require('lightstreamer-client-node
 const CONFIG_FILE = path.join(__dirname, 'ig_config.json');
 const API = 'https://api.ig.com/gateway/deal';
 // CFD « cash » IG : suivent l'indice au comptant en seance et les futures en dehors
-const DEFAULT_EPICS = { dax: 'IX.D.DAX.DAILY.IP', ndx: 'IX.D.NASDAQ.IFE.IP', spx: 'IX.D.SPTRD.DAILY.IP' };
+// Codes « DAILY » = spread bet (comptes UK) : refuses sur un compte CFD. On cherche donc les codes du compte.
+const SEARCH = { dax: ['Allemagne 40', 'Germany 40'], ndx: ['US Tech 100'], spx: ['US 500'] };
+const EPICS_CACHE = path.join(__dirname, 'ig_epics.json');
 
 function createIgFeed(log, onChange) {
   const state = {
@@ -19,6 +21,7 @@ function createIgFeed(log, onChange) {
     account: null,        // { pnl, equity, at }
     positions: null,      // { count, at }
   };
+  let candidates = {};
   let cfg = null, session = null, client = null, posTimer = null, retryTimer = null, stopped = false;
 
   function fail(msg) {
@@ -55,6 +58,32 @@ function createIgFeed(log, onChange) {
   }
 
   // Nombre de positions ouvertes : 1 requete par minute (le pont en fait deja 12, IG en tolere bien plus).
+  // Candidats par indice : override de la config, cache, puis recherche IG (CFD au comptant, sans echeance).
+  async function resolveEpics() {
+    let cache = {};
+    try { cache = JSON.parse(fs.readFileSync(EPICS_CACHE, 'utf8')); } catch (e) { /* pas encore de cache */ }
+    const out = {};
+    for (const n of Object.keys(SEARCH)) {
+      const forced = cfg.epics && cfg.epics[n] && !/DAILY/.test(cfg.epics[n]) ? [cfg.epics[n]] : [];
+      if (cache[n] && cache[n].length) { out[n] = forced.concat(cache[n]); continue; }
+      const found = [];
+      for (const term of SEARCH[n]) {
+        try {
+          const b = (await rest('/markets?searchTerm=' + encodeURIComponent(term), { version: '1' })).body;
+          (b.markets || []).forEach(m => {
+            if (/^IX\.D\./.test(m.epic) && !/DAILY/.test(m.epic) && (m.expiry === '-' || m.expiry === 'DFB') && !found.includes(m.epic)) found.push(m.epic);
+          });
+        } catch (e) { log('IG recherche ' + term + ' : ' + e.message); }
+        if (found.length) break;
+      }
+      log('IG : candidats ' + n + ' = ' + (found.join(', ') || 'aucun'));
+      out[n] = forced.concat(found);
+      cache[n] = found;
+    }
+    try { fs.writeFileSync(EPICS_CACHE, JSON.stringify(cache, null, 2)); } catch (e) { /* cache facultatif */ }
+    candidates = out;
+  }
+
   async function pollPositions() {
     try {
       const b = (await rest('/positions')).body;
@@ -64,6 +93,26 @@ function createIgFeed(log, onChange) {
       if (e.status === 401 || e.status === 403) { restart('session expirée'); return; }
       log('IG positions : ' + e.message);
     }
+  }
+
+  function subscribeIndex(me, n, i) {
+    const list = candidates[n] || [];
+    if (client !== me) return;
+    if (i >= list.length) { log('IG : aucun code valide pour ' + n + ' (essayés : ' + list.join(', ') + ')'); return; }
+    const epic = list[i];
+    const sub = new Subscription('MERGE', ['MARKET:' + epic], ['BID', 'OFFER', 'CHANGE_PCT', 'MARKET_STATE']);
+    let first = true;
+    sub.addListener({
+      onItemUpdate(u) {
+        const bid = parseFloat(u.getValue('BID')), offer = parseFloat(u.getValue('OFFER'));
+        if (!isFinite(bid) || !isFinite(offer)) return;
+        if (first) { first = false; log('IG : ' + n + ' en direct via ' + epic); }
+        state.prices[n] = { mid: (bid + offer) / 2, pct: parseFloat(u.getValue('CHANGE_PCT')) || 0, marketState: u.getValue('MARKET_STATE'), at: Date.now(), epic };
+        onChange();
+      },
+      onSubscriptionError(code, msg) { log('IG : ' + epic + ' refusé (' + code + ' ' + msg + '), essai suivant'); subscribeIndex(me, n, i + 1); },
+    });
+    me.subscribe(sub);
   }
 
   function subscribe() {
@@ -79,26 +128,15 @@ function createIgFeed(log, onChange) {
       onServerError(code, msg) { if (client === me) fail('serveur de flux ' + code + ' ' + msg); },
     });
 
-    const epics = Object.assign({}, DEFAULT_EPICS, cfg.epics || {});
-    const names = Object.keys(epics);
-    const mkt = new Subscription('MERGE', names.map(n => 'MARKET:' + epics[n]), ['BID', 'OFFER', 'CHANGE_PCT', 'MARKET_STATE']);
-    mkt.addListener({
-      onItemUpdate(u) {
-        const n = names[u.getItemPos() - 1];
-        const bid = parseFloat(u.getValue('BID')), offer = parseFloat(u.getValue('OFFER'));
-        if (!isFinite(bid) || !isFinite(offer)) return;
-        state.prices[n] = { mid: (bid + offer) / 2, pct: parseFloat(u.getValue('CHANGE_PCT')) || 0, marketState: u.getValue('MARKET_STATE'), at: Date.now(), epic: epics[n] };
-        onChange();
-      },
-      onSubscriptionError(code, msg) { log('IG abonnement prix : ' + code + ' ' + msg); },
-      onItemLostUpdates() {},
-    });
-    client.subscribe(mkt);
+    // un abonnement par indice : un code refuse n'empeche pas les autres de tourner,
+    // et en cas de refus on essaie le candidat suivant trouve par la recherche IG
+    for (const n of Object.keys(candidates)) subscribeIndex(me, n, 0);
 
     const acc = new Subscription('MERGE', ['ACCOUNT:' + session.accountId], ['PNL', 'EQUITY']);
     acc.addListener({
       onItemUpdate(u) {
         const pnl = parseFloat(u.getValue('PNL')), equity = parseFloat(u.getValue('EQUITY'));
+        if (!state.account) log('IG : P&L latent du compte reçu');
         state.account = { pnl: isFinite(pnl) ? pnl : 0, equity: isFinite(equity) ? equity : null, at: Date.now() };
         onChange();
       },
@@ -124,6 +162,7 @@ function createIgFeed(log, onChange) {
     state.status = 'connexion'; onChange();
     try { await login(); }
     catch (e) { fail('connexion refusée : ' + e.message); return; }
+    await resolveEpics();
     subscribe();
     pollPositions();
     posTimer = setInterval(pollPositions, 60000);

@@ -4,9 +4,6 @@
   "username": "TON_IDENTIFIANT_IG",
   "password": "TON_MOT_DE_PASSE_IG",
   "accountId": "",
-  "epics": {
-    "dax": "IX.D.DAX.DAILY.IP",
-    "ndx": "IX.D.NASDAQ.IFE.IP",
-    "spx": "IX.D.SPTRD.DAILY.IP"
-  }
+  "epics": {},
+  "_epics": "Facultatif : forcer un code par indice (dax, ndx, spx). Vide = recherche automatique des CFD du compte."
 }
