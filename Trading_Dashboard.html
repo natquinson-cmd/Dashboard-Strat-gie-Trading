@@ -1333,6 +1333,7 @@
   .igl-sens { padding: 2px 7px; border-radius: 6px; font-size: 0.7rem; font-weight: 800; flex: none; }
   .igl-pts { color: var(--text-secondary); }
   .igl-pnl { margin-left: auto; }
+  .igl-stop { font-size: 0.72rem; font-weight: 600; margin-top: 3px; }
   .igl-foot { font-size: 0.66rem; color: var(--text-muted); margin-top: 8px; }
   .ig-live-pc .igl-card { max-width: 520px; margin: 0 0 14px; }
   html.m-mode .ig-live-pc { display: none; }
@@ -5551,6 +5552,20 @@ function igLiveEl() {
       scrEl('span', { text: IG_LIVE_LIB[r.kind] || r.kind }),
       scrEl('span', { cls: 'igl-pts', text: (pts >= 0 ? '+' : '') + pts.toLocaleString('fr-FR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' pts' }),
       scrEl('b', { cls: 'igl-pnl', text: S(Number(r.pnl) || 0), style: col(Number(r.pnl) || 0) })] }));
+    // stop : points garantis si le stop est touche (> 0 position SECURISEE, 0 point mort, < 0 risque restant)
+    const P1 = (v) => (v >= 0 ? '+' : '') + Number(v).toLocaleString('fr-FR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+    const niv = (v) => Number(v).toLocaleString('fr-FR', { maximumFractionDigits: 1 });
+    let st2, c2;
+    if (r.stop == null) { st2 = 'Sans stop'; c2 = '#b45309'; }
+    else {
+      const sec = Number(r.secured) || 0, eur = Number(r.securedEur) || 0;
+      if (sec > 0.05) { st2 = '🔒 Sécurisée : ' + P1(sec) + ' pts (' + S(eur) + ') · stop ' + niv(r.stop); c2 = 'var(--positive)'; }
+      else if (sec >= -0.05) { st2 = '🔒 Au point mort · stop ' + niv(r.stop); c2 = 'var(--positive)'; }
+      else { st2 = 'Risque ' + P1(sec) + ' pts (' + S(eur) + ') jusqu’au stop ' + niv(r.stop); c2 = 'var(--text-secondary)'; }
+      if (r.trailing) st2 += ' · stop suiveur ' + niv(r.trailing) + ' pts';
+    }
+    kids.push(scrEl('div', { cls: 'igl-stop', text: st2, style: 'color:' + (st.fresh ? c2 : 'var(--text-muted)'),
+      attrs: { title: 'Points et euros garantis si le stop est touché, au cours d’entrée ' + niv(r.level) + (r.limit ? ' · objectif ' + niv(r.limit) : '') } }));
   });
   kids.push(scrEl('div', { cls: 'igl-foot', text: st.fresh ? 'P&L latent au cours IG, il y a ' + age
     : 'Aucune mise à jour depuis ' + age + ' : vérifie le pont IG sur le VPS. Montant indicatif.' }));
