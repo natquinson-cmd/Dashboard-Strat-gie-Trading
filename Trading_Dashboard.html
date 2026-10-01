@@ -13358,7 +13358,7 @@ function renderMobileInvest(t, li) {
       document.createTextNode(' vs fin ' + mois(prevYm))] })] : []),
     scrEl('div', { cls: 'mp-sub', kids: [document.createTextNode('Net '), scrEl('b', { text: E(t.nc), style: 'color:var(--text-primary)' }),
       document.createTextNode(' après ' + E(t.tl) + ' d’emprunts')] }),
-    scrEl('div', { cls: 'mp-sub', kids: [document.createTextNode('Revenus d’' + mois(ym) + ' '), scrEl('b', { text: S(t.lmi), style: col(t.lmi) }),
+    scrEl('div', { cls: 'mp-sub', kids: [document.createTextNode('Revenus ' + (/^[aeiouy]/i.test(mois(ym)) ? 'd’' : 'de ') + mois(ym) + ' '), scrEl('b', { text: S(t.lmi), style: col(t.lmi) }),
       document.createTextNode(' · net '), scrEl('b', { text: S(t.nmi), style: col(t.nmi) }), document.createTextNode(' après remboursements')] })] }));
   // 2. courbe du patrimoine brut, mois par mois
   const serie = [];
@@ -14929,6 +14929,16 @@ function syncDarwinexPlatform() {
   // Avant : tout 0 etait pris pour un mois vide, et le 0 du compte solde (29/09/2026) devenait la valeur d'aout.
   const firstFilled = has.indexOf(true);
   if (firstFilled >= 0) for (let i = firstFilled + 1; i < n; i++) if (!has[i]) prin[i] = prin[i - 1];
+
+  // Mois de la CLOTURE (compte solde le 29/09/2026, demande du user le 01/10) : l'argent retire le dernier jour
+  // attend d'etre reinvesti en actions. A 0, le patrimoine avait un trou entre le retrait et le reinvestissement :
+  // ce mois garde le montant retire ce jour-la (7 953 EUR), applique APRES le report pour que les mois suivants
+  // restent a 0. Le retrait partiel du 22/09 n'est pas repris : deja sorti, il pourrait etre compte deux fois.
+  const lastK = keys[keys.length - 1], fin = lastK ? darwinexDaily[lastK] : null;
+  if (fin && Math.abs(Number(fin.value) || 0) < 1 && Number(fin.deposit) < 0) {
+    const mi = idxOf[lastK.substring(0, 7)];
+    if (mi != null && has[mi]) prin[mi] = Math.round(-Number(fin.deposit) * 100) / 100;
+  }
 
   d.principal[DARWINEX_PLATFORM] = prin;
   d.interests[DARWINEX_PLATFORM] = intr;
