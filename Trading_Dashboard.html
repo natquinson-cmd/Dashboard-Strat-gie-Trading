@@ -1329,10 +1329,14 @@
   #tab-accueil .m-lbl { font-size: 0.64rem; letter-spacing: .06em; text-transform: uppercase; font-weight: 700; color: var(--text-secondary); }
   #tab-accueil .m-big { font-size: 2.2rem; font-weight: 800; line-height: 1.1; margin-top: 4px; color: var(--text-primary); }
   #tab-accueil .m-sub { font-size: 0.78rem; color: var(--text-secondary); margin-top: 5px; }
-  #tab-accueil .m-hero-top { display: flex; align-items: flex-end; justify-content: space-between; gap: 6px 12px; flex-wrap: wrap; }
-  #tab-accueil .m-spark { flex: 1 1 90px; max-width: 160px; }
-  #tab-accueil .m-spark svg { display: block; width: 100%; height: auto; }
-  #tab-accueil .m-spark-cap { font-size: 0.6rem; color: var(--text-muted); text-align: right; margin-top: 2px; }
+  /* carte Capital total : 4 lignes de texte a gauche, mini-courbe sur toute la hauteur a droite */
+  #tab-accueil .m-hero-row { display: flex; align-items: stretch; gap: 12px; }
+  #tab-accueil .m-hero-txt { flex: none; }
+  #tab-accueil .m-hero-txt .m-big { font-size: 2rem; white-space: nowrap; }
+  #tab-accueil .m-hero-txt .m-sub { margin-top: 3px; white-space: nowrap; }
+  #tab-accueil .m-spark { flex: 1 1 auto; min-width: 60px; position: relative; }
+  #tab-accueil .m-spark svg { position: absolute; left: 0; top: 2px; width: 100%; height: calc(100% - 16px); display: block; }
+  #tab-accueil .m-spark-cap { position: absolute; right: 0; bottom: 0; font-size: 0.6rem; color: var(--text-muted); }
   #tab-accueil .m-src { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 7px; vertical-align: 0; }
   #tab-accueil .m-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
   #tab-accueil .m-card { padding: 12px 14px; border-radius: 14px; }
@@ -7102,21 +7106,24 @@ function mMoreBtn() {   // bouton construit en JS (onglet Portefeuille d'actions
 // Mini-courbe (sans axes) pour la carte Capital total de l'accueil mobile.
 // Couleur de chaque source, identique a Trading total (TTL_COL), en variante Baggr sur le theme fonce.
 function mSrcCol(k) {
-  const dark = { ig: '#de6058', stk: '#3f76ed', dwx: '#efc560' };
+  const dark = { ig: '#de6058', stk: '#3f76ed', dwx: '#efc560', deb: '#f5b041' };
+  if (k === 'deb' && THEME !== 'dark') return INV_NATURE_LIB.p2p[1];   // ambre des prets P2P (Portfolio)
   return THEME === 'dark' ? dark[k] : TTL_COL[k];
 }
-function mSpark(serie) {
+function mSpark(serie, keys, tip) {
+  keys = keys || ['ig', 'stk', 'dwx'];
   const pts = (serie || []).filter((p) => p && p.value > 0);
   if (pts.length < 2) return scrEl('span');
-  const NS = 'http://www.w3.org/2000/svg', W = 160, Hh = 62, pd = 2;
+  const NS = 'http://www.w3.org/2000/svg', W = 160, Hh = 100, pd = 1;
   const mx = Math.max.apply(null, pts.map((p) => p.value)) || 1;
   const x = (i) => pd + i * (W - 2 * pd) / (pts.length - 1), y = (v) => pd + (1 - v / mx) * (Hh - 2 * pd);
   const svg = document.createElementNS(NS, 'svg');
   svg.setAttribute('viewBox', '0 0 ' + W + ' ' + Hh);
+  svg.setAttribute('preserveAspectRatio', 'none');   // aires sans trait : on peut les etirer a la taille de la carte
   const mk = (t, a) => { const e = document.createElementNS(NS, t); Object.keys(a).forEach((k) => e.setAttribute(k, a[k])); svg.appendChild(e); return e; };
-  // aires empilees : Trading Auto en bas, puis Actions, puis Darwinex
+  // aires empilees, dans l'ordre de keys (la premiere en bas)
   let bas = pts.map(() => 0);
-  ['ig', 'stk', 'dwx'].forEach((k) => {
+  keys.forEach((k) => {
     const haut = pts.map((p, i) => bas[i] + (p[k] || 0));
     let d = '';
     haut.forEach((v, i) => { d += (i ? 'L' : 'M') + x(i).toFixed(1) + ' ' + y(v).toFixed(1) + ' '; });
@@ -7125,8 +7132,38 @@ function mSpark(serie) {
     bas = haut;
   });
   const cap = 'depuis ' + new Date(pts[0].date + 'T12:00:00').toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' });
-  return scrEl('div', { cls: 'm-spark', attrs: { title: 'Capital total jour par jour, versements compris : Trading Auto, actions et Darwinex empilés' },
+  return scrEl('div', { cls: 'm-spark', attrs: { title: tip || 'Capital total jour par jour, versements compris : Trading Auto, actions et Darwinex empilés' },
     kids: [svg, scrEl('div', { cls: 'm-spark-cap', text: cap })] });
+}
+// Debitum, seule plateforme P2P depuis le 01/10/2026 : capital place fin de mois et interets, saisis dans Portfolio.
+// Les interets sont retires chaque mois (le capital reste plat des mois durant) : gain = interets cumules,
+// base = capital place. y12 = rendement annualise des 12 derniers mois dont les interets sont saisis.
+function mDebitum() {
+  const d = portfolioData;
+  if (!d || !d.months || !d.principal || !d.principal.Debitum) return null;
+  const pr = d.principal.Debitum, it = (d.interests && d.interests.Debitum) || [];
+  const eur = (v) => invToEur('Debitum', Number(v) || 0);
+  let li = -1;
+  for (let i = d.months.length - 1; i >= 0; i--) if (eur(pr[i]) > 0) { li = i; break; }
+  if (li < 0) return null;
+  let cum = 0;
+  for (let i = 0; i <= li; i++) cum += eur(it[i]);
+  let j = li;
+  while (j >= 0 && !(eur(it[j]) > 0)) j--;
+  let si = 0, sc = 0, n = 0;
+  for (let i = j; i >= 0 && i > j - 12; i--) { si += eur(it[i]); sc += eur(pr[i]); n++; }
+  const byMonth = {};
+  d.months.forEach((m, i) => { byMonth[m] = eur(pr[i]); });
+  return { value: eur(pr[li]), cum: cum, y12: (n && sc > 0) ? si / (sc / n) * 12 / n : null, months: d.months.slice(), byMonth: byMonth };
+}
+// Capital complet jour par jour : marches (ttlTotalSeries, sans Darwinex) + Debitum au palier du mois.
+function mHomeSeries(deb) {
+  return ttlTotalSeries().map((p) => {
+    const ym = p.date.slice(0, 7);
+    let dv = 0;
+    if (deb) for (const m of deb.months) { if (m <= ym) dv = deb.byMonth[m] || 0; else break; }
+    return { date: p.date, deb: dv, ig: p.ig, stk: p.stk, value: dv + p.ig + p.stk };
+  });
 }
 // ECRAN ACCUEIL MOBILE : l'essentiel en un coup d'oeil, sans defiler.
 function renderMobileHome() {
@@ -7140,16 +7177,22 @@ function renderMobileHome() {
   const col = (v) => 'color:' + (v >= 0 ? 'var(--positive)' : 'var(--negative)');
   const pct = (num, den) => (den > 0 && isFinite(num)) ? num / den * 100 : null;
   const kids = [];
-  // 1. capital total : Trading Auto + actions + Darwinex (la poche des enfants est a part)
+  // 1. capital total = TOUT le capital : Trading Auto + actions + Debitum (Darwinex solde le 29/09/2026 ;
+  //    la poche des enfants est a part). Gains = P&L des marches + interets Debitum recus.
+  const deb = mDebitum(), debV = deb ? deb.value : 0, debCum = deb ? deb.cum : 0;
+  const cap = A.igNow + A.stkNow + debV;
+  const gain = A.igPnl + A.stkPnl + debCum, base = A.igDep + A.stkInv + debV, gainPct = pct(gain, base);
   let spark = scrEl('span');
-  try { spark = mSpark(ttlTotalSeries()); } catch (e) {}
+  try { spark = mSpark(mHomeSeries(deb), ['deb', 'ig', 'stk'], 'Capital total jour par jour, versements compris : Debitum, Trading Auto et actions empilés'); } catch (e) {}
   kids.push(scrEl('div', { cls: 'm-hero', kids: [
-    scrEl('div', { cls: 'm-hero-top', kids: [
-      scrEl('div', { kids: [scrEl('div', { cls: 'm-lbl', text: 'Capital total' }), scrEl('div', { cls: 'm-big', text: E(A.capTotal) })] }),
-      spark] }),
-    scrEl('div', { cls: 'm-sub', kids: [
-      scrEl('span', { text: (A.pnlTotal >= 0 ? '▲ ' : '▼ ') + S(A.pnlTotal) + ' (' + P(A.pnlPct) + ')', style: 'font-weight:700;' + col(A.pnlTotal) }),
-      document.createTextNode(' sur ' + E(A.invTotal) + ' investis')] })] }));
+    scrEl('div', { cls: 'm-hero-row', kids: [
+      scrEl('div', { cls: 'm-hero-txt', attrs: { title: 'Gains : P&L des marchés (Trading Auto, actions) et intérêts Debitum reçus. '
+          + 'Les intérêts Debitum sont retirés chaque mois : ils ne figurent pas dans le capital. Investi : apports nets des marchés et capital placé sur Debitum.' }, kids: [
+        scrEl('div', { cls: 'm-lbl', text: 'Capital total' }),
+        scrEl('div', { cls: 'm-big', text: E(cap) }),
+        scrEl('div', { cls: 'm-sub', text: (gain >= 0 ? '▲ ' : '▼ ') + S(gain) + (gainPct != null ? ' (' + P(gainPct) + ')' : ''), style: 'font-weight:700;' + col(gain) }),
+        scrEl('div', { cls: 'm-sub', text: 'sur ' + E(base) + ' investis' })] }),
+      spark] })] }));
   // 2. aujourd'hui (ou derniere seance) et mois en cours : montant + % du capital de debut de mois,
   //    la meme base que les calendriers de Trading total
   const card = (lbl, v, p, vide) => scrEl('div', { cls: 'm-card', kids: [
@@ -7190,9 +7233,10 @@ function renderMobileHome() {
   kids.push(scrEl('div', { cls: 'm-list', kids: [
     row('Trading Auto', cbTxt, A.igNow, pct(A.igPnl, A.igDep), () => mGo('trading', 'real'), mSrcCol('ig'), cbCol,
       'Régime de l’algo (moniteur CUSUM) : vert = aucune rupture, orange = rupture suspectée, rouge = dégradation avérée'),
-    row('Actions', 'portefeuille Revolut', A.stkNow, pct(A.stkPnl, A.stkInv), () => mGo('trading', 'screener'), mSrcCol('stk')),
-    row('Darwinex', dwxSolde(A.dwxNow) ? 'compte soldé · historique conservé' : 'retrait en cours · historique conservé', A.dwxNow,
-      pct(A.dwxPnl, dwxSolde(A.dwxNow) ? dwxGrossIn() : A.dwxInv), null, mSrcCol('dwx'))] }));   // plus d'onglet Darwinex
+    row('Actions', 'portefeuille Revolut', A.stkNow, pct(A.stkPnl, A.stkInv), () => mGo('trading', 'screener'), mSrcCol('stk'))]
+    // Debitum : % = interets cumules / capital place ; la note donne le rendement annuel des 12 derniers mois
+    .concat(deb ? [row('Debitum', 'prêts P2P' + (deb.y12 != null ? ' · ' + (deb.y12 * 100).toFixed(1) + ' %/an sur 12 mois' : ''), debV,
+      pct(debCum, debV), () => mGo('invest', 'overview'), mSrcCol('deb'))] : []) }));
   let k = null;
   try { k = kidsCompute(); } catch (e) {}
   if (k && k.value != null) kids.push(scrEl('div', { cls: 'm-list', kids: [
