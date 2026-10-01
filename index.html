@@ -7143,8 +7143,10 @@ function mDebitum() {
   if (!d || !d.months || !d.principal || !d.principal.Debitum) return null;
   const pr = d.principal.Debitum, it = (d.interests && d.interests.Debitum) || [];
   const eur = (v) => invToEur('Debitum', Number(v) || 0);
+  // dernier mois SAISI = dernier mois avec des interets (le mois en cours n'est souvent qu'un report)
   let li = -1;
-  for (let i = d.months.length - 1; i >= 0; i--) if (eur(pr[i]) > 0) { li = i; break; }
+  for (let i = d.months.length - 1; i >= 0; i--) if (eur(pr[i]) > 0 && eur(it[i]) > 0) { li = i; break; }
+  if (li < 0) for (let i = d.months.length - 1; i >= 0; i--) if (eur(pr[i]) > 0) { li = i; break; }
   if (li < 0) return null;
   let cum = 0;
   for (let i = 0; i <= li; i++) cum += eur(it[i]);
@@ -13025,6 +13027,14 @@ function invRebuildLendermarketFromHistory(fromMi) {
     const inte = (u && tot > 0) ? Math.round((Number(u.interest) || 0) * ((Number(u["Moi"]) || 0) / tot)) : undefined;
     invSetLendermarketMonth(mi, Number(lastByMonth[ym]["Moi"]) || 0, inte);
   });
+  // Mois POSTERIEURS a la derniere entree : le dernier capital connu. Sans cela le report du mois precedent
+  // (carryForwardPortfolioData) y laissait une ancienne valeur : 1 730 EUR en septembre 2026 apres le retrait d'aout.
+  const lastYm = Object.keys(lastByMonth).sort().pop();
+  const lastMi = lastYm ? months.indexOf(lastYm) : -1;
+  if (lastMi >= 0) for (let mi = lastMi + 1; mi < months.length; mi++) {
+    if (typeof fromMi === 'number' && mi < fromMi) continue;
+    invSetLendermarketMonth(mi, Number(lastByMonth[lastYm]["Moi"]) || 0);
+  }
 }
 
 function invSyncLendermarketFromRep(li, moiInterest) {
@@ -14808,8 +14818,10 @@ function syncDarwinexPlatform() {
     monthVal[ym] = Number(darwinexDaily[k].value) || 0; // dernière valeur du mois (keys triées)
     if (dd[k]) monthPnl[ym] = (monthPnl[ym] || 0) + dd[k].pnl;
   }
+  const has = new Array(n).fill(false);   // mois portant une vraie valeur (0 compris : compte solde)
   Object.keys(monthVal).forEach(ym => {
     if (ym < curYm && idxOf[ym] != null) {              // mois complété uniquement
+      has[idxOf[ym]] = true;
       prin[idxOf[ym]] = Math.round(monthVal[ym] * 100) / 100;
       intr[idxOf[ym]] = Math.round((monthPnl[ym] || 0) * 100) / 100; // P&L du mois
     }
@@ -14817,8 +14829,9 @@ function syncDarwinexPlatform() {
 
   // Report (carry-forward) du dernier mois complété vers les mois suivants, mois en cours
   // inclus : valeur FIGÉE (pas de plus-value live), pas de nouveau P&L.
-  const firstFilled = prin.findIndex(v => v > 0);
-  if (firstFilled >= 0) for (let i = firstFilled + 1; i < n; i++) if (prin[i] === 0) prin[i] = prin[i - 1];
+  // Avant : tout 0 etait pris pour un mois vide, et le 0 du compte solde (29/09/2026) devenait la valeur d'aout.
+  const firstFilled = has.indexOf(true);
+  if (firstFilled >= 0) for (let i = firstFilled + 1; i < n; i++) if (!has[i]) prin[i] = prin[i - 1];
 
   d.principal[DARWINEX_PLATFORM] = prin;
   d.interests[DARWINEX_PLATFORM] = intr;
@@ -15414,36 +15427,21 @@ function invRenderUpdate(t, li) {
     // plateformes cloturees : en fin de formulaire, repliees (elles gardent leurs champs)
     const closedSet = new Set(invClosedPlatforms(t.li));
     const invCard = (p, i) => {
-      if (p === 'Lendermarket') {
+      if (invFormLocked(p)) {
+        // carte grisee : valeurs du mois, sans champ de saisie
         const intVal = (d.interests[p] || [])[invEditMonth] || 0;
         const prinVal = (d.principal[p] || [])[invEditMonth] || 0;
+        const lib = {   // montants affiches en euros (RealT / RMM convertis depuis le dollar)
+          'Lendermarket': ['Intérêts (€)', 'Capital (€)', 'Modifiable via l’onglet Lendermarket'],
+          'Trading Auto': ['Intérêts (€)', 'Capital (€)', 'Calculé depuis la synchro IG du soir'],
+          'Darwinex': ['Gain (€)', 'Valeur (€)', 'Calculé depuis la série Darwinex (compte soldé le 29/09/2026)'],
+          'Revolut': ['P&L du mois (€)', 'Valeur (€)', 'Mis à jour automatiquement depuis le portefeuille d’actions'] }[p]
+          || ['Intérêts (€)', 'Capital (€)', 'Clôturé (liquidation RealT) : reste à 0'];
         h += `<div class="inv-form-card" style="opacity:0.6"><div class="inv-flex inv-aic inv-gap2 inv-mb3"><span class="inv-dot" style="background:${invColor(p,i)};box-shadow:0 0 6px ${invColor(p,i)};width:12px;height:12px"></span><span style="font-size:12px;font-weight:500">${p} <span style="color:var(--text-secondary)">🔒</span></span></div>`;
         h += '<div style="display:flex;flex-direction:column;gap:8px">';
-        h += `<div><label style="font-size:12px;color:var(--text-secondary);display:block;margin-bottom:4px">Intérêts (€)</label><div style="font-size:14px;font-weight:600;padding:8px 0;color:#1d9e74">${invFmt(intVal)}</div></div>`;
-        h += `<div><label style="font-size:12px;color:var(--text-secondary);display:block;margin-bottom:4px">Capital (€)</label><div style="font-size:14px;font-weight:600;padding:8px 0">${invFmt(prinVal)}</div></div>`;
-        h += '<div style="font-size:12px;color:var(--text-secondary);margin-top:4px">→ Modifiable via l\'onglet Répartition</div>';
-        h += '</div></div>';
-        return;
-      }
-      if (p === 'Trading Auto') {
-        const intVal = (d.interests[p] || [])[invEditMonth] || 0;
-        const prinVal = (d.principal[p] || [])[invEditMonth] || 0;
-        h += `<div class="inv-form-card" style="opacity:0.6"><div class="inv-flex inv-aic inv-gap2 inv-mb3"><span class="inv-dot" style="background:${invColor(p,i)};box-shadow:0 0 6px ${invColor(p,i)};width:12px;height:12px"></span><span style="font-size:12px;font-weight:500">${p} <span style="color:var(--text-secondary)">🔒</span></span></div>`;
-        h += '<div style="display:flex;flex-direction:column;gap:8px">';
-        h += `<div><label style="font-size:12px;color:var(--text-secondary);display:block;margin-bottom:4px">Intérêts (€)</label><div style="font-size:14px;font-weight:600;padding:8px 0;color:#1d9e74">${invFmt(intVal)}</div></div>`;
-        h += `<div><label style="font-size:12px;color:var(--text-secondary);display:block;margin-bottom:4px">Capital (€)</label><div style="font-size:14px;font-weight:600;padding:8px 0">${invFmt(prinVal)}</div></div>`;
-        h += '<div style="font-size:12px;color:var(--text-secondary);margin-top:4px">→ Calculé depuis Trading Réel</div>';
-        h += '</div></div>';
-        return;
-      }
-      if (p === 'Darwinex') {
-        const intVal = (d.interests[p] || [])[invEditMonth] || 0;
-        const prinVal = (d.principal[p] || [])[invEditMonth] || 0;
-        h += `<div class="inv-form-card" style="opacity:0.6"><div class="inv-flex inv-aic inv-gap2 inv-mb3"><span class="inv-dot" style="background:${invColor(p,i)};box-shadow:0 0 6px ${invColor(p,i)};width:12px;height:12px"></span><span style="font-size:12px;font-weight:500">${p} <span style="color:var(--text-secondary)">🔒</span></span></div>`;
-        h += '<div style="display:flex;flex-direction:column;gap:8px">';
-        h += `<div><label style="font-size:12px;color:var(--text-secondary);display:block;margin-bottom:4px">Gain (€)</label><div style="font-size:14px;font-weight:600;padding:8px 0;color:${intVal>=0?'#1d9e74':'#dd5f66'}">${invFmt(intVal)}</div></div>`;
-        h += `<div><label style="font-size:12px;color:var(--text-secondary);display:block;margin-bottom:4px">Valeur (€)</label><div style="font-size:14px;font-weight:600;padding:8px 0">${invFmt(prinVal)}</div></div>`;
-        h += '<div style="font-size:12px;color:var(--text-secondary);margin-top:4px">→ Géré dans l\'onglet Darwinex</div>';
+        h += `<div><label style="font-size:12px;color:var(--text-secondary);display:block;margin-bottom:4px">${lib[0]}</label><div style="font-size:14px;font-weight:600;padding:8px 0;color:${intVal >= 0 ? '#1d9e74' : '#dd5f66'}">${invFmt(invToEur(p, intVal))}</div></div>`;
+        h += `<div><label style="font-size:12px;color:var(--text-secondary);display:block;margin-bottom:4px">${lib[1]}</label><div style="font-size:14px;font-weight:600;padding:8px 0">${invFmt(invToEur(p, prinVal))}</div></div>`;
+        h += `<div style="font-size:12px;color:var(--text-secondary);margin-top:4px">→ ${lib[2]}</div>`;
         h += '</div></div>';
         return;
       }
@@ -15602,6 +15600,18 @@ function invLoadFormData() {
   });
 }
 
+// Plateformes non saisissables a la main dans la mise a jour mensuelle (carte grisee, ignorees a l'enregistrement).
+function invRevolutAutoFrom() {   // premier mois couvert par l'instantane quotidien du portefeuille d'actions
+  const ks = Object.keys(positionsHistoryData || {}).filter((k) => /^\d{4}-\d{2}-\d{2}$/.test(k)).sort();
+  return ks.length ? ks[0].slice(0, 7) : null;
+}
+function invFormLocked(p) {
+  if (p === 'Lendermarket' || p === 'Trading Auto' || p === 'Darwinex') return true;
+  const cl = invRealtClosure();
+  if (cl && (cl.platforms || REALT_CLOSURE.platforms).indexOf(p) >= 0) return true;   // RealT / RMM : clotures, restent a 0
+  if (p === 'Revolut') { const f = invRevolutAutoFrom(); return !!f && String(portfolioData.months[invEditMonth] || '') >= f; }
+  return false;
+}
 function invStartEditing() { invEditing = true; invLoadFormData(); renderPortfolioTab('update'); }
 function invCancelEditing() { invEditing = false; renderPortfolioTab('update'); }
 
@@ -15614,13 +15624,16 @@ function invUpdateLoanForm(loan, value) { invLoanFormData[loan] = value; }
 function invSaveMonth() {
   const d = portfolioData;
   d.platforms.forEach(p => {
-    if (p === 'Lendermarket' || p === 'Trading Auto' || p === 'Darwinex') return;
+    if (invFormLocked(p)) return;   // cartes grisees : alimentees ailleurs, jamais ecrasees par le formulaire
     if (!d.interests[p]) d.interests[p] = [];
     if (!d.principal[p]) d.principal[p] = [];
     while (d.interests[p].length <= invEditMonth) d.interests[p].push(0);
     while (d.principal[p].length <= invEditMonth) d.principal[p].push(0);
+    const oldP = d.principal[p][invEditMonth], newP = Number(invFormData[p] && invFormData[p].principal) || 0;
     d.interests[p][invEditMonth] = Number(invFormData[p] && invFormData[p].interest) || 0;
-    d.principal[p][invEditMonth] = Number(invFormData[p] && invFormData[p].principal) || 0;
+    d.principal[p][invEditMonth] = newP;
+    // mois suivants pas encore saisis (meme capital reporte, aucun interet) : ils suivent la correction
+    if (oldP !== newP) for (let j = invEditMonth + 1; j < d.months.length && d.principal[p][j] === oldP && !(Number((d.interests[p] || [])[j]) || 0); j++) d.principal[p][j] = newP;
   });
   (d.loanNames || []).forEach(l => {
     if (l === YOUNITED_LOAN_NAME || l === REVOLUT_LOAN_NAME) return; // auto-gérés, ne pas écraser
