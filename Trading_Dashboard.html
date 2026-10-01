@@ -7284,15 +7284,16 @@ function renderMobileHome() {
   kids.push(scrEl('div', { cls: 'm-grid2', kids: [cDay, cMonth] }));
   kids.push(igLiveSlot());   // position IG ouverte : P&L latent en direct (vide sinon)
   // 3. les poches : valeur et plus-value totale en % des apports ; toucher une ligne ouvre l'onglet
-  // src : couleur de la source (legende de la mini-courbe) ; noteCol : couleur du sous-titre (regime de l'algo)
-  const row = (name, note, val, p, go, src, noteCol, noteTip) => {
+  // src : couleur de la source (legende de la mini-courbe) ; noteCol : couleur du sous-titre (regime de l'algo) ;
+  // pTxt : texte a la place du % (p ne sert alors qu'a la couleur)
+  const row = (name, note, val, p, go, src, noteCol, noteTip, pTxt) => {
     const r = scrEl('div', { cls: 'm-row', kids: [
       scrEl('div', { kids: [
         scrEl('div', { cls: 'm-name', kids: (src ? [scrEl('span', { cls: 'm-src', style: 'background:' + src })] : []).concat([document.createTextNode(name)]) }),
         scrEl('div', { cls: 'm-note', text: note, attrs: noteTip ? { title: noteTip } : {}, style: noteCol ? 'color:' + noteCol + ';font-weight:600' : '' })] }),
       scrEl('div', { cls: 'm-val', kids: [
         scrEl('div', { cls: 'm-v', text: val == null ? '–' : E(val) }),
-        scrEl('div', { cls: 'm-p', text: p == null ? '–' : P(p), style: p == null ? 'color:var(--text-muted)' : col(p) })] }),
+        scrEl('div', { cls: 'm-p', text: p == null ? '–' : (pTxt || P(p)), style: p == null ? 'color:var(--text-muted)' : col(p) })] }),
       scrEl('span', { cls: 'm-chev', text: go ? '›' : '' })] });
     if (go) r.onclick = go; else r.style.cursor = 'default';
     return r;
@@ -7306,9 +7307,10 @@ function renderMobileHome() {
     row('Trading Auto', cbTxt, A.igNow, pct(A.igPnl, A.igDep), () => mGo('trading', 'real'), mSrcCol('ig'), cbCol,
       'Régime de l’algo (moniteur CUSUM) : vert = aucune rupture, orange = rupture suspectée, rouge = dégradation avérée'),
     row('Actions', 'portefeuille Revolut', A.stkNow, pct(A.stkPnl, A.stkInv), () => mGo('trading', 'screener'), mSrcCol('stk'))]
-    // Debitum : % = interets cumules / capital place ; la note donne le rendement annuel des 12 derniers mois
+    // Debitum : plus-value EN EUROS = interets cumules (retires chaque mois ; rapportes a un capital qui a baisse,
+    // le % ne voulait plus rien dire : +47,9 % au 01/10/2026) ; la note donne le rendement annuel des 12 derniers mois
     .concat(deb ? [row('Debitum', 'prêts P2P' + (deb.y12 != null ? ' · ' + (deb.y12 * 100).toFixed(1) + ' %/an sur 12 mois' : ''), debV,
-      pct(debCum, debV), () => mGo('invest', 'overview'), mSrcCol('deb'))] : []) }));
+      debCum, () => mGo('invest', 'overview'), mSrcCol('deb'), null, 'Intérêts reçus depuis le début, retirés chaque mois', S(debCum))] : []) }));
   let k = null;
   try { k = kidsCompute(); } catch (e) {}
   if (k && k.value != null) kids.push(scrEl('div', { cls: 'm-list', kids: [
