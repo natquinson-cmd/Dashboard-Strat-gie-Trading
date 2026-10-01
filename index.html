@@ -1355,6 +1355,7 @@
   .iglw-gauge .g-mk { position: absolute; top: 6px; width: 3px; height: 18px; border-radius: 2px; transform: translateX(-50%); }
   .iglw-gauge .g-dot { position: absolute; top: 8px; width: 14px; height: 14px; border-radius: 50%; transform: translateX(-50%); border: 2px solid var(--bg-card); }
   .iglw-gauge .g-lab { position: absolute; top: 26px; transform: translateX(-50%); font-size: 0.62rem; white-space: nowrap; color: var(--text-muted); }
+  .iglw-gauge-c { margin: 8px 4px 0; height: 38px; }
   .igl-head { display: flex; align-items: center; gap: 8px; }
   .igl-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--positive); flex: none; animation: igl-pulse 2s ease-in-out infinite; }
   .igl-stale .igl-dot { background: var(--text-muted); animation: none; }
@@ -5605,11 +5606,40 @@ function igLiveEl() {
       kids.push(scrEl('div', { cls: 'igl-stop', text: '🎯 Objectif ' + niv(r.limit) + ' · encore ' + niv(reste) + ' pts' + (eurPt ? ' · ' + S(objPts * eurPt) + ' à l’objectif' : ''),
         style: 'color:' + (st.fresh ? 'var(--text-secondary)' : 'var(--text-muted)') }));
     }
+    if (r.stop != null || r.limit != null) kids.push(igLiveGauge(r, st, true));
   });
   kids.push(scrEl('div', { cls: 'igl-foot', text: st.fresh ? 'P&L latent au cours IG, il y a ' + age
     : 'Aucune mise à jour depuis ' + age + ' : vérifie le pont IG sur le VPS. Montant indicatif.' }));
   return scrEl('div', { cls: 'igl-card' + (st.fresh ? '' : ' igl-stale'),
     attrs: { title: 'P&L latent des positions ouvertes, calculé par le pont IG du VPS au cours de sortie (achat : bid, vente : offer). Le réalisé du jour arrive avec la synchro IG du soir.' }, kids: kids });
+}
+// Jauge de prix d'une position : stop, entree, cours actuel, objectif. Le sens favorable va toujours vers la droite
+// (vente : prix decroissants). Zone stop-entree rouge si risque, verte si securise ; entree-cours verte si gain.
+// Etiquettes par priorite Stop > Objectif > Entree ; une etiquette trop proche d'une autre deja posee est omise.
+function igLiveGauge(r, st, compact) {
+  const achat = r.direction === 'BUY', pts = Number(r.points) || 0, sec = Number(r.secured) || 0;
+  const N1 = (v) => Number(v).toLocaleString('fr-FR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+  const g = scrEl('div', { cls: 'iglw-gauge' + (compact ? ' iglw-gauge-c' : ''), kids: [scrEl('span', { cls: 'g-track' })] });
+  const vals = [r.level, r.exit, r.stop, r.limit].filter((v) => v != null && isFinite(v));
+  let lo = Math.min.apply(null, vals), hi = Math.max.apply(null, vals);
+  const pad = (hi - lo) * 0.06 || 1; lo -= pad; hi += pad;
+  const X = (v) => (achat ? v - lo : hi - v) / (hi - lo) * 100;
+  const L = (x) => Math.min(compact ? 92 : 97, Math.max(compact ? 8 : 3, x));
+  const rouge = 'rgba(221,95,102,0.45)', vert = 'rgba(29,158,116,0.45)';
+  const zone = (a, b, col) => { const x1 = Math.min(X(a), X(b)), x2 = Math.max(X(a), X(b)); g.appendChild(scrEl('span', { cls: 'g-zone', style: 'left:' + x1 + '%;width:' + (x2 - x1) + '%;background:' + col })); };
+  const poses = [], ecart = compact ? 22 : 9;   // ecart mini entre deux etiquettes, en % de la largeur
+  const mk = (v, col, lab) => {
+    g.appendChild(scrEl('span', { cls: 'g-mk', style: 'left:' + X(v) + '%;background:' + col }));
+    const x = L(X(v));
+    if (poses.every((p) => Math.abs(p - x) >= ecart)) { poses.push(x); g.appendChild(scrEl('span', { cls: 'g-lab', text: lab, style: 'left:' + x + '%' })); }
+  };
+  if (r.stop != null) zone(r.stop, r.level, sec >= -0.05 ? vert : rouge);
+  zone(r.level, r.exit, pts >= 0 ? vert : rouge);
+  if (r.stop != null) mk(r.stop, sec >= -0.05 ? '#1d9e74' : '#dd5f66', compact ? 'Stop' : 'Stop ' + N1(r.stop));
+  if (r.limit != null) mk(r.limit, '#1d9e74', 'Objectif');
+  mk(r.level, '#94a3b5', 'Entrée');
+  g.appendChild(scrEl('span', { cls: 'g-dot', style: 'left:' + X(r.exit) + '%;background:' + (st.fresh ? '#3563e9' : '#94a3b5') }));
+  return g;
 }
 // Version LARGE (onglet Trading total, PC) : une ligne par position, cellules et jauge stop / entree / cours / objectif.
 function igLiveWideEl() {
@@ -5651,22 +5681,7 @@ function igLiveWideEl() {
       const reste = achat ? r.limit - r.exit : r.exit - r.limit, objPts = achat ? r.limit - r.level : r.level - r.limit;
       cells.push(cell('Objectif', N1(r.limit), 'encore ' + N1(reste) + ' pts' + (eurPt ? ' · ' + S(objPts * eurPt) + ' à l’objectif' : '')));
     }
-    // jauge de prix : le sens favorable va toujours vers la droite (vente : prix decroissants)
-    const g = scrEl('div', { cls: 'iglw-gauge', kids: [scrEl('span', { cls: 'g-track' })] });
-    const vals = [r.level, r.exit, r.stop, r.limit].filter((v) => v != null && isFinite(v));
-    let lo = Math.min.apply(null, vals), hi = Math.max.apply(null, vals);
-    const pad = (hi - lo) * 0.06 || 1; lo -= pad; hi += pad;
-    const X = (v) => (achat ? v - lo : hi - v) / (hi - lo) * 100;
-    const L = (x) => Math.min(97, Math.max(3, x));
-    const zone = (a, b, col) => { const x1 = Math.min(X(a), X(b)), x2 = Math.max(X(a), X(b)); g.appendChild(scrEl('span', { cls: 'g-zone', style: 'left:' + x1 + '%;width:' + (x2 - x1) + '%;background:' + col })); };
-    const mk = (v, col, lab) => { g.appendChild(scrEl('span', { cls: 'g-mk', style: 'left:' + X(v) + '%;background:' + col })); g.appendChild(scrEl('span', { cls: 'g-lab', text: lab, style: 'left:' + L(X(v)) + '%' })); };
-    const rouge = 'rgba(221,95,102,0.45)', vert = 'rgba(29,158,116,0.45)';
-    if (r.stop != null) zone(r.stop, r.level, (Number(r.secured) || 0) >= -0.05 ? vert : rouge);
-    zone(r.level, r.exit, pts >= 0 ? vert : rouge);
-    if (r.stop != null) mk(r.stop, (Number(r.secured) || 0) >= -0.05 ? '#1d9e74' : '#dd5f66', 'Stop ' + N1(r.stop));
-    mk(r.level, '#94a3b5', 'Entrée');
-    if (r.limit != null) mk(r.limit, '#1d9e74', 'Objectif');
-    g.appendChild(scrEl('span', { cls: 'g-dot', style: 'left:' + X(r.exit) + '%;background:' + (st.fresh ? '#3563e9' : '#94a3b5') }));
+    const g = igLiveGauge(r, st, false);
     kids.push(scrEl('div', { cls: 'iglw-pos', kids: [
       scrEl('div', { cls: 'iglw-id', kids: [
         scrEl('span', { cls: 'igl-sens ' + (achat ? 'mt-long' : 'mt-short'), text: achat ? '▲ Achat' : '▼ Vente' }),
