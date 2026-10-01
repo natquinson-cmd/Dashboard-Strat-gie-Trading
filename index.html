@@ -5599,17 +5599,10 @@ function igLiveEl() {
     }
     kids.push(scrEl('div', { cls: 'igl-stop', text: st2, style: 'color:' + (st.fresh ? c2 : 'var(--text-muted)'),
       attrs: { title: 'Points et euros garantis si le stop est touché, au cours d’entrée ' + niv(r.level) + (r.limit ? ' · objectif ' + niv(r.limit) : '') } }));
-    // objectif (comme la version large) : chemin restant et gain si l'objectif est atteint
-    if (r.limit != null) {
-      const reste = achat ? r.limit - r.exit : r.exit - r.limit, objPts = achat ? r.limit - r.level : r.level - r.limit;
-      const eurPt = pts ? (Number(r.pnl) || 0) / pts : (Number(r.secured) ? (Number(r.securedEur) || 0) / Number(r.secured) : null);
-      kids.push(scrEl('div', { cls: 'igl-stop', text: '🎯 Objectif ' + niv(r.limit) + ' · encore ' + niv(reste) + ' pts' + (eurPt ? ' · ' + S(objPts * eurPt) + ' à l’objectif' : ''),
-        style: 'color:' + (st.fresh ? 'var(--text-secondary)' : 'var(--text-muted)') }));
-    }
     if (r.stop != null || r.limit != null) kids.push(igLiveGauge(r, st, true));
   });
-  kids.push(scrEl('div', { cls: 'igl-foot', text: st.fresh ? 'P&L latent au cours IG, il y a ' + age
-    : 'Aucune mise à jour depuis ' + age + ' : vérifie le pont IG sur le VPS. Montant indicatif.' }));
+  // pied seulement si le signal est fige (demande du user : plus de « P&L latent… » en temps normal)
+  if (!st.fresh) kids.push(scrEl('div', { cls: 'igl-foot', text: 'Aucune mise à jour depuis ' + age + ' : vérifie le pont IG sur le VPS. Montant indicatif.' }));
   return scrEl('div', { cls: 'igl-card' + (st.fresh ? '' : ' igl-stale'),
     attrs: { title: 'P&L latent des positions ouvertes, calculé par le pont IG du VPS au cours de sortie (achat : bid, vente : offer). Le réalisé du jour arrive avec la synchro IG du soir.' }, kids: kids });
 }
