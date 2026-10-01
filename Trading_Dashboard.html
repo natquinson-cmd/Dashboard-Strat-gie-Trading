@@ -7227,6 +7227,21 @@ function mDebitum() {
   d.months.forEach((m, i) => { byMonth[m] = eur(pr[i]); });
   return { value: eur(pr[li]), cum: cum, y12: (n && sc > 0) ? si / (sc / n) * 12 / n : null, months: d.months.slice(), byMonth: byMonth };
 }
+// Emprunts (Portfolio) : capital restant du du mois en cours, en euros, et variation vs le mois precedent.
+// Les echeanciers Younited / Revolut alimentent le mois en cours au fil des echeances (syncYounitedLoan, syncRevolutLoan).
+function mLoans() {
+  const d = portfolioData;
+  if (!d || !d.months || !(d.loanNames || []).length || !d.loans) return null;
+  const n = d.months.length;
+  const du = (l, i) => invLoanToEur(l, Number((d.loans[l] || [])[i]) || 0);
+  const tot = (i) => d.loanNames.reduce((a, l) => a + du(l, i), 0);
+  const now = tot(n - 1), prev = n > 1 ? tot(n - 2) : 0;
+  if (!(now > 0)) return null;
+  const ym = d.months[n - 2] || '';
+  return { now: now, chg: prev > 0 ? (now / prev - 1) * 100 : null,
+    prevLib: ym ? monthNamesFull[parseInt(ym.slice(5, 7), 10) - 1].toLowerCase() : '',
+    names: d.loanNames.filter((l) => du(l, n - 1) > 0).map((l) => l.replace(/^Emprunt\s+/i, '')).join(' + ') };
+}
 // Capital complet jour par jour : marches (ttlTotalSeries, sans Darwinex) + Debitum au palier du mois.
 function mHomeSeries(deb) {
   return ttlTotalSeries().map((p) => {
@@ -7311,6 +7326,15 @@ function renderMobileHome() {
     // le % ne voulait plus rien dire : +47,9 % au 01/10/2026) ; la note donne le rendement annuel des 12 derniers mois
     .concat(deb ? [row('Debitum', 'prêts P2P' + (deb.y12 != null ? ' · ' + (deb.y12 * 100).toFixed(1) + ' %/an sur 12 mois' : ''), debV,
       debCum, () => mGo('invest', 'overview'), mSrcCol('deb'), null, 'Intérêts reçus depuis le début, retirés chaque mois', S(debCum))] : []) }));
+  // emprunts : capital restant du et variation vs le mois precedent ; une BAISSE est en vert (p inverse pour la couleur)
+  const em = mLoans();
+  if (em) kids.push(scrEl('div', { cls: 'm-list', kids: [
+    // appui : ecran mobile Portfolio, deroule jusqu'a sa carte Emprunts (l'onglet Emprunts est en mise en page PC)
+    row('Emprunts', em.names + ' · capital restant dû', em.now, em.chg != null ? -em.chg : null, () => {
+      mGo('invest', 'overview');
+      setTimeout(() => { const g = [...document.querySelectorAll('#mInv .mp-gname')].find((e) => e.textContent === 'Emprunts'); if (g) g.scrollIntoView({ block: 'start', behavior: 'smooth' }); }, 300);
+    }, null, null,
+      'Variation du capital restant dû depuis fin ' + em.prevLib + ' : une baisse est en vert', em.chg != null ? P(em.chg) : null)] }));
   let k = null;
   try { k = kidsCompute(); } catch (e) {}
   if (k && k.value != null) kids.push(scrEl('div', { cls: 'm-list', kids: [
