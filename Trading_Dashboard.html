@@ -1322,6 +1322,20 @@
   html[data-theme="dark"] .mt-long { background: rgba(102,187,106,0.16); color: #81c784; }
   html[data-theme="dark"] .mt-short { background: rgba(255,82,82,0.16); color: #ff8a80; }
   .mp-foot { font-size: 0.7rem; color: var(--text-muted); padding-top: 8px; border-top: 1px solid var(--border); }
+  /* position IG en cours (dashboard/pontLive, publie par le pont du VPS) */
+  .igl-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px; padding: 12px 14px; margin-bottom: 10px; }
+  .igl-head { display: flex; align-items: center; gap: 8px; }
+  .igl-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--positive); flex: none; animation: igl-pulse 2s ease-in-out infinite; }
+  .igl-stale .igl-dot { background: var(--text-muted); animation: none; }
+  @keyframes igl-pulse { 50% { opacity: 0.35; } }
+  .igl-tot { margin-left: auto; font-size: 1.15rem; font-weight: 800; }
+  .igl-row { display: flex; align-items: center; gap: 10px; margin-top: 8px; font-size: 0.85rem; color: var(--text-primary); }
+  .igl-sens { padding: 2px 7px; border-radius: 6px; font-size: 0.7rem; font-weight: 800; flex: none; }
+  .igl-pts { color: var(--text-secondary); }
+  .igl-pnl { margin-left: auto; }
+  .igl-foot { font-size: 0.66rem; color: var(--text-muted); margin-top: 8px; }
+  .ig-live-pc .igl-card { max-width: 520px; margin: 0 0 14px; }
+  html.m-mode .ig-live-pc { display: none; }
   /* écran Accueil */
   #tab-accueil .m-hero, #tab-accueil .m-card, #tab-accueil .m-list { background: var(--bg-card); border: 1px solid var(--border); }
   #tab-accueil .m-hero { padding: 16px 18px; border-radius: 16px; margin-bottom: 10px;
@@ -1582,6 +1596,7 @@
 
   <div id="tab-real" class="tab-content">
     <div id="mReal" class="m-only"></div>
+    <div class="ig-live-pc" data-iglive></div>
     <div class="real-header-row m-sec">
       <div class="asset-filter">
         <button class="filter-btn active" onclick="setAssetFilter('all')">Tout</button>
@@ -5519,6 +5534,60 @@ function renderPontStatus() {
   const f = pontFreshness(SCR_PONT_HB);
   el.textContent = f.txt; el.style.background = f.bg; el.style.color = f.fg; el.title = f.tip;
 }
+// P&L LATENT IG EN DIRECT. Le pont du VPS lit deja les positions IG toutes les 2 s ; depuis le 01/10/2026 il
+// publie dans dashboard/pontLive les positions ouvertes, leur cours de sortie (bid achat / offer vente), les
+// points et le P&L en euros, 5 s au plus entre deux envois, sans requete IG de plus. Le dashboard n'affiche
+// qu'une position OUVERTE ; au-dela de IG_LIVE_STALE_S sans envoi, la carte est grise (« figee »).
+let IG_LIVE = null;
+const IG_LIVE_STALE_S = 60;
+const IG_LIVE_LIB = { NASDAQ: 'Nasdaq 100', DAX: 'DAX 40' };
+function igLiveState() {
+  const v = IG_LIVE, rows = (v && Array.isArray(v.positions)) ? v.positions : [];
+  if (!rows.length) return null;
+  const t = Date.parse(v.at), age = isNaN(t) ? Infinity : Math.max(0, (Date.now() - t) / 1000);
+  return { rows: rows, pnl: Number(v.pnl) || 0, age: age, fresh: age <= IG_LIVE_STALE_S };
+}
+function igLiveEl() {
+  const st = igLiveState();
+  if (!st) return null;
+  const col = (v) => 'color:' + (!st.fresh ? 'var(--text-muted)' : (v >= 0 ? 'var(--positive)' : 'var(--negative)'));
+  const S = (v) => (v >= 0 ? '+' : '') + fmt(v) + ' €';
+  const age = !isFinite(st.age) ? '?' : (st.age < 90 ? Math.round(st.age) + ' s' : Math.round(st.age / 60) + ' min');
+  const kids = [scrEl('div', { cls: 'igl-head', kids: [
+    scrEl('span', { cls: 'igl-dot' }),
+    scrEl('span', { cls: 'm-lbl mp-lbl', text: st.fresh ? 'Position en cours' : 'Position en cours · figée' }),
+    scrEl('b', { cls: 'igl-tot', text: S(st.pnl), style: col(st.pnl) })] })];
+  st.rows.forEach((r) => {
+    const achat = r.direction === 'BUY', pts = Number(r.points) || 0;
+    kids.push(scrEl('div', { cls: 'igl-row', attrs: { title: 'Entrée ' + fmt(r.level) + ' · sortie actuelle ' + fmt(r.exit) + ' · ' + r.size + ' contrat(s)' }, kids: [
+      scrEl('span', { cls: 'igl-sens ' + (achat ? 'mt-long' : 'mt-short'), text: achat ? '▲ Achat' : '▼ Vente' }),
+      scrEl('span', { text: IG_LIVE_LIB[r.kind] || r.kind }),
+      scrEl('span', { cls: 'igl-pts', text: (pts >= 0 ? '+' : '') + pts.toLocaleString('fr-FR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' pts' }),
+      scrEl('b', { cls: 'igl-pnl', text: S(Number(r.pnl) || 0), style: col(Number(r.pnl) || 0) })] }));
+  });
+  kids.push(scrEl('div', { cls: 'igl-foot', text: st.fresh ? 'P&L latent au cours IG, il y a ' + age
+    : 'Aucune mise à jour depuis ' + age + ' : vérifie le pont IG sur le VPS. Montant indicatif.' }));
+  return scrEl('div', { cls: 'igl-card' + (st.fresh ? '' : ' igl-stale'),
+    attrs: { title: 'P&L latent des positions ouvertes, calculé par le pont IG du VPS au cours de sortie (achat : bid, vente : offer). Le réalisé du jour arrive avec la synchro IG du soir.' }, kids: kids });
+}
+// emplacements : [data-iglive] (onglet Trading Auto PC, accueil et ecran Trading mobiles)
+function igLiveSlot() {
+  const box = scrEl('div', { attrs: { 'data-iglive': '' } });
+  const el = igLiveEl();
+  if (el) box.appendChild(el);
+  return box;
+}
+function renderIgLive() {
+  document.querySelectorAll('[data-iglive]').forEach((box) => { const el = igLiveEl(); box.replaceChildren(...(el ? [el] : [])); });
+}
+function loadIgLive() {
+  if (typeof db === 'undefined' || !db) return Promise.resolve();
+  try {
+    db.ref('dashboard/pontLive').on('value', (x) => { IG_LIVE = x.val(); renderIgLive(); });
+    setInterval(renderIgLive, 10000);   // l'age vieillit meme sans nouvel envoi
+  } catch (e) {}
+  return Promise.resolve();
+}
 function loadPontStatus() {
   if (typeof db === 'undefined' || !db) return Promise.resolve();
   try {
@@ -7213,6 +7282,7 @@ function renderMobileHome() {
   const pm = (ttlMonthPnl[ym] || {}).total || 0;
   const cMonth = card(monthNamesFull[now.getMonth()], pm, pct(pm, ttlEquityAtMonthStart(now.getFullYear(), now.getMonth())));
   kids.push(scrEl('div', { cls: 'm-grid2', kids: [cDay, cMonth] }));
+  kids.push(igLiveSlot());   // position IG ouverte : P&L latent en direct (vide sinon)
   // 3. les poches : valeur et plus-value totale en % des apports ; toucher une ligne ouvre l'onglet
   // src : couleur de la source (legende de la mini-courbe) ; noteCol : couleur du sous-titre (regime de l'algo)
   const row = (name, note, val, p, go, src, noteCol, noteTip) => {
@@ -11611,6 +11681,7 @@ function renderMobileReal() {
       document.createTextNode(' ' + dayLib)] }),
     scrEl('div', { cls: 'mp-sub', kids: [document.createTextNode(monthNamesFull[now.getMonth()] + ' '), scrEl('b', { text: S(mPnl) + ' (' + P(mPct) + ')', style: col(mPnl) }),
       document.createTextNode(rm ? ' · rendement ' : ''), ...(rm ? [scrEl('b', { text: P(rm.twrPct) + ' (TWR)', style: col(rm.twrPct) })] : [])] })] }));
+  box.appendChild(igLiveSlot());   // position IG ouverte : P&L latent en direct (vide sinon)
   // 2. courbe du capital : dernier mois glissant ou tout l'historique
   const curveBox = scrEl('div');
   const seg = scrEl('div', { cls: 'scr-seg mt-curveseg' });
@@ -16018,6 +16089,7 @@ function loadDataTimestamp() {
 Promise.all([
   loadIgSyncStatus(),
   loadPontStatus(),
+  loadIgLive(),
   loadHealthBar(),
   loadMorningBrief(),
   loadKidsFromFirebase(),
