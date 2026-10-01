@@ -1,6 +1,8 @@
 @echo off
 REM run_ig_sync.bat - synchronisation IG -> Firebase, sans navigateur.
 REM A planifier via le Planificateur de taches, TOUS LES JOURS A 23:00.
+REM Et a chaque cloture de trade (01/10/2026) : tache IGSyncCloture toutes les 5 min, qui lance
+REM directement .venv\Scripts\python.exe ig_sync.py --si-cloture (ne contacte IG qu'apres une fermeture).
 REM Prerequis : venv cree, et ig_config.json rempli avec tes identifiants IG.
 
 cd /d "%~dp0"

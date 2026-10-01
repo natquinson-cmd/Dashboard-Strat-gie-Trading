@@ -20,6 +20,12 @@ Usage :
     python ig_sync.py            # incremental (depuis la derniere synchro)
     python ig_sync.py --full     # tout l'historique depuis le 01/01/2026
     python ig_sync.py --dry-run  # affiche ce qui serait ecrit, sans ecrire
+    python ig_sync.py --si-cloture  # ne synchronise QUE si une position vient de se fermer
+
+Mode --si-cloture (tache IGSyncCloture, toutes les 5 min depuis le 01/10/2026) : lit seulement
+Firebase (dashboard/pontLive, que le pont IG reecrit a chaque fermeture de position) et ne contacte
+IG que si une fermeture n'a pas encore ete synchronisee : deux appels IG par trade clos, pas plus.
+La cle IG est partagee avec le pont, qui interroge deja IG toutes les 2 s : on ne l'encombre pas.
 """
 import json
 import os
@@ -280,6 +286,40 @@ def run(cfg, db, full, dry):
     return msg
 
 
+# IG publie la transaction quelques secondes apres la fermeture : on resynchronise tant qu'aucune synchro
+# n'a eu lieu au moins CLOTURE_REPRISE_MS apres la fermeture (soit deux passages au plus par trade).
+CLOTURE_REPRISE_MS = 3 * 60 * 1000
+
+
+def iso_ms(v):
+    try:
+        return int(datetime.fromisoformat(str(v)).timestamp() * 1000)
+    except Exception:
+        return None
+
+
+def cloture_a_traiter(db):
+    """Mode --si-cloture : une position s'est-elle fermee depuis la derniere synchro ?
+    Ne lit QUE Firebase : aucun appel IG. Renvoie (a_faire, raison)."""
+    live = fb_get(db, 'dashboard/pontLive')
+    if not isinstance(live, dict) or not live.get('at'):
+        return False, 'aucun signal du pont (dashboard/pontLive vide)'
+    if live.get('positions'):
+        return False, 'position encore ouverte'
+    ferme = iso_ms(live['at'])
+    if ferme is None:
+        return False, 'horodatage du pont illisible : %r' % live.get('at')
+    st = fb_get(db, 'igSyncStatus') or {}
+    # Identifiants refuses : surtout ne pas reessayer toutes les 5 min (IG bloquerait le compte, partage avec
+    # le pont). La synchro du soir retentera et la barre de sante du dashboard le signale deja en rouge.
+    if st.get('ok') is False and re.search(r'invalid|security|api-key|authenticat|password', str(st.get('message') or ''), re.I):
+        return False, 'derniere synchro refusee par IG (identifiants) : mode automatique suspendu'
+    derniere = st.get('at') if isinstance(st.get('at'), (int, float)) else 0
+    if derniere >= ferme + CLOTURE_REPRISE_MS:
+        return False, 'fermeture du %s deja synchronisee' % str(live['at'])[:19]
+    return True, 'fermeture du %s a synchroniser' % str(live['at'])[:19]
+
+
 def write_status(db, ok, message):
     """Statut de la derniere synchro, lu par le dashboard pour ALERTER en cas d echec.
 
@@ -297,11 +337,22 @@ def write_status(db, ok, message):
 def main():
     full = '--full' in sys.argv
     dry = '--dry-run' in sys.argv
+    si_cloture = '--si-cloture' in sys.argv
     cfg = load_config()
     db = os.environ.get('FIREBASE_DB_URL')
     if not db:
         log('ERREUR : variable d environnement FIREBASE_DB_URL manquante.')
         sys.exit(1)
+    if si_cloture and not full:
+        try:
+            a_faire, raison = cloture_a_traiter(db)
+        except Exception as e:
+            log('Mode --si-cloture : lecture Firebase impossible (%s), on attend le prochain passage.' % e)
+            return
+        if not a_faire:
+            log('Mode --si-cloture : rien a faire (%s).' % raison)
+            return
+        log('Mode --si-cloture : ' + raison)
     try:
         msg = run(cfg, db, full, dry)
     except Exception as e:

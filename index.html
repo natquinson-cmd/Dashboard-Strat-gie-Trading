@@ -1604,8 +1604,6 @@
         <button class="filter-btn" onclick="setAssetFilter('DAX')">DAX</button>
       </div>
       <div class="m-sec" style="display:flex;gap:8px;align-items:center;">
-        <button class="csv-btn" onclick="syncFromIG()" id="btnIgSync" style="background:linear-gradient(135deg,rgba(29,158,116,0.15),rgba(46,181,160,0.15));border-color:rgba(29,158,116,0.3);">Synchroniser IG</button>
-        <button class="csv-btn" onclick="syncFromIG(true)" id="btnIgFull" title="Recharger tout l'historique depuis IG" style="font-size:0.7rem;padding:6px 10px;opacity:0.7;">Historique complet</button>
         <span id="igSyncStatus" style="font-size:0.72rem;font-weight:700;padding:5px 10px;border-radius:8px;white-space:nowrap;cursor:help"></span>
         <span id="pontStatus" style="font-size:0.72rem;font-weight:700;padding:5px 10px;border-radius:8px;white-space:nowrap;cursor:help"></span>
       </div>
@@ -4775,17 +4773,6 @@ function ttlCloseMonthDetail() {
 }
 
 // ── IG API Sync ──
-const IG_API_BASE = 'https://api.ig.com/gateway/deal';
-
-async function igRequest(path, method, headers, body) {
-  const opts = { method, headers: { 'Accept': 'application/json; charset=UTF-8', ...headers } };
-  if (body) { opts.body = JSON.stringify(body); opts.headers['Content-Type'] = 'application/json'; }
-  const res = await fetch(IG_API_BASE + path, opts);
-  const json = await res.json();
-  if (!res.ok) throw new Error(json.errorCode || `HTTP ${res.status}`);
-  return { headers: Object.fromEntries(res.headers.entries()), body: json };
-}
-
 // ALERTE synchro automatique : lit le noeud igSyncStatus ecrit par ig_sync.py sur le VPS.
 // Sans ca, une cle API IG expiree passerait inapercue et le dashboard afficherait
 // de vieilles donnees en silence, ce qui est le pire des cas.
@@ -4795,7 +4782,7 @@ function renderIgSyncStatus(st) {
   const set = (txt, bg, fg, tip) => { el.textContent = txt; el.style.background = bg; el.style.color = fg; el.title = tip || ''; };
   if (!st || !st.at) {
     set('Synchro auto : jamais exécutée', 'rgba(148,163,181,0.16)', '#7b8a9a',
-        "Le VPS n'a pas encore lancé ig_sync.py. Vérifie la tâche planifiée de 23h.");
+        "Le VPS n'a pas encore lancé ig_sync.py. Vérifie les tâches planifiées (IGSyncCloture, toutes les 5 min, et celle de 23 h).");
     return;
   }
   const h = Math.floor((Date.now() - st.at) / 3600000);
@@ -5684,12 +5671,12 @@ function hbItems() {
     const f = pontFreshness(HB.pont);
     out.push({ key: 'pont', label: 'Pont IG', t: hbMs(HB.pont && HB.pont.at), level: f.level, tip: f.tip });
   }
-  // Synchro des trades IG : ig_sync.py chaque soir a 23 h, avec son propre statut.
+  // Synchro des trades IG : ig_sync.py a chaque cloture (tache IGSyncCloture) et chaque soir a 23 h, avec son propre statut.
   if (!('igSync' in HB)) out.push({ key: 'igSync', label: 'Trades IG', t: NaN, level: 'wait', tip: 'Lecture en cours…' });
   else {
     const st = HB.igSync || {}, t = hbMs(st.at);
     let level = hbLevel(t, 30, 78);
-    let tip = 'Synchro des trades IG (ig_sync.py, chaque soir à 23 h). Dernier passage : ' + hbWhen(t) + '.'
+    let tip = 'Synchro des trades IG (ig_sync.py, à chaque clôture de trade et chaque soir à 23 h). Dernier passage : ' + hbWhen(t) + '.'
       + (st.message ? ' ' + st.message : '');
     if (st.at && st.ok === false) { level = 'bad'; tip += ' LA SYNCHRO A ÉCHOUÉ (clé API IG expirée ?) : relance run_ig_sync.bat sur le VPS pour diagnostiquer.'; }
     else if (level !== 'ok') tip += ' La tâche de 23 h ne s’est pas exécutée : VPS éteint, ou tâche désactivée.';
@@ -5749,223 +5736,42 @@ function loadKidsFromFirebase() {
 }
 function loadIgSyncStatus() {
   if (typeof db === 'undefined' || !db) return Promise.resolve();
-  return db.ref('igSyncStatus').once('value').then((s) => renderIgSyncStatus(s.val())).catch(() => {});
-}
-
-async function syncFromIG(fullSync) {
-  if (fullSync && !confirm('⚠️ Recharger tout l\'historique IG ?\nCela va re-télécharger toutes les transactions depuis le début du compte.')) return;
-  const btn = document.getElementById(fullSync ? 'btnIgFull' : 'btnIgSync');
-  const origText = btn.textContent;
-  btn.disabled = true;
-  btn.textContent = '⏳ Connexion IG...';
-
-  try {
-    // 1. Vérifier/demander les credentials (stockés dans localStorage, jamais sur le réseau)
-    let creds = getIgCreds();
-    if (!creds) {
-      creds = promptIgCreds();
-      if (!creds) { btn.textContent = origText; btn.disabled = false; return; }
-    }
-
-    // 2. Connexion à l'API IG
-    let session;
-    try {
-      const loginRes = await igRequest('/session', 'POST', {
-        'X-IG-API-KEY': creds.apiKey,
-        'Version': '2'
-      }, {
-        identifier: creds.username,
-        password: creds.password
-      });
-      session = {
-        cst: loginRes.headers['cst'],
-        securityToken: loginRes.headers['x-security-token'],
-        apiKey: creds.apiKey
-      };
-    } catch (loginErr) {
-      // Si erreur d'auth, effacer les credentials et redemander
-      if (loginErr.message.includes('invalid-details') || loginErr.message.includes('api-key-invalid')) {
-        localStorage.removeItem('ig_creds');
-        throw new Error('Identifiants IG invalides. Réessayez.');
-      }
-      throw loginErr;
-    }
-
-    // 2. Récupérer les transactions depuis la dernière sync
-    btn.textContent = '⏳ Récupération...';
-    const now = new Date();
-    let from;
-    if (fullSync) {
-      from = new Date('2026-01-01'); // Jamais avant 2026
-    } else {
-      const lastSyncSnap = await db.ref('lastDataUpdate').once('value');
-      const lastSyncTs = lastSyncSnap.val();
-      from = lastSyncTs ? new Date(lastSyncTs) : new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000);
-      from.setDate(from.getDate() - 1); // -1 jour de marge
-    }
-    const fromStr = from.toISOString().substring(0, 10) + 'T00:00:00';
-    const toStr = now.toISOString().substring(0, 10) + 'T23:59:59';
-    const fromLabel = from.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' });
-    const toLabel = now.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' });
-
-    const txRes = await igRequest(
-      `/history/transactions?from=${fromStr}&to=${toStr}&type=ALL&pageSize=500`,
-      'GET',
-      { 'X-IG-API-KEY': session.apiKey, 'CST': session.cst, 'X-SECURITY-TOKEN': session.securityToken, 'Version': '2' }
-    );
-    const txs = txRes.body.transactions || [];
-
-    if (txs.length === 0) {
-      btn.textContent = origText;
-      btn.disabled = false;
-      alert(`ℹ️ Aucune transaction IG du ${fromLabel} au ${toLabel}.`);
-      return;
-    }
-
-    // 3. Convertir au format Dashboard
-    btn.textContent = '⏳ Fusion...';
-    const converted = convertIgTransactions(txs);
-
-    // 4. Fusionner avec les données existantes (même logique que applyCsv en mode merge)
-    const result = mergeIgData(converted);
-
-    // 5. Sauvegarder
-    saveTradesToFirebase(realTrades);
-    saveDividendsToFirebase(realDividends);
-    saveDepositsToFirebase(realDeposits);
-    saveFeesToFirebase(realFees);
-
-    // 6. Refresh
-    if (realTrades.length > 0) {
-      const latest = realTrades[0][0];
-      calYear = parseInt(latest.substring(0, 4));
-      calMonth = parseInt(latest.substring(5, 7)) - 1;
-    }
-    renderRealTab();
-    updateDataTimestamp();
-    syncRobotTrading();
-    if (portfolioData) savePortfolioToFirebase();
-
-    btn.textContent = origText;
-    btn.disabled = false;
-    alert(result.msg);
-
-  } catch (err) {
-    btn.textContent = origText;
-    btn.disabled = false;
-    alert('Erreur synchronisation IG : ' + err.message);
-  }
-}
-
-function parseIgPL(plStr) {
-  if (!plStr) return 0;
-  return parseFloat(plStr.replace(/[^0-9.\-]/g, '')) || 0;
-}
-
-function convertIgTransactions(txs) {
-  const trades = [], dividends = [], deposits = [], fees = [];
-  for (const tx of txs) {
-    const amount = parseIgPL(tx.profitAndLoss);
-    if (isNaN(amount)) continue;
-    const dateUtc = tx.dateUtc || tx.date || '';
-    if (!dateUtc || dateUtc.length < 10) continue;
-    const dateStr = dateUtc.substring(0, 10);
-    const ref = tx.reference || '';
-    const txType = (tx.transactionType || '').toUpperCase();
-    const market = tx.instrumentName || '';
-
-    if (txType === 'DEPO' || txType === 'DEPOSIT') {
-      if (/int[eé]r[eê]t\s+(de\s+)?financement/i.test(market)) {
-        dividends.push({ date: dateStr, amount, ref, market });
-      } else {
-        deposits.push({ date: dateStr, amount, ref });
-      }
-      continue;
-    }
-    if (txType === 'DIVIDEND') { dividends.push({ date: dateStr, amount, ref, market }); continue; }
-    if (txType !== 'ORDRE' && txType !== 'TRADE' && txType !== 'DEAL') {
-      fees.push({ date: dateStr, amount, ref, type: txType, market });
-      continue;
-    }
-    const symbol = mapMarketName(market);
-    const size = tx.size ? parseFloat(tx.size) : 0;
-    const openLevel = tx.openLevel && tx.openLevel !== '-' ? parseFloat(tx.openLevel) : 0;
-    const closeLevel = tx.closeLevel && tx.closeLevel !== '-' ? parseFloat(tx.closeLevel) : 0;
-    const openDate = tx.openDateUtc || '';
-    const tradeDate = openDate && openDate.length >= 10 ? openDate.substring(0, 10) : dateStr;
-    trades.push([tradeDate, symbol, amount, ref, size, openLevel, closeLevel, openDate, dateUtc]);
-  }
-  return { trades, dividends, deposits, fees };
-}
-
-function mergeIgData(data) {
-  // Même logique que applyCsv mode merge
-  const existingByKey = {};
-  realTrades.forEach(t => { existingByKey[tradeKey(t)] = t; });
-  let newCount = 0, updatedCount = 0, dupCount = 0;
-  const newTrades = [];
-  data.trades.forEach(t => {
-    const key = tradeKey(t);
-    const existing = existingByKey[key];
-    if (existing) {
-      if (existing[0] !== t[0]) { existing[0] = t[0]; updatedCount++; }
-      else dupCount++;
-    } else { newTrades.push(t); newCount++; }
+  // en direct : la synchro tourne aussi a chaque cloture de trade, l'etiquette suit sans recharger
+  return new Promise((ok) => {
+    try { db.ref('igSyncStatus').on('value', (s) => { renderIgSyncStatus(s.val()); ok(); }, () => ok()); } catch (e) { ok(); }
   });
-  realTrades = [...realTrades, ...newTrades].sort((a, b) => b[0].localeCompare(a[0]));
-
-  // Dividendes
-  const existingDivRefs = new Set(realDividends.map(d => d.ref));
-  const newDivs = data.dividends.filter(d => !existingDivRefs.has(d.ref));
-  const divRefSet = new Set(data.dividends.map(d => d.ref));
-  realDeposits = realDeposits.filter(d => !divRefSet.has(d.ref));
-  realDividends = [...realDividends, ...newDivs];
-
-  // Dépôts
-  const existingDepRefs = new Set(realDeposits.map(d => d.ref));
-  const newDeps = data.deposits.filter(d => !existingDepRefs.has(d.ref));
-  realDeposits = [...realDeposits, ...newDeps];
-
-  // Frais
-  const existingFeeRefs = new Set(realFees.map(f => f.ref));
-  const newFees = data.fees.filter(f => !existingFeeRefs.has(f.ref));
-  realFees = [...realFees, ...newFees];
-
-  // Message identique au CSV
-  const tMsg = newCount > 0 || updatedCount > 0
-    ? `${newCount} nouveau(x) trade(s)${updatedCount > 0 ? ', ' + updatedCount + ' mis à jour' : ''}, ${dupCount} doublon(s) ignoré(s)`
-    : `Aucun nouveau trade (${dupCount} doublon${dupCount > 1 ? 's' : ''})`;
-  const dMsg = newDivs.length > 0 ? ` + ${newDivs.length} dividende(s)` : '';
-  const depMsg = newDeps.length > 0 ? ` + ${newDeps.length} dépôt(s)` : '';
-  const feeMsg = newFees.length > 0 ? ` + ${newFees.length} frais` : '';
-  const msg = `Sync IG : ${tMsg}${dMsg}${depMsg}${feeMsg}.`;
-
-  return { msg, newCount, updatedCount, dupCount };
+}
+// Nouveaux trades sans recharger la page : ig_sync.py n'ecrit lastDataUpdate que si la synchro apporte du nouveau.
+// Au changement, on relit trades, dividendes, depots et frais, puis on redessine ce qui est affiche.
+let IG_LAST_UPDATE;
+function igWatchUpdates() {
+  if (typeof db === 'undefined' || !db) return;
+  try {
+    db.ref('lastDataUpdate').on('value', (snap) => {
+      const v = snap.val();
+      if (IG_LAST_UPDATE === undefined) { IG_LAST_UPDATE = v; return; }   // 1er appel : etat deja charge au demarrage
+      if (v === IG_LAST_UPDATE) return;
+      IG_LAST_UPDATE = v;
+      // rechargement discret : pas d'ecran de chargement plein ecran en pleine lecture
+      const sl = showLoading;
+      showLoading = () => {};
+      Promise.all([loadTradesFromFirebase(), loadDividendsFromFirebase(), loadDepositsFromFirebase(), loadFeesToFirebase()]).finally(() => { showLoading = sl; }).then(() => {
+        try { syncRobotTrading(); } catch (e) {}
+        try { updateDataTimestamp(); } catch (e) {}
+        // onglet Trading Auto : redessine s'il est affiche, sinon a sa prochaine ouverture (graphiques dimensionnes a l'ecran)
+        if (currentTab === 'real') { try { renderRealTab(); } catch (e) {} } else tabRendered.real = false;
+        if (currentTab === 'total') { try { renderTotalTab(); } catch (e) {} }
+        if (currentTab === 'accueil') { try { renderMobileHome(); } catch (e) {} }
+        try { renderHealthBar(); } catch (e) {}
+      });
+    });
+  } catch (e) {}
 }
 
-// Credentials IG — stockés dans localStorage (privé au navigateur, jamais envoyé sur le réseau)
-function getIgCreds() {
-  const raw = localStorage.getItem('ig_creds');
-  if (raw) try { return JSON.parse(raw); } catch(e) {}
-  return null;
-}
-
-function promptIgCreds() {
-  const existing = getIgCreds() || {};
-  const apiKey = prompt('Clé API IG :', existing.apiKey || '');
-  if (!apiKey) return null;
-  const username = prompt('Identifiant IG :', existing.username || '');
-  if (!username) return null;
-  const password = prompt('Mot de passe IG :', existing.password || '');
-  if (!password) return null;
-  const creds = { apiKey, username, password };
-  localStorage.setItem('ig_creds', JSON.stringify(creds));
-  return creds;
-}
-
-function getIgApiKey() { const c = getIgCreds(); return c ? c.apiKey : ''; }
-function getIgUsername() { const c = getIgCreds(); return c ? c.username : ''; }
-function getIgPassword() { const c = getIgCreds(); return c ? c.password : ''; }
+// Synchro IG depuis le navigateur RETIREE le 01/10/2026 (boutons « Synchroniser IG » et « Historique complet ») :
+// le VPS synchronise a chaque cloture de trade (ig_sync.py --si-cloture) et chaque soir a 23 h. Le bouton gardait
+// les identifiants IG en clair dans le navigateur : on efface cette copie.
+try { localStorage.removeItem('ig_creds'); } catch (e) {}
 
 // ── CSV Modal ──
 let pendingCsvText = '';
@@ -16153,6 +15959,7 @@ Promise.all([
     calMonth = parseInt(latest.substring(5,7)) - 1;
   }
   ensureMonthsUpToCurrent(); // étend les mois jusqu'au mois courant (sélectionnable partout)
+  igWatchUpdates();          // trades IG synchronises a chaque cloture : la page suit sans rechargement
   syncRobotTrading();
   // Lendermarket = l'historique de la répartition (capital "Moi"), seule source de vérité : sans ce
   // rejeu au chargement, le report du mois précédent (carryForwardPortfolioData) ressuscitait les
