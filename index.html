@@ -1323,7 +1323,37 @@
   html[data-theme="dark"] .mt-short { background: rgba(255,82,82,0.16); color: #ff8a80; }
   .mp-foot { font-size: 0.7rem; color: var(--text-muted); padding-top: 8px; border-top: 1px solid var(--border); }
   /* position IG en cours (dashboard/pontLive, publie par le pont du VPS) */
-  .igl-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px; padding: 12px 14px; margin-bottom: 10px; }
+  .igl-card { position: relative; overflow: hidden; border: 1px solid rgba(53,99,233,0.45); border-radius: 14px; padding: 12px 14px 12px 18px; margin-bottom: 10px;
+    background-color: var(--bg-card);
+    background-image: linear-gradient(110deg, rgba(53,99,233,0.10) 0%, rgba(46,181,160,0.16) 50%, rgba(53,99,233,0.10) 100%);
+    background-size: 220% 100%; animation: igl-flow 7s ease-in-out infinite; }
+  .igl-card::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: linear-gradient(#3563e9, #2eb5a0); }
+  @keyframes igl-flow { 0%, 100% { background-position: 0% 0; } 50% { background-position: 100% 0; } }
+  .igl-card.igl-stale { background-image: none; animation: none; border-color: var(--border); }
+  .igl-card.igl-stale::before { background: var(--text-muted); }
+  @media (prefers-reduced-motion: reduce) { .igl-card, .igl-dot { animation: none; } }
+  /* version large (onglet Trading total, PC) */
+  .ig-live-wide .igl-card { padding: 16px 22px 16px 26px; margin: 0 0 18px; }
+  html.m-mode .ig-live-wide { display: none; }
+  .iglw-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .iglw-title { font-size: 0.72rem; letter-spacing: .06em; text-transform: uppercase; font-weight: 800; color: var(--text-secondary); }
+  .iglw-age { font-size: 0.72rem; color: var(--text-muted); }
+  .iglw-tot { margin-left: auto; font-size: 2rem; font-weight: 800; line-height: 1; }
+  .iglw-pos { display: grid; grid-template-columns: 190px 1fr; gap: 12px 22px; align-items: center; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); }
+  .iglw-id { display: flex; flex-direction: column; gap: 6px; }
+  .iglw-id .igl-sens { align-self: flex-start; font-size: 0.78rem; padding: 3px 9px; }
+  .iglw-inst { font-size: 1.25rem; font-weight: 800; color: var(--text-primary); }
+  .iglw-cells { display: grid; grid-template-columns: repeat(auto-fit, minmax(122px, 1fr)); gap: 10px 18px; }
+  .iglw-lbl { font-size: 0.62rem; letter-spacing: .05em; text-transform: uppercase; font-weight: 700; color: var(--text-secondary); }
+  .iglw-val { font-size: 1.08rem; font-weight: 800; color: var(--text-primary); margin-top: 2px; }
+  .iglw-big { font-size: 1.45rem; }
+  .iglw-sub { font-size: 0.7rem; color: var(--text-muted); margin-top: 1px; }
+  .iglw-gauge { grid-column: 1 / -1; position: relative; height: 40px; margin: 2px 8px 0; }
+  .iglw-gauge .g-track { position: absolute; left: 0; right: 0; top: 12px; height: 6px; border-radius: 3px; background: var(--border); }
+  .iglw-gauge .g-zone { position: absolute; top: 12px; height: 6px; border-radius: 3px; }
+  .iglw-gauge .g-mk { position: absolute; top: 6px; width: 3px; height: 18px; border-radius: 2px; transform: translateX(-50%); }
+  .iglw-gauge .g-dot { position: absolute; top: 8px; width: 14px; height: 14px; border-radius: 50%; transform: translateX(-50%); border: 2px solid var(--bg-card); }
+  .iglw-gauge .g-lab { position: absolute; top: 26px; transform: translateX(-50%); font-size: 0.62rem; white-space: nowrap; color: var(--text-muted); }
   .igl-head { display: flex; align-items: center; gap: 8px; }
   .igl-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--positive); flex: none; animation: igl-pulse 2s ease-in-out infinite; }
   .igl-stale .igl-dot { background: var(--text-muted); animation: none; }
@@ -1335,7 +1365,6 @@
   .igl-pnl { margin-left: auto; }
   .igl-stop { font-size: 0.72rem; font-weight: 600; margin-top: 3px; }
   .igl-foot { font-size: 0.66rem; color: var(--text-muted); margin-top: 8px; }
-  .ig-live-pc .igl-card { max-width: 520px; margin: 0 0 14px; }
   html.m-mode .ig-live-pc { display: none; }
   /* écran Accueil */
   #tab-accueil .m-hero, #tab-accueil .m-card, #tab-accueil .m-list { background: var(--bg-card); border: 1px solid var(--border); }
@@ -1538,6 +1567,7 @@
       <div class="hero-kpi" id="ttlHero"></div>
       <div class="kpi-grid" id="ttlKpi"></div>
     </div>
+    <div class="ig-live-wide" data-iglive="wide"></div>
     <div id="ttlBrief"></div>
     <div class="chart-full"><div class="chart-card">
       <h3>Évolution du patrimoine (composition)</h3>
@@ -1597,7 +1627,7 @@
 
   <div id="tab-real" class="tab-content">
     <div id="mReal" class="m-only"></div>
-    <div class="ig-live-pc" data-iglive></div>
+    <div class="ig-live-pc ig-live-wide" data-iglive="wide"></div>
     <div class="real-header-row m-sec">
       <div class="asset-filter">
         <button class="filter-btn active" onclick="setAssetFilter('all')">Tout</button>
@@ -5539,7 +5569,7 @@ function igLiveEl() {
   const st = igLiveState();
   if (!st) return null;
   const col = (v) => 'color:' + (!st.fresh ? 'var(--text-muted)' : (v >= 0 ? 'var(--positive)' : 'var(--negative)'));
-  const S = (v) => (v >= 0 ? '+' : '') + fmt(v) + ' €';
+  const S = (v) => Math.abs(v) < 0.5 ? '0 €' : (v >= 0 ? '+' : '') + fmt(v) + ' €';   // jamais « -0 € »
   const age = !isFinite(st.age) ? '?' : (st.age < 90 ? Math.round(st.age) + ' s' : Math.round(st.age / 60) + ' min');
   const kids = [scrEl('div', { cls: 'igl-head', kids: [
     scrEl('span', { cls: 'igl-dot' }),
@@ -5561,7 +5591,7 @@ function igLiveEl() {
       const sec = Number(r.secured) || 0, eur = Number(r.securedEur) || 0;
       if (sec > 0.05) { st2 = '🔒 Sécurisée : ' + P1(sec) + ' pts (' + S(eur) + ') · stop ' + niv(r.stop); c2 = 'var(--positive)'; }
       else if (sec >= -0.05) { st2 = '🔒 Au point mort · stop ' + niv(r.stop); c2 = 'var(--positive)'; }
-      else { st2 = 'Risque ' + P1(sec) + ' pts (' + S(eur) + ') jusqu’au stop ' + niv(r.stop); c2 = 'var(--text-secondary)'; }
+      else { st2 = 'Risque ' + P1(sec) + ' pts (' + S(eur) + ') jusqu’au stop ' + niv(r.stop); c2 = 'var(--negative)'; }
       if (r.trailing) st2 += ' · stop suiveur ' + niv(r.trailing) + ' pts';
     }
     kids.push(scrEl('div', { cls: 'igl-stop', text: st2, style: 'color:' + (st.fresh ? c2 : 'var(--text-muted)'),
@@ -5572,7 +5602,73 @@ function igLiveEl() {
   return scrEl('div', { cls: 'igl-card' + (st.fresh ? '' : ' igl-stale'),
     attrs: { title: 'P&L latent des positions ouvertes, calculé par le pont IG du VPS au cours de sortie (achat : bid, vente : offer). Le réalisé du jour arrive avec la synchro IG du soir.' }, kids: kids });
 }
-// emplacements : [data-iglive] (onglet Trading Auto PC, accueil et ecran Trading mobiles)
+// Version LARGE (onglet Trading total, PC) : une ligne par position, cellules et jauge stop / entree / cours / objectif.
+function igLiveWideEl() {
+  const st = igLiveState();
+  if (!st) return null;
+  const tone = (v) => !st.fresh ? 'var(--text-muted)' : (v >= 0 ? 'var(--positive)' : 'var(--negative)');
+  const S = (v) => Math.abs(v) < 0.5 ? '0 €' : (v >= 0 ? '+' : '') + fmt(v) + ' €';   // jamais « -0 € »
+  const N1 = (v) => Number(v).toLocaleString('fr-FR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+  const P1 = (v) => (v >= 0 ? '+' : '') + N1(v);
+  const age = !isFinite(st.age) ? '?' : (st.age < 90 ? Math.round(st.age) + ' s' : Math.round(st.age / 60) + ' min');
+  const cell = (lbl, val, sub, color, big) => scrEl('div', { kids: [
+    scrEl('div', { cls: 'iglw-lbl', text: lbl }),
+    scrEl('div', { cls: 'iglw-val' + (big ? ' iglw-big' : ''), text: val, style: color ? 'color:' + color : '' }),
+    ...(sub ? [scrEl('div', { cls: 'iglw-sub', text: sub })] : [])] });
+  const kids = [scrEl('div', { cls: 'iglw-head', kids: [
+    scrEl('span', { cls: 'igl-dot' }),
+    scrEl('span', { cls: 'iglw-title', text: st.fresh ? 'Position en cours · en direct' : 'Position en cours · figée' }),
+    scrEl('span', { cls: 'iglw-age', text: st.fresh ? 'cours IG il y a ' + age : 'aucune mise à jour depuis ' + age + ' : vérifie le pont IG sur le VPS' }),
+    scrEl('span', { cls: 'iglw-tot', text: S(st.pnl), style: 'color:' + tone(st.pnl) })] })];
+  st.rows.forEach((r) => {
+    const achat = r.direction === 'BUY', pts = Number(r.points) || 0, pnl = Number(r.pnl) || 0, size = Number(r.size) || 0;
+    // euros par point, taille comprise : deduit du P&L (ou du montant garanti si le cours est a l'entree)
+    const eurPt = pts ? pnl / pts : (Number(r.secured) ? (Number(r.securedEur) || 0) / Number(r.secured) : null);
+    const ePt = eurPt ? Math.abs(eurPt).toLocaleString('fr-FR', { maximumFractionDigits: 2 }) + ' €/pt' : '';
+    const cells = [
+      cell('Entrée', N1(r.level), size.toLocaleString('fr-FR') + ' contrat' + (size > 1 ? 's' : '') + (ePt ? ' · ' + ePt : '')),
+      cell('Cours de sortie', N1(r.exit), achat ? 'prix vendeur IG (bid)' : 'prix acheteur IG (offer)'),
+      cell('Points', P1(pts), 'depuis l’entrée', tone(pts)),
+      cell('P&L latent', S(pnl), null, tone(pnl), true)];
+    if (r.stop == null) cells.push(cell('Stop', 'Aucun', 'position sans stop', st.fresh ? '#b45309' : 'var(--text-muted)'));
+    else {
+      const marge = achat ? r.exit - r.stop : r.stop - r.exit, sec = Number(r.secured) || 0, eur = Number(r.securedEur) || 0;
+      cells.push(cell('Stop', N1(r.stop), 'marge ' + N1(marge) + ' pts avant le stop' + (r.trailing ? ' · suiveur ' + N1(r.trailing) + ' pts' : '')));
+      cells.push(sec > 0.05 ? cell('Si le stop est touché', '🔒 ' + P1(sec) + ' pts', 'sécurisé : ' + S(eur), tone(1))
+        : (sec >= -0.05 ? cell('Si le stop est touché', '🔒 Point mort', 'stop au prix d’entrée', tone(1))
+          : cell('Si le stop est touché', P1(sec) + ' pts', 'risque : ' + S(eur), tone(-1))));
+    }
+    if (r.limit != null) {
+      const reste = achat ? r.limit - r.exit : r.exit - r.limit, objPts = achat ? r.limit - r.level : r.level - r.limit;
+      cells.push(cell('Objectif', N1(r.limit), 'encore ' + N1(reste) + ' pts' + (eurPt ? ' · ' + S(objPts * eurPt) + ' à l’objectif' : '')));
+    }
+    // jauge de prix : le sens favorable va toujours vers la droite (vente : prix decroissants)
+    const g = scrEl('div', { cls: 'iglw-gauge', kids: [scrEl('span', { cls: 'g-track' })] });
+    const vals = [r.level, r.exit, r.stop, r.limit].filter((v) => v != null && isFinite(v));
+    let lo = Math.min.apply(null, vals), hi = Math.max.apply(null, vals);
+    const pad = (hi - lo) * 0.06 || 1; lo -= pad; hi += pad;
+    const X = (v) => (achat ? v - lo : hi - v) / (hi - lo) * 100;
+    const L = (x) => Math.min(97, Math.max(3, x));
+    const zone = (a, b, col) => { const x1 = Math.min(X(a), X(b)), x2 = Math.max(X(a), X(b)); g.appendChild(scrEl('span', { cls: 'g-zone', style: 'left:' + x1 + '%;width:' + (x2 - x1) + '%;background:' + col })); };
+    const mk = (v, col, lab) => { g.appendChild(scrEl('span', { cls: 'g-mk', style: 'left:' + X(v) + '%;background:' + col })); g.appendChild(scrEl('span', { cls: 'g-lab', text: lab, style: 'left:' + L(X(v)) + '%' })); };
+    const rouge = 'rgba(221,95,102,0.45)', vert = 'rgba(29,158,116,0.45)';
+    if (r.stop != null) zone(r.stop, r.level, (Number(r.secured) || 0) >= -0.05 ? vert : rouge);
+    zone(r.level, r.exit, pts >= 0 ? vert : rouge);
+    if (r.stop != null) mk(r.stop, (Number(r.secured) || 0) >= -0.05 ? '#1d9e74' : '#dd5f66', 'Stop ' + N1(r.stop));
+    mk(r.level, '#94a3b5', 'Entrée');
+    if (r.limit != null) mk(r.limit, '#1d9e74', 'Objectif');
+    g.appendChild(scrEl('span', { cls: 'g-dot', style: 'left:' + X(r.exit) + '%;background:' + (st.fresh ? '#3563e9' : '#94a3b5') }));
+    kids.push(scrEl('div', { cls: 'iglw-pos', kids: [
+      scrEl('div', { cls: 'iglw-id', kids: [
+        scrEl('span', { cls: 'igl-sens ' + (achat ? 'mt-long' : 'mt-short'), text: achat ? '▲ Achat' : '▼ Vente' }),
+        scrEl('span', { cls: 'iglw-inst', text: IG_LIVE_LIB[r.kind] || r.kind })] }),
+      scrEl('div', { cls: 'iglw-cells', kids: cells }),
+      g] }));
+  });
+  return scrEl('div', { cls: 'igl-card' + (st.fresh ? '' : ' igl-stale'),
+    attrs: { title: 'P&L latent calculé par le pont IG du VPS au cours de sortie (achat : bid, vente : offer), mis à jour toutes les 5 s. Le réalisé arrive avec la synchro à la clôture.' }, kids: kids });
+}
+// emplacements : [data-iglive] (onglet Trading Auto PC, accueil et ecran Trading mobiles) et [data-iglive="wide"] (Trading total PC)
 function igLiveSlot() {
   const box = scrEl('div', { attrs: { 'data-iglive': '' } });
   const el = igLiveEl();
@@ -5580,7 +5676,16 @@ function igLiveSlot() {
   return box;
 }
 function renderIgLive() {
-  document.querySelectorAll('[data-iglive]').forEach((box) => { const el = igLiveEl(); box.replaceChildren(...(el ? [el] : [])); });
+  document.querySelectorAll('[data-iglive]').forEach((box) => {
+    const el = box.getAttribute('data-iglive') === 'wide' ? igLiveWideEl() : igLiveEl();
+    const old = box.firstElementChild;
+    // carte deja affichee : on ne remplace que son contenu, sinon le fond anime redemarre toutes les 5 s
+    if (el && old && old.classList.contains('igl-card')) {
+      if (old.className !== el.className) old.className = el.className;
+      old.title = el.title;
+      old.replaceChildren(...Array.from(el.childNodes));
+    } else box.replaceChildren(...(el ? [el] : []));
+  });
 }
 function loadIgLive() {
   if (typeof db === 'undefined' || !db) return Promise.resolve();
