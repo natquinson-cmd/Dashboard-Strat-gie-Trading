@@ -9,6 +9,7 @@ const WebSocket = require('ws');
 const { compute } = require('./engine');
 const { createIgFeed } = require('./ig');
 const { createPositionKeys } = require('./position');
+const { createEnfantsView } = require('./enfants');
 
 const CONFIG = {
   dashboardPath: 'C:/Users/quinson/Desktop/Claude/Trading_Dashboard.html',
@@ -358,6 +359,16 @@ function renderAlgos() {
 
 // ── Connexion au logiciel Stream Deck ─────────────────────────────────────
 const contexts = new Map();   // context -> nom de l'action
+const coords = new Map();     // context -> « colonne,ligne »
+// Vue courante : 'main' (touches normales) ou 'enfants' (une touche par enfant, cf. enfants.js)
+let view = 'main', viewTimer = null;
+const enfantsView = createEnfantsView({ C, esc, eur, sEur, sPct, col, getData: () => data, getMode: () => mode });
+function setView(v) {
+  view = v;
+  if (viewTimer) { clearTimeout(viewTimer); viewTimer = null; }
+  if (v !== 'main') viewTimer = setTimeout(() => setView('main'), 45000);   // retour automatique sans appui
+  paintAll();
+}
 const ws = new WebSocket('ws://127.0.0.1:' + args.port);
 const send = o => { if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(o)); };
 const actionName = uuid => uuid.split('.').pop();
@@ -365,7 +376,10 @@ const actionName = uuid => uuid.split('.').pop();
 function paint(ctx) {
   const name = contexts.get(ctx);
   if (!RENDER[name]) return;
-  try { send({ event: 'setImage', context: ctx, payload: { image: RENDER[name](), target: 0 } }); }
+  try {
+    const img = view === 'enfants' && coords.has(ctx) ? enfantsView.render(coords.get(ctx)) : RENDER[name]();
+    send({ event: 'setImage', context: ctx, payload: { image: img, target: 0 } });
+  }
   catch (e) { log('rendu ' + name + ' : ' + e.message); }
 }
 const paintAll = () => { for (const c of contexts.keys()) paint(c); };
@@ -441,7 +455,7 @@ const PRESS = {
   crypto: () => openChrome(CONFIG.dashboardUrl + '#screener'),
   pnljour: ctx => { send({ event: 'setImage', context: ctx, payload: { image: key({ label: 'P&L JOUR', value: '…', sub: 'mise à jour', color: C.dim }), target: 0 } }); refresh(); },
   pont: () => pontDetails(),
-  enfants: () => openChrome(CONFIG.dashboardUrl + '#enfants'),
+  enfants: () => setView('enfants'),
   dax: () => openChrome('https://www.tradingview.com/chart/?symbol=' + INDICES.dax.tv),
   ndx: () => openChrome('https://www.tradingview.com/chart/?symbol=' + INDICES.ndx.tv),
   spx: () => openChrome('https://www.tradingview.com/chart/?symbol=' + INDICES.spx.tv),
@@ -459,8 +473,8 @@ ws.on('open', () => {
 });
 ws.on('message', raw => {
   let m; try { m = JSON.parse(raw); } catch (e) { return; }
-  if (m.event === 'willAppear') { contexts.set(m.context, actionName(m.action)); log('touche affichee : ' + actionName(m.action)); paint(m.context); }
-  else if (m.event === 'willDisappear') contexts.delete(m.context);
+  if (m.event === 'willAppear') { contexts.set(m.context, actionName(m.action)); if (m.payload && m.payload.coordinates) coords.set(m.context, m.payload.coordinates.column + ',' + m.payload.coordinates.row); log('touche affichee : ' + actionName(m.action)); paint(m.context); }
+  else if (m.event === 'willDisappear') { contexts.delete(m.context); coords.delete(m.context); }
   // Stream Deck debranche : un script detache (qui survit a la fermeture du logiciel) revérifie et ferme le logiciel.
   // Le relancement au rebranchement est fait par la tache planifiee « Stream Deck - lancement au branchement ».
   else if (m.event === 'deviceDidDisconnect') {
@@ -469,6 +483,11 @@ ws.on('message', raw => {
       { detached: true, stdio: 'ignore', windowsHide: true });
     p.on('error', e => log('fermeture : ' + e.message));
     p.unref();
+  }
+  else if (m.event === 'keyDown' && view === 'enfants') {
+    const pos = coords.get(m.context) || '';
+    if (pos.endsWith(',0') && pos !== '') openChrome(CONFIG.dashboardUrl + '#enfants');
+    setView('main');
   }
   else if (m.event === 'keyDown') {
     const f = PRESS[actionName(m.action)];

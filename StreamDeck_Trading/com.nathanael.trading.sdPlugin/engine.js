@@ -175,6 +175,7 @@ function kidsPocket(kids, price, hist) {
   const prevKey = Object.keys(hist || {}).filter(k => k < today && Number(hist[k]) > 0).sort().pop();
   const prev = prevKey ? Number(hist[prevKey]) : null, units = children.reduce((a, o) => a + o.units, 0);
   const day = prev ? units * (px - prev) : null, dayPct = prev ? (px / prev - 1) * 100 : null;
+  children.forEach(o => { o.day = prev ? o.units * (px - prev) : null; });
   return { day, dayPct, value, paid, pnl: value - paid, pct: paid > 0 ? (value - paid) / paid * 100 : 0, price: px, ticker: price.ticker, priceAt: price.marketAt || price.at, children };
 }
 

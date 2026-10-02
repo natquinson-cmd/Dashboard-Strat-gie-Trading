@@ -55,3 +55,9 @@ Après une modification : `npm install` dans le dossier du plugin si besoin, pui
 - Bascule Capital, ETF, Crypto et Enfants entre la plus-value latente (depuis l'achat) et la variation du jour ; le titre de ces touches prend « · JOUR ».
 - Jour : Capital = P&L du jour toutes sources ; ETF / Crypto = impact du jour des lignes (`scrDayImpact`, crypto sur 24 h) ; Enfants = parts × (cours − dernière clôture de `stocks/kidsHistory`).
 - Choix retenu dans `mode.json` (ignoré par git). P&L jour / P&L mois / Algos ne changent pas.
+
+## Écran Enfants (`enfants.js`)
+- Appui sur ENFANTS : le plugin redessine ses propres touches (pas de 2e page Stream Deck). Ligne du haut = un enfant par touche
+  (ordre fixe Anaïa, Robin, Lily Rose, Noah, Elie ; couleurs du dashboard) : prénom, capital, plus-value et % (totale ou du jour selon MODE).
+  Centre = total de la poche ; bas gauche = RETOUR.
+- Appui sur un enfant : ouvre l'onglet Enfants du dashboard et revient ; tout autre appui revient ; retour automatique après 45 s.
