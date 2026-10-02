@@ -99,13 +99,13 @@ function createPortefeuilleView({ C, esc, sPct, col, getData, getMode, renderMod
     // pas de ticker (le logo suffit, demande du user) : logo centre en haut, chiffres en grand dessous.
     // Sans logo, le ticker s'ecrit dans la tuile.
     const img = lg && lg !== 'absent'
-      ? '<rect x="42" y="4" width="60" height="60" rx="12" fill="#ffffff"/><image x="46" y="8" width="52" height="52" href="' + lg + '" xlink:href="' + lg + '" preserveAspectRatio="xMidYMid meet"/>'
-      : '<rect x="42" y="4" width="60" height="60" rx="12" fill="#24303d"/><text x="72" y="40" ' + F + ' font-size="14" fill="' + C.txt + '">' + esc(tk.slice(0, 5)) + '</text>';
+      ? '<rect x="35" y="3" width="74" height="74" rx="14" fill="#ffffff"/><image x="40" y="8" width="64" height="64" href="' + lg + '" xlink:href="' + lg + '" preserveAspectRatio="xMidYMid meet"/>'
+      : '<rect x="35" y="3" width="74" height="74" rx="14" fill="#24303d"/><text x="72" y="46" ' + F + ' font-size="16" fill="' + C.txt + '">' + esc(tk.slice(0, 5)) + '</text>';
     const montant = pv == null ? '–' : sUsd(pv), pctTxt = pct == null ? '' : sPct(pct).replace(' %', '%');
     return wrap(img
       + (jour ? '<text x="6" y="18" font-family="Segoe UI, Arial" font-weight="800" font-size="13" fill="' + C.blue + '">J</text>' : '')
-      + '<text x="72" y="100" ' + F + ' font-size="' + (montant.length > 7 ? 28 : montant.length > 5 ? 33 : 36) + '" fill="' + c + '">' + esc(montant) + '</text>'
-      + '<text x="72" y="135" ' + F + ' font-size="' + (pctTxt.length > 7 ? 24 : 27) + '" fill="' + c + '">' + esc(pctTxt) + '</text>');
+      + '<text x="72" y="107" ' + F + ' font-size="' + (montant.length > 7 ? 25 : montant.length > 5 ? 28 : 30) + '" fill="' + c + '">' + esc(montant) + '</text>'
+      + '<text x="72" y="136" ' + F + ' font-size="' + (pctTxt.length > 7 ? 21 : 23) + '" fill="' + c + '">' + esc(pctTxt) + '</text>');
   }
   const retour = () => wrap('<rect x="14" y="40" width="116" height="64" rx="14" fill="none" stroke="' + C.dim + '" stroke-width="3"/>'
     + '<path d="M44 72 l16 -14 v9 h34 v10 h-34 v9 z" fill="' + C.txt + '"/>'
