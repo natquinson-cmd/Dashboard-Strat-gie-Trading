@@ -364,7 +364,7 @@ const coords = new Map();     // context -> « colonne,ligne »
 // Vue courante : 'main' (touches normales) ou 'enfants' (une touche par enfant, cf. enfants.js)
 let view = 'main', viewTimer = null;
 const enfantsView = createEnfantsView({ C, esc, eur, sEur, sPct, col, getData: () => data, getMode: () => mode });
-const portefeuilleView = createPortefeuilleView({ C, esc, sEur, sPct, col, getData: () => data, getMode: () => mode,
+const portefeuilleView = createPortefeuilleView({ C, esc, sPct, col, getData: () => data, getMode: () => mode,
   renderMode: () => renderMode(), log, onLogo: () => { if (view === 'positions') paintAll(); } });
 const VIEWS = { enfants: enfantsView, positions: portefeuilleView };
 function setView(v) {

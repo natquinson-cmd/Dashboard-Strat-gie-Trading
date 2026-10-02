@@ -144,6 +144,7 @@ async function compute(opts) {
       // detail par ligne pour l'ecran Positions (memes formules que scrMobilePortfolio)
       lignes.push({ t: t, name: mpName(t, d), website: (d && d.website) || '', cat: k, value: valeur * c.fx,
         pnl: pu != null ? (valeur - investi) * c.fx : null, pnlPct: (pu != null && p.pru > 0) ? (pu / p.pru - 1) * 100 : null,
+        pnlUsd: pu != null ? valeur - investi : null, dayUsd: dj ? dj.usd : null, valueUsd: valeur,   // en dollars, devise native du portefeuille
         day: dj ? dj.usd * c.fx : null, dayPct: dj ? ((valeur - dj.usd) > 0 ? dj.usd / (valeur - dj.usd) * 100 : chg) : null });
     });
     Object.keys(cats).forEach(function (k) { const o = cats[k]; o.pnl = o.value - o.inv; o.pnlPct = o.inv > 0 ? o.pnl / o.inv * 100 : 0; });

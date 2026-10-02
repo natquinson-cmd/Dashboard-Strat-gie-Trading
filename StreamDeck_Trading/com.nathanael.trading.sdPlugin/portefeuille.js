@@ -47,7 +47,7 @@ function partVisible(buf) {
 const SLOTS = ['0,0', '1,0', '2,0', '3,0', '4,0', '0,1', '1,1', '2,1', '3,1', '4,1', '2,2', '3,2'];
 const POS_RETOUR = '0,2', POS_MODE = '1,2';
 
-function createPortefeuilleView({ C, esc, sEur, sPct, col, getData, getMode, renderMode, log, onLogo }) {
+function createPortefeuilleView({ C, esc, sPct, col, getData, getMode, renderMode, log, onLogo }) {
   const F = 'font-family="Segoe UI, Arial" text-anchor="middle" font-weight="800"';
   const wrap = body => 'data:image/svg+xml;charset=utf8,' + encodeURIComponent(
     '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="144" height="144" viewBox="0 0 144 144">'
@@ -90,7 +90,9 @@ function createPortefeuilleView({ C, esc, sEur, sPct, col, getData, getMode, ren
 
   function cle(l) {
     const jour = getMode() === 'jour';
-    const pv = jour ? l.day : l.pnl, pct = jour ? l.dayPct : l.pnlPct;
+    // montants en DOLLARS sur cet ecran (devise du portefeuille), format du dashboard : +$318 / -$215
+    const pv = jour ? l.dayUsd : l.pnlUsd, pct = jour ? l.dayPct : l.pnlPct;
+    const sUsd = v => (v > 0 ? '+' : v < 0 ? '-' : '') + '$' + Math.round(Math.abs(v)).toLocaleString('fr-FR').replace(/\s/g, ' ');
     const c = pv == null ? C.gray : col(pv);
     const tk = l.t.replace(/(\.[A-Z]{1,3}|-USD)$/, '');
     const lg = logo(l);
@@ -100,7 +102,7 @@ function createPortefeuilleView({ C, esc, sEur, sPct, col, getData, getMode, ren
       : '<rect x="47" y="8" width="50" height="50" rx="10" fill="#24303d"/><text x="72" y="40" ' + F + ' font-size="13" fill="' + C.txt + '">' + esc(tk.slice(0, 4)) + '</text>';
     return wrap(img
       + '<text x="72" y="78" ' + F + ' font-size="15" fill="' + C.dim + '">' + esc(tk) + (jour ? ' · J' : '') + '</text>'
-      + '<text x="72" y="104" ' + F + ' font-size="' + ((pv == null ? 1 : sEur(pv).length) > 7 ? 18 : 21) + '" fill="' + c + '">' + esc(pv == null ? '–' : sEur(pv)) + '</text>'
+      + '<text x="72" y="104" ' + F + ' font-size="' + ((pv == null ? 1 : sUsd(pv).length) > 7 ? 18 : 21) + '" fill="' + c + '">' + esc(pv == null ? '–' : sUsd(pv)) + '</text>'
       + '<text x="72" y="128" ' + F + ' font-size="17" fill="' + c + '">' + esc(pct == null ? '' : sPct(pct).replace(' %', '%')) + '</text>');
   }
   const retour = () => wrap('<rect x="14" y="40" width="116" height="64" rx="14" fill="none" stroke="' + C.dim + '" stroke-width="3"/>'
