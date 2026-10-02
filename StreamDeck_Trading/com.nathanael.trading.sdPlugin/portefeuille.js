@@ -96,14 +96,16 @@ function createPortefeuilleView({ C, esc, sPct, col, getData, getMode, renderMod
     const c = pv == null ? C.gray : col(pv);
     const tk = l.t.replace(/(\.[A-Z]{1,3}|-USD)$/, '');
     const lg = logo(l);
-    // tuile blanche arrondie comme dans le dashboard (les logos sombres ressortent)
+    // pas de ticker (le logo suffit, demande du user) : logo centre en haut, chiffres en grand dessous.
+    // Sans logo, le ticker s'ecrit dans la tuile.
     const img = lg && lg !== 'absent'
-      ? '<rect x="47" y="8" width="50" height="50" rx="10" fill="#ffffff"/><image x="51" y="12" width="42" height="42" href="' + lg + '" xlink:href="' + lg + '" preserveAspectRatio="xMidYMid meet"/>'
-      : '<rect x="47" y="8" width="50" height="50" rx="10" fill="#24303d"/><text x="72" y="40" ' + F + ' font-size="13" fill="' + C.txt + '">' + esc(tk.slice(0, 4)) + '</text>';
+      ? '<rect x="42" y="4" width="60" height="60" rx="12" fill="#ffffff"/><image x="46" y="8" width="52" height="52" href="' + lg + '" xlink:href="' + lg + '" preserveAspectRatio="xMidYMid meet"/>'
+      : '<rect x="42" y="4" width="60" height="60" rx="12" fill="#24303d"/><text x="72" y="40" ' + F + ' font-size="14" fill="' + C.txt + '">' + esc(tk.slice(0, 5)) + '</text>';
+    const montant = pv == null ? '–' : sUsd(pv), pctTxt = pct == null ? '' : sPct(pct).replace(' %', '%');
     return wrap(img
-      + '<text x="72" y="78" ' + F + ' font-size="15" fill="' + C.dim + '">' + esc(tk) + (jour ? ' · J' : '') + '</text>'
-      + '<text x="72" y="104" ' + F + ' font-size="' + ((pv == null ? 1 : sUsd(pv).length) > 7 ? 18 : 21) + '" fill="' + c + '">' + esc(pv == null ? '–' : sUsd(pv)) + '</text>'
-      + '<text x="72" y="128" ' + F + ' font-size="17" fill="' + c + '">' + esc(pct == null ? '' : sPct(pct).replace(' %', '%')) + '</text>');
+      + (jour ? '<text x="6" y="18" font-family="Segoe UI, Arial" font-weight="800" font-size="13" fill="' + C.blue + '">J</text>' : '')
+      + '<text x="72" y="100" ' + F + ' font-size="' + (montant.length > 7 ? 28 : montant.length > 5 ? 33 : 36) + '" fill="' + c + '">' + esc(montant) + '</text>'
+      + '<text x="72" y="135" ' + F + ' font-size="' + (pctTxt.length > 7 ? 24 : 27) + '" fill="' + c + '">' + esc(pctTxt) + '</text>');
   }
   const retour = () => wrap('<rect x="14" y="40" width="116" height="64" rx="14" fill="none" stroke="' + C.dim + '" stroke-width="3"/>'
     + '<path d="M44 72 l16 -14 v9 h34 v10 h-34 v9 z" fill="' + C.txt + '"/>'
