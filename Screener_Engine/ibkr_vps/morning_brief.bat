@@ -31,7 +31,9 @@ if not defined TODAY set "TODAY=inconnu"
 set "LOG=%LOGDIR%\morning_brief_%TODAY%.log"
 
 echo.>> "%LOG%"
-echo ===== DEMARRAGE %DATE% %TIME% =====>> "%LOG%"
+REM [%*] distingue le passage quotidien de 07h45 ([]) de la sentinelle de chaque minute ([--if-requested]) :
+REM le 02/10/2026 le passage de 07h45 a « reussi » sans laisser la moindre ligne, impossible de savoir s il avait demarre.
+echo ===== DEMARRAGE %DATE% %TIME% [%*] =====>> "%LOG%"
 if not defined ANTHROPIC_API_KEY echo [!] ANTHROPIC_API_KEY absente : pas de synthese redigee.>> "%LOG%"
 
 if exist ".venv\Scripts\python.exe" (
