@@ -44,3 +44,9 @@ Après une modification : `npm install` dans le dossier du plugin si besoin, pui
 - Retour arrière : `schtasks /Delete /TN "Stream Deck - lancement au branchement" /F`, puis réactiver « Lancer au démarrage » dans les préférences Stream Deck.
 - Au débranchement : le plugin reçoit `deviceDidDisconnect` et lance `fermer_si_debranche.ps1` (détaché), qui attend 5 s,
   revérifie l'absence de `USB\VID_0FD9` puis ferme le logiciel (normalement, puis de force s'il ne répond pas).
+
+## Position ouverte : touches JAUGE et SÉCURITÉ (`position.js`)
+- Données : `/positions` IG (niveau, `stopLevel`, `limitLevel`, `trailingStopDistance`), lu seulement sur événement OPU et toutes les 5 min, + cours du flux (bid si achat, offer si vente). Aucune requête IG en plus.
+- JAUGE (à droite d'ALGOS LIVE) : barre stop → objectif orientée sens favorable vers la droite ; stop→entrée rouge (risque) ou vert (sécurisé), entrée→cours vert (gain) ou rouge (perte) ; repère blanc = entrée, rond = cours ; en bas, points restants jusqu'au SL et au TP depuis le cours.
+- SÉCURITÉ (sous ALGOS LIVE) : points garantis si le stop est touché (achat : stop − entrée ; vente : entrée − stop), même formule que le pont. SÉCURISÉE (vert, cadenas), POINT MORT, RISQUE (rouge), SANS STOP (orange) ; € = points × €/pt déduit du P&L latent ; « suiveur N pts » si stop suiveur.
+- Sans position : les deux touches en gris « aucune position ». Appui : onglet Trading Auto.

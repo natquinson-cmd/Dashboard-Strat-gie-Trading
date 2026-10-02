@@ -1,6 +1,6 @@
 {
   "Name": "Trading Nathanaël",
-  "Version": "1.3.0.0",
+  "Version": "1.4.0.0",
   "Author": "Nathanaël",
   "Description": "Touches en direct du Trading Dashboard (capital, P&L, pont IG, poche enfants) et indices DAX, Nasdaq 100, S&P 500.",
   "Icon": "imgs/plugin",
@@ -188,6 +188,38 @@
       "Name": "Poche crypto",
       "Icon": "imgs/action",
       "Tooltip": "Plus-value des cryptos du portefeuille. Appui : onglet Portefeuille d'actions.",
+      "States": [
+        {
+          "Image": "imgs/key"
+        }
+      ],
+      "Controllers": [
+        "Keypad"
+      ],
+      "SupportedInMultiActions": false,
+      "UserTitleEnabled": false
+    },
+    {
+      "UUID": "com.nathanael.trading.jauge",
+      "Name": "Jauge position",
+      "Icon": "imgs/action",
+      "Tooltip": "Stop, entrée, cours et objectif de la position ouverte, en direct.",
+      "States": [
+        {
+          "Image": "imgs/key"
+        }
+      ],
+      "Controllers": [
+        "Keypad"
+      ],
+      "SupportedInMultiActions": false,
+      "UserTitleEnabled": false
+    },
+    {
+      "UUID": "com.nathanael.trading.securite",
+      "Name": "Sécurité position",
+      "Icon": "imgs/action",
+      "Tooltip": "Points garantis (ou risqués) si le stop est touché.",
       "States": [
         {
           "Image": "imgs/key"

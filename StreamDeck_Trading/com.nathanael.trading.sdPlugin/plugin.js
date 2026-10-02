@@ -8,6 +8,7 @@ const { spawn } = require('child_process');
 const WebSocket = require('ws');
 const { compute } = require('./engine');
 const { createIgFeed } = require('./ig');
+const { createPositionKeys } = require('./position');
 
 const CONFIG = {
   dashboardPath: 'C:/Users/quinson/Desktop/Claude/Trading_Dashboard.html',
@@ -152,6 +153,8 @@ const RENDER = {
     return pocketKey('ENFANTS', k.pnl, k.pct, k.value);
   },
   algos: () => renderAlgos(),
+  jauge: () => posKeys.gauge(),
+  securite: () => posKeys.secure(),
   etf: () => catKey('etf', 'ETF'),
   crypto: () => catKey('crypto', 'CRYPTO'),
   dax: () => renderIndex('dax'),
@@ -260,7 +263,7 @@ const igFeed = createIgFeed(log, () => {
   // IG pousse plusieurs prix par seconde : on redessine au plus une fois par seconde
   if (!paintTimer) paintTimer = setTimeout(() => {
     paintTimer = null;
-    for (const [c, n] of contexts) if (INDICES[n] || n === 'algos') paint(c);
+    for (const [c, n] of contexts) if (INDICES[n] || n === 'algos' || n === 'jauge' || n === 'securite') paint(c);
   }, 1000);
 });
 
@@ -289,6 +292,8 @@ function posLine(s) {
   });
   return out;
 }
+
+const posKeys = createPositionKeys({ C, esc, nf1, nf0, igFeed });
 
 // P&L latent des algos (positions ouvertes du compte IG, en direct) + realise du jour (synchro IG du dashboard).
 // Points de P&L : cours de sortie (bid pour un achat, offer pour une vente) moins le niveau d'ouverture.
@@ -402,6 +407,8 @@ const PRESS = {
   capital: () => openChrome(CONFIG.dashboardUrl),
   pnlmois: () => openChrome(CONFIG.dashboardUrl),
   algos: () => openChrome(CONFIG.dashboardUrl + '#real'),
+  jauge: () => openChrome(CONFIG.dashboardUrl + '#real'),
+  securite: () => openChrome(CONFIG.dashboardUrl + '#real'),
   etf: () => openChrome(CONFIG.dashboardUrl + '#screener'),
   crypto: () => openChrome(CONFIG.dashboardUrl + '#screener'),
   pnljour: ctx => { send({ event: 'setImage', context: ctx, payload: { image: key({ label: 'P&L JOUR', value: '…', sub: 'mise à jour', color: C.dim }), target: 0 } }); refresh(); },

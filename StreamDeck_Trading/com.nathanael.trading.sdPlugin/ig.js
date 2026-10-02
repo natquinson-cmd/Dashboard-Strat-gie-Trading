@@ -97,10 +97,16 @@ function createIgFeed(log, onChange) {
   async function pollPositions() {
     try {
       const b = (await rest('/positions')).body;
-      const list = (b.positions || []).map(p => ({
-        direction: (p.position || {}).direction, size: Number((p.position || {}).size) || 0, level: Number((p.position || {}).level) || 0,
-        epic: (p.market || {}).epic || '', name: (p.market || {}).instrumentName || '',
-      }));
+      // stop / objectif / stop suiveur : dans la meme reponse /positions (aucune requete en plus)
+      const num = v => (v == null || v === '' || !isFinite(Number(v))) ? null : Number(v);
+      const list = (b.positions || []).map(p => {
+        const pos = p.position || {}, mkt = p.market || {};
+        return {
+          dealId: pos.dealId || '', direction: pos.direction, size: Number(pos.size) || 0, level: Number(pos.level) || 0,
+          stop: num(pos.stopLevel), limit: num(pos.limitLevel), trailing: num(pos.trailingStopDistance),
+          epic: mkt.epic || '', name: mkt.instrumentName || '',
+        };
+      });
       state.positions = { count: list.length, list, at: Date.now() };
       list.forEach(p => { if (p.epic && client) subscribeEpic(client, p.epic); });
       onChange();
