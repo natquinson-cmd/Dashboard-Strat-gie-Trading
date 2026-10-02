@@ -771,13 +771,36 @@ def demande_en_attente(db):
     return True
 
 
+BRIEF_HEURE = (7, 45)           # heure du brief quotidien (heure locale du VPS = Paris)
+BRIEF_AUTO_INTERVALLE_MIN = 60  # au plus une tentative automatique par heure
+
+
+def brief_du_jour_manquant(db, maintenant=None):
+    """Sentinelle : True si, apres 07h45, aucun brief n'a ete produit AUJOURD'HUI et qu'aucune tentative
+    automatique n'a eu lieu dans l'heure. Pose alors le marqueur de tentative (anti-rafale)."""
+    now = maintenant or datetime.now()
+    if (now.hour, now.minute) < BRIEF_HEURE:
+        return False
+    cur = _parse_iso((get(db, 'dashboard/morningBrief') or {}).get('at'))
+    if cur is not None and cur.astimezone().date() >= now.date():
+        return False
+    essai = _parse_iso((get(db, 'dashboard/morningBriefAuto') or {}).get('at'))
+    if essai is not None and (datetime.now(timezone.utc) - essai) < timedelta(minutes=BRIEF_AUTO_INTERVALLE_MIN):
+        print('Brief du jour manquant, tentative automatique deja faite il y a moins d une heure.')
+        return False
+    push(db, 'dashboard/morningBriefAuto', {'at': _now_iso()})
+    print('Brief du jour manquant apres 07h45 : la sentinelle le produit.')
+    return True
+
+
 def main():
     db = os.environ.get('FIREBASE_DB_URL')
     if not db:
         print('FIREBASE_DB_URL manquant'); sys.exit(1)
 
     # Mode sentinelle : lance toutes les 5 min par une tache, ne fait rien sans demande.
-    if '--if-requested' in sys.argv and not demande_en_attente(db):
+    # Elle produit aussi le brief du jour s'il manque apres 07h45 : la tache de 07h45 peut echouer en silence.
+    if '--if-requested' in sys.argv and not demande_en_attente(db) and not brief_du_jour_manquant(db):
         return
 
     try:
