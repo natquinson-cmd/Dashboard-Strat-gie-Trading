@@ -5786,6 +5786,16 @@ function hbItems() {
     'Brief du matin, Fear & Greed et actualités (morning_brief.py, chaque matin vers 7 h 45).',
     'Le brief du matin a sauté au moins une journée : vérifie la tâche planifiée du brief sur le VPS.',
     'BRIEF FIGÉ depuis plusieurs jours ouvrés : vérifie la tâche planifiée du brief sur le VPS.');
+  // Le brief doit sortir CHAQUE matin ouvre a 7 h 45 : un jour de semaine apres 8 h 30, un brief d'un jour precedent
+  // passe au moins en orange (avant, il fallait 30 h ouvrees pour le voir : le 02/10 il manquait sans alerte).
+  {
+    const it = out[out.length - 1], n = new Date(), t = hbMs(HB.brief);
+    if (it && it.key === 'brief' && it.level === 'ok' && !isNaN(t) && n.getDay() >= 1 && n.getDay() <= 5
+        && n.getHours() * 60 + n.getMinutes() >= 510 && scrJoursCal(t) >= 1) {
+      it.level = 'warn';
+      it.tip += ' Le brief de ce matin (7 h 45) n’a pas été produit : vérifie la tâche MorningBrief sur le VPS.';
+    }
+  }
   // Darwinex : le collecteur ecrit lui-meme son statut (ok / expired / error) et sa raison.
   // Compte solde le 29/09/2026 : collecteur arrete, plus rien a surveiller (sinon pastille rouge a vie).
   const dwK = (typeof darwinexDaily !== 'undefined') ? ttlDwxDates() : [];
@@ -10033,11 +10043,17 @@ let SCR_MKT_OLD = null;   // la plus ANCIENNE : {ticker, ts}
 // et seule une date en gris discret le disait. On la rend donc impossible a rater.
 // Seuils en JOURS : le screener tourne chaque jour ouvre, un week-end ou un ferie explique 2 a 3 jours.
 const SCR_FRESH_WARN = 3, SCR_FRESH_BAD = 7;
+// Ecart en JOURS DU CALENDRIER (heure locale) entre un instant et maintenant : 0 = aujourd'hui, 1 = hier.
+// A ne pas confondre avec la duree ecoulee : 22 h peuvent faire « hier » (01/10 10 h 43 vu le 02/10 9 h 03).
+function scrJoursCal(t) {
+  const a = new Date(t), b = new Date();
+  return Math.round((new Date(b.getFullYear(), b.getMonth(), b.getDate()) - new Date(a.getFullYear(), a.getMonth(), a.getDate())) / 86400000);
+}
 function scrFreshness(iso) {
   const t = iso ? Date.parse(iso) : NaN;
   if (isNaN(t)) return null;
-  const days = (Date.now() - t) / 86400000, j = Math.floor(days);
-  const age = (days < 1) ? "aujourd'hui" : (j === 1 ? 'hier' : 'il y a ' + j + ' jours');
+  const days = (Date.now() - t) / 86400000, j = scrJoursCal(t);   // seuils : duree ecoulee ; libelle : calendrier
+  const age = j <= 0 ? "aujourd'hui" : (j === 1 ? 'hier' : 'il y a ' + j + ' jours');
   if (days >= SCR_FRESH_BAD) return { days: days, age: age, level: 'bad', fg: '#c0392b', bg: '#fdeaea',
     title: 'DONNÉES PÉRIMÉES (' + age + '). Le screener du VPS ne tourne plus. Vérifie la tâche planifiée '
       + 'ScreenerGrowth et le journal dans Screener_Engine\\ibkr_vps\\logs\\. Tant qu’il est figé, les notes de '
@@ -10069,8 +10085,8 @@ function scrMoatFreshBadge(iso) {
   const t = iso ? Date.parse(iso) : NaN;
   if (isNaN(t)) return scrEl('span', { attrs: { title: "Aucune date de revision sur cette analyse de moat : impossible de savoir si elle tient compte de l'actualite recente. A regenerer." },
     text: 'moat : date inconnue', style: pill + 'background:#fff2d9;color:#8a6d1f' });
-  const days = Math.floor((Date.now() - t) / 86400000);
-  const age = days < 1 ? "aujourd'hui" : (days === 1 ? 'hier' : 'il y a ' + days + ' j');
+  const days = Math.floor((Date.now() - t) / 86400000), jc = scrJoursCal(t);
+  const age = jc <= 0 ? "aujourd'hui" : (jc === 1 ? 'hier' : 'il y a ' + jc + ' j');
   const bad = days >= SCR_MOAT_BAD_D, warn = days >= SCR_MOAT_WARN_D;
   const fg = bad ? '#c0392b' : (warn ? '#8a6d1f' : '#127a54');
   const bg = bad ? '#fdeaea' : (warn ? '#fff2d9' : '#d1f0e3');
