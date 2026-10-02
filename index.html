@@ -1368,6 +1368,34 @@
   .igl-stop { font-size: 0.72rem; font-weight: 600; margin-top: 3px; }
   .igl-foot { font-size: 0.66rem; color: var(--text-muted); margin-top: 8px; }
   html.m-mode .ig-live-pc { display: none; }
+  /* vue d'ensemble de Trading total (PC) : la logique de l'accueil mobile, en largeur */
+  .ck-top { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 14px; margin-bottom: 14px; }
+  @media (max-width: 900px) { .ck-top { grid-template-columns: 1fr; } }
+  .ck-hero { display: flex; gap: 22px; align-items: stretch; background: var(--bg-card); border: 1px solid var(--border); border-radius: 16px;
+    padding: 20px 24px; background-image: linear-gradient(135deg, rgba(95,139,242,0.10), rgba(29,158,116,0.05)); }
+  html[data-theme="dark"] .ck-hero { background-image: linear-gradient(135deg, rgba(63,118,237,0.14), rgba(102,187,106,0.05)); }
+  .ck-txt { flex: none; }
+  .ck-lbl { font-size: 0.68rem; letter-spacing: .06em; text-transform: uppercase; font-weight: 700; color: var(--text-secondary); }
+  .ck-big { font-size: 2.5rem; font-weight: 800; line-height: 1.1; margin-top: 4px; color: var(--text-primary); white-space: nowrap; }
+  .ck-sub { font-size: 0.86rem; color: var(--text-secondary); margin-top: 4px; white-space: nowrap; }
+  #ttlCockpit .m-spark { flex: 1 1 auto; min-width: 140px; position: relative; }
+  #ttlCockpit .m-spark svg { position: absolute; left: 0; top: 2px; width: 100%; height: calc(100% - 18px); display: block; }
+  #ttlCockpit .m-spark-cap { position: absolute; right: 0; bottom: 0; font-size: 0.66rem; color: var(--text-muted); }
+  .ck-side { display: grid; gap: 14px; }
+  .ck-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px; padding: 14px 18px; }
+  .ck-mid { font-size: 1.6rem; font-weight: 800; line-height: 1.15; margin-top: 4px; }
+  .ck-pct { font-size: 0.82rem; font-weight: 700; margin-top: 2px; }
+  .ck-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 14px; margin: 0 0 14px; }
+  .ck-tile { background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px; padding: 14px 16px; cursor: pointer; transition: border-color .15s; }
+  .ck-tile:hover { border-color: var(--accent, #3563e9); }
+  .ck-tname { font-size: 0.9rem; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 7px; }
+  .ck-src { width: 10px; height: 10px; border-radius: 3px; flex: none; }
+  .ck-tval { font-size: 1.35rem; font-weight: 800; color: var(--text-primary); margin-top: 6px; }
+  .ck-tp { font-size: 0.84rem; font-weight: 700; margin-top: 1px; }
+  .ck-tnote { font-size: 0.72rem; color: var(--text-secondary); margin-top: 4px; }
+  .ck-bas { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; margin: 0 0 22px; }
+  @media (max-width: 700px) { .ck-bas { grid-template-columns: 1fr; } }
+  .ck-line { font-size: 0.92rem; font-weight: 700; margin-top: 6px; display: flex; gap: 18px; flex-wrap: wrap; }
   /* écran Accueil */
   #tab-accueil .m-hero, #tab-accueil .m-card, #tab-accueil .m-list { background: var(--bg-card); border: 1px solid var(--border); }
   #tab-accueil .m-hero { padding: 16px 18px; border-radius: 16px; margin-bottom: 10px;
@@ -1565,11 +1593,15 @@
 
   <!-- ═══════════════════════ TAB 0 : REAL TRADING ═══════════════════════ -->
   <div id="tab-total" class="tab-content active">
-    <div class="ttl-top">
+    <!-- vue d'ensemble (02/10/2026) : memes chiffres que l'accueil mobile (homeFigures) -->
+    <div id="ttlCockpit"></div>
+    <div class="ig-live-wide" data-iglive="wide"></div>
+    <div id="ttlCockpitBas"></div>
+    <!-- ancien grand cadre, remplace par la vue d'ensemble : masque, toujours calcule (bandeau du jour) -->
+    <div class="ttl-top" style="display:none">
       <div class="hero-kpi" id="ttlHero"></div>
       <div class="kpi-grid" id="ttlKpi"></div>
     </div>
-    <div class="ig-live-wide" data-iglive="wide"></div>
     <div id="ttlBrief"></div>
     <div class="chart-full"><div class="chart-card">
       <h3>Évolution du patrimoine (composition)</h3>
@@ -4343,6 +4375,7 @@ function renderTotalTab() {
   if (typeof ttlCloseMonthDetail === 'function') ttlCloseMonthDetail();
   ttlDestroyCharts();
   ttlBuildStack(); ttlBuildAlloc(igNow, stkNow, dwxNow); ttlBuildContrib(igPnl, stkPnl, dwxPnl); ttlBuildMonthlyChart();
+  renderTtlCockpit();   // vue d'ensemble en haut de l'onglet (memes chiffres que l'accueil mobile)
   ttlBuildEquityDD();
   ttlBuildDaily(); ttlBuildMonthly(); ttlBuildRiskReturn(); ttlBuildYearHeat();
 }
@@ -5865,7 +5898,7 @@ function loadHealthBar() {
   sub('dashboard/pontIG', 'pont');
   sub('igSyncStatus', 'igSync');
   sub('stocks/kidsPrice/at', 'kids');
-  try { db.ref('stocks/screener/livePrices/prices').on('value', (x) => { TTL_LP = x.val(); renderTtlDaySummary(); if (currentTab === 'accueil') renderMobileHome(); }); } catch (e) {}
+  try { db.ref('stocks/screener/livePrices/prices').on('value', (x) => { TTL_LP = x.val(); renderTtlDaySummary(); if (currentTab === 'accueil') renderMobileHome(); if (currentTab === 'total') renderTtlCockpit(); }); } catch (e) {}
   renderHealthBar();
   setInterval(renderHealthBar, 60000);   // les ages vieillissent meme sans nouvel evenement
   return Promise.resolve();
@@ -7205,53 +7238,73 @@ function mHomeSeries(deb) {
   });
 }
 // ECRAN ACCUEIL MOBILE : l'essentiel en un coup d'oeil, sans defiler.
+// CHIFFRES DE L'ACCUEIL : un seul calcul pour l'accueil mobile et la vue d'ensemble de Trading total (PC).
+// Capital total = TOUT le capital : Trading Auto + actions + Debitum (Darwinex solde le 29/09/2026 ; la poche des
+// enfants est a part). Gains = P&L des marches + interets Debitum recus. Leve si les donnees ne sont pas pretes.
+function homeFigures() {
+  const A = ttlCompute();
+  const pct = (num, den) => (den > 0 && isFinite(num)) ? num / den * 100 : null;
+  const deb = mDebitum(), debV = deb ? deb.value : 0, debCum = deb ? deb.cum : 0;
+  const cap = A.igNow + A.stkNow + debV;
+  const gain = A.igPnl + A.stkPnl + debCum, base = A.igDep + A.stkInv + debV;
+  // aujourd'hui (ou derniere seance) et mois en cours : % du capital de debut de mois, base des calendriers
+  const dd = ttlDayData || {}, jours = Object.keys(dd).sort(), auj = scrLocalDay(new Date());
+  const dk = dd[auj] ? auj : jours[jours.length - 1];
+  let day = null;
+  if (dk) {
+    const v = dd[dk].total || 0;
+    day = { v: v, p: pct(v, ttlEquityAtMonthStart(+dk.slice(0, 4), +dk.slice(5, 7) - 1)),
+      lib: dk === auj ? "Aujourd'hui" : new Date(dk + 'T12:00:00').toLocaleDateString('fr-FR', { weekday: 'long', day: '2-digit', month: '2-digit' }) };
+  }
+  const now = new Date(), ym = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+  const pm = (ttlMonthPnl[ym] || {}).total || 0;
+  const month = { lib: monthNamesFull[now.getMonth()], v: pm, p: pct(pm, ttlEquityAtMonthStart(now.getFullYear(), now.getMonth())) };
+  // regime de l'algo (moniteur CUSUM)
+  let cb = null;
+  try { cb = computeCusumBreak(null); } catch (e) {}
+  const cbDeg = cb && cb.pval < 0.05 && cb.degrade, cbSusp = cb && (cb.pval < 0.10 || cb.S >= 3);
+  const algo = { col: !cb ? '#9aa7b4' : (cbDeg ? '#dd5f66' : (cbSusp ? '#e0a526' : '#1d9e74')),
+    txt: !cb ? 'régime non évaluable' : (cbDeg ? 'algo : dégradation avérée' : (cb.pval < 0.10 ? 'algo : rupture suspectée' : 'algo : aucune rupture')) };
+  let kids = null;
+  try { kids = kidsCompute(); } catch (e) {}
+  return { A: A, pct: pct, deb: deb, debV: debV, debCum: debCum, cap: cap, gain: gain, base: base, gainPct: pct(gain, base),
+    day: day, month: month, algo: algo, loans: mLoans(), kids: kids, movers: ttlMovers() };
+}
+const HOME_GAIN_TIP = 'Gains : P&L des marchés (Trading Auto, actions) et intérêts Debitum reçus. '
+  + 'Les intérêts Debitum sont retirés chaque mois : ils ne figurent pas dans le capital. Investi : apports nets des marchés et capital placé sur Debitum.';
+const HOME_SPARK_TIP = 'Capital total jour par jour, versements compris : Debitum, Trading Auto et actions empilés';
+// ECRAN ACCUEIL MOBILE : l'essentiel en un coup d'oeil, sans defiler.
 function renderMobileHome() {
   const box = document.getElementById('tab-accueil');
   if (!box) return;
-  let A;
-  try { A = ttlCompute(); } catch (e) { box.replaceChildren(scrEl('div', { cls: 'm-card', text: 'Données en cours de chargement…' })); return; }
+  let H;
+  try { H = homeFigures(); } catch (e) { box.replaceChildren(scrEl('div', { cls: 'm-card', text: 'Données en cours de chargement…' })); return; }
+  const A = H.A, pct = H.pct;
   const E = (v) => fmt(v) + ' €';
   const S = (v) => (v >= 0 ? '+' : '') + fmt(v) + ' €';
   const P = (v, dec) => (v >= 0 ? '+' : '') + v.toFixed(dec == null ? 1 : dec) + ' %';
   const col = (v) => 'color:' + (v >= 0 ? 'var(--positive)' : 'var(--negative)');
-  const pct = (num, den) => (den > 0 && isFinite(num)) ? num / den * 100 : null;
   const kids = [];
-  // 1. capital total = TOUT le capital : Trading Auto + actions + Debitum (Darwinex solde le 29/09/2026 ;
-  //    la poche des enfants est a part). Gains = P&L des marches + interets Debitum recus.
-  const deb = mDebitum(), debV = deb ? deb.value : 0, debCum = deb ? deb.cum : 0;
-  const cap = A.igNow + A.stkNow + debV;
-  const gain = A.igPnl + A.stkPnl + debCum, base = A.igDep + A.stkInv + debV, gainPct = pct(gain, base);
+  // 1. capital total
   let spark = scrEl('span');
-  try { spark = mSpark(mHomeSeries(deb), ['deb', 'ig', 'stk'], 'Capital total jour par jour, versements compris : Debitum, Trading Auto et actions empilés'); } catch (e) {}
+  try { spark = mSpark(mHomeSeries(H.deb), ['deb', 'ig', 'stk'], HOME_SPARK_TIP); } catch (e) {}
   kids.push(scrEl('div', { cls: 'm-hero', kids: [
     scrEl('div', { cls: 'm-hero-row', kids: [
-      scrEl('div', { cls: 'm-hero-txt', attrs: { title: 'Gains : P&L des marchés (Trading Auto, actions) et intérêts Debitum reçus. '
-          + 'Les intérêts Debitum sont retirés chaque mois : ils ne figurent pas dans le capital. Investi : apports nets des marchés et capital placé sur Debitum.' }, kids: [
+      scrEl('div', { cls: 'm-hero-txt', attrs: { title: HOME_GAIN_TIP }, kids: [
         scrEl('div', { cls: 'm-lbl', text: 'Capital total' }),
-        scrEl('div', { cls: 'm-big', text: E(cap) }),
-        scrEl('div', { cls: 'm-sub', text: (gain >= 0 ? '▲ ' : '▼ ') + S(gain) + (gainPct != null ? ' (' + P(gainPct) + ')' : ''), style: 'font-weight:700;' + col(gain) }),
-        scrEl('div', { cls: 'm-sub', text: 'sur ' + E(base) + ' investis' })] }),
+        scrEl('div', { cls: 'm-big', text: E(H.cap) }),
+        scrEl('div', { cls: 'm-sub', text: (H.gain >= 0 ? '▲ ' : '▼ ') + S(H.gain) + (H.gainPct != null ? ' (' + P(H.gainPct) + ')' : ''), style: 'font-weight:700;' + col(H.gain) }),
+        scrEl('div', { cls: 'm-sub', text: 'sur ' + E(H.base) + ' investis' })] }),
       spark] })] }));
-  // 2. aujourd'hui (ou derniere seance) et mois en cours : montant + % du capital de debut de mois,
-  //    la meme base que les calendriers de Trading total
+  // 2. aujourd'hui (ou derniere seance) et mois en cours
   const card = (lbl, v, p, vide) => scrEl('div', { cls: 'm-card', kids: [
     scrEl('div', { cls: 'm-lbl', text: lbl }),
     scrEl('div', { cls: 'm-mid', text: v == null ? '–' : S(v), style: v == null ? '' : col(v) }),
     scrEl('div', { cls: 'm-pct', text: p == null ? (vide || '') : P(p, 2), style: p == null ? 'color:var(--text-muted)' : col(p) })] });
-  const dd = ttlDayData || {}, jours = Object.keys(dd).sort(), auj = scrLocalDay(new Date());
-  const dk = dd[auj] ? auj : jours[jours.length - 1];
-  let cDay = card("Aujourd'hui", null, null, 'pas encore de séance');
-  if (dk) {
-    const v = dd[dk].total || 0, base = ttlEquityAtMonthStart(+dk.slice(0, 4), +dk.slice(5, 7) - 1);
-    const lib = dk === auj ? "Aujourd'hui" : new Date(dk + 'T12:00:00').toLocaleDateString('fr-FR', { weekday: 'long', day: '2-digit', month: '2-digit' });
-    cDay = card(lib, v, pct(v, base));
-  }
-  const now = new Date(), ym = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
-  const pm = (ttlMonthPnl[ym] || {}).total || 0;
-  const cMonth = card(monthNamesFull[now.getMonth()], pm, pct(pm, ttlEquityAtMonthStart(now.getFullYear(), now.getMonth())));
-  kids.push(scrEl('div', { cls: 'm-grid2', kids: [cDay, cMonth] }));
+  const cDay = H.day ? card(H.day.lib, H.day.v, H.day.p) : card("Aujourd'hui", null, null, 'pas encore de séance');
+  kids.push(scrEl('div', { cls: 'm-grid2', kids: [cDay, card(H.month.lib, H.month.v, H.month.p)] }));
   kids.push(igLiveSlot());   // position IG ouverte : P&L latent en direct (vide sinon)
-  // 3. les poches : valeur et plus-value totale en % des apports ; toucher une ligne ouvre l'onglet
+  // 3. les poches : valeur et plus-value totale ; toucher une ligne ouvre l'onglet
   // src : couleur de la source (legende de la mini-courbe) ; noteCol : couleur du sous-titre (regime de l'algo) ;
   // pTxt : texte a la place du % (p ne sert alors qu'a la couleur)
   const row = (name, note, val, p, go, src, noteCol, noteTip, pTxt) => {
@@ -7266,22 +7319,16 @@ function renderMobileHome() {
     if (go) r.onclick = go; else r.style.cursor = 'default';
     return r;
   };
-  let cb = null;
-  try { cb = computeCusumBreak(null); } catch (e) {}
-  const cbDeg = cb && cb.pval < 0.05 && cb.degrade, cbSusp = cb && (cb.pval < 0.10 || cb.S >= 3);
-  const cbCol = !cb ? '#9aa7b4' : (cbDeg ? '#dd5f66' : (cbSusp ? '#e0a526' : '#1d9e74'));
-  const cbTxt = !cb ? 'régime non évaluable' : (cbDeg ? 'algo : dégradation avérée' : (cb.pval < 0.10 ? 'algo : rupture suspectée' : 'algo : aucune rupture'));
+  const deb = H.deb;
   kids.push(scrEl('div', { cls: 'm-list', kids: [
-    row('Trading Auto', cbTxt, A.igNow, pct(A.igPnl, A.igDep), () => mGo('trading', 'real'), mSrcCol('ig'), cbCol,
+    row('Trading Auto', H.algo.txt, A.igNow, pct(A.igPnl, A.igDep), () => mGo('trading', 'real'), mSrcCol('ig'), H.algo.col,
       'Régime de l’algo (moniteur CUSUM) : vert = aucune rupture, orange = rupture suspectée, rouge = dégradation avérée'),
     row('Actions', 'portefeuille Revolut', A.stkNow, pct(A.stkPnl, A.stkInv), () => mGo('trading', 'screener'), mSrcCol('stk'))]
-    // Debitum : plus-value EN EUROS = interets cumules (retires chaque mois ; rapportes a un capital qui a baisse,
-    // le % ne voulait plus rien dire : +47,9 % au 01/10/2026) ; la note donne le rendement annuel des 12 derniers mois
-    .concat(deb ? [row('Debitum', 'prêts P2P' + (deb.y12 != null ? ' · ' + (deb.y12 * 100).toFixed(1) + ' %/an sur 12 mois' : ''), debV,
-      debCum, () => mGo('invest', 'overview'), mSrcCol('deb'), null, 'Intérêts reçus depuis le début, retirés chaque mois', S(debCum))] : []) }));
-  // emprunts : capital restant du et variation EN EUROS vs le mois precedent (choix du user, le % disait moins) ;
-  // une BAISSE est en vert (p inverse pour la couleur)
-  const em = mLoans();
+    // Debitum : plus-value EN EUROS = interets cumules (retires chaque mois) ; la note donne le rendement des 12 derniers mois
+    .concat(deb ? [row('Debitum', 'prêts P2P' + (deb.y12 != null ? ' · ' + (deb.y12 * 100).toFixed(1) + ' %/an sur 12 mois' : ''), H.debV,
+      H.debCum, () => mGo('invest', 'overview'), mSrcCol('deb'), null, 'Intérêts reçus depuis le début, retirés chaque mois', S(H.debCum))] : []) }));
+  // emprunts : capital restant du et variation EN EUROS vs le mois precedent ; une BAISSE est en vert
+  const em = H.loans;
   if (em) kids.push(scrEl('div', { cls: 'm-list', kids: [
     // appui : ecran mobile Portfolio, deroule jusqu'a sa carte Emprunts (l'onglet Emprunts est en mise en page PC)
     row('Emprunts', em.names + ' · capital restant dû', em.now, em.diff != null ? -em.diff : null, () => {
@@ -7290,12 +7337,11 @@ function renderMobileHome() {
     }, null, null,
       'Variation du capital restant dû depuis fin ' + em.prevLib + (em.chg != null ? ' (' + P(em.chg, 2) + ')' : '') + ' : une baisse est en vert',
       em.diff != null ? S(Math.round(em.diff)) : null)] }));
-  let k = null;
-  try { k = kidsCompute(); } catch (e) {}
+  const k = H.kids;
   if (k && k.value != null) kids.push(scrEl('div', { cls: 'm-list', kids: [
     row('Enfants', 'poche séparée, hors capital total', k.value, k.pnlPct != null ? k.pnlPct * 100 : null, () => mGo('trading', 'enfants'))] }));
   // 4. actions du jour : plus forte hausse et plus forte baisse
-  const mv = ttlMovers();
+  const mv = H.movers;
   if (mv.length >= 2) {
     const pc = (m) => m.t + ' ' + (m.c >= 0 ? '+' : '') + (m.c * 100).toFixed(1) + ' %', lo = mv[mv.length - 1];
     kids.push(scrEl('div', { cls: 'm-card', kids: [
@@ -7305,6 +7351,78 @@ function renderMobileHome() {
         scrEl('span', { text: '▼ ' + pc(lo), style: col(lo.c) })] })] }));
   }
   box.replaceChildren(...kids);
+}
+// VUE D'ENSEMBLE DE TRADING TOTAL (PC) : l'accueil mobile en largeur, memes chiffres (homeFigures).
+// Haut (#ttlCockpit) : capital + mini-courbe, aujourd'hui / mois. La carte « Position en cours » (statique,
+// [data-iglive="wide"]) suit. Bas (#ttlCockpitBas) : tuiles par poche (clic = onglet), actions du jour, collectes.
+function renderTtlCockpit() {
+  const haut = document.getElementById('ttlCockpit'), bas = document.getElementById('ttlCockpitBas');
+  if (!haut || !bas) return;
+  let H;
+  try { H = homeFigures(); } catch (e) { haut.replaceChildren(scrEl('div', { cls: 'ck-card', text: 'Données en cours de chargement…' })); return; }
+  const A = H.A, pct = H.pct;
+  const E = (v) => fmt(v) + ' €';
+  const S = (v) => (v >= 0 ? '+' : '') + fmt(v) + ' €';
+  const P = (v, dec) => (v >= 0 ? '+' : '') + v.toFixed(dec == null ? 1 : dec) + ' %';
+  const col = (v) => 'color:' + (v >= 0 ? 'var(--positive)' : 'var(--negative)');
+  // haut : capital total + mini-courbe pleine hauteur, cartes du jour et du mois
+  let spark = scrEl('span');
+  try { spark = mSpark(mHomeSeries(H.deb), ['deb', 'ig', 'stk'], HOME_SPARK_TIP); } catch (e) {}
+  const carte = (lbl, v, p, vide) => scrEl('div', { cls: 'ck-card', kids: [
+    scrEl('div', { cls: 'ck-lbl', text: lbl }),
+    scrEl('div', { cls: 'ck-mid', text: v == null ? '–' : S(v), style: v == null ? '' : col(v) }),
+    scrEl('div', { cls: 'ck-pct', text: p == null ? (vide || '') : P(p, 2), style: p == null ? 'color:var(--text-muted)' : col(p) })] });
+  haut.replaceChildren(scrEl('div', { cls: 'ck-top', kids: [
+    scrEl('div', { cls: 'ck-hero', kids: [
+      scrEl('div', { cls: 'ck-txt', attrs: { title: HOME_GAIN_TIP }, kids: [
+        scrEl('div', { cls: 'ck-lbl', text: 'Capital total' }),
+        scrEl('div', { cls: 'ck-big', text: E(H.cap) }),
+        scrEl('div', { cls: 'ck-sub', text: (H.gain >= 0 ? '▲ ' : '▼ ') + S(H.gain) + (H.gainPct != null ? ' (' + P(H.gainPct) + ')' : ''), style: 'font-weight:700;' + col(H.gain) }),
+        scrEl('div', { cls: 'ck-sub', text: 'sur ' + E(H.base) + ' investis' })] }),
+      spark] }),
+    scrEl('div', { cls: 'ck-side', kids: [
+      H.day ? carte(H.day.lib, H.day.v, H.day.p) : carte("Aujourd'hui", null, null, 'pas encore de séance'),
+      carte(H.month.lib, H.month.v, H.month.p)] })] }));
+  // bas : une tuile par poche
+  const tuile = (nom, src, val, pTxt, pVal, note, noteCol, go, tip) => {
+    const t = scrEl('div', { cls: 'ck-tile', attrs: tip ? { title: tip } : {}, kids: [
+      scrEl('div', { cls: 'ck-tname', kids: (src ? [scrEl('span', { cls: 'ck-src', style: 'background:' + src })] : []).concat([document.createTextNode(nom)]) }),
+      scrEl('div', { cls: 'ck-tval', text: val == null ? '–' : E(val) }),
+      scrEl('div', { cls: 'ck-tp', text: pTxt == null ? '–' : pTxt, style: pVal == null ? 'color:var(--text-muted)' : col(pVal) }),
+      scrEl('div', { cls: 'ck-tnote', text: note, style: noteCol ? 'color:' + noteCol + ';font-weight:600' : '' })] });
+    t.onclick = go;
+    return t;
+  };
+  const pIg = pct(A.igPnl, A.igDep), pStk = pct(A.stkPnl, A.stkInv);
+  const tuiles = [
+    tuile('Trading Auto', mSrcCol('ig'), A.igNow, pIg == null ? null : P(pIg), pIg, H.algo.txt, H.algo.col, () => mGo('trading', 'real'),
+      'Régime de l’algo (moniteur CUSUM) : vert = aucune rupture, orange = rupture suspectée, rouge = dégradation avérée'),
+    tuile('Actions', mSrcCol('stk'), A.stkNow, pStk == null ? null : P(pStk), pStk, 'portefeuille Revolut', null, () => mGo('trading', 'screener'))];
+  if (H.deb) tuiles.push(tuile('Debitum', mSrcCol('deb'), H.debV, S(H.debCum), H.debCum,
+    'prêts P2P' + (H.deb.y12 != null ? ' · ' + (H.deb.y12 * 100).toFixed(1) + ' %/an sur 12 mois' : ''), null, () => mGo('invest', 'overview'),
+    'Plus-value = intérêts reçus depuis le début, retirés chaque mois'));
+  const em = H.loans;
+  if (em) tuiles.push(tuile('Emprunts', null, em.now, em.diff != null ? S(Math.round(em.diff)) : null, em.diff != null ? -em.diff : null,
+    em.names + ' · capital restant dû', null, () => mGo('invest', 'loans'),
+    'Variation du capital restant dû depuis fin ' + em.prevLib + (em.chg != null ? ' (' + P(em.chg, 2) + ')' : '') + ' : une baisse est en vert'));
+  const k = H.kids;
+  if (k && k.value != null) tuiles.push(tuile('Enfants', null, k.value, k.pnlPct != null ? P(k.pnlPct * 100) : null, k.pnlPct,
+    'poche séparée, hors capital total', null, () => mGo('trading', 'enfants')));
+  // actions du jour et etat des collectes (barre de sante)
+  const mv = H.movers, pc = (m) => m.t + ' ' + (m.c >= 0 ? '+' : '') + (m.c * 100).toFixed(1) + ' %';
+  const moversCard = scrEl('div', { cls: 'ck-card', kids: [scrEl('div', { cls: 'ck-lbl', text: 'Actions du jour' }),
+    mv.length >= 2 ? scrEl('div', { cls: 'ck-line', kids: [scrEl('span', { text: '▲ ' + pc(mv[0]), style: col(mv[0].c) }),
+      scrEl('span', { text: '▼ ' + pc(mv[mv.length - 1]), style: col(mv[mv.length - 1].c) })] })
+      : scrEl('div', { cls: 'ck-tnote', text: 'cours du jour pas encore disponibles' })] });
+  let items = [];
+  try { items = hbItems().filter((i) => i.level !== 'wait'); } catch (e) {}
+  const soucis = items.filter((i) => i.level === 'warn' || i.level === 'bad');
+  const sante = scrEl('div', { cls: 'ck-card', kids: [scrEl('div', { cls: 'ck-lbl', text: 'Données' }),
+    soucis.length ? scrEl('div', { cls: 'ck-line', kids: soucis.map((i) => scrEl('span', { text: '● ' + i.label, attrs: { title: i.tip },
+      style: 'color:' + (i.level === 'bad' ? 'var(--negative)' : '#d38a14') })) })
+      : scrEl('div', { cls: 'ck-line', kids: [scrEl('span', { text: items.length ? '✓ toutes les collectes à jour' : 'état des collectes en lecture…',
+        style: items.length ? 'color:var(--positive)' : 'color:var(--text-muted)' })] })] });
+  bas.replaceChildren(scrEl('div', { cls: 'ck-tiles', kids: tuiles }), scrEl('div', { cls: 'ck-bas', kids: [moversCard, sante] }));
 }
 const tabRendered = { real: false, fixed: false, reinvest: false };
 
