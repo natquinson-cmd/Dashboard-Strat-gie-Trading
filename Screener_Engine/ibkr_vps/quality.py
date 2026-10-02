@@ -9,8 +9,9 @@ QUALITY_CONFIG = {
     'gate': {
         'minRoe': 0.15,               # DK : un bon ROE est > 15 %
         'minRoic': 0.15,              # DK : ROIC > 15 % = ratio n°1 (la ou l'EBIT est pertinent ; financieres exemptees)
-        'maxNetDebtToEbitda': 5.0,    # gate ELARGI (etait 3.0) : on laisse entrer les endettes (ex FICO 4,23x) MAIS
-                                      # on PENALISE la note selon la dette (voir debtPenalty*). DK : < 2 ideal, > 3 danger.
+        'maxNetDebtToEbitda': 3.0,    # DK : > 3x = danger -> exclu. Elargi a 5.0 le 26/08 pour faire entrer FICO (4,23x),
+                                      # REMIS a 3.0 le 02/10/2026 a la demande du user (« pas une grande reussite »).
+                                      # Entre 2x et 3x, la note reste legerement penalisee (voir debtPenalty*).
         'minNetMargin': 0.10,         # DK : marge nette > 20 % (10 % pour produits physiques) -> plancher 10 %
         'minRevCagr': 0.10,           # DK : croissance CA REGULIERE >= 10 %/an (moyenne annualisee ~4-5 ans, repli YoY)
         'requirePositiveFcf': True,   # free cash-flow positif
@@ -27,7 +28,7 @@ QUALITY_CONFIG = {
     'divPayoutMax': 0.60,     # DK : 40-60 % acceptable, > 60 % = tension
     # Penalite de DETTE sur la note (esprit DK : < 2x ideal, 2-3x ok, > 3x danger). La note de valo est
     # multipliee par un facteur qui decroit au-dela de debtPenaltyFrom, de debtPenaltyPerTurn par tour de dette,
-    # avec un plancher debtPenaltyFloor. Ex FICO 4,23x -> facteur ~0,84 (note amputee d'environ 16 %).
+    # avec un plancher debtPenaltyFloor. Gate a 3x : au pire 3x -> facteur 0,93 (note amputee de 7 %).
     'debtPenaltyFrom': 2.0,        # pas de penalite jusqu'a 2x (zone ideale DK)
     'debtPenaltyPerTurn': 0.07,    # -7 % de note par tour de dette au-dela de 2x
     'debtPenaltyFloor': 0.60,      # au pire on garde 60 % de la note (on ne l'annule pas)
