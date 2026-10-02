@@ -80,6 +80,27 @@ function pnlKey(label, montant, pct, c) {
     + '</svg>';
   return 'data:image/svg+xml;charset=utf8,' + encodeURIComponent(svg);
 }
+// Format « poche » : plus-value et % en gros et en couleur, valeur totale en blanc en dessous
+// (Enfants, ETF, Crypto).
+function pocketKey(label, pnl, pct, value) {
+  const c = col(pnl), pv = sEur(pnl), pc = sPct(pct).replace(' %', '%');
+  const F = 'font-family="Segoe UI, Arial" text-anchor="middle" font-weight="800"';
+  const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="144" height="144" viewBox="0 0 144 144">'
+    + '<rect width="144" height="144" fill="' + C.bg + '"/>'
+    + '<rect x="0" y="0" width="144" height="6" fill="' + (lastError ? C.warn : c) + '"/>'
+    + '<text x="72" y="22" ' + F + ' font-size="14" fill="' + C.dim + '">' + esc(lastError ? label + ' · FIGÉ' : label) + '</text>'
+    + '<text x="72" y="58" ' + F + ' font-size="' + (pv.length > 7 ? 27 : 32) + '" fill="' + c + '">' + esc(pv) + '</text>'
+    + '<text x="72" y="93" ' + F + ' font-size="' + (pc.length > 7 ? 22 : 25) + '" fill="' + c + '">' + esc(pc) + '</text>'
+    + '<text x="72" y="130" ' + F + ' font-size="24" fill="' + C.txt + '">' + esc(eur(value)) + '</text>'
+    + '</svg>';
+  return 'data:image/svg+xml;charset=utf8,' + encodeURIComponent(svg);
+}
+// Poches du portefeuille d'actions (classement mpCat du dashboard), en euros
+function catKey(cat, label) {
+  const o = data && data.cats && data.cats[cat];
+  if (!o) return key({ label, value: data ? '–' : '…', sub: lastError ? lastError.slice(0, 16) : (data ? 'aucune ligne' : 'chargement'), color: C.gray });
+  return pocketKey(label, o.pnl, o.pnlPct, o.value);
+}
 const RENDER = {
   capital() {
     // capital en blanc, puis le % de P&L cumulé en gros et en couleur, et le P&L en euros en petit
@@ -128,20 +149,11 @@ const RENDER = {
   enfants() {
     if (!data || !data.kids) return key({ label: 'ENFANTS', value: '?', sub: lastError ? lastError.slice(0, 16) : 'chargement', color: C.gray });
     const k = data.kids;
-    // plus-value et % en gros et en couleur, valeur totale de la poche en blanc en dessous
-    const c = col(k.pnl), pv = sEur(k.pnl), pc = sPct(k.pct).replace(' %', '%');
-    const F = 'font-family="Segoe UI, Arial" text-anchor="middle" font-weight="800"';
-    const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="144" height="144" viewBox="0 0 144 144">'
-      + '<rect width="144" height="144" fill="' + C.bg + '"/>'
-      + '<rect x="0" y="0" width="144" height="6" fill="' + (lastError ? C.warn : c) + '"/>'
-      + '<text x="72" y="22" ' + F + ' font-size="14" fill="' + C.dim + '">' + (lastError ? 'ENFANTS · FIGÉ' : 'ENFANTS') + '</text>'
-      + '<text x="72" y="58" ' + F + ' font-size="' + (pv.length > 7 ? 27 : 32) + '" fill="' + c + '">' + esc(pv) + '</text>'
-      + '<text x="72" y="93" ' + F + ' font-size="' + (pc.length > 7 ? 22 : 25) + '" fill="' + c + '">' + esc(pc) + '</text>'
-      + '<text x="72" y="130" ' + F + ' font-size="24" fill="' + C.txt + '">' + esc(eur(k.value)) + '</text>'
-      + '</svg>';
-    return 'data:image/svg+xml;charset=utf8,' + encodeURIComponent(svg);
+    return pocketKey('ENFANTS', k.pnl, k.pct, k.value);
   },
   algos: () => renderAlgos(),
+  etf: () => catKey('etf', 'ETF'),
+  crypto: () => catKey('crypto', 'CRYPTO'),
   dax: () => renderIndex('dax'),
   ndx: () => renderIndex('ndx'),
   spx: () => renderIndex('spx'),
@@ -390,6 +402,8 @@ const PRESS = {
   capital: () => openChrome(CONFIG.dashboardUrl),
   pnlmois: () => openChrome(CONFIG.dashboardUrl),
   algos: () => openChrome(CONFIG.dashboardUrl + '#real'),
+  etf: () => openChrome(CONFIG.dashboardUrl + '#screener'),
+  crypto: () => openChrome(CONFIG.dashboardUrl + '#screener'),
   pnljour: ctx => { send({ event: 'setImage', context: ctx, payload: { image: key({ label: 'P&L JOUR', value: '…', sub: 'mise à jour', color: C.dim }), target: 0 } }); refresh(); },
   pont: () => pontDetails(),
   enfants: () => openChrome(CONFIG.dashboardUrl + '#enfants'),

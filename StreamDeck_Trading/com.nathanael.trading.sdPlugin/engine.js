@@ -129,7 +129,22 @@ async function compute(opts) {
     const ym = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
     const day = ym + '-' + String(now.getDate()).padStart(2, '0');
     const ath = Math.max(athJ.ath, c.capTotal);
+    // Poches ETF et crypto : meme calcul ligne a ligne que l'ecran Actions du dashboard (scrMobilePortfolio),
+    // plus-value = valeur au cours live - quantite x PRU, classement par mpCat. Converti en EUR.
+    const cats = {};
+    scrGetPositions().forEach(function (p) {
+      const t = String(p.ticker || '').toUpperCase(), d = SCR_PRICE_MAP[t];
+      const qty = (p.qty != null) ? p.qty : ((p.amount != null && p.pru) ? p.amount / p.pru : 0);
+      const investi = qty * (p.pru || 0), pu = d ? scrToUsd(d.price, d.exchange) : null;
+      const valeur = pu != null ? qty * pu : investi;
+      const chg = (d && d.changePct != null) ? d.changePct : null;
+      const dj = (chg != null && pu != null && typeof scrDayImpact === 'function') ? scrDayImpact(p.ticker, qty, pu, chg) : null;
+      const k = mpCat(t, d), o = cats[k] || (cats[k] = { value: 0, inv: 0, day: 0, lines: 0 });
+      o.value += valeur * c.fx; o.inv += investi * c.fx; o.day += (dj ? dj.usd : 0) * c.fx; o.lines++;
+    });
+    Object.keys(cats).forEach(function (k) { const o = cats[k]; o.pnl = o.value - o.inv; o.pnlPct = o.inv > 0 ? o.pnl / o.inv * 100 : 0; });
     return JSON.stringify({
+      cats: cats,
       capTotal: c.capTotal, pnlTotal: c.pnlTotal, invTotal: c.invTotal, pnlPct: c.pnlPct,
       igNow: c.igNow, stkNow: c.stkNow, dwxNow: c.dwxNow,
       today: ttlDayData[day] || { ig: 0, stk: 0, dwx: 0, total: 0 },

@@ -9,6 +9,7 @@ Plugin Stream Deck (15 touches) branché sur le Trading Dashboard.
 | P&L JOUR | P&L du jour toutes sources | mise à jour immédiate |
 | P&L MOIS | P&L du mois en cours, % du capital de début de mois | ouvre le dashboard |
 | PONT IG | OK / LENT / MUET / KO selon l'âge du dernier signal du pont | fenêtre de détail (pont + synchro IG) |
+| ETF / CRYPTO | plus-value et % de la poche (classement `mpCat` du dashboard, cours live, en euros), valeur en dessous | onglet Portefeuille d'actions |
 | ENFANTS | valeur de la poche VWCE des enfants (parts x cours), % sur versé | fenêtre de détail par enfant |
 
 ## Indices en direct (2e rangée, Yahoo, toutes les 20 s)
