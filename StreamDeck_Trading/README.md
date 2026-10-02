@@ -69,3 +69,8 @@ Après une modification : `npm install` dans le dossier du plugin si besoin, pui
 - Appui sur une position : onglet Portefeuille d'actions ; RETOUR ou autre : écran normal ; retour auto 45 s.
 - Le rafraîchissement immédiat que faisait P&L JOUR est supprimé (les chiffres se mettent à jour toutes les 60 s).
 - Noah et Elie : capital = ETF + Lendermarket (`dashboard/data/repartition/capital`, état courant tenu par l'onglet Répartition à chaque mise à jour mensuelle), détail « ETF x k + LM y k » ; la plus-value et le % restent ceux de l'ETF (« ETF »). Le total de l'écran devient « TOTAL ENFANTS » (ETF + LM). La touche ENFANTS de la page principale reste la poche ETF.
+
+## Accès depuis la page par défaut d'Elgato
+- Touche BOURSE (icône chandeliers, `icone_bourse.png`) en haut à droite (4,0) de la page par défaut (A17F…) : action Elgato
+  « Page précédente », qui mène à la page Trading puisqu'elle est juste avant. Si l'ordre des pages change, elle ne pointera plus au bon endroit.
+- Sauvegarde du manifeste d'origine de cette page : `backup_page_defaut_manifest.json`.
