@@ -85,12 +85,14 @@ async function compute(opts) {
   const html = await loadDashboardSource(opts.dashboardPath);
   const code = extractFunctions(html);
 
-  const [trades, deposits, fees, dividends, posHist, dwxDaily, livePrices, myPositions, quality, pont, igSync, fx, kids, kidsPrice, kidsHist] = await Promise.all([
+  const [trades, deposits, fees, dividends, posHist, dwxDaily, livePrices, myPositions, quality, pont, igSync, fx, kids, kidsPrice, kidsHist, lmCapital] = await Promise.all([
     getJson(fbUrl('trades')), getJson(fbUrl('deposits')), getJson(fbUrl('fees')), getJson(fbUrl('dividends')),
     getJson(fbUrl('stocks/screener/positionsHistory')), getJson(fbUrl('dashboard/darwinex/daily')),
     getJson(fbUrl('stocks/screener/livePrices')), getJson(fbUrl('stocks/screener/myPositions')),
     getJson(fbUrl('stocks/screener/quality')), getJson(fbUrl('dashboard/pontIG')), getJson(fbUrl('igSyncStatus')), getFx(),
     getJson(fbUrl('stocks/kids')), getJson(fbUrl('stocks/kidsPrice')), getJson(fbUrl('stocks/kidsHistory')),
+    // cagnotte Lendermarket (onglet Repartition) : etat COURANT par personne, tenu par le dashboard a chaque MAJ
+    getJson(fbUrl('dashboard/data/repartition/capital')),
   ]);
 
   const store = {};
@@ -161,13 +163,15 @@ async function compute(opts) {
     });
   })()`, ctx, { timeout: 10000 });
 
-  return Object.assign(JSON.parse(r), { pont: pont || null, igSync: igSync || null, kids: kidsPocket(kids, kidsPrice, kidsHist), computedAt: Date.now() });
+  return Object.assign(JSON.parse(r), { pont: pont || null, igSync: igSync || null, kids: kidsPocket(kids, kidsPrice, kidsHist, lmCapital), computedAt: Date.now() });
 }
 
 // Poche enfants (onglet Enfants, modele en PARTS de VWCE) : parts x cours, par enfant.
 // Poche separee du capital personnel, jamais melangee aux chiffres ci-dessus.
 // Variation du jour : cours actuel moins la derniere cloture de stocks/kidsHistory ({date: cours}) avant aujourd'hui.
-function kidsPocket(kids, price, hist) {
+// lm = capital Lendermarket courant par personne ({Moi, Noah, Elie}) : ajoute au capital des enfants concernes
+// (c.lm), la plus-value reste celle de l'ETF (pas de prix de revient par enfant cote Lendermarket).
+function kidsPocket(kids, price, hist, lm) {
   const px = price && Number(price.price);
   if (!kids || !(px > 0)) return null;
   const by = {};
@@ -181,7 +185,7 @@ function kidsPocket(kids, price, hist) {
   const prevKey = Object.keys(hist || {}).filter(k => k < today && Number(hist[k]) > 0).sort().pop();
   const prev = prevKey ? Number(hist[prevKey]) : null, units = children.reduce((a, o) => a + o.units, 0);
   const day = prev ? units * (px - prev) : null, dayPct = prev ? (px / prev - 1) * 100 : null;
-  children.forEach(o => { o.day = prev ? o.units * (px - prev) : null; });
+  children.forEach(o => { o.day = prev ? o.units * (px - prev) : null; o.lm = (lm && Number(lm[o.child]) > 0) ? Number(lm[o.child]) : 0; });
   return { day, dayPct, value, paid, pnl: value - paid, pct: paid > 0 ? (value - paid) / paid * 100 : 0, price: px, ticker: price.ticker, priceAt: price.marketAt || price.at, children };
 }
 

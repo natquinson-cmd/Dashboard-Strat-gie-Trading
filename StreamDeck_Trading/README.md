@@ -68,3 +68,4 @@ Après une modification : `npm install` dans le dossier du plugin si besoin, pui
 - Logos : FinancialModelingPrep comme le dashboard, repli sur l'icône du site si le logo est blanc ou vide (décodage PNG maison, < 3 % de pixels visibles) ; cache disque `logos/` (ignoré par git).
 - Appui sur une position : onglet Portefeuille d'actions ; RETOUR ou autre : écran normal ; retour auto 45 s.
 - Le rafraîchissement immédiat que faisait P&L JOUR est supprimé (les chiffres se mettent à jour toutes les 60 s).
+- Noah et Elie : capital = ETF + Lendermarket (`dashboard/data/repartition/capital`, état courant tenu par l'onglet Répartition à chaque mise à jour mensuelle), détail « ETF x k + LM y k » ; la plus-value et le % restent ceux de l'ETF (« ETF »). Le total de l'écran devient « TOTAL ENFANTS » (ETF + LM). La touche ENFANTS de la page principale reste la poche ETF.
