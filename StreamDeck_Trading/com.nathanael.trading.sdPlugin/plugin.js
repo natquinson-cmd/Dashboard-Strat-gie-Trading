@@ -10,6 +10,7 @@ const { compute } = require('./engine');
 const { createIgFeed } = require('./ig');
 const { createPositionKeys } = require('./position');
 const { createEnfantsView } = require('./enfants');
+const { createPortefeuilleView } = require('./portefeuille');
 
 const CONFIG = {
   dashboardPath: 'C:/Users/quinson/Desktop/Claude/Trading_Dashboard.html',
@@ -363,6 +364,9 @@ const coords = new Map();     // context -> « colonne,ligne »
 // Vue courante : 'main' (touches normales) ou 'enfants' (une touche par enfant, cf. enfants.js)
 let view = 'main', viewTimer = null;
 const enfantsView = createEnfantsView({ C, esc, eur, sEur, sPct, col, getData: () => data, getMode: () => mode });
+const portefeuilleView = createPortefeuilleView({ C, esc, sEur, sPct, col, getData: () => data, getMode: () => mode,
+  renderMode: () => renderMode(), log, onLogo: () => { if (view === 'positions') paintAll(); } });
+const VIEWS = { enfants: enfantsView, positions: portefeuilleView };
 function setView(v) {
   view = v;
   if (viewTimer) { clearTimeout(viewTimer); viewTimer = null; }
@@ -377,7 +381,7 @@ function paint(ctx) {
   const name = contexts.get(ctx);
   if (!RENDER[name]) return;
   try {
-    const img = view === 'enfants' && coords.has(ctx) ? enfantsView.render(coords.get(ctx)) : RENDER[name]();
+    const img = VIEWS[view] && coords.has(ctx) ? VIEWS[view].render(coords.get(ctx)) : RENDER[name]();
     send({ event: 'setImage', context: ctx, payload: { image: img, target: 0 } });
   }
   catch (e) { log('rendu ' + name + ' : ' + e.message); }
@@ -453,7 +457,7 @@ const PRESS = {
   securite: () => openChrome(CONFIG.dashboardUrl + '#real'),
   etf: () => openChrome(CONFIG.dashboardUrl + '#screener'),
   crypto: () => openChrome(CONFIG.dashboardUrl + '#screener'),
-  pnljour: ctx => { send({ event: 'setImage', context: ctx, payload: { image: key({ label: 'P&L JOUR', value: '…', sub: 'mise à jour', color: C.dim }), target: 0 } }); refresh(); },
+  pnljour: () => setView('positions'),
   pont: () => pontDetails(),
   enfants: () => setView('enfants'),
   dax: () => openChrome('https://www.tradingview.com/chart/?symbol=' + INDICES.dax.tv),
@@ -483,6 +487,17 @@ ws.on('message', raw => {
       { detached: true, stdio: 'ignore', windowsHide: true });
     p.on('error', e => log('fermeture : ' + e.message));
     p.unref();
+  }
+  else if (m.event === 'keyDown' && view === 'positions') {
+    const pos = coords.get(m.context) || '';
+    if (pos === portefeuilleView.POS_MODE) {   // bascule totale / jour sans quitter l'ecran
+      mode = mode === 'jour' ? 'total' : 'jour';
+      try { fs.writeFileSync(MODE_FILE, JSON.stringify({ mode })); } catch (e) { log('mode : ' + e.message); }
+      setView('positions');
+    } else {
+      if (portefeuilleView.tickerAt(pos)) openChrome(CONFIG.dashboardUrl + '#screener');
+      setView('main');
+    }
   }
   else if (m.event === 'keyDown' && view === 'enfants') {
     const pos = coords.get(m.context) || '';

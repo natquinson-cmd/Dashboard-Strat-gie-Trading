@@ -61,3 +61,10 @@ Après une modification : `npm install` dans le dossier du plugin si besoin, pui
   (ordre fixe Anaïa, Robin, Lily Rose, Noah, Elie ; couleurs du dashboard) : prénom, capital, plus-value et % (totale ou du jour selon MODE).
   Centre = total de la poche ; bas gauche = RETOUR.
 - Appui sur un enfant : ouvre l'onglet Enfants du dashboard et revient ; tout autre appui revient ; retour automatique après 45 s.
+
+## Écran Positions (`portefeuille.js`)
+- Appui sur P&L JOUR : les 12 lignes d'actions du portefeuille (classement `mpCat` = actions, ETF et crypto ont leurs touches),
+  triées par poids : logo, ticker, plus-value en € et en % (totale ou du jour). (0,2) RETOUR, (1,2) bascule totale / jour (même mode que PLUS-VALUE).
+- Logos : FinancialModelingPrep comme le dashboard, repli sur l'icône du site si le logo est blanc ou vide (décodage PNG maison, < 3 % de pixels visibles) ; cache disque `logos/` (ignoré par git).
+- Appui sur une position : onglet Portefeuille d'actions ; RETOUR ou autre : écran normal ; retour auto 45 s.
+- Le rafraîchissement immédiat que faisait P&L JOUR est supprimé (les chiffres se mettent à jour toutes les 60 s).
