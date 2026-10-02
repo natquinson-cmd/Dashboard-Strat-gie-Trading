@@ -85,12 +85,12 @@ async function compute(opts) {
   const html = await loadDashboardSource(opts.dashboardPath);
   const code = extractFunctions(html);
 
-  const [trades, deposits, fees, dividends, posHist, dwxDaily, livePrices, myPositions, quality, pont, igSync, fx, kids, kidsPrice] = await Promise.all([
+  const [trades, deposits, fees, dividends, posHist, dwxDaily, livePrices, myPositions, quality, pont, igSync, fx, kids, kidsPrice, kidsHist] = await Promise.all([
     getJson(fbUrl('trades')), getJson(fbUrl('deposits')), getJson(fbUrl('fees')), getJson(fbUrl('dividends')),
     getJson(fbUrl('stocks/screener/positionsHistory')), getJson(fbUrl('dashboard/darwinex/daily')),
     getJson(fbUrl('stocks/screener/livePrices')), getJson(fbUrl('stocks/screener/myPositions')),
     getJson(fbUrl('stocks/screener/quality')), getJson(fbUrl('dashboard/pontIG')), getJson(fbUrl('igSyncStatus')), getFx(),
-    getJson(fbUrl('stocks/kids')), getJson(fbUrl('stocks/kidsPrice')),
+    getJson(fbUrl('stocks/kids')), getJson(fbUrl('stocks/kidsPrice')), getJson(fbUrl('stocks/kidsHistory')),
   ]);
 
   const store = {};
@@ -155,12 +155,13 @@ async function compute(opts) {
     });
   })()`, ctx, { timeout: 10000 });
 
-  return Object.assign(JSON.parse(r), { pont: pont || null, igSync: igSync || null, kids: kidsPocket(kids, kidsPrice), computedAt: Date.now() });
+  return Object.assign(JSON.parse(r), { pont: pont || null, igSync: igSync || null, kids: kidsPocket(kids, kidsPrice, kidsHist), computedAt: Date.now() });
 }
 
 // Poche enfants (onglet Enfants, modele en PARTS de VWCE) : parts x cours, par enfant.
 // Poche separee du capital personnel, jamais melangee aux chiffres ci-dessus.
-function kidsPocket(kids, price) {
+// Variation du jour : cours actuel moins la derniere cloture de stocks/kidsHistory ({date: cours}) avant aujourd'hui.
+function kidsPocket(kids, price, hist) {
   const px = price && Number(price.price);
   if (!kids || !(px > 0)) return null;
   const by = {};
@@ -170,7 +171,11 @@ function kidsPocket(kids, price) {
   });
   const children = Object.values(by).map(o => Object.assign(o, { value: o.units * px })).sort((a, b) => b.value - a.value);
   const value = children.reduce((a, o) => a + o.value, 0), paid = children.reduce((a, o) => a + o.paid, 0);
-  return { value, paid, pnl: value - paid, pct: paid > 0 ? (value - paid) / paid * 100 : 0, price: px, ticker: price.ticker, priceAt: price.marketAt || price.at, children };
+  const d = new Date(), today = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  const prevKey = Object.keys(hist || {}).filter(k => k < today && Number(hist[k]) > 0).sort().pop();
+  const prev = prevKey ? Number(hist[prevKey]) : null, units = children.reduce((a, o) => a + o.units, 0);
+  const day = prev ? units * (px - prev) : null, dayPct = prev ? (px / prev - 1) * 100 : null;
+  return { day, dayPct, value, paid, pnl: value - paid, pct: paid > 0 ? (value - paid) / paid * 100 : 0, price: px, ticker: price.ticker, priceAt: price.marketAt || price.at, children };
 }
 
 module.exports = { compute, extractFunctions };

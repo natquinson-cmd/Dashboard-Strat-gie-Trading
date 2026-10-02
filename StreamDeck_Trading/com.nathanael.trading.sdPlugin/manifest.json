@@ -1,6 +1,6 @@
 {
   "Name": "Trading Nathanaël",
-  "Version": "1.4.0.0",
+  "Version": "1.5.0.0",
   "Author": "Nathanaël",
   "Description": "Touches en direct du Trading Dashboard (capital, P&L, pont IG, poche enfants) et indices DAX, Nasdaq 100, S&P 500.",
   "Icon": "imgs/plugin",
@@ -220,6 +220,22 @@
       "Name": "Sécurité position",
       "Icon": "imgs/action",
       "Tooltip": "Points garantis (ou risqués) si le stop est touché.",
+      "States": [
+        {
+          "Image": "imgs/key"
+        }
+      ],
+      "Controllers": [
+        "Keypad"
+      ],
+      "SupportedInMultiActions": false,
+      "UserTitleEnabled": false
+    },
+    {
+      "UUID": "com.nathanael.trading.mode",
+      "Name": "Mode plus-value",
+      "Icon": "imgs/action",
+      "Tooltip": "Bascule Capital, ETF, Crypto et Enfants entre plus-value totale et variation du jour.",
       "States": [
         {
           "Image": "imgs/key"

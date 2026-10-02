@@ -61,6 +61,13 @@ function ago(ms) {
 }
 
 let data = null, lastError = null, busy = false, firstOk = false;
+// Mode d'affichage des plus-values : 'total' (latente depuis l'achat) ou 'jour' (variation du jour).
+// Touches concernees : Capital, ETF, Crypto, Enfants. Bascule par la touche MODE, choix retenu dans mode.json.
+const MODE_FILE = path.join(__dirname, 'mode.json');
+let mode = 'total';
+try { if (JSON.parse(fs.readFileSync(MODE_FILE, 'utf8')).mode === 'jour') mode = 'jour'; } catch (e) { /* defaut : total */ }
+const MODE_KEYS = ['capital', 'etf', 'crypto', 'enfants', 'mode'];
+const jourLbl = l => mode === 'jour' ? l + ' · JOUR' : l;
 
 // Une touche de chiffres : si la derniere mise a jour a echoue, on garde le dernier chiffre connu
 // mais la barre passe a l'orange et le bas dit depuis quand ; sans chiffre du tout, on affiche la raison.
@@ -100,21 +107,35 @@ function pocketKey(label, pnl, pct, value) {
 function catKey(cat, label) {
   const o = data && data.cats && data.cats[cat];
   if (!o) return key({ label, value: data ? '–' : '…', sub: lastError ? lastError.slice(0, 16) : (data ? 'aucune ligne' : 'chargement'), color: C.gray });
+  if (mode === 'jour') return pocketKey(jourLbl(label), o.day, (o.value - o.day) > 0 ? o.day / (o.value - o.day) * 100 : 0, o.value);
   return pocketKey(label, o.pnl, o.pnlPct, o.value);
+}
+function renderMode() {
+  const F = 'font-family="Segoe UI, Arial" text-anchor="middle" font-weight="800"';
+  const pill = (y, txt, on) => '<rect x="14" y="' + y + '" width="116" height="40" rx="20" fill="' + (on ? C.blue : 'none') + '" stroke="' + (on ? C.blue : C.gray) + '" stroke-width="2"/>'
+    + '<text x="72" y="' + (y + 27) + '" ' + F + ' font-size="19" fill="' + (on ? '#ffffff' : C.gray) + '">' + txt + '</text>';
+  const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="144" height="144" viewBox="0 0 144 144">'
+    + '<rect width="144" height="144" fill="' + C.bg + '"/>'
+    + '<text x="72" y="22" ' + F + ' font-size="14" fill="' + C.dim + '">PLUS-VALUE</text>'
+    + pill(36, 'TOTALE', mode === 'total') + pill(88, 'DU JOUR', mode === 'jour')
+    + '</svg>';
+  return 'data:image/svg+xml;charset=utf8,' + encodeURIComponent(svg);
 }
 const RENDER = {
   capital() {
     // capital en blanc, puis le % de P&L cumulé en gros et en couleur, et le P&L en euros en petit
     return staleOr(() => {
-      const c = col(data.pnlTotal), pc = sPct(data.pnlPct).replace(' %', '%');
+      const jour = mode === 'jour', t = data.today.total, base = data.capTotal - t;
+      const pnl = jour ? t : data.pnlTotal, pct = jour ? (base > 0 ? t / base * 100 : 0) : data.pnlPct;
+      const c = col(pnl), pc = sPct(pct).replace(' %', '%');
       const F = 'font-family="Segoe UI, Arial" text-anchor="middle" font-weight="800"';
       const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="144" height="144" viewBox="0 0 144 144">'
         + '<rect width="144" height="144" fill="' + C.bg + '"/>'
         + '<rect x="0" y="0" width="144" height="6" fill="' + (lastError ? C.warn : c) + '"/>'
-        + '<text x="72" y="22" ' + F + ' font-size="14" fill="' + C.dim + '">' + (lastError ? 'CAPITAL · FIGÉ ' + hhmm(data.computedAt) : 'CAPITAL') + '</text>'
+        + '<text x="72" y="22" ' + F + ' font-size="14" fill="' + C.dim + '">' + (lastError ? 'CAPITAL · FIGÉ ' + hhmm(data.computedAt) : jourLbl('CAPITAL')) + '</text>'
         + '<text x="72" y="60" ' + F + ' font-size="31" fill="' + C.txt + '">' + esc(eur(data.capTotal)) + '</text>'
         + '<text x="72" y="98" ' + F + ' font-size="' + (pc.length > 7 ? 22 : 25) + '" fill="' + c + '">' + esc(pc) + '</text>'
-        + '<text x="72" y="128" ' + F + ' font-size="16" fill="' + c + '">' + esc(sEur(data.pnlTotal)) + '</text>'
+        + '<text x="72" y="128" ' + F + ' font-size="16" fill="' + c + '">' + esc(sEur(pnl)) + '</text>'
         + '</svg>';
       return 'data:image/svg+xml;charset=utf8,' + encodeURIComponent(svg);
     });
@@ -150,9 +171,11 @@ const RENDER = {
   enfants() {
     if (!data || !data.kids) return key({ label: 'ENFANTS', value: '?', sub: lastError ? lastError.slice(0, 16) : 'chargement', color: C.gray });
     const k = data.kids;
+    if (mode === 'jour') return k.day == null ? key({ label: 'ENFANTS · JOUR', value: '–', sub: 'clôture veille absente', color: C.gray }) : pocketKey('ENFANTS · JOUR', k.day, k.dayPct, k.value);
     return pocketKey('ENFANTS', k.pnl, k.pct, k.value);
   },
   algos: () => renderAlgos(),
+  mode: () => renderMode(),
   jauge: () => posKeys.gauge(),
   securite: () => posKeys.secure(),
   etf: () => catKey('etf', 'ETF'),
@@ -404,6 +427,11 @@ function openChrome(url) {
 }
 
 const PRESS = {
+  mode: () => {
+    mode = mode === 'jour' ? 'total' : 'jour';
+    try { fs.writeFileSync(MODE_FILE, JSON.stringify({ mode })); } catch (e) { log('mode : ' + e.message); }
+    for (const [c, n] of contexts) if (MODE_KEYS.includes(n)) paint(c);
+  },
   capital: () => openChrome(CONFIG.dashboardUrl),
   pnlmois: () => openChrome(CONFIG.dashboardUrl),
   algos: () => openChrome(CONFIG.dashboardUrl + '#real'),
