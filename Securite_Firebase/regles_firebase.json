@@ -1,0 +1,12 @@
+{
+  "rules": {
+    ".read": "auth != null && auth.uid === 'UID_A_REMPLACER'",
+    ".write": "auth != null && auth.uid === 'UID_A_REMPLACER'",
+    "anacrossing": { ".read": true, ".write": true },
+    "mathfoot": { ".read": true, ".write": true },
+    "f1academy": { ".read": true, ".write": true },
+    "profil_psy": { "$personne": { ".write": true } },
+    "neuro_profil": { "$personne": { ".write": true } },
+    "signalsLeads": { "$lead": { ".write": "!data.exists() && newData.exists()" } }
+  }
+}
