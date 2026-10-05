@@ -1459,7 +1459,7 @@
   #tab-accueil .m-row:last-child { border-bottom: none; }
   #tab-accueil .m-name { font-weight: 700; font-size: 0.92rem; color: var(--text-primary); }
   #tab-accueil .m-note { font-size: 0.7rem; color: var(--text-muted); margin-top: 1px; }
-  #tab-accueil .m-val { margin-left: auto; text-align: right; }
+  #tab-accueil .m-val { margin-left: auto; text-align: right; white-space: nowrap; flex: none; }   /* 87 437 € sur une ligne, meme avec 4 emprunts listes */
   #tab-accueil .m-v { font-weight: 800; font-size: 1rem; color: var(--text-primary); }
   #tab-accueil .m-p { font-size: 0.76rem; font-weight: 700; }
   #tab-accueil .m-chev { color: var(--text-muted); font-size: 1.2rem; line-height: 1; }
@@ -7550,13 +7550,16 @@ function mHomeSeries(deb) {
 // ECRAN ACCUEIL MOBILE : l'essentiel en un coup d'oeil, sans defiler.
 // CHIFFRES DE L'ACCUEIL : un seul calcul pour l'accueil mobile et la vue d'ensemble de Trading total (PC).
 // Capital total = TOUT le capital : Trading Auto + actions + Debitum (Darwinex solde le 29/09/2026 ; la poche des
-// enfants est a part). Gains = P&L des marches + interets Debitum recus. Leve si les donnees ne sont pas pretes.
+// enfants est a part). Gains = P&L des marches + interets Debitum recus + gains des placements quittes
+// (homePastGains). Le % se calcule sur le capital investi ACTUELLEMENT. Leve si les donnees ne sont pas pretes.
 function homeFigures() {
   const A = ttlCompute();
   const pct = (num, den) => (den > 0 && isFinite(num)) ? num / den * 100 : null;
   const deb = mDebitum(), debV = deb ? deb.value : 0, debCum = deb ? deb.cum : 0;
   const cap = A.igNow + A.stkNow + debV;
-  const gain = A.igPnl + A.stkPnl + debCum, base = A.igDep + A.stkInv + debV;
+  const past = homePastGains(A), pastSum = past.reduce((a, x) => a + x.v, 0);
+  const gainParts = [{ lib: 'Intérêts Debitum', v: debCum }, { lib: 'Trading Auto (IG)', v: A.igPnl }, { lib: 'Portefeuille d’actions', v: A.stkPnl }].concat(past);
+  const gain = A.igPnl + A.stkPnl + debCum + pastSum, base = A.igDep + A.stkInv + debV;
   // aujourd'hui (ou derniere seance) et mois en cours : % du capital de debut de mois, base des calendriers
   const dd = ttlDayData || {}, jours = Object.keys(dd).sort(), auj = scrLocalDay(new Date());
   const dk = dd[auj] ? auj : jours[jours.length - 1];
@@ -7578,11 +7581,53 @@ function homeFigures() {
   let kids = null;
   // cagnotte des enfants (ETF + Lendermarket) depuis le 05/10/2026 ; plus-value = gain depuis la mise en cagnotte
   try { const pot = potCompute(); kids = pot ? { value: pot.value, pnlPct: pot.gainPct } : kidsCompute(); } catch (e) { console.warn('[accueil] cagnotte', e); }
-  return { A: A, pct: pct, deb: deb, debV: debV, debCum: debCum, cap: cap, gain: gain, base: base, gainPct: pct(gain, base),
+  return { A: A, pct: pct, deb: deb, debV: debV, debCum: debCum, cap: cap, gain: gain, base: base, gainPct: pct(gain, base), gainParts: gainParts,
     day: day, month: month, algo: algo, loans: mLoans(), kids: kids, movers: ttlMovers() };
 }
-const HOME_GAIN_TIP = 'Gains : P&L des marchés (Trading Auto, actions) et intérêts Debitum reçus. '
-  + 'Les intérêts Debitum sont retirés chaque mois : ils ne figurent pas dans le capital. Investi : apports nets des marchés et capital placé sur Debitum.';
+// Gains des placements quittes ou annexes, tires des saisies mensuelles du Portfolio (demande du user, 05/10/2026).
+// RealT et RMM exclus (estimes perdus). Revolut : seulement les interets de l'epargne, AVANT que la ligne ne suive le
+// portefeuille d'actions (debut de positionsHistory, aout 2026) : ses P&L de marche sont deja dans ceux des actions.
+function homePastGains(A) {
+  const d = portfolioData;
+  if (!d || !d.interests || !d.months) return [];
+  const sum = (p, avant) => (d.interests[p] || []).reduce((a, v, i) => a + ((!avant || d.months[i] < avant) ? (Number(v) || 0) : 0), 0);
+  let revCut = '2026-08';
+  try {
+    const ks = Object.keys(positionsHistoryData || {}).filter((k) => /^\d{4}-\d{2}-\d{2}$/.test(k)).sort();
+    if (ks.length) revCut = ks[0].slice(0, 7);
+  } catch (e) { console.warn('[accueil] historique du portefeuille', e); }
+  return [
+    { lib: 'Lendermarket (ta part)', v: sum('Lendermarket') },
+    { lib: 'Mintos', v: sum('Mintos') },
+    { lib: 'Revolut (intérêts de l’épargne)', v: sum('Revolut', revCut) },
+    { lib: 'Darwinex (compte soldé)', v: Number(A && A.dwxPnl) || 0 },
+  ].filter((x) => Math.round(x.v) !== 0);
+}
+// Mobile (pas de survol) : un appui sur le capital total deplie le detail de la plus-value par source.
+let HOME_GAIN_OPEN = false;
+function homeGainDetail(H) {
+  const S = (v) => (v >= 0 ? '+' : '−') + fmt(Math.abs(v)) + ' €';
+  const det = scrEl('div', { style: 'margin-top:10px;padding-top:8px;border-top:1px solid var(--border);font-size:0.78rem;line-height:1.55;display:' + (HOME_GAIN_OPEN ? 'block' : 'none'),
+    kids: (H.gainParts || []).map((x) => scrEl('div', { style: 'display:flex;justify-content:space-between;gap:10px', kids: [
+      scrEl('span', { text: x.lib, style: 'color:var(--text-secondary)' }),
+      scrEl('b', { text: S(x.v), style: 'color:' + (x.v >= 0 ? 'var(--positive)' : 'var(--negative)') })] }))
+      .concat([scrEl('div', { text: 'RealT et RMM exclus (estimés perdus). % sur le capital investi actuellement.', style: 'color:var(--text-muted);font-size:0.7rem;margin-top:4px' })]) });
+  setTimeout(() => {   // le texte du hero (frere precedent) sert de bouton
+    const txt = det.previousElementSibling && det.previousElementSibling.querySelector('.m-hero-txt');
+    if (txt) { txt.style.cursor = 'pointer'; txt.onclick = () => { HOME_GAIN_OPEN = !HOME_GAIN_OPEN; det.style.display = HOME_GAIN_OPEN ? 'block' : 'none'; }; }
+  }, 0);
+  return det;
+}
+// Infobulle de la plus-value : detail par source
+function homeGainTip(H) {
+  const d = portfolioData, m0 = d && d.months && d.months[0];
+  const depuis = m0 ? ' depuis ' + monthNamesFull[parseInt(m0.slice(5, 7), 10) - 1].toLowerCase() + ' ' + m0.slice(0, 4) : '';
+  const S = (v) => (v >= 0 ? '+' : '−') + fmt(Math.abs(v)) + ' €';
+  return 'Plus-value' + depuis + ' : ' + S(H.gain) + '\n'
+    + (H.gainParts || []).map((x) => '• ' + x.lib + ' : ' + S(x.v)).join('\n')
+    + '\n\nRealT et RMM exclus (estimés perdus). Les intérêts Debitum sont retirés chaque mois : ils ne figurent pas dans le capital.'
+    + '\nPourcentage calculé sur le capital investi actuellement (' + fmt(H.base) + ' € : apports nets des marchés et capital placé sur Debitum).';
+}
 const HOME_SPARK_TIP = 'Capital total jour par jour, versements compris : Debitum, Trading Auto et actions empilés';
 // ECRAN ACCUEIL MOBILE : l'essentiel en un coup d'oeil, sans defiler.
 function renderMobileHome() {
@@ -7601,12 +7646,12 @@ function renderMobileHome() {
   try { spark = mSpark(mHomeSeries(H.deb), ['deb', 'ig', 'stk'], HOME_SPARK_TIP); } catch (e) {}
   kids.push(scrEl('div', { cls: 'm-hero', kids: [
     scrEl('div', { cls: 'm-hero-row', kids: [
-      scrEl('div', { cls: 'm-hero-txt', attrs: { title: HOME_GAIN_TIP }, kids: [
+      scrEl('div', { cls: 'm-hero-txt', attrs: { title: homeGainTip(H) }, kids: [
         scrEl('div', { cls: 'm-lbl', text: 'Capital total' }),
         scrEl('div', { cls: 'm-big', text: E(H.cap) }),
         scrEl('div', { cls: 'm-sub', text: (H.gain >= 0 ? '▲ ' : '▼ ') + S(H.gain) + (H.gainPct != null ? ' (' + P(H.gainPct) + ')' : ''), style: 'font-weight:700;' + col(H.gain) }),
-        scrEl('div', { cls: 'm-sub', text: 'sur ' + E(H.base) + ' investis' })] }),
-      spark] })] }));
+        scrEl('div', { cls: 'm-sub', text: 'sur ' + E(H.base) + ' investis · détail ▾' })] }),
+      spark] }), homeGainDetail(H)] }));
   // 2. aujourd'hui (ou derniere seance) et mois en cours
   const card = (lbl, v, p, vide) => scrEl('div', { cls: 'm-card', kids: [
     scrEl('div', { cls: 'm-lbl', text: lbl }),
@@ -7685,7 +7730,7 @@ function renderTtlCockpit() {
     scrEl('div', { cls: 'ck-pct', text: p == null ? (vide || '') : P(p, 2), style: p == null ? 'color:var(--text-muted)' : col(p) })] });
   haut.replaceChildren(scrEl('div', { cls: 'ck-top', kids: [
     scrEl('div', { cls: 'ck-hero', kids: [
-      scrEl('div', { cls: 'ck-txt', attrs: { title: HOME_GAIN_TIP }, kids: [
+      scrEl('div', { cls: 'ck-txt', attrs: { title: homeGainTip(H) }, kids: [
         scrEl('div', { cls: 'ck-lbl', text: 'Capital total' }),
         scrEl('div', { cls: 'ck-big', text: E(H.cap) }),
         scrEl('div', { cls: 'ck-sub', text: (H.gain >= 0 ? '▲ ' : '▼ ') + S(H.gain) + (H.gainPct != null ? ' (' + P(H.gainPct) + ')' : ''), style: 'font-weight:700;' + col(H.gain) }),
