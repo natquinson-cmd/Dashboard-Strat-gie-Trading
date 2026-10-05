@@ -20,5 +20,5 @@ La clé secrète ne doit JAMAIS apparaître dans un fichier du dépôt (public) 
 
 ## Fichiers
 
-- `regles_firebase.json` : règles à publier (Realtime Database > Règles), une fois `UID_A_REMPLACER` remplacé.
+- `regles_firebase.json` : règles à publier (Realtime Database > Règles) (UID du propriétaire : `3TeVRklUsThrykDDWlGKM3S5IPK2`, compte Google natquinson@gmail.com).
 - `regles_ouvertes_retour_arriere.json` : retour arrière immédiat en cas de problème.
