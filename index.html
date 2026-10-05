@@ -9000,7 +9000,7 @@ function potRepHist() {
 }
 function potLmInterestLast() {
   const mv = potLmMoves().filter((m) => m.type === 'maj' && m.interest != null);
-  if (mv.length) { const m = mv[mv.length - 1]; return { v: +m.interest, date: m.date }; }
+  if (mv.length) { const m = mv[mv.length - 1]; return { v: +m.interest, date: m.mois || m.date }; }
   const h = potRepHist();
   for (let i = h.length - 1; i >= 0; i--) if (h[i].type === 'update' && h[i].interest != null) return { v: +h[i].interest, date: h[i].date };
   return null;
@@ -9042,12 +9042,12 @@ function potTransfert(date, amount, units) {
   mv.push({ id: id, date: date, type: 'transfert', amount: -potR2(amount), balance: potR2(now - amount), units: units, at: Date.now() });
   potDone(Promise.all([potSaveContribs(list), potSaveNode('lm', mv)]));
 }
-function potMaj(date, balance, interest) {
+function potMaj(date, balance, interest, mois) {
   if (!isFinite(balance) || balance < 0) { alert('Renseigne le nouveau solde lu sur Lendermarket.'); return; }
   if (!potCheckOrder(date)) return;
   const now = potLmNow(), id = 'pot-' + Date.now();
   const mv = potLmMoves().slice();
-  mv.push({ id: id, date: date, type: 'maj', amount: potR2(balance - now), balance: potR2(balance), interest: isFinite(interest) ? potR2(interest) : null, at: Date.now() });
+  mv.push({ id: id, date: date, mois: mois || date.slice(0, 7), type: 'maj', amount: potR2(balance - now), balance: potR2(balance), interest: isFinite(interest) ? potR2(interest) : null, at: Date.now() });
   potDone(potSaveNode('lm', mv));
 }
 function potApport(date, child, amount, dest, units) {
@@ -9381,7 +9381,7 @@ function potLmHistory() {
   const F = potFmt(), rows = [];
   potLmMoves().slice().reverse().forEach((m) => rows.push({ date: m.date, delta: +m.amount, bal: +m.balance,
     lib: m.type === 'transfert' ? 'Transfert vers l’ETF' + (m.units ? ' (' + potNum(+m.units, 4) + ' parts VWCE)' : '')
-      : (m.type === 'maj' ? 'Mise à jour mensuelle' + (m.interest != null ? ' · intérêts ' + F.S(m.interest) : '') : 'Apport pour ' + m.child) }));
+      : (m.type === 'maj' ? 'Mise à jour ' + potDate(m.mois || m.date.slice(0, 7)) + (m.interest != null ? ' · intérêts ' + F.S(m.interest) : '') : 'Apport pour ' + m.child) }));
   const b = potBascule();
   rows.push({ date: b.date, delta: null, bal: +b.lendermarket.total, lib: 'Mise en cagnotte : parts des enfants figées', mark: true });
   const h = potRepHist();
@@ -9393,6 +9393,108 @@ function potLmHistory() {
   }
   return rows;
 }
+// Historique MENSUEL du compte Lendermarket. Avant la bascule : ancien onglet Repartition (Moi, Noah, Elie ; etat
+// apres chaque mouvement, dans l'ordre du tableau) ; depuis : la cagnotte (stocks/kidsPot/lm).
+// Capital = etat de fin de mois. Interets = montants saisis aux mises a jour mensuelles, repartis au prorata du
+// capital de chacun juste avant la mise a jour (regle de l'ancien onglet).
+function potLmMonthly() {
+  const b = potBascule();
+  if (!b) return [];
+  const h = potList(SCR_KIDS_LMHIST), out = {}, MEM = ['Moi', 'Noah', 'Elie'];
+  const row = (ym) => (out[ym] = out[ym] || { ym: ym, cap: null, int: {} });
+  let prev = null;
+  h.forEach((e) => {
+    if (e.type === 'update' && e.interest != null && prev) {
+      const capPrev = MEM.reduce((t, k) => t + (+prev[k] || 0), 0), r = row(String(e.date).slice(0, 7));
+      MEM.forEach((k) => { const v = capPrev > 0 ? (+e.interest) * (+prev[k] || 0) / capPrev : 0; if (v > 0) r.int[k] = (r.int[k] || 0) + v; });
+    }
+    prev = e;
+  });
+  const yms = Object.keys(h.reduce((a, e) => { a[String(e.date).slice(0, 7)] = 1; return a; }, {})).sort();
+  yms.forEach((ym) => {
+    let st = null;
+    h.forEach((e) => { if (String(e.date).slice(0, 7) <= ym) st = e; });   // dernier etat connu a la fin du mois
+    if (st) row(ym).cap = { Moi: +st.Moi || 0, Noah: +st.Noah || 0, Elie: +st.Elie || 0 };
+  });
+  const today = potToday(), cur = today.slice(0, 7);
+  let ym = b.date.slice(0, 7);
+  while (ym <= cur) {
+    row(ym).cap = { Cagnotte: potLmAt(ym === cur ? today : ym + '-31') };
+    const y = +ym.slice(0, 4), m = +ym.slice(5, 7);
+    ym = (m === 12) ? (y + 1) + '-01' : y + '-' + String(m + 1).padStart(2, '0');
+  }
+  potLmMoves().forEach((m) => {
+    if (m.type !== 'maj' || m.interest == null) return;
+    const r = row(m.mois || m.date.slice(0, 7));
+    r.int.Cagnotte = (r.int.Cagnotte || 0) + (+m.interest);
+  });
+  return Object.keys(out).sort().map((k) => out[k]);
+}
+function potMoisLbl(ym) {
+  const x = new Date(ym + '-15T12:00:00');
+  return isNaN(x) ? ym : x.toLocaleDateString('fr-FR', { month: 'short' }).replace('.', '') + ' ' + ym.slice(2, 4);
+}
+function potK(v) { return Math.abs(v) >= 1000 ? potNum(v / 1000, Math.abs(v) >= 10000 ? 0 : 1) + ' k' : String(Math.round(v)); }
+// Barres empilees en SVG. rows : [{ lbl, v: { serie: montant } }] ; W = largeur du viewBox (340 sur mobile).
+function potBars(rows, series, W, topFmt) {
+  const NS = 'http://www.w3.org/2000/svg', small = W < 400, H = small ? 175 : 215, pl = small ? 34 : 48, pr = 6, pt = 16, pb = 22, fs = small ? 9 : 10;
+  const tot = rows.map((r) => series.reduce((t, se) => t + (r.v[se.k] || 0), 0));
+  const max = Math.max.apply(null, tot.concat([1])) * 1.1;
+  const n = rows.length, bw = (W - pl - pr) / Math.max(n, 1), y = (v) => pt + (1 - v / max) * (H - pt - pb);
+  const svg = document.createElementNS(NS, 'svg');
+  svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H); svg.setAttribute('width', '100%'); svg.style.display = 'block';
+  const mk = (t, a, txt) => { const e = document.createElementNS(NS, t); Object.keys(a).forEach((k) => e.setAttribute(k, a[k])); if (txt != null) e.textContent = txt; svg.appendChild(e); return e; };
+  for (let i = 0; i <= 3; i++) {
+    const v = max * i / 3, yy = y(v);
+    mk('line', { x1: pl, x2: W - pr, y1: yy.toFixed(1), y2: yy.toFixed(1), stroke: 'rgba(120,135,160,0.18)', 'stroke-width': 1 });
+    mk('text', { x: pl - 5, y: (yy + 3).toFixed(1), 'font-size': fs, fill: '#8a97a8', 'text-anchor': 'end' }, potK(v));
+  }
+  const step = (small && n > 7) ? 2 : 1, lab = (i) => (i % step) === ((n - 1) % step);   // le dernier mois toujours etiquete, sans chevauchement
+  rows.forEach((r, i) => {
+    const x0 = pl + i * bw + bw * 0.17, w = bw * 0.66;
+    let acc = 0;
+    series.forEach((se) => {
+      const v = r.v[se.k] || 0;
+      if (!(v > 0)) return;
+      const y1 = y(acc + v), y0 = y(acc);
+      const rect = mk('rect', { x: x0.toFixed(1), y: y1.toFixed(1), width: w.toFixed(1), height: Math.max(0.6, y0 - y1).toFixed(1), fill: se.color });
+      const t = document.createElementNS(NS, 'title');
+      t.textContent = r.lbl + ' · ' + se.label + ' : ' + fmt(v) + ' €';
+      rect.appendChild(t);
+      acc += v;
+    });
+    if (topFmt && tot[i] > 0 && lab(i)) mk('text', { x: (x0 + w / 2).toFixed(1), y: (y(tot[i]) - 4).toFixed(1), 'font-size': fs - 1, fill: '#5b6b7d', 'text-anchor': 'middle', 'font-weight': 700 }, topFmt(tot[i]));
+    if (lab(i)) mk('text', { x: (x0 + w / 2).toFixed(1), y: H - 6, 'font-size': fs, fill: '#8a97a8', 'text-anchor': 'middle' }, r.lbl);
+  });
+  return svg;
+}
+function potBarsLegend(series) {
+  return scrEl('div', { style: 'display:flex;gap:12px;flex-wrap:wrap;font-size:0.7rem;color:#5b6b7d;margin-top:6px', kids: series.map((se) => scrEl('span', { style: 'display:inline-flex;align-items:center;gap:5px', kids: [
+    scrEl('i', { style: 'display:inline-block;width:9px;height:9px;border-radius:2px;background:' + se.color }), scrEl('span', { text: se.label })] })) });
+}
+// Les deux graphiques de l'historique : [capital, interets], chacun { titre, resume, svg, legende }
+function potLmCharts(W) {
+  const mo = potLmMonthly(), F = potFmt();
+  if (!mo.length) return [];
+  const SER = [{ k: 'Moi', label: 'Ta part (retirée)', color: '#94a3b5' }, { k: 'Noah', label: 'Noah', color: kidColor('Noah', 0) },
+    { k: 'Elie', label: 'Elie', color: kidColor('Elie', 0) }, { k: 'Cagnotte', label: 'Cagnotte des enfants', color: POT_COL.lm }];
+  const used = (key) => SER.filter((se) => mo.some((m) => ((m[key] || {})[se.k] || 0) > 0));
+  const capRows = mo.filter((m) => m.cap).map((m) => ({ lbl: potMoisLbl(m.ym), v: m.cap }));
+  const intRows = mo.map((m) => ({ lbl: potMoisLbl(m.ym), v: m.int }));
+  while (intRows.length && !Object.keys(intRows[0].v).length) intRows.shift();   // avant la 1re mise a jour : rien
+  while (intRows.length && !Object.keys(intRows[intRows.length - 1].v).length) intRows.pop();   // mois en cours pas encore saisi
+  const capTot = (r) => Object.keys(r.v).reduce((t, k) => t + (r.v[k] || 0), 0);
+  const intSum = mo.reduce((t, m) => t + Object.keys(m.int).reduce((a, k) => a + m.int[k], 0), 0);
+  const intKids = mo.reduce((t, m) => t + ['Noah', 'Elie', 'Cagnotte'].reduce((a, k) => a + (m.int[k] || 0), 0), 0);
+  return [
+    { titre: 'Capital Lendermarket en fin de mois',
+      resume: capRows.length ? ('de ' + F.E(capTot(capRows[0])) + ' (' + capRows[0].lbl + ') à ' + F.E(capTot(capRows[capRows.length - 1])) + ' aujourd’hui : ta part retirée, celle des enfants transférée peu à peu vers l’ETF') : '',
+      svg: potBars(capRows, used('cap'), W, potK), legende: potBarsLegend(used('cap')) },
+    { titre: 'Intérêts versés par mois',
+      resume: 'total ' + F.E(intSum) + (intRows.length ? ' depuis ' + intRows[0].lbl : '') + ', dont ' + F.E(intKids) + ' pour les enfants (répartis au prorata du capital de chacun)',
+      svg: potBars(intRows, used('int'), W, (v) => String(Math.round(v))), legende: potBarsLegend(used('int')) }];
+}
+
 function renderPotLm(host) {
   const P = potCompute(), F = potFmt(), b = P.b, mv = potLmMoves(), it = potLmInterestLast();
   const reste = (P.target != null && P.value != null) ? Math.max(0, P.lm - P.target * P.value) : null;
@@ -9414,6 +9516,10 @@ function renderPotLm(host) {
   const wrap = scrEl('div', { cls: 'm-sec', style: 'background:#fff;border:1px solid #e3e8ee;border-radius:14px;padding:14px;margin-bottom:14px' });
   // ---- saisies ----
   const mDate = potInput('date', { value: potToday() }, 140);
+  const auj = new Date(), prevD = new Date(auj.getFullYear(), auj.getMonth() - 1, 15), curYm = potToday().slice(0, 7), prevYm = scrLocalDay(prevD).slice(0, 7);
+  const deMois = (i) => { const m = monthNamesFull[i].toLowerCase(); return 'Intérêts ' + (/^[aeiouyàâéèêëîïôûù]/.test(m) ? 'd’' : 'de ') + m; };   // d'octobre, d'avril, d'août
+  const mMois = potSelect([[prevYm, deMois(prevD.getMonth())], [curYm, deMois(auj.getMonth())]], 190);
+  mMois.value = auj.getDate() <= 15 ? prevYm : curYm;   // en debut de mois, on saisit le mois qui vient de se terminer
   const mBal = potInput('number', { min: '0', step: '0.01', placeholder: 'Nouveau solde €' }, 140);
   const mInt = potInput('number', { min: '0', step: '0.01', placeholder: 'Intérêts du mois €' }, 150);
   const tDate = potInput('date', { value: potToday() }, 140);
@@ -9435,11 +9541,18 @@ function renderPotLm(host) {
   cIn.onchange = () => potSetTarget(cIn.value.trim());
   wrap.appendChild(scrEl('div', { style: 'display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px', kids: [
     potFormCard('Mise à jour mensuelle', 'Le solde lu sur Lendermarket (prêts en cours et espèces) et les intérêts du mois. Plus de répartition entre enfants : ils détiennent des parts de la cagnotte.',
-      [mDate, mBal, mInt, potBtn('Enregistrer', () => potMaj(mDate.value, mBal.value === '' ? NaN : +mBal.value, mInt.value === '' ? NaN : +mInt.value))]),
+      [mMois, mDate, mBal, mInt, potBtn('Enregistrer', () => potMaj(mDate.value, mBal.value === '' ? NaN : +mBal.value, mInt.value === '' ? NaN : +mInt.value, mMois.value))]),
     potFormCard('Transfert vers l’ETF', 'Montant retiré de Lendermarket et réinvesti en VWCE, avec le nombre de parts achetées (transaction Revolut).',
       [tDate, tAmt, tUn, potBtn('Enregistrer', () => potTransfert(tDate.value, +tAmt.value, +tUn.value)), tHint]),
     potFormCard('Cible de la poche Lendermarket', 'Part de la cagnotte à garder sur Lendermarket (vide = aucune cible). Le dashboard en déduit le reste à transférer.',
       [cIn, scrEl('span', { text: '% de la cagnotte', style: 'font-size:0.8rem;color:#5b6b7d' })])] }));
+
+  // ---- graphiques : capital et interets mois par mois ----
+  const charts = potLmCharts(640);
+  if (charts.length) wrap.appendChild(scrEl('div', { style: 'display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px', kids: charts.map((g) =>
+    scrEl('div', { style: 'flex:1 1 380px;min-width:320px;background:#fff;border:1px solid #e3e8ee;border-radius:10px;padding:12px 14px', kids: [
+      scrEl('div', { text: g.titre, style: 'font-size:0.7rem;text-transform:uppercase;letter-spacing:.03em;color:#5b6b7d;font-weight:700' }),
+      scrEl('div', { text: g.resume, style: 'font-size:0.7rem;color:#9aa7b4;margin:3px 0 8px;line-height:1.4' }), g.svg, g.legende] })) }));
 
   // ---- historique ----
   const last = potLastAction();
@@ -9486,6 +9599,8 @@ function mPotLmScreen(P, it, yld, reste) {
   if (reste != null) lignes.push(scrEl('div', { cls: 'mp-sub', text: reste > 0.5 ? 'Reste à transférer vers l’ETF : ' + F.E(reste) : 'Cible atteinte' }));
   box.appendChild(scrEl('div', { cls: 'mp-card', kids: lignes }));
   box.appendChild(scrEl('div', { cls: 'mp-card', kids: [potMixBar(P, 12), potMixLegend(P)] }));
+  potLmCharts(340).forEach((g) => box.appendChild(scrEl('div', { cls: 'mp-card', kids: [
+    scrEl('div', { cls: 'mp-lbl', text: g.titre }), scrEl('div', { cls: 'mp-sub', text: g.resume, style: 'margin-bottom:6px' }), g.svg, g.legende] })));
   const rows = scrEl('div', { cls: 'mp-rows' });
   potLmHistory().slice(0, 10).forEach((r) => {
     rows.appendChild(scrEl('div', { cls: 'mp-row', kids: [
