@@ -9,6 +9,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
 
@@ -1157,6 +1158,24 @@
      ligne appartiennent le capital (à droite du nom) et le "ce mois" (ligne du dessous) */
   .inv-plat-row { padding-bottom: 10px; border-bottom: 1px solid var(--border-strong); }
   .inv-plat-row:last-child { padding-bottom: 0; border-bottom: none; }
+  /* connexion Google (securisation de la base) */
+  .auth-btn { font-size: 0.95rem; position: relative; }
+  .auth-btn.on { color: #fff; background: #3563e9; border-color: #3563e9; font-weight: 800; }
+  .auth-menu { position: absolute; right: 18px; top: 64px; z-index: 950; min-width: 280px; max-width: 360px; background: var(--bg-card);
+    border: 1px solid var(--border); border-radius: 14px; padding: 14px 16px; box-shadow: 0 12px 32px rgba(15,23,42,0.18); font-size: 0.84rem; color: var(--text-primary); }
+  .auth-menu .am-lbl { font-size: 0.66rem; letter-spacing: .05em; text-transform: uppercase; font-weight: 700; color: var(--text-secondary); margin-top: 10px; }
+  .auth-menu .am-uid { font-family: ui-monospace, Consolas, monospace; font-size: 0.78rem; word-break: break-all; background: var(--bg-primary); border: 1px solid var(--border);
+    border-radius: 8px; padding: 6px 8px; margin-top: 4px; user-select: all; }
+  .auth-menu button { margin-top: 10px; margin-right: 8px; padding: 6px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-card);
+    color: var(--text-primary); font: inherit; cursor: pointer; }
+  .auth-menu .am-err { color: var(--negative); margin-top: 8px; }
+  .auth-gate { position: fixed; inset: 0; z-index: 2000; display: flex; align-items: center; justify-content: center; background: var(--bg-primary); padding: 16px; }
+  .auth-gate[hidden] { display: none; }
+  .auth-card { max-width: 380px; width: 100%; background: var(--bg-card); border: 1px solid var(--border); border-radius: 18px; padding: 28px 26px; text-align: center; }
+  .auth-title { font-size: 1.35rem; font-weight: 800; color: var(--text-primary); }
+  .auth-text { font-size: 0.9rem; color: var(--text-secondary); margin: 10px 0 18px; line-height: 1.5; }
+  .auth-go { padding: 11px 18px; border-radius: 10px; border: none; background: #3563e9; color: #fff; font: inherit; font-weight: 700; cursor: pointer; }
+  .auth-err { color: var(--negative); font-size: 0.82rem; margin-top: 12px; }
   .theme-btn {
     width: 40px; height: 40px; border-radius: 10px; margin-left: 6px;
     border: 1px solid var(--border); background: var(--bg-card); color: var(--text-secondary);
@@ -1557,6 +1576,14 @@
 </style>
 </head>
 <body>
+<div class="auth-gate" id="authGate" hidden>
+  <div class="auth-card">
+    <div class="auth-title">Dashboard Trading</div>
+    <div class="auth-text">Les données sont protégées : connecte-toi avec ton compte Google pour y accéder.</div>
+    <button type="button" class="auth-go" onclick="authSignIn()">Se connecter avec Google</button>
+    <div class="auth-err" id="authGateErr"></div>
+  </div>
+</div>
 <div class="dashboard">
 
   <div class="header">
@@ -1572,6 +1599,8 @@
         <button type="button" data-ccy="USD" onclick="ccySet('USD')">$</button><button type="button" data-ccy="EUR" onclick="ccySet('EUR')">€</button>
       </div>
       <button class="theme-btn" id="themeBtn" onclick="themeToggle()" title="Thème clair / foncé">☾</button>
+      <button class="theme-btn auth-btn" id="authBtn" type="button" onclick="authMenuToggle()" title="Compte">🔑</button>
+      <div class="auth-menu" id="authMenu" hidden></div>
     </div>
   </div>
 
@@ -2353,6 +2382,95 @@ const firebaseConfig = {
 };
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
+
+// CONNEXION GOOGLE (securisation de la base, 05/10/2026). Tant que les regles Firebase restent ouvertes, la page
+// marche connectee ou non ; une fois verrouillees, seule la session du proprietaire lit et ecrit les donnees.
+// Les collecteurs du VPS et le Stream Deck passent par la cle secrete de la base, pas par cette connexion.
+let DASH_USER = null;
+const AUTH_ERREURS = {
+  'auth/operation-not-allowed': 'La connexion Google n’est pas encore activée dans la console Firebase (Authentication, Sign-in method, Google).',
+  'auth/unauthorized-domain': 'Ce site n’est pas autorisé dans Firebase : ajoute son domaine dans Authentication, Settings, Authorized domains.',
+  'auth/popup-closed-by-user': 'Fenêtre de connexion fermée avant la fin.',
+  'auth/cancelled-popup-request': 'Connexion annulée.',
+  'auth/network-request-failed': 'Réseau indisponible, réessaie.' };
+function authMsg(e) { return (e && AUTH_ERREURS[e.code]) || ('Connexion impossible : ' + ((e && (e.code || e.message)) || 'erreur inconnue')); }
+function authErr(e) {
+  const m = authMsg(e);
+  const g = document.getElementById('authGateErr'); if (g) g.textContent = m;
+  const am = document.getElementById('authMenu');
+  if (am && !am.hidden) { const x = am.querySelector('.am-err') || am.appendChild(scrEl('div', { cls: 'am-err' })); x.textContent = m; }
+  console.error('[auth]', e);
+}
+function authSignIn() {
+  let p;
+  try { p = new firebase.auth.GoogleAuthProvider(); } catch (e) { authErr(e); return; }
+  firebase.auth().signInWithPopup(p).catch((e) => {
+    // fenetre bloquee (certains mobiles) : on passe par une redirection
+    if (e && (e.code === 'auth/popup-blocked' || e.code === 'auth/operation-not-supported-in-this-environment')) return firebase.auth().signInWithRedirect(p).catch(authErr);
+    authErr(e);
+  });
+}
+function authSignOut() { firebase.auth().signOut().then(() => location.reload()).catch(authErr); }
+function authUiSync() {
+  const b = document.getElementById('authBtn');
+  if (!b) return;
+  const u = DASH_USER;
+  b.classList.toggle('on', !!u);
+  b.textContent = u ? String(u.displayName || u.email || '?').trim().charAt(0).toUpperCase() : '🔑';
+  b.title = u ? ('Connecté : ' + (u.email || u.displayName || '')) : 'Se connecter avec Google';
+}
+function authMenuToggle() {
+  const m = document.getElementById('authMenu');
+  if (!m) return;
+  if (!m.hidden) { m.hidden = true; return; }
+  const u = DASH_USER;
+  const kids = u ? [
+    scrEl('div', { style: 'font-weight:800', text: u.displayName || 'Compte Google' }),
+    scrEl('div', { style: 'color:var(--text-secondary)', text: u.email || '' }),
+    scrEl('div', { cls: 'am-lbl', text: 'Identifiant Firebase (UID)' }),
+    scrEl('div', { cls: 'am-uid', text: u.uid })]
+    : [scrEl('div', { style: 'font-weight:800', text: 'Non connecté' }),
+       scrEl('div', { style: 'color:var(--text-secondary);margin-top:4px', text: 'La base est encore ouverte : la connexion deviendra obligatoire quand elle sera verrouillée.' })];
+  const actions = scrEl('div');
+  if (u) {
+    const copier = scrEl('button', { text: 'Copier l’identifiant', attrs: { type: 'button' } });
+    copier.onclick = () => { try { navigator.clipboard.writeText(u.uid); copier.textContent = 'Copié'; } catch (e) {} };
+    const sortir = scrEl('button', { text: 'Se déconnecter', attrs: { type: 'button' } });
+    sortir.onclick = authSignOut;
+    actions.append(copier, sortir);
+  } else {
+    const entrer = scrEl('button', { text: 'Se connecter avec Google', attrs: { type: 'button' } });
+    entrer.onclick = authSignIn;
+    actions.append(entrer);
+  }
+  kids.push(actions);
+  m.replaceChildren(...kids);
+  m.hidden = false;
+}
+document.addEventListener('click', (e) => {
+  const m = document.getElementById('authMenu');
+  if (m && !m.hidden && !e.target.closest('#authMenu') && !e.target.closest('#authBtn')) m.hidden = true;
+});
+// Demarrage : attend la 1re reponse d'authentification (session memorisee, quasi immediate). Connecte -> demarre.
+// Pas connecte : lecture d'essai ; base encore ouverte -> demarre ; permission refusee -> ecran de connexion,
+// et la page demarre des que la connexion reussit.
+function authGate(start) {
+  let lance = false;
+  const go = () => { if (lance) return; lance = true; const g = document.getElementById('authGate'); if (g) g.hidden = true; start(); };
+  let auth;
+  try { auth = firebase.auth(); } catch (e) { console.warn('[auth] SDK indisponible, demarrage sans connexion', e); go(); return; }
+  auth.getRedirectResult().catch(authErr);
+  auth.onAuthStateChanged((u) => {
+    DASH_USER = u;
+    authUiSync();
+    if (lance) return;
+    if (u) { go(); return; }
+    db.ref('lastDataUpdate').once('value').then(() => go(), () => {
+      const g = document.getElementById('authGate');
+      if (g) g.hidden = false;
+    });
+  });
+}
 
 // ══════════════════════════════════════════════════════════════
 // REAL TRADING DATA — chargé depuis Firebase
@@ -16200,8 +16318,9 @@ function loadDataTimestamp() {
   });
 }
 
-// ── INIT ──
-Promise.all([
+// ── INIT ── (lance par authGate : apres la connexion Google, ou tout de suite tant que la base est ouverte)
+function dashStart() {
+return Promise.all([
   loadIgSyncStatus(),
   loadPontStatus(),
   loadIgLive(),
@@ -16260,6 +16379,8 @@ Promise.all([
   // lien direct vers un onglet : index.html#enfants (touches du Stream Deck, favoris)
   dashOpenHashTab();
 });
+}
+authGate(dashStart);
 function dashOpenHashTab() {
   const tab = decodeURIComponent((location.hash || '').slice(1));
   if (!tab) return;
