@@ -7524,7 +7524,7 @@ function mDebitum() {
   return { value: eur(pr[li]), cum: cum, y12: (n && sc > 0) ? si / (sc / n) * 12 / n : null, months: d.months.slice(), byMonth: byMonth };
 }
 // Emprunts (Portfolio) : capital restant du du mois en cours, en euros, et variation vs le mois precedent.
-// Les echeanciers Younited / Revolut alimentent le mois en cours au fil des echeances (syncYounitedLoan, syncRevolutLoan).
+// Les echeanciers alimentent le mois en cours au fil des echeances (syncYounitedLoan, syncRevolutLoan, syncScheduledLoans).
 function mLoans() {
   const d = portfolioData;
   if (!d || !d.months || !(d.loanNames || []).length || !d.loans) return null;
@@ -13559,7 +13559,7 @@ const INV_PLATFORM_COLORS = {
 function invColor(p, i) { return INV_PLATFORM_COLORS[p] || INV_COLORS_FALLBACK[i % 10]; }
 // Legacy alias for indexed access
 const INV_COLORS = INV_COLORS_FALLBACK;
-const INV_LC = ["#dd5f66","#f97316","#eab308"];
+const INV_LC = ["#dd5f66","#f97316","#eab308","#a855f7","#0ea5e9"];   // une couleur par emprunt (5 depuis le 05/10/2026)
 const INV_MN = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
 const INV_MEMBER_COLORS = {"Moi":"#6366f1","Noah":"#06b6d4","Elie":"#f59e0b"};
 const INV_REP_MEMBERS = ["Moi","Noah","Elie"];
@@ -14541,7 +14541,7 @@ function renderMobileInvest(t, li) {
     const rows = scrEl('div', { cls: 'mp-rows' });
     const maxL = Math.max.apply(null, loans.map((x) => x.v)) || 1;
     loans.forEach((x) => {
-      const c = INV_LC[x.i % 3];
+      const c = INV_LC[x.i % INV_LC.length];
       rows.appendChild(scrEl('div', { cls: 'mp-row', kids: [
         scrEl('div', { cls: 'mt-side', text: x.l.replace(/^Emprunt\s+/i, '').slice(0, 2).toUpperCase(), style: 'background:' + invHexToRgba(c, 0.16) + ';color:' + c }),
         scrEl('div', { cls: 'mp-mid', kids: [
@@ -14837,7 +14837,7 @@ function invRenderLoans(t, labels, li) {
     const isUsd = invIsLoanUsd(l);
     const growing = cu > ini; // dette qui augmente (intérêts capitalisés)
     h += `<div class="inv-card" style="border-color:rgba(221,95,102,0.1)">`;
-    h += `<div class="inv-flex inv-aic inv-gap2 inv-mb3"><span class="inv-dot" style="background:${INV_LC[i%3]};box-shadow:0 0 8px ${INV_LC[i%3]};width:12px;height:12px"></span><span style="font-size:14px;font-weight:600">${l}${isUsd ? ' <span style="font-size:0.6rem;color:var(--text-secondary)">USD</span>' : ''}</span></div>`;
+    h += `<div class="inv-flex inv-aic inv-gap2 inv-mb3"><span class="inv-dot" style="background:${INV_LC[i % INV_LC.length]};box-shadow:0 0 8px ${INV_LC[i % INV_LC.length]};width:12px;height:12px"></span><span style="font-size:14px;font-weight:600">${l}${isUsd ? ' <span style="font-size:0.6rem;color:var(--text-secondary)">USD</span>' : ''}</span></div>`;
     h += '<div style="display:flex;flex-direction:column;gap:8px">';
     h += `<div class="inv-flex inv-jcsb" style="font-size:12px"><span style="color:var(--text-secondary)">Restant dû</span><span style="font-weight:500">${invFmt(Math.round(cu))}${isUsd ? ' <span style="font-size:0.6rem;color:var(--text-secondary)">(' + cuRaw.toLocaleString('fr-FR') + ' $)</span>' : ''}</span></div>`;
     h += `<div class="inv-flex inv-jcsb" style="font-size:12px"><span style="color:var(--text-secondary)">Initial</span><span style="color:var(--text-secondary)">${invFmt(Math.round(ini))}${isUsd ? ' <span style="font-size:0.6rem">(' + iniRaw.toLocaleString('fr-FR') + ' $)</span>' : ''}</span></div>`;
@@ -14875,7 +14875,7 @@ function invRenderLoans(t, labels, li) {
 function invBuildLoanCharts(t, labels, li) {
   const d = portfolioData, n = li + 1;
   const loanSets = (d.loanNames || []).map((l, i) => ({
-    label: l, data: (d.loans[l] || []).slice(0, n).map(v => invLoanToEur(l, v || 0)), borderColor: INV_LC[i%3], backgroundColor: invHexToRgba(INV_LC[i%3], 0.1), pointBackgroundColor: INV_LC[i%3], pointRadius: 3, pointHoverRadius: 5, fill: true, borderWidth: 1.5, tension: 0.3
+    label: l, data: (d.loans[l] || []).slice(0, n).map(v => invLoanToEur(l, v || 0)), borderColor: INV_LC[i % INV_LC.length], backgroundColor: invHexToRgba(INV_LC[i % INV_LC.length], 0.1), pointBackgroundColor: INV_LC[i % INV_LC.length], pointRadius: 3, pointHoverRadius: 5, fill: true, borderWidth: 1.5, tension: 0.3
   }));
   invCharts.loans = new Chart(document.getElementById('inv-ch-loans'), { type: 'line', data: { labels, datasets: loanSets }, options: { responsive: true, maintainAspectRatio: false, scales: { x: { ticks: { maxTicksLimit: 8 } }, y: { ticks: { callback: invFmtK } } }, plugins: { legend: invLineLegend() } } });
 
@@ -16072,6 +16072,8 @@ let simState = {
 const SIM_LOANS = [
   { label: 'Younited (6,91%)', rate: 6.91 },
   { label: 'Revolut conso (6,86%)', rate: 6.86 },
+  { label: 'Revolut 2 (6,20%)', rate: 6.20 },
+  { label: 'BoursoBank (6,50%)', rate: 6.50 },
   { label: 'Immobilier CHF (1,05%)', rate: 1.05 },
   { label: 'Personnalisé', rate: null }
 ];
@@ -16689,8 +16691,8 @@ function invRenderUpdate(t, li) {
         const lv = invLoanFormData[l] || '';
         const lCur = invIsLoanUsd(l) ? '$' : '€';
         const lEurNote = invIsLoanUsd(l) ? ` <span style="font-size:0.68rem;color:var(--text-secondary)">(≈ ${invFmt(Math.round(invLoanToEur(l, Number(lv)||0)))})</span>` : '';
-        const isAuto = (l === YOUNITED_LOAN_NAME || l === REVOLUT_LOAN_NAME);
-        h += `<div class="inv-loan-card"><div class="inv-flex inv-aic inv-gap2 inv-mb3"><span class="inv-dot" style="background:${INV_LC[i%3]};box-shadow:0 0 6px ${INV_LC[i%3]};width:12px;height:12px"></span><span style="font-size:12px;font-weight:500">${l}${isAuto ? ' 🔒' : ''}</span></div>`;
+        const isAuto = isAutoLoan(l);
+        h += `<div class="inv-loan-card"><div class="inv-flex inv-aic inv-gap2 inv-mb3"><span class="inv-dot" style="background:${INV_LC[i % INV_LC.length]};box-shadow:0 0 6px ${INV_LC[i % INV_LC.length]};width:12px;height:12px"></span><span style="font-size:12px;font-weight:500">${l}${isAuto ? ' 🔒' : ''}</span></div>`;
         h += `<label style="font-size:12px;color:var(--text-secondary);display:block;margin-bottom:4px">Restant dû (${lCur})${lEurNote}</label>`;
         if (isAuto) {
           h += `<input class="inv-input loan" type="number" value="${lv}" disabled style="opacity:0.55;cursor:not-allowed"><div style="font-size:0.62rem;color:var(--text-secondary);opacity:0.75;margin-top:4px">🔒 Auto — échéancier officiel</div></div>`;
@@ -16726,7 +16728,7 @@ function invRenderUpdate(t, li) {
       let totalLoans = 0;
       d.loanNames.forEach((l, i) => {
         const lv = (d.loans[l] || [])[invEditMonth] || 0; totalLoans += lv;
-        h += `<tr style="border-bottom:1px solid rgba(34,49,77,0.06)"><td><div class="inv-flex inv-aic inv-gap2"><span class="inv-dot" style="background:${INV_LC[i%3]};box-shadow:0 0 4px ${INV_LC[i%3]}"></span>${l}</div></td><td class="td-r inv-cr">${invFmt(lv)}</td></tr>`;
+        h += `<tr style="border-bottom:1px solid rgba(34,49,77,0.06)"><td><div class="inv-flex inv-aic inv-gap2"><span class="inv-dot" style="background:${INV_LC[i % INV_LC.length]};box-shadow:0 0 4px ${INV_LC[i % INV_LC.length]}"></span>${l}</div></td><td class="td-r inv-cr">${invFmt(lv)}</td></tr>`;
       });
       h += `<tr style="border-top:1px solid rgba(221,95,102,0.15)"><td style="font-weight:600">Total emprunts</td><td class="td-r" style="font-weight:600;color:#dd5f66">${invFmt(totalLoans)}</td></tr>`;
       h += `<tr style="border-top:1px solid rgba(95,139,242,0.2)"><td style="font-weight:700">Capital net</td><td class="td-r" style="font-weight:700;color:#1d9e74">${invFmt(tc - totalLoans)}</td></tr>`;
@@ -16855,7 +16857,7 @@ function invSaveMonth() {
     if (oldP !== newP) for (let j = invEditMonth + 1; j < d.months.length && d.principal[p][j] === oldP && !(Number((d.interests[p] || [])[j]) || 0); j++) d.principal[p][j] = newP;
   });
   (d.loanNames || []).forEach(l => {
-    if (l === YOUNITED_LOAN_NAME || l === REVOLUT_LOAN_NAME) return; // auto-gérés, ne pas écraser
+    if (isAutoLoan(l)) return; // auto-gérés (échéancier officiel), ne pas écraser
     if (!d.loans[l]) d.loans[l] = [];
     while (d.loans[l].length <= invEditMonth) d.loans[l].push(0);
     d.loans[l][invEditMonth] = Number(invLoanFormData[l]) || 0;
@@ -16863,6 +16865,7 @@ function invSaveMonth() {
   // Réappliquer les échéanciers auto après sauvegarde (au cas où)
   syncYounitedLoan();
   syncRevolutLoan();
+  syncScheduledLoans();
   savePortfolioToFirebase();
   invEditing = false;
   invNotify('Sauvegardé !');
@@ -17083,6 +17086,88 @@ function syncRevolutLoan() {
 }
 
 // ══════════════════════════════════════════════════════════════
+// EMPRUNTS A ECHEANCIER OFFICIEL AJOUTES LE 05/10/2026 (meme principe que Younited / Revolut, en generique)
+// Valeurs = CAPITAL restant du apres l'echeance du mois (source : tableau d'amortissement officiel). Avant le jour
+// de prelevement, le mois en cours reprend le mois precedent. L'emprunt est ajoute a la liste s'il n'y est pas.
+//  - Revolut 2 : contrat UPL/2026/03/01, 10 000 EUR, 6,03 % (TAEG 6,2 %), 84 x 146,26 EUR le 11, 11/04/2026 -> 11/03/2033
+//    (le contrat donne le solde debiteur, interets compris : capital restant = 10 000 - cumul du capital rembourse)
+//  - Pret personnel n. 80511-00060990519 : 30 000 EUR, 6,314 % (TAEG 6,50 %), 120 x 337,81 EUR le 8, 08/07/2026 -> 08/06/2036
+// ══════════════════════════════════════════════════════════════
+const LOANS_SCHEDULED = [
+  { name: 'Emprunt Revolut 2', payment: 146.26, payday: 11, first: '2026-03', last: '2033-03',
+    schedule: {
+  '2026-03':10000.00, // mise à disposition (03/03/2026), avant la 1re échéance du 11/04
+  '2026-04':9904.89,'2026-05':9807.83,'2026-06':9711.79,'2026-07':9613.53,'2026-08':9516.56,
+  '2026-09':9418.97,'2026-10':9319.51,'2026-11':9220.99,'2026-12':9120.33,'2027-01':9020.88,
+  '2027-02':8920.81,'2027-03':8815.71,'2027-04':8714.71,'2027-05':8611.65,'2027-06':8509.41,
+  '2027-07':8405.45,'2027-08':8302.28,'2027-09':8198.49,'2027-10':8092.73,'2027-11':7988.01,
+  '2027-12':7881.35,'2028-01':7775.39,'2028-02':7668.81,'2028-03':7559.38,'2028-04':7451.87,
+  '2028-05':7342.51,'2028-06':7233.76,'2028-07':7123.50,'2028-08':7013.82,'2028-09':6903.52,
+  '2028-10':6791.46,'2028-11':6679.92,'2028-12':6566.66,'2029-01':6453.88,'2029-02':6340.79,
+  '2029-03':6223.93,'2029-04':6109.60,'2029-05':5993.64,'2029-06':5878.07,'2029-07':5760.91,
+  '2029-08':5644.10,'2029-09':5526.67,'2029-10':5407.71,'2029-11':5289.04,'2029-12':5168.88,
+  '2030-01':5048.97,'2030-02':4928.44,'2030-03':4804.86,'2030-04':4683.09,'2030-05':4559.93,
+  '2030-06':4436.92,'2030-07':4312.56,'2030-08':4188.31,'2030-09':4063.44,'2030-10':3937.28,
+  '2030-11':3811.17,'2030-12':3683.81,'2031-01':3556.46,'2031-02':3428.49,'2031-03':3298.19,
+  '2031-04':3168.67,'2031-05':3038.01,'2031-06':2907.25,'2031-07':2775.39,'2031-08':2643.39,
+  '2031-09':2510.77,'2031-10':2376.81,'2031-11':2242.64,'2031-12':2107.48,'2032-01':1972.07,
+  '2032-02':1836.04,'2032-03':1698.48,'2032-04':1560.90,'2032-05':1422.44,'2032-06':1283.31,
+  '2032-07':1143.35,'2032-08':1002.98,'2032-09':861.99,'2032-10':719.93,'2032-11':577.39,
+  '2032-12':434.13,'2033-01':290.04,'2033-02':145.33,'2033-03':0.00
+} },
+  { name: 'Emprunt BoursoBank', payment: 337.81, payday: 8, first: '2026-06', last: '2036-06',
+    schedule: {
+  '2026-06':30000.00, // déblocage (08/06/2026), avant la 1re échéance du 08/07
+  '2026-07':29820.04,'2026-08':29639.13,'2026-09':29457.27,'2026-10':29274.45,'2026-11':29090.67,
+  '2026-12':28905.93,'2027-01':28720.21,'2027-02':28533.52,'2027-03':28345.84,'2027-04':28157.18,
+  '2027-05':27967.52,'2027-06':27776.87,'2027-07':27585.21,'2027-08':27392.54,'2027-09':27198.86,
+  '2027-10':27004.16,'2027-11':26808.44,'2027-12':26611.69,'2028-01':26413.90,'2028-02':26215.07,
+  '2028-03':26015.19,'2028-04':25814.26,'2028-05':25612.28,'2028-06':25409.23,'2028-07':25205.11,
+  '2028-08':24999.92,'2028-09':24793.65,'2028-10':24586.30,'2028-11':24377.85,'2028-12':24168.31,
+  '2029-01':23957.67,'2029-02':23745.92,'2029-03':23533.05,'2029-04':23319.06,'2029-05':23103.95,
+  '2029-06':22887.71,'2029-07':22670.33,'2029-08':22451.80,'2029-09':22232.12,'2029-10':22011.29,
+  '2029-11':21789.30,'2029-12':21566.14,'2030-01':21341.80,'2030-02':21116.28,'2030-03':20889.58,
+  '2030-04':20661.68,'2030-05':20432.58,'2030-06':20202.28,'2030-07':19970.77,'2030-08':19738.04,
+  '2030-09':19504.08,'2030-10':19268.89,'2030-11':19032.47,'2030-12':18794.80,'2031-01':18555.88,
+  '2031-02':18315.70,'2031-03':18074.26,'2031-04':17831.55,'2031-05':17587.56,'2031-06':17342.29,
+  '2031-07':17095.73,'2031-08':16847.87,'2031-09':16598.71,'2031-10':16348.24,'2031-11':16096.45,
+  '2031-12':15843.33,'2032-01':15588.88,'2032-02':15333.09,'2032-03':15075.96,'2032-04':14817.47,
+  '2032-05':14557.62,'2032-06':14296.41,'2032-07':14033.82,'2032-08':13769.85,'2032-09':13504.49,
+  '2032-10':13237.74,'2032-11':12969.58,'2032-12':12700.01,'2033-01':12429.02,'2033-02':12156.61,
+  '2033-03':11882.76,'2033-04':11607.47,'2033-05':11330.73,'2033-06':11052.54,'2033-07':10772.88,
+  '2033-08':10491.75,'2033-09':10209.14,'2033-10':9925.05,'2033-11':9639.46,'2033-12':9352.37,
+  '2034-01':9063.77,'2034-02':8773.65,'2034-03':8482.00,'2034-04':8188.82,'2034-05':7894.10,
+  '2034-06':7597.83,'2034-07':7300.00,'2034-08':7000.60,'2034-09':6699.62,'2034-10':6397.06,
+  '2034-11':6092.91,'2034-12':5787.16,'2035-01':5479.80,'2035-02':5170.82,'2035-03':4860.22,
+  '2035-04':4547.98,'2035-05':4234.10,'2035-06':3918.57,'2035-07':3601.38,'2035-08':3282.52,
+  '2035-09':2961.98,'2035-10':2639.75,'2035-11':2315.83,'2035-12':1990.21,'2036-01':1662.87,
+  '2036-02':1333.81,'2036-03':1003.02,'2036-04':670.49,'2036-05':336.21,'2036-06':0.00
+} }
+];
+function isAutoLoan(l) { return l === YOUNITED_LOAN_NAME || l === REVOLUT_LOAN_NAME || LOANS_SCHEDULED.some((L) => L.name === l); }
+function syncScheduledLoans() {
+  if (!portfolioData || !portfolioData.months) return;
+  const d = portfolioData;
+  if (!d.loanNames) d.loanNames = [];
+  if (!d.loans) d.loans = {};
+  if (!d.loanMonthlyPayments) d.loanMonthlyPayments = {};
+  const today = new Date();
+  const curYm = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0');
+  LOANS_SCHEDULED.forEach((L) => {
+    if (!d.loanNames.includes(L.name)) d.loanNames.push(L.name);
+    const arr = d.loans[L.name] = d.loans[L.name] || [];
+    d.months.forEach((ym, i) => {
+      let val = 0;
+      if (ym >= L.first && ym <= L.last && L.schedule[ym] != null) {
+        val = (ym === curYm && today.getDate() < L.payday && L.schedule[prevYm(ym)] != null) ? L.schedule[prevYm(ym)] : L.schedule[ym];
+      }
+      arr[i] = val;
+    });
+    d.loanMonthlyPayments[L.name] = L.payment;
+  });
+}
+
+// ══════════════════════════════════════════════════════════════
 // SYNC ETF REVOLUT (DCA programmé) — semi-auto
 // 20 € VUAA chaque mercredi + 10 € VFEA chaque jeudi
 // Les versements se calculent seuls ; la valeur réelle (avec plus-values)
@@ -17273,6 +17358,7 @@ return Promise.all([
   invSyncLendermarketFromRep();
   syncYounitedLoan(); // auto-remplit l'emprunt Younited depuis l'échéancier officiel
   syncRevolutLoan();  // auto-remplit l'emprunt Revolut depuis l'échéancier officiel
+  syncScheduledLoans(); // Revolut 2 et BoursoBank (ajoutés le 05/10/2026) depuis leur échéancier officiel
   syncRevolutFromPositions();   // ligne Revolut = valeur totale du Portefeuille d'actions (snapshot mensuel, USD->EUR)
   dwxSyncAggregateFromDaily(); // agrégat Darwinex (valeur/investi/P&L) depuis la série quotidienne réelle
   syncDarwinexPlatform(); // intègre Darwinex comme plateforme du portfolio
