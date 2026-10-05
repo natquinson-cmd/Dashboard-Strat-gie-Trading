@@ -8,7 +8,7 @@ Après : tout est réservé au compte Google du propriétaire, sauf les exceptio
 | Client | Accès après verrouillage |
 |---|---|
 | Dashboard trading, Partitions (SongBook) | connexion Google du propriétaire (même domaine `natquinson-cmd.github.io`) |
-| Personnes ajoutées par le propriétaire (liste `acces`) | connexion Google : lecture et modification de toutes les données, sauf la liste des accès |
+| Personnes ajoutées par le propriétaire (liste `acces`) | connexion Google : niveau `lecture` (tout voir) ou `complet` (tout voir et modifier), jamais la liste des accès |
 | Scripts du VPS (cours, screener, brief, synchro IG) | clé secrète `FIREBASE_DB_SECRET` (variable d'environnement système) |
 | Pont IG (`darwinex-bridge`) | même clé (variable d'environnement, ou `config.json` firebase.secret) |
 | Stream Deck (PC) | même clé (variable d'environnement utilisateur) |
@@ -38,7 +38,7 @@ Le test lit les règles de la base, lecture que seule la clé administrateur aut
 ## Donner ou retirer un accès (sans toucher aux règles)
 
 1. La personne ouvre le dashboard et se connecte avec son compte Google : l'écran « n'a pas encore accès » s'affiche et une demande est déposée (`demandesAcces/{uid}`).
-2. Un badge apparaît sur ton bouton de compte (initiale en haut à droite) : clic, « Accorder ». Sa page s'ouvre toute seule.
-3. Retirer : même menu, « Retirer » en face de la personne.
+2. Un badge apparaît sur ton bouton de compte (initiale en haut à droite) : clic, « Lecture » ou « Complet ». Sa page s'ouvre toute seule.
+3. Changer de niveau ou retirer : même menu, « Passer en lecture / en complet » ou « Retirer » en face de la personne.
 
-L'accès accordé est COMPLET (tout voir, tout modifier, Partitions compris), mais la liste des accès reste réservée au propriétaire : une personne ajoutée ne peut ni ajouter quelqu'un d'autre ni s'en retirer.
+Lecture : tout voir, rien modifier (les règles refusent l'écriture ; le dashboard affiche « Lecture seule »). Complet : tout voir, tout modifier, Partitions compris. Une entrée sans niveau vaut lecture. Dans les deux cas, la liste des accès reste réservée au propriétaire.

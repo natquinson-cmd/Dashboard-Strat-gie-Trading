@@ -1190,6 +1190,11 @@
   .auth-menu .am-acc button { margin: 0; padding: 4px 9px; font-size: 0.76rem; flex: none; }
   .auth-menu .am-acc button.am-ok { background: #3563e9; border-color: #3563e9; color: #fff; font-weight: 700; }
   .auth-menu .am-none { font-size: 0.78rem; color: var(--text-secondary); padding: 4px 0; }
+  .ro-pill { align-self: center; margin-left: 6px; padding: 4px 9px; border-radius: 999px; font-size: 0.7rem; font-weight: 700; white-space: nowrap;
+    color: var(--text-secondary); background: var(--bg-card); border: 1px solid var(--border); }
+  .ro-pill[hidden] { display: none; }
+  .ro-toast { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); z-index: 3000; max-width: calc(100vw - 32px);
+    padding: 10px 16px; border-radius: 12px; background: #0f172a; color: #fff; font-size: 0.84rem; box-shadow: 0 10px 28px rgba(15,23,42,0.3); }
   .theme-btn {
     width: 40px; height: 40px; border-radius: 10px; margin-left: 6px;
     border: 1px solid var(--border); background: var(--bg-card); color: var(--text-secondary);
@@ -1620,6 +1625,7 @@
         <button type="button" data-ccy="USD" onclick="ccySet('USD')">$</button><button type="button" data-ccy="EUR" onclick="ccySet('EUR')">€</button>
       </div>
       <button class="theme-btn" id="themeBtn" onclick="themeToggle()" title="Thème clair / foncé">☾</button>
+      <span class="ro-pill" id="roPill" hidden>Lecture seule</span>
       <button class="theme-btn auth-btn" id="authBtn" type="button" onclick="authMenuToggle()" title="Compte">🔑</button>
       <div class="auth-menu" id="authMenu" hidden></div>
     </div>
@@ -2469,6 +2475,7 @@ function authMenuRender() {
     entrer.onclick = authSignIn;
     actions.append(entrer);
   }
+  if (DASH_LECTURE) kids.push(scrEl('div', { cls: 'am-sub', style: 'margin-top:10px', text: 'Accès en lecture seule : tu peux tout consulter, rien modifier.' }));
   kids.push(actions);
   if (u && u.uid === DASH_OWNER) kids.push(authAccesSection());
   m.replaceChildren(...kids);
@@ -2507,27 +2514,70 @@ function authAccesSection() {
     ids.forEach((uid) => {
       const d = DASH_DEMANDES[uid] || {};
       box.append(authPersonne(uid, d, 'demande du ' + authDateCourte(d.at), [
-        authBouton('Accorder', 'am-ok', () => authAccorder(uid, d)),
+        authBouton('Lecture', 'am-ok', () => authAccorder(uid, d, 'lecture')),
+        authBouton('Complet', 'am-ok', () => authAccorder(uid, d, 'complet')),
         authBouton('Refuser', '', () => authRefuser(uid, d))]));
     });
   }
   const liste = scrEl('div', { kids: [scrEl('div', { cls: 'am-none', text: 'Chargement…' })] });
-  box.append(scrEl('div', { cls: 'am-sub', style: 'margin:10px 0 2px', text: 'Ont accès en plus de toi (lecture et modification) :' }), liste);
+  box.append(scrEl('div', { cls: 'am-sub', style: 'margin:10px 0 2px', text: 'Ont accès en plus de toi :' }), liste);
   db.ref('acces').once('value').then((snap) => {
     const v = snap.val() || {};
     const uids = Object.keys(v);
-    liste.replaceChildren(...(uids.length ? uids.map((uid) => authPersonne(uid, v[uid], 'depuis le ' + authDateCourte(v[uid] && v[uid].depuis), [
-      authBouton('Retirer', '', () => authRetirer(uid, v[uid]))])) : [scrEl('div', { cls: 'am-none', text: 'Personne.' })]));
+    liste.replaceChildren(...(uids.length ? uids.map((uid) => {
+      const p = v[uid] || {};
+      const complet = p.niveau === 'complet';
+      return authPersonne(uid, p, (complet ? 'accès complet' : 'lecture seule') + ' · depuis le ' + authDateCourte(p.depuis), [
+        authBouton(complet ? 'Passer en lecture' : 'Passer en complet', '', () => authNiveau(uid, p, complet ? 'lecture' : 'complet')),
+        authBouton('Retirer', '', () => authRetirer(uid, p))]);
+    }) : [scrEl('div', { cls: 'am-none', text: 'Personne.' })]));
   }, (e) => { liste.replaceChildren(scrEl('div', { cls: 'am-err', text: 'Liste illisible : ' + (e.code || e.message) })); });
   return box;
 }
-function authAccorder(uid, d) {
+const AUTH_NIVEAUX = {
+  lecture: 'en LECTURE SEULE au dashboard ?\n\nIl pourra tout voir (trades, portefeuille, patrimoine) mais rien modifier.',
+  complet: 'COMPLET au dashboard ?\n\nIl pourra tout voir et tout modifier (trades, portefeuille, patrimoine).' };
+function authAccorder(uid, d, niveau) {
   const qui = d.email || d.nom || uid;
-  if (!confirm('Donner à ' + qui + ' un accès COMPLET au dashboard ?\n\nIl pourra tout voir et tout modifier (trades, portefeuille, patrimoine). Tu pourras le retirer à tout moment depuis ce menu.')) return;
+  if (!confirm('Donner à ' + qui + ' un accès ' + AUTH_NIVEAUX[niveau] + '\nTu pourras le changer ou le retirer à tout moment depuis ce menu.')) return;
   db.ref().update({
-    ['acces/' + uid]: { email: d.email || '', nom: d.nom || '', depuis: firebase.database.ServerValue.TIMESTAMP },
+    ['acces/' + uid]: { email: d.email || '', nom: d.nom || '', niveau, depuis: firebase.database.ServerValue.TIMESTAMP },
     ['demandesAcces/' + uid]: null,
   }).then(authMenuRender).catch(authErr);
+}
+function authNiveau(uid, p, niveau) {
+  if (!confirm('Passer ' + (p.email || p.nom || uid) + (niveau === 'complet' ? ' en accès COMPLET (tout modifier) ?' : ' en LECTURE SEULE ?') + '\n\nEffet à son prochain chargement de page.')) return;
+  db.ref('acces/' + uid + '/niveau').set(niveau).then(authMenuRender).catch(authErr);
+}
+// LECTURE SEULE : les regles refusent deja toute ecriture ; on neutralise ici set/update/remove pour eviter les
+// erreurs en cascade (sauvegardes automatiques du demarrage), avec un message discret au plus toutes les 8 s.
+let DASH_LECTURE = false;
+let DASH_RO_MSG = 0;
+function authToast(txt) {
+  let t = document.getElementById('roToast');
+  if (!t) { t = scrEl('div', { cls: 'ro-toast', attrs: { id: 'roToast', role: 'status' } }); document.body.appendChild(t); }
+  t.textContent = txt;
+  t.hidden = false;
+  clearTimeout(authToast.minuteur);
+  authToast.minuteur = setTimeout(() => { t.hidden = true; }, 4000);
+}
+function authLectureSeule() {
+  if (DASH_LECTURE) return;
+  DASH_LECTURE = true;
+  let P = null;
+  try { P = firebase.database.Reference.prototype; } catch (e) { console.warn('[acces] lecture seule : SDK inattendu', e); }
+  const neutre = function () {
+    const t = Date.now();
+    if (t - DASH_RO_MSG > 8000) { DASH_RO_MSG = t; authToast('Accès en lecture seule : modification non enregistrée.'); }
+    return Promise.resolve();
+  };
+  if (P) ['set', 'update', 'remove', 'setWithPriority'].forEach((k) => { if (typeof P[k] === 'function') P[k] = neutre; });
+  const pill = document.getElementById('roPill');
+  if (pill) pill.hidden = false;
+}
+// Niveau du compte connecte (proprietaire = complet ; entree sans niveau = lecture, comme les regles).
+function authAppliquerNiveau(u, niveau) {
+  if (u && u.uid !== DASH_OWNER && niveau !== 'complet') authLectureSeule();
 }
 function authRefuser(uid, d) {
   if (!confirm('Refuser la demande de ' + (d.email || d.nom || uid) + ' ?')) return;
@@ -2569,7 +2619,12 @@ function authDemandeAcces(u, go) {
     .then(() => { if (st) st.textContent = 'Demande envoyée au propriétaire du dashboard. Cette page s’ouvrira toute seule dès qu’il l’aura acceptée.'; })
     .catch((e) => { if (st) st.textContent = 'Demande impossible à envoyer (' + (e.code || e.message) + '). Recharge la page pour réessayer.'; console.error('[acces] demande', e); });
   const ref = db.ref('acces/' + u.uid);
-  const cb = ref.on('value', (snap) => { if (snap.exists()) { authAttenteStop(); go(); } }, (e) => console.warn('[acces] attente', e));
+  const cb = ref.on('value', (snap) => {
+    if (!snap.exists()) return;
+    authAttenteStop();
+    authAppliquerNiveau(u, (snap.val() || {}).niveau);
+    go();
+  }, (e) => console.warn('[acces] attente', e));
   DASH_ACCES_OFF = () => ref.off('value', cb);
 }
 function authAttenteStop() { if (DASH_ACCES_OFF) { DASH_ACCES_OFF(); DASH_ACCES_OFF = null; } }
@@ -2594,7 +2649,12 @@ function authGate(start) {
     authDemandesSuivi(u);
     if (lance) return;
     authAttenteStop();
-    db.ref('lastDataUpdate').once('value').then(() => go(), () => {
+    db.ref('lastDataUpdate').once('value').then(() => {
+      if (!u || u.uid === DASH_OWNER) { go(); return; }
+      // personne de la liste des acces : niveau avant le demarrage (lecture seule = ecritures neutralisees)
+      db.ref('acces/' + u.uid + '/niveau').once('value')
+        .then((n) => { authAppliquerNiveau(u, n.val()); go(); }, () => { authAppliquerNiveau(u, null); go(); });
+    }, () => {
       if (lance || DASH_USER !== u) return;   // entre-temps : demarre, ou autre compte
       if (u) { authGateVue('refus', u); authDemandeAcces(u, go); } else authGateVue('login');
     });

@@ -3,7 +3,7 @@
     ".read": "auth != null && (auth.uid === '3TeVRklUsThrykDDWlGKM3S5IPK2' || root.child('acces').child(auth.uid).exists())",
     ".write": "auth != null && auth.uid === '3TeVRklUsThrykDDWlGKM3S5IPK2'",
     "$noeud": {
-      ".write": "auth != null && $noeud !== 'acces' && $noeud !== 'demandesAcces' && root.child('acces').child(auth.uid).exists()"
+      ".write": "auth != null && $noeud !== 'acces' && $noeud !== 'demandesAcces' && root.child('acces').child(auth.uid).child('niveau').val() === 'complet'"
     },
     "acces": {
       "$uid": { ".read": "auth != null && auth.uid === $uid" }
