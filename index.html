@@ -17089,12 +17089,12 @@ function syncRevolutLoan() {
 // EMPRUNTS A ECHEANCIER OFFICIEL AJOUTES LE 05/10/2026 (meme principe que Younited / Revolut, en generique)
 // Valeurs = CAPITAL restant du apres l'echeance du mois (source : tableau d'amortissement officiel). Avant le jour
 // de prelevement, le mois en cours reprend le mois precedent. L'emprunt est ajoute a la liste s'il n'y est pas.
-//  - Revolut 2 : contrat UPL/2026/03/01, 10 000 EUR, 6,03 % (TAEG 6,2 %), 84 x 146,26 EUR le 11, 11/04/2026 -> 11/03/2033
+//  - Revolut 2 : contrat UPL/2026/03/01, 10 000 EUR, 6,03 % (TAEG 6,2 %), 84 x 146,26 EUR, 04/2026 -> 03/2033 (preleve le 1er du mois)
 //    (le contrat donne le solde debiteur, interets compris : capital restant = 10 000 - cumul du capital rembourse)
 //  - Pret personnel n. 80511-00060990519 : 30 000 EUR, 6,314 % (TAEG 6,50 %), 120 x 337,81 EUR le 8, 08/07/2026 -> 08/06/2036
 // ══════════════════════════════════════════════════════════════
 const LOANS_SCHEDULED = [
-  { name: 'Emprunt Revolut 2', payment: 146.26, payday: 11, first: '2026-03', last: '2033-03',
+  { name: 'Emprunt Revolut 2', payment: 146.26, payday: 1, first: '2026-03', last: '2033-03',   // prélèvement déplacé du 11 au 1er du mois (option Revolut, comme le 1er prêt)
     schedule: {
   '2026-03':10000.00, // mise à disposition (03/03/2026), avant la 1re échéance du 11/04
   '2026-04':9904.89,'2026-05':9807.83,'2026-06':9711.79,'2026-07':9613.53,'2026-08':9516.56,
