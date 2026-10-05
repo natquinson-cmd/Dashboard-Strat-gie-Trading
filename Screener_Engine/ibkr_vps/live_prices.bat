@@ -7,7 +7,8 @@ REM Prerequis : meme venv que le screener (requirements.txt deja installe).
 cd /d "%~dp0"
 
 set "FIREBASE_DB_URL=https://portfolio-dashboard-f0c69-default-rtdb.firebaseio.com"
-REM set "FIREBASE_DB_SECRET=colle_ton_secret_ici"   REM seulement si regles Firebase fermees
+REM Cle secrete Firebase : JAMAIS dans ce fichier (depot public). Les scripts lisent la variable systeme
+REM FIREBASE_DB_SECRET, posee une fois par setx /M (voir Securite_Firebase\LISEZMOI.md, test : verifier_cle.bat).
 
 if exist ".venv\Scripts\python.exe" (
   ".venv\Scripts\python.exe" live_prices.py

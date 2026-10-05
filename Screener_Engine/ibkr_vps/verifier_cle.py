@@ -1,0 +1,44 @@
+# verifier_cle.py : verifie que la cle secrete de la base Firebase (variable FIREBASE_DB_SECRET) est posee et
+# VALIDE sur cette machine, sans jamais l'afficher. Test en lecture seule : les regles de la base
+# (.settings/rules) ne se lisent qu'avec la cle administrateur ; 200 = cle valide, 401/403 = cle absente, fausse
+# ou revoquee. Une lecture de donnees ne prouverait rien tant que la base est ouverte : Firebase y accepte meme
+# une cle fausse.
+# Usage : verifier_cle.bat (VPS) ou « python verifier_cle.py » (PC du Stream Deck), dans une NOUVELLE fenetre
+# ouverte apres le setx : une fenetre deja ouverte ne voit pas la nouvelle variable.
+import os
+import sys
+import urllib.error
+import urllib.parse
+import urllib.request
+
+DB = os.environ.get('FIREBASE_DB_URL') or 'https://portfolio-dashboard-f0c69-default-rtdb.firebaseio.com'
+
+
+def main():
+    brute = os.environ.get('FIREBASE_DB_SECRET') or ''
+    cle = brute.strip()
+    if not cle:
+        print('ECHEC : la variable FIREBASE_DB_SECRET est absente de cette fenetre.')
+        print('  VPS : setx /M FIREBASE_DB_SECRET "..." dans un CMD administrateur, puis ouvre une NOUVELLE fenetre.')
+        print('  PC  : setx FIREBASE_DB_SECRET "..." puis ouvre une NOUVELLE fenetre.')
+        return 1
+    if cle != brute:
+        print('ATTENTION : la cle commence ou finit par un espace, les scripts l\'enverraient tel quel. Refais le setx.')
+        return 4
+    url = DB.rstrip('/') + '/.settings/rules.json?auth=' + urllib.parse.quote(cle, safe='')
+    try:
+        with urllib.request.urlopen(url, timeout=20) as r:
+            r.read()
+        print('OK : cle valide (%d caracteres), acces administrateur a la base confirme.' % len(cle))
+        return 0
+    except urllib.error.HTTPError as e:
+        print('ECHEC : cle refusee par Firebase (HTTP %d). Recopie-la depuis la console :' % e.code)
+        print('  Parametres du projet, Comptes de service, Codes secrets de la base de donnees.')
+        return 2
+    except Exception as e:
+        print('ECHEC : Firebase injoignable (%s : %s). Verifie le reseau puis relance.' % (type(e).__name__, e))
+        return 3
+
+
+if __name__ == '__main__':
+    sys.exit(main())

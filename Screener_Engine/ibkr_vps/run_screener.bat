@@ -17,7 +17,8 @@ cd /d "%~dp0"
 
 REM --- Firebase (destination du classement, lu par le dashboard) ---
 set "FIREBASE_DB_URL=https://portfolio-dashboard-f0c69-default-rtdb.firebaseio.com"
-REM set "FIREBASE_DB_SECRET=colle_ton_secret_ici"   REM ou GOOGLE_APPLICATION_CREDENTIALS
+REM Cle secrete Firebase : JAMAIS dans ce fichier (depot public). Les scripts lisent la variable systeme
+REM FIREBASE_DB_SECRET, posee une fois par setx /M (voir Securite_Firebase\LISEZMOI.md, test : verifier_cle.bat).
 
 REM --- Reglages du screener SMALL/MID CAP uniquement (sans effet en --mode=quality) ---
 set "SCREEN_MIN_REVGROWTH=0.30"      REM croissance CA mini (0.30)
