@@ -8,6 +8,7 @@ Après : tout est réservé au compte Google du propriétaire, sauf les exceptio
 | Client | Accès après verrouillage |
 |---|---|
 | Dashboard trading, Partitions (SongBook) | connexion Google du propriétaire (même domaine `natquinson-cmd.github.io`) |
+| Personnes ajoutées par le propriétaire (liste `acces`) | connexion Google : lecture et modification de toutes les données, sauf la liste des accès |
 | Scripts du VPS (cours, screener, brief, synchro IG) | clé secrète `FIREBASE_DB_SECRET` (variable d'environnement système) |
 | Pont IG (`darwinex-bridge`) | même clé (variable d'environnement, ou `config.json` firebase.secret) |
 | Stream Deck (PC) | même clé (variable d'environnement utilisateur) |
@@ -33,3 +34,11 @@ Elle ne passe jamais par le chat, un fichier du dépôt ou la page.
 3. **PC** (Stream Deck), CMD normal : `setx FIREBASE_DB_SECRET "la_cle"`, puis quitter complètement Stream Deck (icône près de l'horloge) et le relancer. Test : `python Screener_Engine\ibkr_vps\verifier_cle.py` dans une nouvelle fenêtre.
 
 Le test lit les règles de la base, lecture que seule la clé administrateur autorise : il distingue une clé valide d'une clé fausse même tant que la base est ouverte.
+
+## Donner ou retirer un accès (sans toucher aux règles)
+
+1. La personne ouvre le dashboard et se connecte avec son compte Google : l'écran « n'a pas encore accès » s'affiche et une demande est déposée (`demandesAcces/{uid}`).
+2. Un badge apparaît sur ton bouton de compte (initiale en haut à droite) : clic, « Accorder ». Sa page s'ouvre toute seule.
+3. Retirer : même menu, « Retirer » en face de la personne.
+
+L'accès accordé est COMPLET (tout voir, tout modifier, Partitions compris), mais la liste des accès reste réservée au propriétaire : une personne ajoutée ne peut ni ajouter quelqu'un d'autre ni s'en retirer.

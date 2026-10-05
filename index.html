@@ -1176,6 +1176,20 @@
   .auth-text { font-size: 0.9rem; color: var(--text-secondary); margin: 10px 0 18px; line-height: 1.5; }
   .auth-go { padding: 11px 18px; border-radius: 10px; border: none; background: #3563e9; color: #fff; font: inherit; font-weight: 700; cursor: pointer; }
   .auth-err { color: var(--negative); font-size: 0.82rem; margin-top: 12px; }
+  .auth-text b { color: var(--text-primary); word-break: break-all; }
+  .auth-wait { font-size: 0.84rem; color: var(--text-primary); background: var(--bg-primary); border: 1px solid var(--border); border-radius: 10px;
+    padding: 10px 12px; margin-bottom: 16px; line-height: 1.45; }
+  .auth-alt { padding: 9px 16px; border-radius: 10px; border: 1px solid var(--border); background: var(--bg-card); color: var(--text-primary); font: inherit; cursor: pointer; }
+  .auth-btn[data-n]::after { content: attr(data-n); position: absolute; top: -6px; right: -6px; min-width: 17px; height: 17px; padding: 0 4px;
+    border-radius: 9px; background: var(--negative); color: #fff; font-size: 0.64rem; font-weight: 800; line-height: 17px; text-align: center; box-sizing: border-box; }
+  .auth-menu .am-acc { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-top: 1px solid var(--border); }
+  .auth-menu .am-acc:first-of-type { border-top: none; }
+  .auth-menu .am-acc .am-who { flex: 1; min-width: 0; }
+  .auth-menu .am-acc .am-who div { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .auth-menu .am-acc .am-sub { font-size: 0.74rem; color: var(--text-secondary); }
+  .auth-menu .am-acc button { margin: 0; padding: 4px 9px; font-size: 0.76rem; flex: none; }
+  .auth-menu .am-acc button.am-ok { background: #3563e9; border-color: #3563e9; color: #fff; font-weight: 700; }
+  .auth-menu .am-none { font-size: 0.78rem; color: var(--text-secondary); padding: 4px 0; }
   .theme-btn {
     width: 40px; height: 40px; border-radius: 10px; margin-left: 6px;
     border: 1px solid var(--border); background: var(--bg-card); color: var(--text-secondary);
@@ -1579,8 +1593,15 @@
 <div class="auth-gate" id="authGate" hidden>
   <div class="auth-card">
     <div class="auth-title">Dashboard Trading</div>
-    <div class="auth-text">Les données sont protégées : connecte-toi avec ton compte Google pour y accéder.</div>
-    <button type="button" class="auth-go" onclick="authSignIn()">Se connecter avec Google</button>
+    <div id="authGateLogin">
+      <div class="auth-text">Les données sont protégées : connecte-toi avec ton compte Google pour y accéder.</div>
+      <button type="button" class="auth-go" onclick="authSignIn()">Se connecter avec Google</button>
+    </div>
+    <div id="authGateRefus" hidden>
+      <div class="auth-text"><b id="authGateCompte"></b> n’a pas encore accès à ce dashboard.</div>
+      <div class="auth-wait" id="authGateDemande">Envoi de la demande d’accès…</div>
+      <button type="button" class="auth-alt" onclick="authChangerCompte()">Changer de compte</button>
+    </div>
     <div class="auth-err" id="authGateErr"></div>
   </div>
 </div>
@@ -2403,7 +2424,7 @@ function authErr(e) {
 }
 function authSignIn() {
   let p;
-  try { p = new firebase.auth.GoogleAuthProvider(); } catch (e) { authErr(e); return; }
+  try { p = new firebase.auth.GoogleAuthProvider(); p.setCustomParameters({ prompt: 'select_account' }); } catch (e) { authErr(e); return; }
   firebase.auth().signInWithPopup(p).catch((e) => {
     // fenetre bloquee (certains mobiles) : on passe par une redirection
     if (e && (e.code === 'auth/popup-blocked' || e.code === 'auth/operation-not-supported-in-this-environment')) return firebase.auth().signInWithRedirect(p).catch(authErr);
@@ -2423,6 +2444,11 @@ function authMenuToggle() {
   const m = document.getElementById('authMenu');
   if (!m) return;
   if (!m.hidden) { m.hidden = true; return; }
+  authMenuRender();
+}
+function authMenuRender() {
+  const m = document.getElementById('authMenu');
+  if (!m) return;
   const u = DASH_USER;
   const kids = u ? [
     scrEl('div', { style: 'font-weight:800', text: u.displayName || 'Compte Google' }),
@@ -2444,16 +2470,118 @@ function authMenuToggle() {
     actions.append(entrer);
   }
   kids.push(actions);
+  if (u && u.uid === DASH_OWNER) kids.push(authAccesSection());
   m.replaceChildren(...kids);
   m.hidden = false;
 }
+
+// ====== ACCES AU DASHBOARD (05/10/2026) ======
+// Les regles Firebase lisent la liste acces/{uid} : y figurer = lecture ET ecriture de toutes les donnees, sauf
+// la liste des acces elle-meme, reservee au proprietaire. Une personne qui se connecte sans y figurer depose
+// une demande (demandesAcces/{uid}) ; le proprietaire l'accorde ou la refuse depuis ce menu.
+// UID du proprietaire : rien de secret (il figure aussi dans les regles publiees).
+const DASH_OWNER = '3TeVRklUsThrykDDWlGKM3S5IPK2';
+let DASH_DEMANDES = {};
+let DASH_DEMANDES_SUIVI = false;
+let DASH_ACCES_OFF = null;
+function authDateCourte(t) {
+  return t ? new Date(t).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
+}
+function authPersonne(uid, d, sub, boutons) {
+  return scrEl('div', { cls: 'am-acc', kids: [
+    scrEl('div', { cls: 'am-who', kids: [
+      scrEl('div', { style: 'font-weight:700', text: (d && (d.nom || d.email)) || uid }),
+      scrEl('div', { cls: 'am-sub', text: [d && d.nom ? d.email : '', sub].filter(Boolean).join(' · ') })] }),
+    ...boutons] });
+}
+function authBouton(txt, cls, fn) {
+  const b = scrEl('button', { text: txt, cls, attrs: { type: 'button' } });
+  b.onclick = (e) => { e.stopPropagation(); fn(b); };
+  return b;
+}
+function authAccesSection() {
+  const box = scrEl('div', { kids: [scrEl('div', { cls: 'am-lbl', style: 'margin-top:16px', text: 'Accès au dashboard' })] });
+  const ids = Object.keys(DASH_DEMANDES || {});
+  if (ids.length) {
+    box.append(scrEl('div', { cls: 'am-sub', style: 'margin:6px 0 2px;font-weight:700;color:var(--text-primary)', text: ids.length > 1 ? ids.length + ' demandes en attente' : '1 demande en attente' }));
+    ids.forEach((uid) => {
+      const d = DASH_DEMANDES[uid] || {};
+      box.append(authPersonne(uid, d, 'demande du ' + authDateCourte(d.at), [
+        authBouton('Accorder', 'am-ok', () => authAccorder(uid, d)),
+        authBouton('Refuser', '', () => authRefuser(uid, d))]));
+    });
+  }
+  const liste = scrEl('div', { kids: [scrEl('div', { cls: 'am-none', text: 'Chargement…' })] });
+  box.append(scrEl('div', { cls: 'am-sub', style: 'margin:10px 0 2px', text: 'Ont accès en plus de toi (lecture et modification) :' }), liste);
+  db.ref('acces').once('value').then((snap) => {
+    const v = snap.val() || {};
+    const uids = Object.keys(v);
+    liste.replaceChildren(...(uids.length ? uids.map((uid) => authPersonne(uid, v[uid], 'depuis le ' + authDateCourte(v[uid] && v[uid].depuis), [
+      authBouton('Retirer', '', () => authRetirer(uid, v[uid]))])) : [scrEl('div', { cls: 'am-none', text: 'Personne.' })]));
+  }, (e) => { liste.replaceChildren(scrEl('div', { cls: 'am-err', text: 'Liste illisible : ' + (e.code || e.message) })); });
+  return box;
+}
+function authAccorder(uid, d) {
+  const qui = d.email || d.nom || uid;
+  if (!confirm('Donner à ' + qui + ' un accès COMPLET au dashboard ?\n\nIl pourra tout voir et tout modifier (trades, portefeuille, patrimoine). Tu pourras le retirer à tout moment depuis ce menu.')) return;
+  db.ref().update({
+    ['acces/' + uid]: { email: d.email || '', nom: d.nom || '', depuis: firebase.database.ServerValue.TIMESTAMP },
+    ['demandesAcces/' + uid]: null,
+  }).then(authMenuRender).catch(authErr);
+}
+function authRefuser(uid, d) {
+  if (!confirm('Refuser la demande de ' + (d.email || d.nom || uid) + ' ?')) return;
+  db.ref('demandesAcces/' + uid).remove().then(authMenuRender).catch(authErr);
+}
+function authRetirer(uid, d) {
+  if (!confirm('Retirer l’accès de ' + ((d && (d.email || d.nom)) || uid) + ' ?\n\nIl ne pourra plus lire ni modifier les données (au plus tard à son prochain chargement de page).')) return;
+  db.ref('acces/' + uid).remove().then(authMenuRender).catch(authErr);
+}
+// Proprietaire : badge sur le bouton de compte tant que des demandes attendent.
+function authDemandesSuivi(u) {
+  if (DASH_DEMANDES_SUIVI || !u || u.uid !== DASH_OWNER) return;
+  DASH_DEMANDES_SUIVI = true;
+  db.ref('demandesAcces').on('value', (snap) => {
+    DASH_DEMANDES = snap.val() || {};
+    const n = Object.keys(DASH_DEMANDES).length;
+    const b = document.getElementById('authBtn');
+    if (b) { if (n) { b.setAttribute('data-n', String(n)); b.title = n + ' demande(s) d’accès en attente'; } else b.removeAttribute('data-n'); }
+    const m = document.getElementById('authMenu');
+    if (m && !m.hidden) authMenuRender();
+  }, (e) => { DASH_DEMANDES_SUIVI = false; console.warn('[acces] demandes illisibles', e); });
+}
+// Ecran de connexion : 'login' (pas connecte) ou 'refus' (connecte, mais pas dans la liste des acces).
+function authGateVue(vue, u) {
+  const g = document.getElementById('authGate');
+  if (!g) return;
+  document.getElementById('authGateLogin').hidden = vue !== 'login';
+  document.getElementById('authGateRefus').hidden = vue !== 'refus';
+  if (vue === 'refus') document.getElementById('authGateCompte').textContent = 'Le compte ' + (u.email || u.displayName || u.uid);
+  showLoading(false);   // le voile « Chargement… » (z-index 9999) masquait l'ecran ; le chargement le remet au demarrage
+  g.hidden = false;
+}
+// Connecte sans acces : demande deposee pour le proprietaire, puis attente ; la page s'ouvre toute seule des
+// que l'acces est accorde (chacun peut lire sa propre entree acces/{uid}).
+function authDemandeAcces(u, go) {
+  const st = document.getElementById('authGateDemande');
+  if (st) st.textContent = 'Envoi de la demande d’accès…';
+  db.ref('demandesAcces/' + u.uid).set({ email: u.email || u.uid, nom: u.displayName || '', at: firebase.database.ServerValue.TIMESTAMP })
+    .then(() => { if (st) st.textContent = 'Demande envoyée au propriétaire du dashboard. Cette page s’ouvrira toute seule dès qu’il l’aura acceptée.'; })
+    .catch((e) => { if (st) st.textContent = 'Demande impossible à envoyer (' + (e.code || e.message) + '). Recharge la page pour réessayer.'; console.error('[acces] demande', e); });
+  const ref = db.ref('acces/' + u.uid);
+  const cb = ref.on('value', (snap) => { if (snap.exists()) { authAttenteStop(); go(); } }, (e) => console.warn('[acces] attente', e));
+  DASH_ACCES_OFF = () => ref.off('value', cb);
+}
+function authAttenteStop() { if (DASH_ACCES_OFF) { DASH_ACCES_OFF(); DASH_ACCES_OFF = null; } }
+function authChangerCompte() { authAttenteStop(); firebase.auth().signOut().catch(authErr); }
 document.addEventListener('click', (e) => {
   const m = document.getElementById('authMenu');
   if (m && !m.hidden && !e.target.closest('#authMenu') && !e.target.closest('#authBtn')) m.hidden = true;
 });
-// Demarrage : attend la 1re reponse d'authentification (session memorisee, quasi immediate). Connecte -> demarre.
-// Pas connecte : lecture d'essai ; base encore ouverte -> demarre ; permission refusee -> ecran de connexion,
-// et la page demarre des que la connexion reussit.
+// Demarrage : attend la 1re reponse d'authentification (session memorisee, quasi immediate), puis lecture d'essai.
+// Lecture permise (proprietaire, personne de la liste des acces, ou base ouverte) -> demarre. Refusee : pas
+// connecte -> ecran de connexion ; connecte sans acces -> demande d'acces et attente. La page demarre des que
+// la connexion reussit ou que l'acces est accorde.
 function authGate(start) {
   let lance = false;
   const go = () => { if (lance) return; lance = true; const g = document.getElementById('authGate'); if (g) g.hidden = true; start(); };
@@ -2463,11 +2591,12 @@ function authGate(start) {
   auth.onAuthStateChanged((u) => {
     DASH_USER = u;
     authUiSync();
+    authDemandesSuivi(u);
     if (lance) return;
-    if (u) { go(); return; }
+    authAttenteStop();
     db.ref('lastDataUpdate').once('value').then(() => go(), () => {
-      const g = document.getElementById('authGate');
-      if (g) g.hidden = false;
+      if (lance || DASH_USER !== u) return;   // entre-temps : demarre, ou autre compte
+      if (u) { authGateVue('refus', u); authDemandeAcces(u, go); } else authGateVue('login');
     });
   });
 }
