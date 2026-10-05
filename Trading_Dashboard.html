@@ -8911,7 +8911,10 @@ function kidsMoney(v, dec) {
 //  - un nouvel apport achete des parts a la valeur du jour, au nom de l'enfant ;
 //  - les parts de VWCE achetees par la cagnotte vont dans stocks/kids (beneficiaire « Cagnotte », pot:true) : la
 //    valeur et la courbe de l'ETF restent calculees par kidsCompute / kidsHistSeries, sans double comptage ;
-//  - mouvements Lendermarket dans stocks/kidsPot/lm (solde apres chaque mouvement), apports dans stocks/kidsPot/apports.
+//  - mouvements Lendermarket dans stocks/kidsPot/lm (solde apres chaque mouvement), apports dans stocks/kidsPot/apports ;
+//  - PLUS-VALUE depuis le 04/09/2026, premier investissement en ETF (stocks/kidsPot/depart : versements ETF + solde
+//    Lendermarket de Noah et Elie ce jour-la), pas depuis la bascule. Elle comprend les interets Lendermarket ;
+//    decomposition : ETF = valeur - prix paye, Lendermarket = le reste (ecarts d'arrondi des transferts compris).
 // Avant la bascule, le solde Lendermarket des enfants est reconstitue en remontant les transferts vers l'ETF
 // (interets de septembre comptes des le debut du mois : approximation de quelques dizaines d'euros).
 // ══════════════════════════════════════════════════════════════
@@ -8954,7 +8957,11 @@ function potCompute() {
   const etf = kidsCompute(), lm = potLmNow();
   const value = (etf.value != null) ? etf.value + lm : null;
   const ap = potApports(), parts = {}, base = {};
-  Object.keys(b.enfants).forEach((n) => { parts[n] = +b.enfants[n].parts || 0; base[n] = +b.enfants[n].total || 0; });
+  const dep = (SCR_KIDS_POT && SCR_KIDS_POT.depart && SCR_KIDS_POT.depart.enfants) ? SCR_KIDS_POT.depart : null;
+  Object.keys(b.enfants).forEach((n) => {
+    parts[n] = +b.enfants[n].parts || 0;
+    base[n] = (dep && dep.enfants[n] != null) ? +dep.enfants[n] : (+b.enfants[n].total || 0);   // investi au 04/09/2026
+  });
   ap.forEach((a) => { parts[a.child] = (parts[a.child] || 0) + (+a.parts || 0); base[a.child] = (base[a.child] || 0) + (+a.amount || 0); });
   const totalParts = Object.keys(parts).reduce((s, n) => s + parts[n], 0);
   const nav = (value != null && totalParts > 0) ? value / totalParts : null;
@@ -8964,8 +8971,9 @@ function potCompute() {
              base: base[n], gain: (v != null) ? v - base[n] : null, gainPct: (v != null && base[n] > 0) ? v / base[n] - 1 : null };
   }).sort((x, y) => y.parts - x.parts);
   const baseTot = kids.reduce((s, k) => s + k.base, 0);
-  const tgt = potCfg().lmTarget;
-  return { b: b, etf: etf, etfValue: etf.value, lm: lm, value: value, totalParts: totalParts, nav: nav, kids: kids, base: baseTot,
+  const tgt = potCfg().lmTarget, gainTot = (value != null) ? value - baseTot : null;
+  const etfGain = (etf.value != null) ? etf.value - etf.invested : null;
+  return { since: dep ? dep.date : b.date, etfGain: etfGain, lmGain: (gainTot != null && etfGain != null) ? gainTot - etfGain : null, b: b, etf: etf, etfValue: etf.value, lm: lm, value: value, totalParts: totalParts, nav: nav, kids: kids, base: baseTot,
            gain: (value != null) ? value - baseTot : null, gainPct: (value != null && baseTot > 0) ? value / baseTot - 1 : null,
            lmPct: (value > 0) ? lm / value : null, target: (tgt != null && isFinite(+tgt)) ? +tgt : null };
 }
@@ -9209,7 +9217,7 @@ function potToday() { return scrLocalDay(new Date()); }
 // ---- Sous-onglet CAGNOTTE ----
 function renderPotMain(host) {
   const P = potCompute(), M = potMoves(P), cfg = kidsCfg(), b = P.b, F = potFmt();
-  const mois = monthNamesFull[new Date().getMonth()].toLowerCase(), dB = potDate(b.date);
+  const mois = monthNamesFull[new Date().getMonth()].toLowerCase(), dB = potDate(b.date), dS = potDate(P.since);
   const reste = (P.target != null && P.value != null) ? Math.max(0, P.lm - P.target * P.value) : null;
   const navTxt = P.nav == null ? '–' : P.nav.toLocaleString('fr-FR', { minimumFractionDigits: 4, maximumFractionDigits: 4 }) + ' €';
   const hero = potHero('Cagnotte des enfants · ETF + Lendermarket', 'parts figées le ' + dB + ' · hors de ton capital, de ta performance et de ta répartition',
@@ -9220,10 +9228,10 @@ function renderPotMain(host) {
         'Variation depuis la dernière clôture, nette des nouveaux apports. Un transfert de Lendermarket vers l’ETF ne la change pas.'),
       potCell('Ce mois', F.S(M.month), M.month == null ? '' : (F.P(M.monthPct) + ' en ' + mois), F.col(M.month),
         'Variation depuis la dernière clôture du mois précédent, nette des nouveaux apports. Les intérêts Lendermarket y entrent à leur saisie.'),
-      potCell('Depuis la bascule', F.S(P.gain), F.P(P.gainPct, 2) + ' depuis le ' + dB.slice(0, 5), F.col(P.gain),
-        'Gain depuis la mise en cagnotte du ' + dB + ' (valeur alors ' + F.E(b.total) + '), nouveaux apports déduits.'),
-      potCell('Valeur de la part', navTxt, '1 part = 1 € le ' + dB, '#3563e9',
-        'Chaque enfant détient des parts. Leur nombre ne change qu’avec un nouvel apport ; leur valeur suit celle de la cagnotte.'),
+      potCell('Plus-value', F.S(P.gain), F.P(P.gainPct, 2) + ' depuis le ' + dS.slice(0, 5) + ' · ETF ' + F.S(P.etfGain) + ' · Lendermarket ' + F.S(P.lmGain), F.col(P.gain),
+        'Gain depuis le ' + dS + ', premier investissement en ETF : plus-value de l’ETF (valeur moins prix payé) et intérêts Lendermarket (le reste, écarts d’arrondi des transferts compris). Nouveaux apports déduits.'),
+      potCell('Investi', F.E(P.base), 'au ' + dS + ' : ETF + Lendermarket', '#3563e9',
+        'Ce que les enfants avaient le ' + dS + ' (versements en ETF et solde Lendermarket de Noah et Elie), plus les nouveaux apports. Valeur d’une part de cagnotte : ' + navTxt + ' (1 € le ' + dB + ').'),
       potCell('Lendermarket', P.lmPct == null ? '–' : potNum(P.lmPct * 100, 1) + ' %', P.target == null ? 'de la cagnotte · aucune cible fixée'
         : ('cible ' + potNum(P.target * 100, 0) + ' % · ' + (reste > 0.5 ? fmt(reste) + ' € à transférer' : 'cible atteinte')), POT_COL.lm,
         'Part de la cagnotte placée sur Lendermarket. La cible se règle dans le sous-onglet Lendermarket.')],
@@ -9238,20 +9246,21 @@ function renderPotMain(host) {
   const td = (t, extra) => scrEl('td', { text: t, style: 'padding:7px 9px;text-align:right;' + bd + (extra || '') });
   const tbody = scrEl('tbody');
   P.kids.forEach((k, i) => {
-    tbody.appendChild(scrEl('tr', { attrs: { title: k.child + ' : ' + F.E(k.value) + ', dont ETF ' + F.E(k.etf) + ' et Lendermarket ' + F.E(k.lm) + '. ' + (+k.parts.toFixed(2)).toLocaleString('fr-FR') + ' parts.' }, kids: [
+    tbody.appendChild(scrEl('tr', { attrs: { title: k.child + ' : ' + F.E(k.value) + ', dont ETF ' + F.E(k.etf) + ' et Lendermarket ' + F.E(k.lm) + '. Investi au ' + dS + ' : ' + F.E(k.base) + '. ' + (+k.parts.toFixed(2)).toLocaleString('fr-FR') + ' parts de cagnotte.' }, kids: [
       scrEl('td', { style: 'padding:7px 9px;' + bd + ';min-width:150px', kids: [
         scrEl('div', { style: 'display:flex;align-items:center;gap:7px', kids: [
           scrEl('span', { style: 'width:10px;height:10px;border-radius:3px;display:inline-block;background:' + kidColor(k.child, i) }),
           scrEl('b', { text: k.child, style: 'color:#22303f' })] }),
         potKidBar(P, k, maxV)] }),
       td(potNum(k.share * 100, 2) + ' %', ';font-weight:800;color:#3563e9'),
+      td(F.E(k.base), ';color:#42546a'),
       td(F.E(k.value), ';font-weight:700;color:#22303f'),
       td(F.E(k.etf), ';color:' + POT_COL.etf),
       td(F.E(k.lm), ';color:' + POT_COL.lm),
       td(k.gain == null ? '–' : F.S(k.gain) + ' (' + F.P(k.gainPct, 2) + ')', ';font-weight:700;white-space:nowrap;color:' + F.col(k.gain))] }));
   });
   const table = scrEl('table', { style: 'width:100%;border-collapse:collapse;font-size:0.82rem', kids: [
-    scrEl('thead', { kids: [scrEl('tr', { style: 'background:#f6f8fb;color:#5b6b7d', kids: [th('Enfant', 'left'), th('Part'), th('Valeur'), th('dont ETF'), th('dont Lendermarket'), th('Depuis la bascule')] })] }), tbody] });
+    scrEl('thead', { kids: [scrEl('tr', { style: 'background:#f6f8fb;color:#5b6b7d', kids: [th('Enfant', 'left'), th('Part'), th('Investi'), th('Valeur'), th('dont ETF'), th('dont Lendermarket'), th('Plus-value')] })] }), tbody] });
   wrap.appendChild(scrEl('div', { style: 'display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start;margin-bottom:14px', kids: [
     scrEl('div', { style: 'flex:0 0 auto;background:#fafbfc;border:1px solid #eef1f5;border-radius:12px;padding:12px', kids: [
       scrEl('div', { text: 'Parts de la cagnotte', style: 'font-size:0.7rem;text-transform:uppercase;letter-spacing:.03em;color:#5b6b7d;font-weight:700;margin-bottom:10px' }),
@@ -9306,7 +9315,7 @@ function renderPotMain(host) {
     text: 'Le ' + dB + ', la poche ETF (' + F.E(b.etf.value) + ') et la poche Lendermarket de Noah et Elie (' + F.E(b.lendermarket.total) + ') ont été réunies en une seule cagnotte de '
       + F.E(b.total) + '. Chaque enfant a reçu autant de parts que d’euros détenus ce jour-là : '
       + Object.keys(b.enfants).sort((x, y) => b.enfants[y].parts - b.enfants[x].parts).map((n) => n + ' ' + potNum(b.enfants[n].parts / b.totalParts * 100, 2) + ' %').join(', ')
-      + '. Un transfert de Lendermarket vers l’ETF ne change la part de personne ; un nouvel apport achète des parts à la valeur du jour. Répartition sauvegardée dans la base (stocks/kidsPot/bascule) et envoyée par mail le jour de la bascule. La cagnotte n’entre ni dans ton capital, ni dans ta performance, ni dans ta répartition.' }), 'potCompte', 'margin-top:4px'));
+      + '. Un transfert de Lendermarket vers l’ETF ne change la part de personne ; un nouvel apport achète des parts à la valeur du jour. La plus-value se compte depuis le ' + dS + ', premier investissement en ETF : ' + F.E(P.base) + ' investis ce jour-là (versements en ETF et solde Lendermarket de Noah et Elie), intérêts Lendermarket compris. Répartition sauvegardée dans la base (stocks/kidsPot/bascule) et envoyée par mail le jour de la bascule. La cagnotte n’entre ni dans ton capital, ni dans ta performance, ni dans ta répartition.' }), 'potCompte', 'margin-top:4px'));
 
   const outer = scrEl('div');
   if (M_MQ.matches) outer.appendChild(scrEl('div', { cls: 'm-only', kids: [mPotScreen(P, M, cfg)] }));
@@ -9324,7 +9333,11 @@ function mPotScreen(P, M, cfg) {
   const lignes = [scrEl('div', { cls: 'mp-lbl', text: 'Cagnotte des enfants' }), scrEl('div', { cls: 'mp-big', text: F.E(P.value) })];
   if (M.day != null) lignes.push(sub('Aujourd’hui', M.day, M.dayPct));
   if (M.month != null) lignes.push(sub(monthNamesFull[new Date().getMonth()], M.month, M.monthPct));
-  if (P.gain != null) lignes.push(sub('Depuis le ' + dB.slice(0, 5), P.gain, P.gainPct));
+  const dS = potDate(P.since);
+  if (P.gain != null) {
+    lignes.push(sub('Plus-value depuis le ' + dS.slice(0, 5), P.gain, P.gainPct));
+    lignes.push(scrEl('div', { cls: 'mp-sub', text: 'dont ETF ' + F.S(P.etfGain) + ' · Lendermarket ' + F.S(P.lmGain) + ' · investi ' + F.E(P.base) }));
+  }
   box.appendChild(scrEl('div', { cls: 'mp-card', kids: lignes }));
   box.appendChild(scrEl('div', { cls: 'mp-card', kids: [scrEl('div', { cls: 'mp-lbl', text: 'ETF et Lendermarket', style: 'margin-bottom:8px' }), potMixBar(P, 12), potMixLegend(P)] }));
   box.appendChild(scrEl('div', { cls: 'mp-card', kids: [scrEl('div', { cls: 'mp-lbl', text: 'Évolution de la cagnotte', style: 'margin-bottom:6px' }), mpCurve(M.serie, eurK)] }));
@@ -9349,7 +9362,7 @@ function mPotScreen(P, M, cfg) {
   });
   const cKids = scrEl('div', { cls: 'mp-card mp-grp' + (MP_CLOSED.potKids ? ' closed' : '') });
   const hKids = scrEl('div', { cls: 'mp-grp-head', kids: [
-    scrEl('div', { kids: [scrEl('div', { cls: 'mp-gname', text: 'Par enfant' }), scrEl('div', { cls: 'mp-tk', text: 'gain depuis le ' + dB.slice(0, 5) })] }),
+    scrEl('div', { kids: [scrEl('div', { cls: 'mp-gname', text: 'Par enfant' }), scrEl('div', { cls: 'mp-tk', text: 'plus-value depuis le ' + dS.slice(0, 5) })] }),
     scrEl('span', { cls: 'mp-gval', text: F.E(P.value), style: 'white-space:nowrap' }),
     scrEl('span', { cls: 'mp-chev', text: '▾' })] });
   hKids.onclick = () => { MP_CLOSED.potKids = !MP_CLOSED.potKids; cKids.classList.toggle('closed', !!MP_CLOSED.potKids); };
@@ -9390,6 +9403,8 @@ function renderPotLm(host) {
       potCell('Capital Lendermarket', F.E(P.lm), 'solde au ' + potDate(lastDate), '#22303f', 'Dernier solde saisi : prêts en cours et espèces sur le compte Lendermarket de la cagnotte.', true),
       potCell('Intérêts du dernier mois', it ? F.S(it.v) : '–', it ? (potDate(it.date) + (yld != null ? ' · ≈ ' + potNum(yld * 100, 1) + ' % par an' : '')) : 'aucune mise à jour', '#1d9e74',
         'Intérêts saisis lors de la dernière mise à jour mensuelle. Le taux annuel est une approximation : intérêts du mois × 12 / solde.'),
+      potCell('Depuis le ' + potDate(P.since).slice(0, 5), F.S(P.lmGain), 'intérêts Lendermarket cumulés', '#1d9e74',
+        'Rendement de la poche Lendermarket depuis le ' + potDate(P.since) + ' : plus-value totale de la cagnotte moins celle de l’ETF (écarts d’arrondi des transferts compris).'),
       potCell('Part de la cagnotte', P.lmPct == null ? '–' : potNum(P.lmPct * 100, 1) + ' %', 'sur ' + F.E(P.value), POT_COL.lm, 'Poids de Lendermarket dans la cagnotte des enfants.'),
       potCell('Cible', P.target == null ? '–' : potNum(P.target * 100, 0) + ' %', 'ton choix, réglable plus bas', '#5b6b7d', 'Part de la cagnotte que tu veux garder sur Lendermarket. Un repère, pas une recommandation.'),
       potCell('Reste à transférer', reste == null ? '–' : F.E(reste), reste == null ? 'fixe une cible pour le calculer' : 'vers l’ETF pour atteindre la cible', reste > 0.5 ? '#3563e9' : '#1d9e74',

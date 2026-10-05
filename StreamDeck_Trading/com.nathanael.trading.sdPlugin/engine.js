@@ -194,8 +194,8 @@ function kidsPocket(kids, price, hist, lm, pot) {
 
 // CAGNOTTE (depuis le 05/10/2026, meme calcul que potCompute du dashboard) : chaque enfant detient des parts de la
 // cagnotte entiere (ETF + Lendermarket), figees a la bascule (1 part = 1 EUR) ; un nouvel apport en achete.
-// Valeur d'un enfant = parts x (ETF + solde Lendermarket) / total des parts. Plus-value = depuis la bascule
-// (apports deduits). Jour = variation de l'ETF au prorata de la part (Lendermarket ne bouge qu'a la saisie mensuelle).
+// Valeur d'un enfant = parts x (ETF + solde Lendermarket) / total des parts. Plus-value = depuis le 04/09/2026
+// (kidsPot/depart, interets Lendermarket compris, apports deduits). Jour = variation de l'ETF au prorata de la part (Lendermarket ne bouge qu'a la saisie mensuelle).
 function kidsCagnotte(kids, price, hist, pot) {
   const px = Number(price.price), b = pot.bascule;
   const units = asList(kids.contributions).reduce((a, c) => a + (Number(c.units) || 0), 0), etf = units * px;
@@ -203,7 +203,9 @@ function kidsCagnotte(kids, price, hist, pot) {
   const moves = asList(pot.lm).filter(m => m && m.date).sort(byDate);
   const lm = moves.length ? Number(moves[moves.length - 1].balance) : Number(b.lendermarket.total);
   const parts = {}, base = {};
-  Object.keys(b.enfants).forEach(n => { parts[n] = Number(b.enfants[n].parts) || 0; base[n] = Number(b.enfants[n].total) || 0; });
+  // plus-value depuis le 04/09/2026 (premier investissement en ETF, kidsPot/depart), interets Lendermarket compris
+  const dep = pot.depart && pot.depart.enfants;
+  Object.keys(b.enfants).forEach(n => { parts[n] = Number(b.enfants[n].parts) || 0; base[n] = dep && dep[n] != null ? Number(dep[n]) : (Number(b.enfants[n].total) || 0); });
   asList(pot.apports).forEach(a => { if (!a || !a.child) return; parts[a.child] = (parts[a.child] || 0) + (Number(a.parts) || 0); base[a.child] = (base[a.child] || 0) + (Number(a.amount) || 0); });
   const totalParts = Object.values(parts).reduce((a, v) => a + v, 0), value = etf + lm, nav = totalParts > 0 ? value / totalParts : 0;
   const d = new Date(), today = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
