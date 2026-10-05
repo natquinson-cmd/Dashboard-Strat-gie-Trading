@@ -19,6 +19,7 @@
     <!-- Firebase -->
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
     <!-- Sortable.js for drag & drop -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
     <style>
@@ -792,6 +793,16 @@
     </div>
 </div>
 
+<!-- CONNEXION (base protegee) -->
+<div id="authGate" style="display:none;position:fixed;inset:0;z-index:5000;align-items:center;justify-content:center;background:#0f172a;padding:16px">
+  <div style="max-width:360px;width:100%;background:#fff;border-radius:18px;padding:28px 24px;text-align:center;font-family:inherit">
+    <div style="font-size:1.3rem;font-weight:800;color:#0f172a">SongBook</div>
+    <div style="font-size:0.9rem;color:#475569;margin:10px 0 18px;line-height:1.5">Les chants et setlists sont protégés : connecte-toi avec ton compte Google.</div>
+    <button type="button" onclick="authSignIn()" style="padding:11px 18px;border-radius:10px;border:none;background:#3563e9;color:#fff;font:inherit;font-weight:700;cursor:pointer">Se connecter avec Google</button>
+    <div id="authGateErr" style="color:#dc2626;font-size:0.82rem;margin-top:12px"></div>
+  </div>
+</div>
+
 <!-- TOAST -->
 <div id="toast" class="toast"></div>
 
@@ -805,6 +816,39 @@ const firebaseConfig = {
 };
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
+
+// ====== CONNEXION GOOGLE (base protegee, 05/10/2026) ======
+// Base encore ouverte : l'appli demarre comme avant. Base verrouillee : seule la session du proprietaire lit
+// et ecrit le noeud songbook ; sans session, ecran de connexion, et l'appli demarre des la connexion reussie.
+const AUTH_ERREURS = {
+    'auth/operation-not-allowed': 'La connexion Google n’est pas encore activée dans la console Firebase.',
+    'auth/unauthorized-domain': 'Ce site n’est pas autorisé dans Firebase (Authentication, Authorized domains).',
+    'auth/popup-closed-by-user': 'Fenêtre de connexion fermée avant la fin.',
+    'auth/network-request-failed': 'Réseau indisponible, réessaie.' };
+function authErr(e) {
+    const el = document.getElementById('authGateErr');
+    if (el) el.textContent = (e && AUTH_ERREURS[e.code]) || ('Connexion impossible : ' + ((e && (e.code || e.message)) || 'erreur inconnue'));
+    console.error('[auth]', e);
+}
+function authSignIn() {
+    const p = new firebase.auth.GoogleAuthProvider();
+    firebase.auth().signInWithPopup(p).catch(e => {
+        if (e && (e.code === 'auth/popup-blocked' || e.code === 'auth/operation-not-supported-in-this-environment')) return firebase.auth().signInWithRedirect(p).catch(authErr);
+        authErr(e);
+    });
+}
+function authGate(start) {
+    let lance = false;
+    const go = () => { if (lance) return; lance = true; document.getElementById('authGate').style.display = 'none'; start(); };
+    let auth;
+    try { auth = firebase.auth(); } catch (e) { go(); return; }
+    auth.getRedirectResult().catch(authErr);
+    auth.onAuthStateChanged(u => {
+        if (lance) return;
+        if (u) { go(); return; }
+        db.ref('songbook/setlists').once('value').then(() => go(), () => { document.getElementById('authGate').style.display = 'flex'; });
+    });
+}
 
 // PDF.js worker
 if (typeof pdfjsLib !== 'undefined') {
@@ -2620,7 +2664,7 @@ if ('serviceWorker' in navigator) {
 }
 
 // ====== INIT ======
-loadData();
+authGate(loadData);   // apres la connexion Google, ou tout de suite tant que la base est ouverte
 </script>
 <div style="position:fixed;bottom:6px;right:10px;font-size:13px;color:rgba(79,0,255,0.45);font-family:'Nunito',sans-serif;font-weight:700;pointer-events:none;z-index:1">
   Modifié le 01/04/2026 à 17:13 (Paris)
