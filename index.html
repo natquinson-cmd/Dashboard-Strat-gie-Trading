@@ -1642,8 +1642,8 @@
   <!-- VUE MOBILE : ecran Accueil (rempli par renderMobileHome), barre du bas, menu Plus -->
   <div id="tab-accueil" class="tab-content"></div>
   <div id="mPlus">
-    <div class="m-plus-title">Trading</div><div class="m-plus-grid"><button type="button" onclick="mGo('trading','total')">Trading total</button><button type="button" onclick="mGo('trading','enfants')">Enfants</button><button type="button" onclick="mGo('trading','fixed')">Backtests</button><button type="button" onclick="mGo('trading','opportunites')">Opportunités IA</button></div>
-    <div class="m-plus-title">Portfolio</div><div class="m-plus-grid"><button type="button" onclick="mGo('invest','interests')">Intérêts</button><button type="button" onclick="mGo('invest','evolution')">Évolution</button><button type="button" onclick="mGo('invest','loans')">Emprunts</button><button type="button" onclick="mGo('invest','realestate')">Immobilier</button><button type="button" onclick="mGo('invest','simulateur')">Rembourser vs Placer</button><button type="button" onclick="mGo('invest','repartition')">Lendermarket</button><button type="button" onclick="mGo('invest','update')">Mise à jour</button></div>
+    <div class="m-plus-title">Trading</div><div class="m-plus-grid"><button type="button" onclick="mGo('trading','total')">Trading total</button><button type="button" onclick="mGo('trading','enfants')">Enfants</button><button type="button" onclick="kidsOpenSub('lm')">Lendermarket</button><button type="button" onclick="mGo('trading','fixed')">Backtests</button><button type="button" onclick="mGo('trading','opportunites')">Opportunités IA</button></div>
+    <div class="m-plus-title">Portfolio</div><div class="m-plus-grid"><button type="button" onclick="mGo('invest','interests')">Intérêts</button><button type="button" onclick="mGo('invest','evolution')">Évolution</button><button type="button" onclick="mGo('invest','loans')">Emprunts</button><button type="button" onclick="mGo('invest','realestate')">Immobilier</button><button type="button" onclick="mGo('invest','simulateur')">Rembourser vs Placer</button><button type="button" onclick="mGo('invest','update')">Mise à jour</button></div>
   </div>
   <nav id="mNav"><button type="button" data-k="home" onclick="mGo('trading','accueil')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/></svg>Accueil</button><button type="button" data-k="trading" onclick="mGo('trading','real')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 17 9 11 13 15 21 7"/><polyline points="15 7 21 7 21 13"/></svg>Trading</button><button type="button" data-k="actions" onclick="mGo('trading','screener')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V11"/><path d="M10 20V5"/><path d="M16 20v-8"/><path d="M22 20H2"/></svg>Actions</button><button type="button" data-k="portfolio" onclick="mGo('invest','overview')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="14" rx="2"/><path d="M3 10h18"/><path d="M16 14h2"/></svg>Portfolio</button><button type="button" data-k="plus" onclick="mPlusToggle(event)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/></svg>Plus</button></nav>
 
@@ -6216,6 +6216,9 @@ function loadKidsFromFirebase() {
     db.ref('stocks/kids').once('value').then((s) => { const v = s.val(); if (v) SCR_KIDS = v; }).catch(() => {}),
     db.ref('stocks/kidsPrice').once('value').then((s) => { SCR_KIDS_PRICE = s.val() || null; }).catch(() => {}),
     db.ref('stocks/kidsHistory').once('value').then((s) => { SCR_KIDS_HIST = s.val() || null; }).catch(() => {}),
+    // cagnotte (bascule du 05/10/2026) et historique de la poche Lendermarket des enfants d'avant la bascule
+    db.ref('stocks/kidsPot').once('value').then((s) => { SCR_KIDS_POT = s.val() || null; }).catch((e) => console.warn('[cagnotte] lecture', e)),
+    db.ref('dashboard/data/repartition/history').once('value').then((s) => { SCR_KIDS_LMHIST = s.val() || null; }).catch((e) => console.warn('[cagnotte] historique Lendermarket', e)),
     // S&P 500 du graphique de performance : seul l'onglet Portefeuille le chargeait, donc en ouvrant
     // directement l'onglet Enfants la courbe de comparaison manquait (case cochée, rien de tracé).
     db.ref('stocks/screener/benchmarkHistory').once('value').then((s) => { if (!SCR_BENCH) SCR_BENCH = s.val() || null; }).catch(() => {})
@@ -7573,7 +7576,8 @@ function homeFigures() {
   const algo = { col: !cb ? '#9aa7b4' : (cbDeg ? '#dd5f66' : (cbSusp ? '#e0a526' : '#1d9e74')),
     txt: !cb ? 'régime non évaluable' : (cbDeg ? 'algo : dégradation avérée' : (cb.pval < 0.10 ? 'algo : rupture suspectée' : 'algo : aucune rupture')) };
   let kids = null;
-  try { kids = kidsCompute(); } catch (e) {}
+  // cagnotte des enfants (ETF + Lendermarket) depuis le 05/10/2026 ; plus-value = gain depuis la mise en cagnotte
+  try { const pot = potCompute(); kids = pot ? { value: pot.value, pnlPct: pot.gainPct } : kidsCompute(); } catch (e) { console.warn('[accueil] cagnotte', e); }
   return { A: A, pct: pct, deb: deb, debV: debV, debCum: debCum, cap: cap, gain: gain, base: base, gainPct: pct(gain, base),
     day: day, month: month, algo: algo, loans: mLoans(), kids: kids, movers: ttlMovers() };
 }
@@ -7646,7 +7650,7 @@ function renderMobileHome() {
       em.diff != null ? S(Math.round(em.diff)) : null)] }));
   const k = H.kids;
   if (k && k.value != null) kids.push(scrEl('div', { cls: 'm-list', kids: [
-    row('Enfants', 'poche séparée, hors capital total', k.value, k.pnlPct != null ? k.pnlPct * 100 : null, () => mGo('trading', 'enfants'))] }));
+    row('Enfants', 'cagnotte ETF + Lendermarket, hors capital', k.value, k.pnlPct != null ? k.pnlPct * 100 : null, () => mGo('trading', 'enfants'))] }));
   // 4. actions du jour : plus forte hausse et plus forte baisse
   const mv = H.movers;
   if (mv.length >= 2) {
@@ -7714,7 +7718,7 @@ function renderTtlCockpit() {
     'Variation du capital restant dû depuis fin ' + em.prevLib + (em.chg != null ? ' (' + P(em.chg, 2) + ')' : '') + ' : une baisse est en vert'));
   const k = H.kids;
   if (k && k.value != null) tuiles.push(tuile('Enfants', null, k.value, k.pnlPct != null ? P(k.pnlPct * 100) : null, k.pnlPct,
-    'poche séparée, hors capital total', null, () => mGo('trading', 'enfants')));
+    'cagnotte ETF + Lendermarket, hors capital', null, () => mGo('trading', 'enfants')));
   // actions du jour et etat des collectes (barre de sante)
   const mv = H.movers, pc = (m) => m.t + ' ' + (m.c >= 0 ? '+' : '') + (m.c * 100).toFixed(1) + ' %';
   const moversCard = scrEl('div', { cls: 'ck-card', kids: [scrEl('div', { cls: 'ck-lbl', text: 'Actions du jour' }),
@@ -7761,7 +7765,8 @@ const GROUP_TABS = {
     { id: 'loans', label: 'Emprunts' },
     { id: 'realestate', label: 'Immobilier' },
     { id: 'simulateur', label: 'Rembourser vs Placer' },
-    { id: 'repartition', label: tabImg(LOGO_LENDERMARKET, 'Lendermarket') + 'Lendermarket' },
+    // Lendermarket : deplace le 05/10/2026 dans l'onglet Enfants (sous-onglet de la cagnotte). L'ancienne page
+    // (invRenderRepartition) reste dans le code, son historique alimente celui du sous-onglet.
     { id: 'update', label: 'Mise à jour' }
   ]
 };
@@ -8899,6 +8904,593 @@ function kidsMoney(v, dec) {
   return neg + a + ' ' + cur;
 }
 // ══════════════════════════════════════════════════════════════
+// CAGNOTTE DES ENFANTS (bascule du 05/10/2026, decision du user)
+// Chaque enfant detient des PARTS de la cagnotte entiere (ETF VWCE + Lendermarket), figees le jour de la bascule
+// (stocks/kidsPot/bascule, 1 part = 1 EUR ce jour-la). Valeur de la part = (ETF + Lendermarket) / nombre de parts.
+//  - un transfert Lendermarket -> ETF est INTERNE : il ne change la part de personne ;
+//  - un nouvel apport achete des parts a la valeur du jour, au nom de l'enfant ;
+//  - les parts de VWCE achetees par la cagnotte vont dans stocks/kids (beneficiaire « Cagnotte », pot:true) : la
+//    valeur et la courbe de l'ETF restent calculees par kidsCompute / kidsHistSeries, sans double comptage ;
+//  - mouvements Lendermarket dans stocks/kidsPot/lm (solde apres chaque mouvement), apports dans stocks/kidsPot/apports.
+// Avant la bascule, le solde Lendermarket des enfants est reconstitue en remontant les transferts vers l'ETF
+// (interets de septembre comptes des le debut du mois : approximation de quelques dizaines d'euros).
+// ══════════════════════════════════════════════════════════════
+let SCR_KIDS_POT = null;      // stocks/kidsPot : { bascule, lm:[mouvements], apports:[...], config:{ lmTarget } }
+let SCR_KIDS_LMHIST = null;   // dashboard/data/repartition/history : la poche Lendermarket des enfants AVANT la bascule
+const POT_COL = { etf: '#0ea5a4', lm: '#e2603a' };
+const POT_CHILD = 'Cagnotte';   // beneficiaire des achats d'ETF faits par la cagnotte elle-meme
+function potList(x) { return !x ? [] : (Array.isArray(x) ? x : Object.values(x)).filter((m) => m && m.date); }
+function potSort(a, b) { return a.date < b.date ? -1 : (a.date > b.date ? 1 : (+a.at || 0) - (+b.at || 0)); }
+function potBascule() { return (SCR_KIDS_POT && SCR_KIDS_POT.bascule && SCR_KIDS_POT.bascule.enfants) ? SCR_KIDS_POT.bascule : null; }
+function potLmMoves() { return potList(SCR_KIDS_POT && SCR_KIDS_POT.lm).sort(potSort); }
+function potApports() { return potList(SCR_KIDS_POT && SCR_KIDS_POT.apports).sort(potSort); }
+function potCfg() { return (SCR_KIDS_POT && SCR_KIDS_POT.config) || {}; }
+function potR2(x) { return Math.round(x * 100) / 100; }
+function potNum(v, d) { return (+v).toLocaleString('fr-FR', { minimumFractionDigits: d, maximumFractionDigits: d }); }   // 0,33 et non 0.33
+// 'YYYY-MM-DD' -> 05/10/2026 ; 'YYYY-MM' (historique mensuel d'avant la bascule) -> sept. 2026
+function potDate(d) {
+  const s = String(d || ''), mois = s.length === 7, x = new Date((mois ? s + '-15' : s) + 'T12:00:00');
+  if (isNaN(x)) return s;
+  return mois ? x.toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' }) : x.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
+// Solde Lendermarket de la cagnotte a une date 'YYYY-MM-DD'
+function potLmAt(date) {
+  const b = potBascule();
+  if (!b) return null;
+  let bal = +b.lendermarket.total || 0;
+  if (date >= b.date) { potLmMoves().forEach((m) => { if (m.date <= date && m.balance != null) bal = +m.balance; }); return bal; }
+  kidsContribs().forEach((c) => { if (c.source === 'lendermarket' && !c.pot && c.date > date && c.date <= b.date) bal += (+c.amount || 0); });
+  return bal;
+}
+function potLmNow() {
+  const b = potBascule(), m = potLmMoves();
+  if (!b) return null;
+  return m.length ? +m[m.length - 1].balance : +b.lendermarket.total;
+}
+// Etat courant de la cagnotte. null tant que la bascule n'existe pas.
+function potCompute() {
+  const b = potBascule();
+  if (!b) return null;
+  const etf = kidsCompute(), lm = potLmNow();
+  const value = (etf.value != null) ? etf.value + lm : null;
+  const ap = potApports(), parts = {}, base = {};
+  Object.keys(b.enfants).forEach((n) => { parts[n] = +b.enfants[n].parts || 0; base[n] = +b.enfants[n].total || 0; });
+  ap.forEach((a) => { parts[a.child] = (parts[a.child] || 0) + (+a.parts || 0); base[a.child] = (base[a.child] || 0) + (+a.amount || 0); });
+  const totalParts = Object.keys(parts).reduce((s, n) => s + parts[n], 0);
+  const nav = (value != null && totalParts > 0) ? value / totalParts : null;
+  const kids = Object.keys(parts).map((n) => {
+    const share = totalParts > 0 ? parts[n] / totalParts : 0, v = (nav != null) ? parts[n] * nav : null;
+    return { child: n, parts: parts[n], share: share, value: v, etf: (etf.value != null) ? share * etf.value : null, lm: share * lm,
+             base: base[n], gain: (v != null) ? v - base[n] : null, gainPct: (v != null && base[n] > 0) ? v / base[n] - 1 : null };
+  }).sort((x, y) => y.parts - x.parts);
+  const baseTot = kids.reduce((s, k) => s + k.base, 0);
+  const tgt = potCfg().lmTarget;
+  return { b: b, etf: etf, etfValue: etf.value, lm: lm, value: value, totalParts: totalParts, nav: nav, kids: kids, base: baseTot,
+           gain: (value != null) ? value - baseTot : null, gainPct: (value != null && baseTot > 0) ? value / baseTot - 1 : null,
+           lmPct: (value > 0) ? lm / value : null, target: (tgt != null && isFinite(+tgt)) ? +tgt : null };
+}
+// Courbe : ETF au jour le jour + solde Lendermarket a la meme date. « invested » = capital engage (achats d'ETF au
+// prix paye + solde Lendermarket) : l'ecart avec la valeur est la plus-value latente de l'ETF.
+function potSeries() {
+  if (!potBascule()) return [];
+  return kidsHistSeries().map((p) => { const lm = potLmAt(p.date) || 0; return { date: p.date, value: p.value + lm, invested: p.invested + lm, etf: p.value, lm: lm }; });
+}
+// Nouvel argent entre jusqu'a une date : seul flux a retirer des variations (les transferts internes s'annulent)
+function potApportsUpTo(date) { return potApports().reduce((s, a) => s + (a.date <= date ? (+a.amount || 0) : 0), 0); }
+function potMoves(P) {
+  const serie = potSeries(), today = scrLocalDay(new Date()), mStart = today.slice(0, 7) + '-01';
+  const prev = (before) => { for (let i = serie.length - 1; i >= 0; i--) if (serie[i].date < before) return serie[i]; return null; };
+  const pd = prev(today), pm = prev(mStart), now = P.value, apNow = potApportsUpTo(today);
+  const day = (pd && now != null) ? (now - pd.value) - (apNow - potApportsUpTo(pd.date)) : null;
+  const month = (pm && now != null) ? (now - pm.value) - (apNow - potApportsUpTo(pm.date)) : null;
+  return { serie: serie, day: day, dayPct: (day != null && pd.value > 0) ? day / pd.value : null, dayRef: pd,
+           month: month, monthPct: (month != null && pm.value > 0) ? month / pm.value : null, monthRef: pm };
+}
+// Poche Lendermarket des enfants AVANT la bascule (ancien onglet Repartition) : Noah + Elie, la part « Moi » exclue
+function potRepHist() {
+  return potList(SCR_KIDS_LMHIST).map((e) => ({ date: e.date, type: e.type, desc: e.desc || '', interest: e.interest, kids: (+e.Noah || 0) + (+e.Elie || 0) }));
+}
+function potLmInterestLast() {
+  const mv = potLmMoves().filter((m) => m.type === 'maj' && m.interest != null);
+  if (mv.length) { const m = mv[mv.length - 1]; return { v: +m.interest, date: m.date }; }
+  const h = potRepHist();
+  for (let i = h.length - 1; i >= 0; i--) if (h[i].type === 'update' && h[i].interest != null) return { v: +h[i].interest, date: h[i].date };
+  return null;
+}
+
+// ---- Saisies (proprietaire ou acces complet ; en lecture seule elles sont neutralisees) ----
+function potSaveNode(key, val) {
+  SCR_KIDS_POT = SCR_KIDS_POT || {};
+  SCR_KIDS_POT[key] = val;
+  return db.ref('stocks/kidsPot/' + key).set(val);
+}
+function potSaveContribs(list) {
+  SCR_KIDS = SCR_KIDS || {};
+  SCR_KIDS.config = SCR_KIDS.config || kidsCfg();
+  SCR_KIDS.contributions = list;
+  return db.ref('stocks/kids/contributions').set(list);
+}
+function potDone(p) {
+  return p.then(() => renderEnfantsTab()).catch((e) => {
+    console.error('[cagnotte]', e);
+    alert('Enregistrement impossible : ' + ((e && (e.code || e.message)) || 'erreur inconnue') + '. Recharge la page avant de réessayer.');
+  });
+}
+// Les mouvements Lendermarket portent le solde APRES eux : ils se saisissent dans l'ordre des dates.
+function potCheckOrder(date) {
+  const b = potBascule(), mv = potLmMoves(), last = mv.length ? mv[mv.length - 1].date : b.date;
+  if (!date || date < last) { alert('Date antérieure au dernier mouvement Lendermarket (' + potDate(last) + ') : saisis les mouvements dans l’ordre.'); return false; }
+  return true;
+}
+function potTransfert(date, amount, units) {
+  if (!(amount > 0) || !(units > 0)) { alert('Renseigne le montant retiré de Lendermarket et le nombre de parts de VWCE achetées.'); return; }
+  if (!potCheckOrder(date)) return;
+  const now = potLmNow();
+  if (amount > now + 0.005) { alert('Montant supérieur au solde Lendermarket (' + fmt(now) + ' €).'); return; }
+  const id = 'pot-' + Date.now();
+  const list = kidsContribs().slice();
+  list.push({ date: date, child: POT_CHILD, amount: potR2(amount), units: units, source: 'lendermarket', pot: true, batch: id });
+  const mv = potLmMoves().slice();
+  mv.push({ id: id, date: date, type: 'transfert', amount: -potR2(amount), balance: potR2(now - amount), units: units, at: Date.now() });
+  potDone(Promise.all([potSaveContribs(list), potSaveNode('lm', mv)]));
+}
+function potMaj(date, balance, interest) {
+  if (!isFinite(balance) || balance < 0) { alert('Renseigne le nouveau solde lu sur Lendermarket.'); return; }
+  if (!potCheckOrder(date)) return;
+  const now = potLmNow(), id = 'pot-' + Date.now();
+  const mv = potLmMoves().slice();
+  mv.push({ id: id, date: date, type: 'maj', amount: potR2(balance - now), balance: potR2(balance), interest: isFinite(interest) ? potR2(interest) : null, at: Date.now() });
+  potDone(potSaveNode('lm', mv));
+}
+function potApport(date, child, amount, dest, units) {
+  const P = potCompute();
+  if (!P || !(P.nav > 0)) { alert('Valeur de la cagnotte indisponible (cours de l’ETF manquant) : réessaie plus tard.'); return; }
+  if (!child || !(amount > 0)) { alert('Renseigne l’enfant et le montant.'); return; }
+  if (dest === 'etf' && !(units > 0)) { alert('Renseigne le nombre de parts de VWCE achetées.'); return; }
+  if (dest === 'lm' && !potCheckOrder(date)) return;
+  const id = 'pot-' + Date.now(), parts = Math.round(amount / P.nav * 1e4) / 1e4;
+  const ap = potApports().slice();
+  ap.push({ id: id, date: date, child: child, amount: potR2(amount), parts: parts, nav: Math.round(P.nav * 1e6) / 1e6, dest: dest, at: Date.now() });
+  const jobs = [potSaveNode('apports', ap)];
+  if (dest === 'etf') {
+    const list = kidsContribs().slice();
+    list.push({ date: date, child: POT_CHILD, amount: potR2(amount), units: units, source: 'apport', pot: true, batch: id, pour: child });
+    jobs.push(potSaveContribs(list));
+  } else {
+    const now = potLmNow(), mv = potLmMoves().slice();
+    mv.push({ id: id, date: date, type: 'apport', amount: potR2(amount), balance: potR2(now + amount), child: child, at: Date.now() });
+    jobs.push(potSaveNode('lm', mv));
+  }
+  potDone(Promise.all(jobs));
+}
+function potLastAction() {
+  const all = potLmMoves().map((m) => ({ id: m.id, at: +m.at || 0, kind: 'lm', m: m }))
+    .concat(potApports().map((a) => ({ id: a.id, at: +a.at || 0, kind: 'apport', m: a })));
+  all.sort((x, y) => x.at - y.at);
+  return all.length ? all[all.length - 1] : null;
+}
+function potActionLabel(x) {
+  const m = x.m;
+  if (x.kind === 'apport') return 'apport de ' + fmt(m.amount) + ' € pour ' + m.child + ' (' + potDate(m.date) + ')';
+  if (m.type === 'transfert') return 'transfert de ' + fmt(-m.amount) + ' € vers l’ETF (' + potDate(m.date) + ')';
+  if (m.type === 'maj') return 'mise à jour du solde à ' + fmt(m.balance) + ' € (' + potDate(m.date) + ')';
+  return 'apport de ' + fmt(m.amount) + ' € sur Lendermarket (' + potDate(m.date) + ')';
+}
+function potUndoLast() {
+  const x = potLastAction();
+  if (!x || !confirm('Annuler la dernière saisie : ' + potActionLabel(x) + ' ?')) return;
+  const id = x.id, jobs = [], mv = potLmMoves(), ap = potApports(), cl = kidsContribs();
+  if (mv.some((m) => m.id === id)) jobs.push(potSaveNode('lm', mv.filter((m) => m.id !== id)));
+  if (ap.some((a) => a.id === id)) jobs.push(potSaveNode('apports', ap.filter((a) => a.id !== id)));
+  if (cl.some((c) => c.batch === id)) jobs.push(potSaveContribs(cl.filter((c) => c.batch !== id)));
+  potDone(Promise.all(jobs));
+}
+function potSetTarget(pct) {
+  const cfg = Object.assign({}, potCfg());
+  cfg.lmTarget = (pct === '' || pct == null || !isFinite(+pct)) ? null : Math.max(0, Math.min(100, +pct)) / 100;
+  potDone(potSaveNode('config', cfg));
+}
+
+// ---- Sous-onglets de l'onglet Enfants : Cagnotte (par defaut) / ETF VWCE / Lendermarket ----
+function kidsSubGet() {
+  try { const v = localStorage.getItem('kidsSub'); return ['cagnotte', 'etf', 'lm'].indexOf(v) >= 0 ? v : 'cagnotte'; } catch (e) { return 'cagnotte'; }
+}
+function kidsSubSet(v) { try { localStorage.setItem('kidsSub', v); } catch (e) { console.warn('[cagnotte] sous-onglet non memorise', e); } }
+function kidsOpenSub(v) {
+  kidsSubSet(v);
+  if (currentGroup !== 'trading' || currentTab !== 'enfants') mGo('trading', 'enfants');
+  else { mPlusClose(); renderEnfantsTab(); window.scrollTo(0, 0); }
+}
+function renderEnfantsTab() {
+  const c = document.getElementById('tab-enfants');
+  if (!c) return;
+  if (!potBascule()) { renderKidsEtf(c); return; }   // avant la bascule (ou base pas encore lue) : la page historique
+  const sub = kidsSubGet();
+  const pills = scrEl('div', { style: 'display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px', kids: [['cagnotte', 'Cagnotte'], ['etf', 'ETF VWCE'], ['lm', 'Lendermarket']].map(([k, l]) => {
+    const on = sub === k;
+    const bt = scrEl('button', { text: l, attrs: { type: 'button', 'aria-pressed': String(on) },
+      style: 'font-family:inherit;font-size:0.8rem;font-weight:700;padding:6px 14px;border-radius:9px;cursor:pointer;border:1px solid ' + (on ? '#22303f' : '#e3e8ee') + ';background:' + (on ? '#22303f' : '#fff') + ';color:' + (on ? '#fff' : '#42546a') });
+    bt.onclick = () => { kidsSubSet(k); renderEnfantsTab(); };
+    return bt;
+  }) });
+  const body = scrEl('div');
+  c.replaceChildren(pills, body);
+  if (sub === 'etf') renderKidsEtf(body);
+  else if (sub === 'lm') renderPotLm(body);
+  else renderPotMain(body);
+}
+
+// ---- Briques d'affichage communes ----
+function potFmt() {
+  return {
+    E: (v) => (v == null ? '–' : fmt(v) + ' €'),
+    S: (v) => (v == null ? '–' : (v >= 0 ? '+' : '') + fmt(v) + ' €'),
+    P: (v, d) => (v == null ? '' : (v >= 0 ? '+' : '') + potNum(v * 100, d == null ? 1 : d) + ' %'),
+    col: (v) => (v == null ? '#9aa7b4' : (v >= 0 ? '#1d9e74' : '#dd5f66')),
+  };
+}
+function potCell(label, main, sub, col, title, lead) {
+  return scrEl('div', { cls: 'kpi-tile', attrs: title ? { title: title } : {},
+    style: (lead ? 'flex:1.5 1 210px;min-width:200px;padding:0 22px 0 0' : 'flex:1 1 130px;min-width:125px;padding:0 18px;border-left:1px solid rgba(34,49,77,0.10)') + (title ? ';cursor:help' : ''),
+    kids: [
+      scrEl('div', { text: label, style: 'font-size:0.65rem;letter-spacing:0.07em;color:#5b6b7d;font-weight:700;text-transform:uppercase' }),
+      scrEl('div', { cls: 'kpi-tile-value', text: main, style: 'font-size:' + (lead ? '1.9rem' : '1.25rem') + ';font-weight:800;line-height:1.15;margin-top:5px;color:' + (col || '#22303f') }),
+      scrEl('div', { text: sub || '', style: 'font-size:0.68rem;color:#5b6b7d;margin-top:4px;line-height:1.35' })] });
+}
+function potHero(title, subtitle, tint, cells, extra) {
+  const kMktMs = (SCR_KIDS_PRICE && SCR_KIDS_PRICE.marketAt) ? Date.parse(SCR_KIDS_PRICE.marketAt) : NaN;
+  const badge = scrLiveBadge((SCR_KIDS_PRICE && SCR_KIDS_PRICE.at) || null, kMktMs, 'Cours de VWCE.DE (Yahoo, environ 15 min de retard). Lendermarket : dernier solde saisi.');
+  const hero = scrEl('div', { cls: 'inv-card m-sec', style: 'background:' + tint + ';border:1px solid #e3e8ee;border-radius:14px;padding:18px 24px;margin-bottom:14px' });
+  hero.appendChild(scrEl('div', { style: 'display:flex;justify-content:space-between;align-items:baseline;gap:14px;flex-wrap:wrap;margin-bottom:16px', kids: [
+    scrEl('div', { kids: [
+      scrEl('div', { text: title, style: 'font-size:0.7rem;letter-spacing:1px;color:#5b6b7d;text-transform:uppercase;font-weight:700' }),
+      scrEl('div', { text: subtitle, style: 'font-size:0.7rem;color:#9aa7b4;margin-top:3px' })] }),
+    badge] }));
+  hero.appendChild(scrEl('div', { style: 'display:flex;flex-wrap:wrap;align-items:flex-start;row-gap:18px', kids: cells }));
+  (extra || []).forEach((x) => hero.appendChild(x));
+  return hero;
+}
+// Barre ETF / Lendermarket de la cagnotte, avec le repere de la cible Lendermarket (a droite)
+function potMixBar(P, h) {
+  const e = (P.value > 0 && P.etfValue != null) ? P.etfValue / P.value : 0;
+  const bar = scrEl('div', { style: 'position:relative;display:flex;height:' + h + 'px;border-radius:6px;overflow:hidden;background:#eef1f5', kids: [
+    scrEl('i', { style: 'display:block;height:100%;width:' + (e * 100).toFixed(2) + '%;background:' + POT_COL.etf }),
+    scrEl('i', { style: 'display:block;height:100%;flex:1;background:' + POT_COL.lm })] });
+  if (P.target != null) bar.appendChild(scrEl('i', { attrs: { title: 'Cible Lendermarket : ' + potNum(P.target * 100, 0) + ' %' },
+    style: 'position:absolute;top:0;bottom:0;width:3px;background:#22303f;left:calc(' + ((1 - P.target) * 100).toFixed(2) + '% - 1px)' }));
+  return bar;
+}
+function potMixLegend(P) {
+  const F = potFmt(), pc = (v) => (P.value > 0 ? potNum(v / P.value * 100, 1) + ' %' : '–');
+  const it = (col, txt) => scrEl('span', { style: 'display:inline-flex;align-items:center;gap:6px', kids: [
+    scrEl('i', { style: 'display:inline-block;width:9px;height:9px;border-radius:2px;background:' + col }), scrEl('span', { text: txt })] });
+  return scrEl('div', { style: 'display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;font-size:0.74rem;color:#5b6b7d;margin-top:6px', kids: [
+    it(POT_COL.etf, 'ETF VWCE ' + F.E(P.etfValue) + ' · ' + pc(P.etfValue || 0)),
+    it(POT_COL.lm, 'Lendermarket ' + F.E(P.lm) + ' · ' + pc(P.lm) + (P.target != null ? ' · cible ' + potNum(P.target * 100, 0) + ' %' : ''))] });
+}
+// Petite barre par enfant : longueur = son montant, partage ETF / Lendermarket de la cagnotte
+function potKidBar(P, k, maxV) {
+  const e = (P.value > 0 && P.etfValue != null) ? P.etfValue / P.value : 0;
+  return scrEl('div', { style: 'display:flex;height:6px;border-radius:3px;overflow:hidden;margin-top:5px;width:' + Math.max(4, (k.value || 0) / maxV * 100).toFixed(1) + '%', kids: [
+    scrEl('i', { style: 'display:block;height:100%;width:' + (e * 100).toFixed(2) + '%;background:' + POT_COL.etf }),
+    scrEl('i', { style: 'display:block;height:100%;flex:1;background:' + POT_COL.lm })] });
+}
+function potRisksNote(style) {
+  const lignes = [
+    'La garantie de rachat des prêts est donnée par Creditstar, maison mère de Lendermarket : si Creditstar fait défaut, la garantie tombe avec lui. Aucune garantie des dépôts.',
+    'Creditstar 2025 (rapport audité, juin 2026) : bénéfice 13,5 M€, dette nette sur fonds propres 4,86 pour un plafond contractuel de 5 (au-delà, les porteurs d’obligations peuvent exiger un remboursement immédiat) ; dettes à court terme 357 M€ pour 160 M€ d’actifs à court terme.',
+    'Lendermarket 2025 (rapport audité, août 2026) : perte de 1,1 M€ ; l’auditeur signale une incertitude significative sur la continuité d’exploitation, la société dépendant du soutien du groupe.',
+    'Sources secondaires : fonds bloqués jusqu’à 720 jours entre 2022 et 2025 (réglés en octobre 2025, sans perte documentée) ; pas de marché secondaire, sortie anticipée à 3,5 %.',
+    'Repères publiés : l’AMF parle d’« une petite partie de votre épargne » ; les sites de finance personnelle citent 5 à 10 % du patrimoine financier pour l’ensemble du prêt participatif, sur plusieurs plateformes. Ce sont des faits, pas un conseil.'];
+  return scrFoldNote('Risques de la plateforme (vérifiés le 05/10/2026)', scrEl('div', { style: 'font-size:0.7rem;color:#5b6b7d;line-height:1.5',
+    kids: lignes.map((t) => scrEl('div', { text: '• ' + t, style: 'margin-bottom:4px' })) }), 'potRisques', style || 'margin-top:12px');
+}
+function potInput(type, attrs, width) {
+  return scrEl('input', { attrs: Object.assign({ type: type }, attrs || {}), style: 'padding:7px 9px;border:1px solid #e3e8ee;border-radius:9px;font-size:0.84rem;color:#22303f;width:' + (width || 120) + 'px' });
+}
+function potSelect(opts, width) {
+  const s = scrEl('select', { style: 'padding:7px 9px;border:1px solid #e3e8ee;border-radius:9px;font-size:0.84rem;color:#22303f;cursor:pointer;width:' + (width || 160) + 'px' });
+  opts.forEach(([v, l]) => s.appendChild(scrEl('option', { text: l, attrs: { value: v } })));
+  return s;
+}
+function potBtn(txt, fn) {
+  const b = scrEl('button', { text: txt, attrs: { type: 'button' }, style: 'padding:8px 15px;border:none;border-radius:9px;background:#3563e9;color:#fff;font-weight:700;cursor:pointer' });
+  b.onclick = fn;
+  return b;
+}
+function potFormCard(title, note, rows) {
+  return scrEl('div', { style: 'flex:1 1 300px;min-width:280px;background:#fafbfc;border:1px solid #eef1f5;border-radius:10px;padding:12px 14px', kids: [
+    scrEl('div', { text: title, style: 'font-size:0.62rem;color:#9aa7b4;text-transform:uppercase;font-weight:800;letter-spacing:.05em;margin-bottom:6px' }),
+    scrEl('div', { text: note, style: 'font-size:0.72rem;color:#5b6b7d;line-height:1.45;margin-bottom:10px' }),
+    scrEl('div', { style: 'display:flex;gap:8px;flex-wrap:wrap;align-items:center', kids: rows })] });
+}
+function potToday() { return scrLocalDay(new Date()); }
+
+// ---- Sous-onglet CAGNOTTE ----
+function renderPotMain(host) {
+  const P = potCompute(), M = potMoves(P), cfg = kidsCfg(), b = P.b, F = potFmt();
+  const mois = monthNamesFull[new Date().getMonth()].toLowerCase(), dB = potDate(b.date);
+  const reste = (P.target != null && P.value != null) ? Math.max(0, P.lm - P.target * P.value) : null;
+  const navTxt = P.nav == null ? '–' : P.nav.toLocaleString('fr-FR', { minimumFractionDigits: 4, maximumFractionDigits: 4 }) + ' €';
+  const hero = potHero('Cagnotte des enfants · ETF + Lendermarket', 'parts figées le ' + dB + ' · hors de ton capital, de ta performance et de ta répartition',
+    'linear-gradient(135deg, rgba(14,165,164,0.08), rgba(226,96,58,0.05))', [
+      potCell('Valeur de la cagnotte', F.E(P.value), 'ETF ' + F.E(P.etfValue) + ' · Lendermarket ' + F.E(P.lm), '#22303f',
+        'Parts de VWCE au cours actuel plus le solde Lendermarket. Cette cagnotte est exclue de ton capital personnel.', true),
+      potCell('Aujourd’hui', F.S(M.day), M.day == null ? 'dès la deuxième journée suivie' : (F.P(M.dayPct, 2) + ' vs clôture du ' + potDate(M.dayRef.date).slice(0, 5)), F.col(M.day),
+        'Variation depuis la dernière clôture, nette des nouveaux apports. Un transfert de Lendermarket vers l’ETF ne la change pas.'),
+      potCell('Ce mois', F.S(M.month), M.month == null ? '' : (F.P(M.monthPct) + ' en ' + mois), F.col(M.month),
+        'Variation depuis la dernière clôture du mois précédent, nette des nouveaux apports. Les intérêts Lendermarket y entrent à leur saisie.'),
+      potCell('Depuis la bascule', F.S(P.gain), F.P(P.gainPct, 2) + ' depuis le ' + dB.slice(0, 5), F.col(P.gain),
+        'Gain depuis la mise en cagnotte du ' + dB + ' (valeur alors ' + F.E(b.total) + '), nouveaux apports déduits.'),
+      potCell('Valeur de la part', navTxt, '1 part = 1 € le ' + dB, '#3563e9',
+        'Chaque enfant détient des parts. Leur nombre ne change qu’avec un nouvel apport ; leur valeur suit celle de la cagnotte.'),
+      potCell('Lendermarket', P.lmPct == null ? '–' : potNum(P.lmPct * 100, 1) + ' %', P.target == null ? 'de la cagnotte · aucune cible fixée'
+        : ('cible ' + potNum(P.target * 100, 0) + ' % · ' + (reste > 0.5 ? fmt(reste) + ' € à transférer' : 'cible atteinte')), POT_COL.lm,
+        'Part de la cagnotte placée sur Lendermarket. La cible se règle dans le sous-onglet Lendermarket.')],
+    [scrEl('div', { style: 'margin-top:18px', kids: [potMixBar(P, 12), potMixLegend(P)] })]);
+
+  const wrap = scrEl('div', { cls: 'm-sec', style: 'background:#fff;border:1px solid #e3e8ee;border-radius:14px;padding:14px;margin-bottom:14px' });
+  // ---- par enfant : camembert des parts + tableau ----
+  const items = P.kids.map((k, i) => ({ label: k.child, value: k.parts, color: kidColor(k.child, i), pctTxt: potNum(k.share * 100, 1) + '%' }));
+  const maxV = Math.max.apply(null, P.kids.map((k) => k.value || 0)) || 1;
+  const bd = 'border-bottom:1px solid #eef1f5';
+  const th = (t, al) => scrEl('th', { text: t, style: 'padding:7px 9px;text-align:' + (al || 'right') + ';font-size:0.66rem;text-transform:uppercase;letter-spacing:.03em;border-bottom:1px solid #e3e8ee;white-space:nowrap' });
+  const td = (t, extra) => scrEl('td', { text: t, style: 'padding:7px 9px;text-align:right;' + bd + (extra || '') });
+  const tbody = scrEl('tbody');
+  P.kids.forEach((k, i) => {
+    tbody.appendChild(scrEl('tr', { attrs: { title: k.child + ' : ' + F.E(k.value) + ', dont ETF ' + F.E(k.etf) + ' et Lendermarket ' + F.E(k.lm) + '. ' + (+k.parts.toFixed(2)).toLocaleString('fr-FR') + ' parts.' }, kids: [
+      scrEl('td', { style: 'padding:7px 9px;' + bd + ';min-width:150px', kids: [
+        scrEl('div', { style: 'display:flex;align-items:center;gap:7px', kids: [
+          scrEl('span', { style: 'width:10px;height:10px;border-radius:3px;display:inline-block;background:' + kidColor(k.child, i) }),
+          scrEl('b', { text: k.child, style: 'color:#22303f' })] }),
+        potKidBar(P, k, maxV)] }),
+      td(potNum(k.share * 100, 2) + ' %', ';font-weight:800;color:#3563e9'),
+      td(F.E(k.value), ';font-weight:700;color:#22303f'),
+      td(F.E(k.etf), ';color:' + POT_COL.etf),
+      td(F.E(k.lm), ';color:' + POT_COL.lm),
+      td(k.gain == null ? '–' : F.S(k.gain) + ' (' + F.P(k.gainPct, 2) + ')', ';font-weight:700;white-space:nowrap;color:' + F.col(k.gain))] }));
+  });
+  const table = scrEl('table', { style: 'width:100%;border-collapse:collapse;font-size:0.82rem', kids: [
+    scrEl('thead', { kids: [scrEl('tr', { style: 'background:#f6f8fb;color:#5b6b7d', kids: [th('Enfant', 'left'), th('Part'), th('Valeur'), th('dont ETF'), th('dont Lendermarket'), th('Depuis la bascule')] })] }), tbody] });
+  wrap.appendChild(scrEl('div', { style: 'display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start;margin-bottom:14px', kids: [
+    scrEl('div', { style: 'flex:0 0 auto;background:#fafbfc;border:1px solid #eef1f5;border-radius:12px;padding:12px', kids: [
+      scrEl('div', { text: 'Parts de la cagnotte', style: 'font-size:0.7rem;text-transform:uppercase;letter-spacing:.03em;color:#5b6b7d;font-weight:700;margin-bottom:10px' }),
+      scrEl('div', { style: 'display:flex;align-items:center;gap:12px;flex-wrap:wrap', kids: [scrDonut(items, 150), scrLegend(items)] })] }),
+    scrEl('div', { style: 'flex:1;min-width:340px;overflow-x:auto', kids: [table] })] }));
+
+  // ---- courbe de la cagnotte ----
+  wrap.appendChild(scrEl('div', { style: 'background:#fff;border:1px solid #e3e8ee;border-radius:10px;padding:12px 14px;margin-bottom:6px', kids: [
+    scrEl('div', { text: 'Évolution de la cagnotte', style: 'font-size:0.7rem;text-transform:uppercase;letter-spacing:.03em;color:#5b6b7d;font-weight:700;margin-bottom:8px' }),
+    scrEquityCurve(M.serie)] }));
+  wrap.appendChild(scrFoldNote('Lire la courbe', scrEl('div', { style: 'font-size:0.66rem;color:#9aa7b4;line-height:1.45',
+    text: 'Ligne de couleur : valeur de la cagnotte (ETF au cours du jour + solde Lendermarket). Ligne grise : capital engagé (achats d’ETF au prix payé + solde Lendermarket), l’écart entre les deux est la plus-value latente de l’ETF. Avant le ' + dB + ', le solde Lendermarket est reconstitué à partir des transferts vers l’ETF ; les intérêts de septembre y sont comptés dès le début du mois.' }), 'potCourbe', 'margin-bottom:14px'));
+
+  // ---- projection ----
+  if (P.value != null) {
+    const y = cfg.horizonYears, r = cfg.annualReturn, f = Math.pow(1 + r, y);
+    const tile = (label, main, sub, col) => scrEl('div', { style: 'flex:1;min-width:140px;background:#fff;border:1px solid #e3e8ee;border-radius:12px;padding:11px 13px', kids: [
+      scrEl('div', { text: label, style: 'font-size:0.59rem;color:#9aa7b4;text-transform:uppercase;font-weight:800;letter-spacing:.05em' }),
+      scrEl('div', { text: main, style: 'font-size:1.3rem;font-weight:800;line-height:1.15;margin-top:3px;color:' + (col || '#22303f') }),
+      scrEl('div', { text: sub || '', style: 'font-size:0.68rem;color:#5b6b7d;margin-top:1px' })] });
+    const prow = scrEl('div', { style: 'display:flex;gap:10px;flex-wrap:wrap', kids: [tile('Cagnotte', F.E(P.value * f), 'aujourd’hui ' + F.E(P.value), '#1d9e74')]
+      .concat(P.kids.map((k, i) => tile(k.child, F.E(k.value * f), 'aujourd’hui ' + F.E(k.value), kidInk(k.child, i)))) });
+    wrap.appendChild(scrEl('div', { style: 'background:#fafbfc;border:1px solid #eef1f5;border-radius:12px;padding:12px 14px;margin-bottom:14px', kids: [
+      scrEl('div', { text: 'Projection à ' + y + ' ans', style: 'font-size:0.7rem;text-transform:uppercase;letter-spacing:.03em;color:#5b6b7d;font-weight:700;margin-bottom:10px' }), prow,
+      scrEl('div', { style: 'font-size:0.66rem;color:#9aa7b4;margin-top:9px;line-height:1.45',
+        text: 'Projection mécanique : toute la cagnotte capitalisée à ' + potNum(r * 100, 1) + ' % par an (rendement supposé de l’ETF, réglable dans le sous-onglet ETF VWCE), sans nouvel apport. Hypothèse, pas une promesse ni un conseil.' })] }));
+  }
+
+  // ---- nouvel apport pour un enfant ----
+  const dIn = potInput('date', { value: potToday() }, 140);
+  const kSel = potSelect(P.kids.map((k) => [k.child, k.child]), 130);
+  const aIn = potInput('number', { min: '0', step: '0.01', placeholder: 'Montant €' }, 110);
+  const dSel = potSelect([['etf', 'Achat de VWCE'], ['lm', 'Dépôt sur Lendermarket']], 190);
+  const uIn = potInput('number', { min: '0', step: '0.00000001', placeholder: 'Parts VWCE' }, 120);
+  const hint = scrEl('div', { style: 'flex-basis:100%;font-size:0.72rem;color:#5b6b7d' });
+  const sync = () => {
+    uIn.style.display = dSel.value === 'etf' ? '' : 'none';
+    const a = +aIn.value, k = P.kids.find((x) => x.child === kSel.value);
+    if (a > 0 && P.nav > 0 && k) {
+      const np = a / P.nav;
+      hint.textContent = 'Achète ' + np.toLocaleString('fr-FR', { maximumFractionDigits: 2 }) + ' parts à ' + navTxt + ' : ' + k.child + ' passe de '
+        + potNum(k.share * 100, 2) + ' % à ' + potNum((k.parts + np) / (P.totalParts + np) * 100, 2) + ' % de la cagnotte. Les autres enfants ne perdent rien en euros.';
+    } else hint.textContent = 'Un nouvel apport achète des parts de la cagnotte à la valeur du jour, au nom de l’enfant.';
+  };
+  [aIn, kSel, dSel].forEach((el) => { el.oninput = sync; el.onchange = sync; });
+  sync();
+  wrap.appendChild(scrEl('div', { style: 'display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px', kids: [
+    potFormCard('Nouvel apport pour un enfant', 'Argent neuf versé pour un enfant. Pour un achat de VWCE, indique aussi le nombre de parts achetées (transaction Revolut).',
+      [dIn, kSel, aIn, dSel, uIn, potBtn('+ Ajouter', () => potApport(dIn.value, kSel.value, +aIn.value, dSel.value, +uIn.value)), hint])] }));
+
+  wrap.appendChild(scrFoldNote('Comment la cagnotte est comptée', scrEl('div', { style: 'font-size:0.68rem;color:#9aa7b4;line-height:1.5',
+    text: 'Le ' + dB + ', la poche ETF (' + F.E(b.etf.value) + ') et la poche Lendermarket de Noah et Elie (' + F.E(b.lendermarket.total) + ') ont été réunies en une seule cagnotte de '
+      + F.E(b.total) + '. Chaque enfant a reçu autant de parts que d’euros détenus ce jour-là : '
+      + Object.keys(b.enfants).sort((x, y) => b.enfants[y].parts - b.enfants[x].parts).map((n) => n + ' ' + potNum(b.enfants[n].parts / b.totalParts * 100, 2) + ' %').join(', ')
+      + '. Un transfert de Lendermarket vers l’ETF ne change la part de personne ; un nouvel apport achète des parts à la valeur du jour. Répartition sauvegardée dans la base (stocks/kidsPot/bascule) et envoyée par mail le jour de la bascule. La cagnotte n’entre ni dans ton capital, ni dans ta performance, ni dans ta répartition.' }), 'potCompte', 'margin-top:4px'));
+
+  const outer = scrEl('div');
+  if (M_MQ.matches) outer.appendChild(scrEl('div', { cls: 'm-only', kids: [mPotScreen(P, M, cfg)] }));
+  const tabEl = document.getElementById('tab-enfants');
+  const mBtn = scrEl('button', { cls: 'm-more-btn', attrs: { type: 'button' }, text: (tabEl && tabEl.classList.contains('m-open')) ? 'Masquer les analyses détaillées' : 'Afficher les analyses détaillées' });
+  mBtn.onclick = () => mToggleMore(mBtn);
+  outer.append(hero, wrap, mBtn);
+  host.replaceChildren(outer);
+}
+// Ecran mobile de la cagnotte (meme modele que les autres ecrans mobiles)
+function mPotScreen(P, M, cfg) {
+  const F = potFmt(), box = scrEl('div'), dB = potDate(P.b.date);
+  const eurK = (v) => Math.abs(v) >= 1000 ? (Math.round(v / 100) / 10).toLocaleString('fr-FR') + ' k€' : Math.round(v) + ' €';
+  const sub = (lib, v, pct) => scrEl('div', { cls: 'mp-sub', kids: [document.createTextNode(lib + ' '), scrEl('b', { text: F.S(v) + (pct != null ? ' (' + F.P(pct, 2) + ')' : ''), style: 'color:' + F.col(v) })] });
+  const lignes = [scrEl('div', { cls: 'mp-lbl', text: 'Cagnotte des enfants' }), scrEl('div', { cls: 'mp-big', text: F.E(P.value) })];
+  if (M.day != null) lignes.push(sub('Aujourd’hui', M.day, M.dayPct));
+  if (M.month != null) lignes.push(sub(monthNamesFull[new Date().getMonth()], M.month, M.monthPct));
+  if (P.gain != null) lignes.push(sub('Depuis le ' + dB.slice(0, 5), P.gain, P.gainPct));
+  box.appendChild(scrEl('div', { cls: 'mp-card', kids: lignes }));
+  box.appendChild(scrEl('div', { cls: 'mp-card', kids: [scrEl('div', { cls: 'mp-lbl', text: 'ETF et Lendermarket', style: 'margin-bottom:8px' }), potMixBar(P, 12), potMixLegend(P)] }));
+  box.appendChild(scrEl('div', { cls: 'mp-card', kids: [scrEl('div', { cls: 'mp-lbl', text: 'Évolution de la cagnotte', style: 'margin-bottom:6px' }), mpCurve(M.serie, eurK)] }));
+  const donut = mpDonut(P.kids.map((k, i) => ({ value: k.parts, color: kidColor(k.child, i) })), F.E(P.value));
+  const lbs = donut.querySelectorAll('text');
+  if (lbs.length) lbs[lbs.length - 1].textContent = 'valeur de la cagnotte';
+  box.appendChild(scrEl('div', { cls: 'mp-card', kids: [scrEl('div', { cls: 'mp-lbl', text: 'Parts des enfants' }), scrEl('div', { cls: 'mp-donut', kids: [donut] })] }));
+  const maxV = Math.max.apply(null, P.kids.map((k) => k.value || 0)) || 1;
+  const rows = scrEl('div', { cls: 'mp-rows' });
+  P.kids.forEach((k, i) => {
+    const c = kidColor(k.child, i);
+    rows.appendChild(scrEl('div', { cls: 'mp-row', kids: [
+      scrEl('div', { cls: 'mt-side', text: String(k.child).slice(0, 1).toUpperCase(), style: 'border-radius:50%;font-size:0.9rem;background:' + c + ';color:' + (mpLight(c) ? '#22303f' : '#ffffff') }),
+      scrEl('div', { cls: 'mp-mid', kids: [
+        scrEl('div', { cls: 'mp-name', text: k.child }),
+        scrEl('div', { cls: 'mp-tk', text: 'ETF ' + F.E(k.etf) + ' · LM ' + F.E(k.lm) }),
+        potKidBar(P, k, maxV)] }),
+      scrEl('div', { cls: 'mp-right', kids: [
+        scrEl('div', { cls: 'mp-val', text: F.E(k.value) }),
+        scrEl('div', { cls: 'mp-pv', text: k.gain == null ? '–' : F.S(k.gain), style: 'color:' + F.col(k.gain) }),
+        scrEl('div', { cls: 'mp-w', text: potNum(k.share * 100, 1) + ' %' })] })] }));
+  });
+  const cKids = scrEl('div', { cls: 'mp-card mp-grp' + (MP_CLOSED.potKids ? ' closed' : '') });
+  const hKids = scrEl('div', { cls: 'mp-grp-head', kids: [
+    scrEl('div', { kids: [scrEl('div', { cls: 'mp-gname', text: 'Par enfant' }), scrEl('div', { cls: 'mp-tk', text: 'gain depuis le ' + dB.slice(0, 5) })] }),
+    scrEl('span', { cls: 'mp-gval', text: F.E(P.value), style: 'white-space:nowrap' }),
+    scrEl('span', { cls: 'mp-chev', text: '▾' })] });
+  hKids.onclick = () => { MP_CLOSED.potKids = !MP_CLOSED.potKids; cKids.classList.toggle('closed', !!MP_CLOSED.potKids); };
+  cKids.append(hKids, rows);
+  box.appendChild(cKids);
+  const y = cfg.horizonYears, r = cfg.annualReturn;
+  if (P.value != null) box.appendChild(scrEl('div', { cls: 'mp-card', kids: [
+    scrEl('div', { cls: 'mp-lbl', text: 'Projection à ' + y + ' ans' }),
+    scrEl('div', { style: 'font-size:1.4rem;font-weight:800;margin-top:3px;color:var(--text-primary)', text: F.E(P.value * Math.pow(1 + r, y)) }),
+    scrEl('div', { cls: 'mp-sub', text: 'toute la cagnotte à ' + potNum(r * 100, 1) + ' % par an, sans nouvel apport : une hypothèse, pas une promesse' })] }));
+  return box;
+}
+
+// ---- Sous-onglet LENDERMARKET (ex-onglet Repartition du groupe Portfolio) ----
+function potLmHistory() {
+  const F = potFmt(), rows = [];
+  potLmMoves().slice().reverse().forEach((m) => rows.push({ date: m.date, delta: +m.amount, bal: +m.balance,
+    lib: m.type === 'transfert' ? 'Transfert vers l’ETF' + (m.units ? ' (' + potNum(+m.units, 4) + ' parts VWCE)' : '')
+      : (m.type === 'maj' ? 'Mise à jour mensuelle' + (m.interest != null ? ' · intérêts ' + F.S(m.interest) : '') : 'Apport pour ' + m.child) }));
+  const b = potBascule();
+  rows.push({ date: b.date, delta: null, bal: +b.lendermarket.total, lib: 'Mise en cagnotte : parts des enfants figées', mark: true });
+  const h = potRepHist();
+  for (let i = h.length - 1; i >= 0; i--) {
+    const d = i > 0 ? h[i].kids - h[i - 1].kids : null;
+    if (h[i].type !== 'init' && !d) continue;   // mouvements de la seule part « Moi »
+    rows.push({ date: h[i].date, delta: d, bal: h[i].kids, avant: true,
+      lib: h[i].type === 'init' ? 'Début du suivi (Noah + Elie)' : (h[i].type === 'update' ? 'Mise à jour mensuelle' : h[i].desc) });
+  }
+  return rows;
+}
+function renderPotLm(host) {
+  const P = potCompute(), F = potFmt(), b = P.b, mv = potLmMoves(), it = potLmInterestLast();
+  const reste = (P.target != null && P.value != null) ? Math.max(0, P.lm - P.target * P.value) : null;
+  const yld = (it && P.lm > 0) ? it.v * 12 / P.lm : null;
+  const lastDate = mv.length ? mv[mv.length - 1].date : b.date;
+  const hero = potHero('Lendermarket · poche de la cagnotte', 'prêts à des particuliers via le groupe Creditstar · solde saisi chaque mois',
+    'linear-gradient(135deg, rgba(226,96,58,0.07), rgba(130,91,249,0.04))', [
+      potCell('Capital Lendermarket', F.E(P.lm), 'solde au ' + potDate(lastDate), '#22303f', 'Dernier solde saisi : prêts en cours et espèces sur le compte Lendermarket de la cagnotte.', true),
+      potCell('Intérêts du dernier mois', it ? F.S(it.v) : '–', it ? (potDate(it.date) + (yld != null ? ' · ≈ ' + potNum(yld * 100, 1) + ' % par an' : '')) : 'aucune mise à jour', '#1d9e74',
+        'Intérêts saisis lors de la dernière mise à jour mensuelle. Le taux annuel est une approximation : intérêts du mois × 12 / solde.'),
+      potCell('Part de la cagnotte', P.lmPct == null ? '–' : potNum(P.lmPct * 100, 1) + ' %', 'sur ' + F.E(P.value), POT_COL.lm, 'Poids de Lendermarket dans la cagnotte des enfants.'),
+      potCell('Cible', P.target == null ? '–' : potNum(P.target * 100, 0) + ' %', 'ton choix, réglable plus bas', '#5b6b7d', 'Part de la cagnotte que tu veux garder sur Lendermarket. Un repère, pas une recommandation.'),
+      potCell('Reste à transférer', reste == null ? '–' : F.E(reste), reste == null ? 'fixe une cible pour le calculer' : 'vers l’ETF pour atteindre la cible', reste > 0.5 ? '#3563e9' : '#1d9e74',
+        'Solde Lendermarket au-delà de la cible, au cours actuel de l’ETF. Les retraits suivent le rythme auquel Lendermarket libère le capital.')],
+    [scrEl('div', { style: 'margin-top:18px', kids: [potMixBar(P, 12), potMixLegend(P)] })]);
+
+  const wrap = scrEl('div', { cls: 'm-sec', style: 'background:#fff;border:1px solid #e3e8ee;border-radius:14px;padding:14px;margin-bottom:14px' });
+  // ---- saisies ----
+  const mDate = potInput('date', { value: potToday() }, 140);
+  const mBal = potInput('number', { min: '0', step: '0.01', placeholder: 'Nouveau solde €' }, 140);
+  const mInt = potInput('number', { min: '0', step: '0.01', placeholder: 'Intérêts du mois €' }, 150);
+  const tDate = potInput('date', { value: potToday() }, 140);
+  const tAmt = potInput('number', { min: '0', step: '0.01', placeholder: 'Montant retiré €' }, 140);
+  const tUn = potInput('number', { min: '0', step: '0.00000001', placeholder: 'Parts VWCE achetées' }, 160);
+  const tHint = scrEl('div', { style: 'flex-basis:100%;font-size:0.72rem;color:#5b6b7d' });
+  const tSync = () => {
+    const a = +tAmt.value, u = +tUn.value;
+    if (a > 0 && u > 0) {
+      const pu = a / u, ref = kidsPriceAt(tDate.value) || (SCR_KIDS_PRICE && SCR_KIDS_PRICE.price) || null, ec = ref > 0 ? pu / ref - 1 : 0;
+      tHint.textContent = 'Prix déduit : ' + kidsMoney(pu, 2) + ' la part' + (Math.abs(ec) > 0.1 ? ', soit ' + (ec >= 0 ? '+' : '') + potNum(ec * 100, 0) + ' % par rapport au cours de cette date : vérifie la saisie' : '')
+        + ' · solde Lendermarket après : ' + F.E(P.lm - a);
+      tHint.style.color = Math.abs(ec) > 0.1 ? '#c0392b' : '#5b6b7d';
+    } else { tHint.textContent = 'Une seule saisie : le solde Lendermarket baisse et les parts de VWCE entrent dans la cagnotte. Aucune part d’enfant ne change.'; tHint.style.color = '#5b6b7d'; }
+  };
+  [tAmt, tUn, tDate].forEach((el) => { el.oninput = tSync; el.onchange = tSync; });
+  tSync();
+  const cIn = potInput('number', { min: '0', max: '100', step: '1', placeholder: '%', value: P.target == null ? '' : String(Math.round(P.target * 100)) }, 80);
+  cIn.onchange = () => potSetTarget(cIn.value.trim());
+  wrap.appendChild(scrEl('div', { style: 'display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px', kids: [
+    potFormCard('Mise à jour mensuelle', 'Le solde lu sur Lendermarket (prêts en cours et espèces) et les intérêts du mois. Plus de répartition entre enfants : ils détiennent des parts de la cagnotte.',
+      [mDate, mBal, mInt, potBtn('Enregistrer', () => potMaj(mDate.value, mBal.value === '' ? NaN : +mBal.value, mInt.value === '' ? NaN : +mInt.value))]),
+    potFormCard('Transfert vers l’ETF', 'Montant retiré de Lendermarket et réinvesti en VWCE, avec le nombre de parts achetées (transaction Revolut).',
+      [tDate, tAmt, tUn, potBtn('Enregistrer', () => potTransfert(tDate.value, +tAmt.value, +tUn.value)), tHint]),
+    potFormCard('Cible de la poche Lendermarket', 'Part de la cagnotte à garder sur Lendermarket (vide = aucune cible). Le dashboard en déduit le reste à transférer.',
+      [cIn, scrEl('span', { text: '% de la cagnotte', style: 'font-size:0.8rem;color:#5b6b7d' })])] }));
+
+  // ---- historique ----
+  const last = potLastAction();
+  const hb = scrEl('div', { style: 'background:#fafbfc;border:1px solid #eef1f5;border-radius:12px;padding:12px 14px' });
+  const head = scrEl('div', { style: 'display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px', kids: [
+    scrEl('div', { text: 'Historique de la poche', style: 'font-size:0.7rem;text-transform:uppercase;letter-spacing:.03em;color:#5b6b7d;font-weight:700' })] });
+  if (last) {
+    const ub = scrEl('button', { text: 'Annuler la dernière saisie', attrs: { type: 'button', title: potActionLabel(last) },
+      style: 'padding:5px 11px;border:1px solid #e3e8ee;border-radius:8px;background:#fff;color:#42546a;font-size:0.74rem;cursor:pointer' });
+    ub.onclick = potUndoLast;
+    head.appendChild(ub);
+  }
+  hb.appendChild(head);
+  const tb = scrEl('tbody'), bd = 'border-bottom:1px solid #f1f4f8';
+  potLmHistory().forEach((r) => {
+    tb.appendChild(scrEl('tr', { style: r.mark ? 'background:#f2fbfb;font-weight:700' : (r.avant ? 'color:#5b6b7d' : ''), kids: [
+      scrEl('td', { text: potDate(r.date), style: 'padding:6px 8px;' + bd + ';white-space:nowrap' }),
+      scrEl('td', { text: r.lib, style: 'padding:6px 8px;' + bd }),
+      scrEl('td', { text: r.delta == null ? '' : F.S(r.delta), style: 'padding:6px 8px;text-align:right;' + bd + ';white-space:nowrap;color:' + (r.delta == null ? '#9aa7b4' : (r.delta >= 0 ? '#1d9e74' : '#dd5f66')) }),
+      scrEl('td', { text: F.E(r.bal), style: 'padding:6px 8px;text-align:right;' + bd + ';font-weight:700;white-space:nowrap' })] }));
+  });
+  const thh = (t, al) => scrEl('th', { text: t, style: 'text-align:' + (al || 'left') + ';padding:5px 8px;font-size:0.64rem;text-transform:uppercase;letter-spacing:.04em;color:#9aa7b4;font-weight:800;border-bottom:1px solid #e3e8ee' });
+  hb.appendChild(scrEl('div', { style: 'overflow-x:auto', kids: [scrEl('table', { style: 'width:100%;border-collapse:collapse;font-size:0.78rem', kids: [
+    scrEl('thead', { kids: [scrEl('tr', { kids: [thh('Date'), thh('Mouvement'), thh('Montant', 'right'), thh('Solde', 'right')] })] }), tb] })] }));
+  hb.appendChild(scrEl('div', { style: 'font-size:0.66rem;color:#9aa7b4;margin-top:8px;line-height:1.45',
+    text: 'Avant le ' + potDate(b.date) + ' : la poche de Noah et Elie dans l’ancien onglet Répartition (mois par mois, la part « Moi » exclue).' }));
+  wrap.appendChild(hb);
+  wrap.appendChild(potRisksNote());
+
+  const outer = scrEl('div');
+  if (M_MQ.matches) outer.appendChild(scrEl('div', { cls: 'm-only', kids: [mPotLmScreen(P, it, yld, reste)] }));
+  const tabEl = document.getElementById('tab-enfants');
+  const mBtn = scrEl('button', { cls: 'm-more-btn', attrs: { type: 'button' }, text: (tabEl && tabEl.classList.contains('m-open')) ? 'Masquer les analyses détaillées' : 'Afficher les analyses détaillées' });
+  mBtn.onclick = () => mToggleMore(mBtn);
+  outer.append(hero, wrap, mBtn);
+  host.replaceChildren(outer);
+}
+function mPotLmScreen(P, it, yld, reste) {
+  const F = potFmt(), box = scrEl('div');
+  const lignes = [scrEl('div', { cls: 'mp-lbl', text: 'Lendermarket · cagnotte' }), scrEl('div', { cls: 'mp-big', text: F.E(P.lm) }),
+    scrEl('div', { cls: 'mp-sub', text: (P.lmPct == null ? '–' : potNum(P.lmPct * 100, 1) + ' %') + ' de la cagnotte' + (P.target != null ? ' · cible ' + potNum(P.target * 100, 0) + ' %' : '') })];
+  if (it) lignes.push(scrEl('div', { cls: 'mp-sub', kids: [document.createTextNode('Intérêts ' + potDate(it.date) + ' '), scrEl('b', { text: F.S(it.v), style: 'color:#1d9e74' }),
+    document.createTextNode(yld != null ? ' · ≈ ' + potNum(yld * 100, 1) + ' % par an' : '')] }));
+  if (reste != null) lignes.push(scrEl('div', { cls: 'mp-sub', text: reste > 0.5 ? 'Reste à transférer vers l’ETF : ' + F.E(reste) : 'Cible atteinte' }));
+  box.appendChild(scrEl('div', { cls: 'mp-card', kids: lignes }));
+  box.appendChild(scrEl('div', { cls: 'mp-card', kids: [potMixBar(P, 12), potMixLegend(P)] }));
+  const rows = scrEl('div', { cls: 'mp-rows' });
+  potLmHistory().slice(0, 10).forEach((r) => {
+    rows.appendChild(scrEl('div', { cls: 'mp-row', kids: [
+      scrEl('div', { cls: 'mp-mid', kids: [scrEl('div', { cls: 'mp-name', text: r.lib, style: 'white-space:normal' }), scrEl('div', { cls: 'mp-tk', text: potDate(r.date) })] }),
+      scrEl('div', { cls: 'mp-right', kids: [
+        scrEl('div', { cls: 'mp-val', text: F.E(r.bal) }),
+        scrEl('div', { cls: 'mp-pv', text: r.delta == null ? '' : F.S(r.delta), style: 'color:' + (r.delta == null ? '#9aa7b4' : (r.delta >= 0 ? '#1d9e74' : '#dd5f66')) })] })] }));
+  });
+  const cH = scrEl('div', { cls: 'mp-card mp-grp' + (MP_CLOSED.potLm === false ? '' : ' closed') });
+  const hH = scrEl('div', { cls: 'mp-grp-head', kids: [
+    scrEl('div', { kids: [scrEl('div', { cls: 'mp-gname', text: 'Historique' }), scrEl('div', { cls: 'mp-tk', text: 'mouvements de la poche' })] }),
+    scrEl('span', { cls: 'mp-chev', text: '▾', style: 'margin-left:auto' })] });
+  hH.onclick = () => { const closed = cH.classList.toggle('closed'); MP_CLOSED.potLm = closed; };
+  cH.append(hH, rows);
+  box.appendChild(cH);
+  box.appendChild(scrEl('div', { cls: 'mp-card', kids: [potRisksNote('margin:0')] }));
+  return box;
+}
+
+// ══════════════════════════════════════════════════════════════
 // OPPORTUNITES IA : goulots d'etranglement IA / robotique
 // 3 sous-onglets : Pepites (classement recalcule en direct selon les reglages),
 // Carte des goulots et Situational Awareness (page autonome goulots_ia.html en iframe).
@@ -9328,7 +9920,7 @@ function mKidsScreen(o) {
   if (agg.value == null) { box.appendChild(scrEl('div', { cls: 'mp-card', text: 'Cours de l’ETF indisponible pour l’instant.' })); return box; }
   const tk = String(cfg.ticker || '').replace(/\.[A-Z]{1,3}$/, '');
   // 1. valeur, jour, plus-value, mois
-  const lignes = [scrEl('div', { cls: 'mp-lbl', text: 'Épargne des enfants · ' + tk }), scrEl('div', { cls: 'mp-big', text: E(agg.value) })];
+  const lignes = [scrEl('div', { cls: 'mp-lbl', text: (o.pot ? 'ETF de la cagnotte · ' : 'Épargne des enfants · ') + tk }), scrEl('div', { cls: 'mp-big', text: E(agg.value) })];
   if (o.kDay != null) lignes.push(scrEl('div', { cls: 'mp-sub', kids: [scrEl('b', { text: (o.kDay >= 0 ? '▲ ' : '▼ ') + S(o.kDay) + (o.kDayPct != null ? ' (' + P(o.kDayPct, 2) + ')' : ''), style: col(o.kDay) }),
     document.createTextNode(' sur la journée')] }));
   if (agg.pnl != null) lignes.push(scrEl('div', { cls: 'mp-sub', kids: [document.createTextNode('Plus-value '), scrEl('b', { text: S(agg.pnl) + ' (' + P(agg.pnlPct) + ')', style: col(agg.pnl) }),
@@ -9343,7 +9935,7 @@ function mKidsScreen(o) {
   const donut = mpDonut(kids.map((k, i) => ({ value: k.units, color: kidColor(k.child, i) })), E(agg.value));
   const lbs = donut.querySelectorAll('text');
   if (lbs.length) lbs[lbs.length - 1].textContent = 'valeur de la poche';
-  box.appendChild(scrEl('div', { cls: 'mp-card', kids: [scrEl('div', { cls: 'mp-lbl', text: 'Répartition entre les enfants' }), scrEl('div', { cls: 'mp-donut', kids: [donut] })] }));
+  if (!o.pot) box.appendChild(scrEl('div', { cls: 'mp-card', kids: [scrEl('div', { cls: 'mp-lbl', text: 'Répartition entre les enfants' }), scrEl('div', { cls: 'mp-donut', kids: [donut] })] }));
   // 4. par enfant : parts, verse, valeur, plus-value, part du pot
   const maxU = Math.max.apply(null, kids.map((k) => k.units)) || 1;
   const rows = scrEl('div', { cls: 'mp-rows' });
@@ -9367,7 +9959,7 @@ function mKidsScreen(o) {
     scrEl('span', { cls: 'mp-chev', text: '▾' })] });
   hKids.onclick = () => { MP_CLOSED.kids = !MP_CLOSED.kids; cKids.classList.toggle('closed', !!MP_CLOSED.kids); };
   cKids.append(hKids, rows);
-  box.appendChild(cKids);
+  if (!o.pot) box.appendChild(cKids);   // cagnotte : la repartition par enfant est dans le sous-onglet Cagnotte
   // 5. derniers versements (repliee par defaut)
   const jr = kidsJournal().slice(-8).reverse();
   if (jr.length) {
@@ -9401,9 +9993,11 @@ function mKidsScreen(o) {
     scrEl('div', { cls: 'mp-sub', text: 'sans nouveau versement, à ' + (r * 100).toFixed(1) + ' % par an : une hypothèse, pas une promesse' })] }));
   return box;
 }
-function renderEnfantsTab() {
-  const c = document.getElementById('tab-enfants');
-  if (!c) return;
+// Page de l'ETF des enfants. Depuis la mise en cagnotte (05/10/2026) : sous-onglet « ETF VWCE » de l'onglet Enfants,
+// sans la repartition par enfant (elle se lit dans le sous-onglet Cagnotte) ni la saisie par enfant.
+function renderKidsEtf(host) {
+  const c = host;
+  const pot = !!potBascule();
   const cfg = kidsCfg(), agg = kidsCompute();
   const wrap = scrEl('div', { style: 'background:#fff;border:1px solid #e3e8ee;border-radius:14px;padding:14px;margin-bottom:14px' });
   // Pastille de fraicheur (meme correctif que le screener) : la couleur juge l'age de la COLLECTE,
@@ -9434,7 +10028,7 @@ function renderEnfantsTab() {
   // Réglages et saisie vivent dans un bloc à part, placé SOUS les deux graphiques (demande user) :
   // ce qu'on regarde tous les jours en haut, ce qu'on touche une fois par mois en bas.
   const formBlock = scrEl('div', { style: 'background:#fafbfc;border:1px solid #eef1f5;border-radius:10px;padding:12px 14px;margin-bottom:14px' });
-  formBlock.appendChild(scrEl('div', { text: 'Réglages et saisie des versements', style: 'font-size:0.62rem;color:#9aa7b4;text-transform:uppercase;font-weight:800;letter-spacing:.05em;margin-bottom:10px' }));
+  formBlock.appendChild(scrEl('div', { text: pot ? 'Réglages de la projection' : 'Réglages et saisie des versements', style: 'font-size:0.62rem;color:#9aa7b4;text-transform:uppercase;font-weight:800;letter-spacing:.05em;margin-bottom:10px' }));
   formBlock.appendChild(scrEl('div', { style: 'display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px;font-size:0.8rem;color:#5b6b7d', kids: [
     scrEl('span', { text: 'ETF' }), tkIn,
     scrEl('span', { text: 'horizon' }), hzIn, scrEl('span', { text: 'ans' }),
@@ -9518,7 +10112,9 @@ function renderEnfantsTab() {
     SCR_KIDS.contributions = list;
     kidsSave(); kIn.value = ''; aIn.value = ''; uIn.value = ''; renderEnfantsTab();
   };
-  formBlock.appendChild(scrEl('div', { style: 'display:flex;gap:8px;flex-wrap:wrap;align-items:center', kids: [dIn, srcIn, kIn, aIn, uIn, addBtn, dl, lmHint] }));
+  if (pot) formBlock.appendChild(scrEl('div', { style: 'font-size:0.74rem;color:#5b6b7d;line-height:1.45',
+    text: 'Les achats de VWCE se saisissent désormais dans le sous-onglet Lendermarket (transfert vers l’ETF) ou Cagnotte (nouvel apport pour un enfant) : ils ne sont plus attribués à un enfant, la cagnotte appartient aux cinq.' }));
+  else formBlock.appendChild(scrEl('div', { style: 'display:flex;gap:8px;flex-wrap:wrap;align-items:center', kids: [dIn, srcIn, kIn, aIn, uIn, addBtn, dl, lmHint] }));
   syncSrc();
 
   if (!kidsContribs().length) {
@@ -9571,8 +10167,8 @@ function renderEnfantsTab() {
   const hero = scrEl('div', { cls: 'inv-card', style: 'background:linear-gradient(135deg, rgba(95,139,242,0.08), rgba(29,158,116,0.04));border:1px solid rgba(95,139,242,0.18);border-radius:14px;padding:18px 24px;margin-bottom:14px' });
   hero.appendChild(scrEl('div', { style: 'display:flex;justify-content:space-between;align-items:baseline;gap:14px;flex-wrap:wrap;margin-bottom:16px', kids: [
     scrEl('div', { kids: [
-      scrEl('div', { text: 'Épargne des enfants · ' + cfg.ticker, style: 'font-size:0.7rem;letter-spacing:1px;color:#5b6b7d;text-transform:uppercase;font-weight:700' }),
-      scrEl('div', { text: 'poche séparée : elle n’entre pas dans ton capital, ni dans ta performance, ni dans ta répartition', style: 'font-size:0.7rem;color:#9aa7b4;margin-top:3px' })] }),
+      scrEl('div', { text: (pot ? 'ETF de la cagnotte · ' : 'Épargne des enfants · ') + cfg.ticker, style: 'font-size:0.7rem;letter-spacing:1px;color:#5b6b7d;text-transform:uppercase;font-weight:700' }),
+      scrEl('div', { text: pot ? 'parts de VWCE de la cagnotte des enfants, hors de ton capital, de ta performance et de ta répartition' : 'poche séparée : elle n’entre pas dans ton capital, ni dans ta performance, ni dans ta répartition', style: 'font-size:0.7rem;color:#9aa7b4;margin-top:3px' })] }),
     kBadge] }));
   const cells = [
     cell('Valeur de la poche', money(agg.value), agg.price != null ? (cfg.ticker + ' à ' + kidsMoney(agg.price, 2)) : 'cours indisponible', '#22303f',
@@ -9634,7 +10230,7 @@ function renderEnfantsTab() {
       scrEl('td', { text: (k.share * 100).toFixed(1) + '%', style: 'padding:6px 9px;text-align:right;' + bd + ';font-weight:800;color:#3563e9' })] }));
   });
   const table = scrEl('table', { style: 'width:100%;border-collapse:collapse;font-size:0.82rem', kids: [scrEl('thead', { kids: [thead] }), tbody] });
-  wrap.appendChild(scrEl('div', { style: 'display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start;margin-bottom:14px', kids: [
+  if (!pot) wrap.appendChild(scrEl('div', { style: 'display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start;margin-bottom:14px', kids: [
     scrEl('div', { style: 'flex:0 0 auto;background:#fafbfc;border:1px solid #eef1f5;border-radius:12px;padding:12px', kids: [
       scrEl('div', { text: 'Répartition', style: 'font-size:0.7rem;text-transform:uppercase;letter-spacing:.03em;color:#5b6b7d;font-weight:700;margin-bottom:10px' }),
       scrEl('div', { style: 'display:flex;align-items:center;gap:12px;flex-wrap:wrap', kids: [scrDonut(items, 150), scrLegend(items)] })] }),
@@ -9659,7 +10255,7 @@ function renderEnfantsTab() {
       'Valeur actuelle capitalisée à ' + (r * 100).toFixed(1) + ' % par an pendant ' + y + ' ans, moins le total versé pour la plus-value. HYPOTHÈSE, pas une promesse : les marchés ne montent pas en ligne droite.',
       gainOf(proj - agg.invested, agg.invested)));
     agg.kids.forEach((k, i) => {
-      if (k.value == null) return;
+      if (k.value == null || pot) return;   // cagnotte : la projection par enfant est dans le sous-onglet Cagnotte
       prow.appendChild(tile(k.child, money(k.value * f), 'aujourd’hui ' + money(k.value), kidInk(k.child, i),
         'Projection de la part de ' + k.child + ' au même rythme. La plus-value est calculée par rapport aux ' + money(k.invested) + ' réellement versés pour ' + k.child + '.',
         gainOf(k.value * f - k.invested, k.invested)));
@@ -9676,12 +10272,12 @@ function renderEnfantsTab() {
     const jb = scrEl('div', { style: 'background:#fafbfc;border:1px solid #eef1f5;border-radius:12px;padding:12px 14px;margin-top:14px' });
     jb.appendChild(scrEl('div', { text: 'Journal des versements', style: 'font-size:0.7rem;text-transform:uppercase;letter-spacing:.03em;color:#5b6b7d;font-weight:700;margin-bottom:4px' }));
     jb.appendChild(scrFoldNote('Lire le journal', scrEl('div', { style: 'font-size:0.68rem;color:#9aa7b4;line-height:1.45',
-      text: 'Un versement Lendermarket est saisi une seule fois mais apparaît sur DEUX lignes, une par enfant servi. La colonne « part du pot » donne le poids de l’enfant juste après ce versement, et l’effet en points. Les autres enfants ne perdent rien : leur pourcentage baisse simplement parce que le pot grossit.' }), 'kidsJournal', 'margin-bottom:9px'));
+      text: pot ? 'Achats de VWCE de la poche. Avant le 05/10/2026, chaque versement était attribué à un enfant (un retrait Lendermarket apparaissait sur deux lignes, Noah et Elie). Depuis la mise en cagnotte, les achats sont faits par la cagnotte : la part de chaque enfant se lit dans le sous-onglet Cagnotte.' : 'Un versement Lendermarket est saisi une seule fois mais apparaît sur DEUX lignes, une par enfant servi. La colonne « part du pot » donne le poids de l’enfant juste après ce versement, et l’effet en points. Les autres enfants ne perdent rien : leur pourcentage baisse simplement parce que le pot grossit.' }), 'kidsJournal', 'margin-bottom:9px'));
     const th = (t, al) => scrEl('th', { text: t, style: 'text-align:' + (al || 'left') + ';padding:5px 8px;font-size:0.64rem;text-transform:uppercase;letter-spacing:.04em;color:#9aa7b4;font-weight:800;border-bottom:1px solid #e3e8ee;white-space:nowrap' });
     const tbl = scrEl('table', { style: 'width:100%;border-collapse:collapse;font-size:0.78rem' });
     tbl.appendChild(scrEl('thead', { kids: [scrEl('tr', { kids: [
-      th('Date'), th('Origine'), th('Enfant'), th('Montant', 'right'), th('Prix payé', 'right'), th('Parts', 'right'),
-      th('Parts cumulées', 'right'), th('Part du pot', 'right'), th('Effet', 'right')] })] }));
+      th('Date'), th('Origine'), th(pot ? 'Pour' : 'Enfant'), th('Montant', 'right'), th('Prix payé', 'right'), th('Parts', 'right'),
+      th(pot ? 'Parts de la poche' : 'Parts cumulées', 'right')].concat(pot ? [] : [th('Part du pot', 'right'), th('Effet', 'right')]) })] }));
     const tb = scrEl('tbody');
     const bd = 'border-bottom:1px solid #f1f4f8';
     const td = (kids, al, extra) => scrEl('td', { style: 'padding:6px 8px;text-align:' + (al || 'left') + ';' + bd + (extra || ''),
@@ -9690,8 +10286,8 @@ function renderEnfantsTab() {
       const lm = (r.source === 'lendermarket');
       const dd = new Date(r.date + 'T00:00:00');
       const dTxt = isNaN(dd) ? r.date : dd.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: '2-digit' });
-      const badge = scrEl('span', { text: lm ? 'Lendermarket' : 'direct',
-        attrs: lm ? { title: 'Une seule saisie, répartie automatiquement : ' + LM_SPLIT.map((sp) => sp.child + ' ' + (sp.pct * 100).toFixed(0) + ' %').join(' / ') + '. C’est leur part réelle dans la poche Lendermarket.' } : {},
+      const badge = scrEl('span', { text: lm ? 'Lendermarket' : (r.source === 'apport' ? 'apport' : 'direct'),
+        attrs: lm ? { title: String(r.batch || '').indexOf('pot-') === 0 ? 'Transfert interne de la cagnotte : il ne change la part d’aucun enfant.' : 'Une seule saisie, répartie automatiquement : ' + LM_SPLIT.map((sp) => sp.child + ' ' + (sp.pct * 100).toFixed(0) + ' %').join(' / ') + '. C’est leur part réelle dans la poche Lendermarket.' } : {},
         style: 'display:inline-block;padding:1px 7px;border-radius:20px;font-size:0.65rem;font-weight:800;'
           + (lm ? 'background:#e8eefc;color:#3563e9;cursor:help' : 'background:#f1f4f8;color:#9aa7b4') });
       const dot = scrEl('span', { style: 'width:9px;height:9px;border-radius:3px;display:inline-block;margin-right:6px;vertical-align:middle;background:' + kidColor(r.child, 0) });
@@ -9706,12 +10302,12 @@ function renderEnfantsTab() {
         td(money(r.amount), 'right'),
         td(r.units > 0 ? money(r.amount / r.units, 2) : '–', 'right', ';color:#5b6b7d'),   // deduit, jamais saisi
         td(r.units.toFixed(6), 'right', ';color:#5b6b7d;font-variant-numeric:tabular-nums'),
-        td(r.cum.toFixed(6), 'right', ';color:#5b6b7d;font-variant-numeric:tabular-nums'),
+        td((pot ? r.tot : r.cum).toFixed(6), 'right', ';color:#5b6b7d;font-variant-numeric:tabular-nums')].concat(pot ? [] : [
         td((r.share * 100).toFixed(1) + ' %', 'right', ';font-weight:700'),
         scrEl('td', { attrs: { title: 'Répartition du pot juste après ce versement : ' + others },
           style: 'padding:6px 8px;text-align:right;' + bd + ';font-weight:700;cursor:help;color:'
             + ((r.delta == null) ? '#9aa7b4' : (r.delta >= 0 ? '#1d9e74' : '#dd5f66')),
-          kids: [scrEl('span', { text: dTxt2 })] })] }));
+          kids: [scrEl('span', { text: dTxt2 })] })]) }));
     });
     tbl.appendChild(tb);
     const tot = jrn.length ? jrn[jrn.length - 1].tot : 0;
@@ -9721,18 +10317,18 @@ function renderEnfantsTab() {
       scrEl('td', { style: 'padding:7px 8px;text-align:right;color:#9aa7b4;font-weight:600',
         kids: [scrEl('span', { text: tot > 0 ? money(agg.invested / tot, 2) : '–' })] }),   // prix de revient moyen du pot
       scrEl('td', { style: 'padding:7px 8px;text-align:right', kids: [scrEl('span', { text: tot.toFixed(6) })] }),
-      scrEl('td', { attrs: { colspan: '3' } })] })] }));
+      scrEl('td', { attrs: { colspan: pot ? '1' : '3' } })] })] }));
     jb.appendChild(scrEl('div', { style: 'overflow-x:auto', kids: [tbl] }));
     wrap.appendChild(jb);
   }
 
   wrap.appendChild(scrFoldNote('Comment cette poche est comptée', scrEl('div', { style: 'font-size:0.68rem;color:#9aa7b4;line-height:1.5',
-    text: 'Cette poche est totalement isolée du reste du dashboard : elle n’est comptée ni dans ton capital, ni dans ta performance, ni dans ta répartition. La répartition entre enfants repose sur le NOMBRE DE PARTS de chacun, jamais sur un pourcentage figé, pour rester exacte quels que soient les cours au moment de chaque versement.' }), 'kidsIsole', 'margin-top:12px'));
+    text: pot ? 'Depuis le 05/10/2026, cette poche ETF appartient à la cagnotte des enfants : ses parts de VWCE ne sont plus attribuées enfant par enfant. Chaque enfant détient des parts de la cagnotte entière (ETF + Lendermarket), voir le sous-onglet Cagnotte. La cagnotte reste isolée de ton capital, de ta performance et de ta répartition.' : 'Cette poche est totalement isolée du reste du dashboard : elle n’est comptée ni dans ton capital, ni dans ta performance, ni dans ta répartition. La répartition entre enfants repose sur le NOMBRE DE PARTS de chacun, jamais sur un pourcentage figé, pour rester exacte quels que soient les cours au moment de chaque versement.' }), 'kidsIsole', 'margin-top:12px'));
   const outer = scrEl('div');
   // mobile : l'ecran simplifie en tete, le contenu PC (reglages et saisie compris) derriere le bouton
-  if (M_MQ.matches) outer.appendChild(scrEl('div', { cls: 'm-only', kids: [mKidsScreen({ cfg: cfg, agg: agg, serie: serie, kDay: kDay, kDayPct: kDayPct, kMonth: kMonth, kMonthPct: kMonthPct })] }));
+  if (M_MQ.matches) outer.appendChild(scrEl('div', { cls: 'm-only', kids: [mKidsScreen({ cfg: cfg, agg: agg, serie: serie, kDay: kDay, kDayPct: kDayPct, kMonth: kMonth, kMonthPct: kMonthPct, pot: pot })] }));
   hero.classList.add('m-sec'); wrap.classList.add('m-sec');
-  const mBtn = scrEl('button', { cls: 'm-more-btn', attrs: { type: 'button' }, text: c.classList.contains('m-open') ? 'Masquer les analyses détaillées' : 'Afficher les analyses détaillées' });
+  const mBtn = scrEl('button', { cls: 'm-more-btn', attrs: { type: 'button' }, text: document.getElementById('tab-enfants').classList.contains('m-open') ? 'Masquer les analyses détaillées' : 'Afficher les analyses détaillées' });
   mBtn.onclick = () => mToggleMore(mBtn);
   outer.appendChild(hero); outer.appendChild(wrap); outer.appendChild(mBtn);
   c.replaceChildren(outer);

@@ -85,7 +85,7 @@ async function compute(opts) {
   const html = await loadDashboardSource(opts.dashboardPath);
   const code = extractFunctions(html);
 
-  const [trades, deposits, fees, dividends, posHist, dwxDaily, livePrices, myPositions, quality, pont, igSync, fx, kids, kidsPrice, kidsHist, lmCapital] = await Promise.all([
+  const [trades, deposits, fees, dividends, posHist, dwxDaily, livePrices, myPositions, quality, pont, igSync, fx, kids, kidsPrice, kidsHist, lmCapital, kidsPot] = await Promise.all([
     getJson(fbUrl('trades')), getJson(fbUrl('deposits')), getJson(fbUrl('fees')), getJson(fbUrl('dividends')),
     getJson(fbUrl('stocks/screener/positionsHistory')), getJson(fbUrl('dashboard/darwinex/daily')),
     getJson(fbUrl('stocks/screener/livePrices')), getJson(fbUrl('stocks/screener/myPositions')),
@@ -93,6 +93,8 @@ async function compute(opts) {
     getJson(fbUrl('stocks/kids')), getJson(fbUrl('stocks/kidsPrice')), getJson(fbUrl('stocks/kidsHistory')),
     // cagnotte Lendermarket (onglet Repartition) : etat COURANT par personne, tenu par le dashboard a chaque MAJ
     getJson(fbUrl('dashboard/data/repartition/capital')),
+    // cagnotte des enfants (05/10/2026) : parts figees + mouvements Lendermarket + apports
+    getJson(fbUrl('stocks/kidsPot')),
   ]);
 
   const store = {};
@@ -163,7 +165,7 @@ async function compute(opts) {
     });
   })()`, ctx, { timeout: 10000 });
 
-  return Object.assign(JSON.parse(r), { pont: pont || null, igSync: igSync || null, kids: kidsPocket(kids, kidsPrice, kidsHist, lmCapital), computedAt: Date.now() });
+  return Object.assign(JSON.parse(r), { pont: pont || null, igSync: igSync || null, kids: kidsPocket(kids, kidsPrice, kidsHist, lmCapital, kidsPot), computedAt: Date.now() });
 }
 
 // Poche enfants (onglet Enfants, modele en PARTS de VWCE) : parts x cours, par enfant.
@@ -171,9 +173,10 @@ async function compute(opts) {
 // Variation du jour : cours actuel moins la derniere cloture de stocks/kidsHistory ({date: cours}) avant aujourd'hui.
 // lm = capital Lendermarket courant par personne ({Moi, Noah, Elie}) : ajoute au capital des enfants concernes
 // (c.lm), la plus-value reste celle de l'ETF (pas de prix de revient par enfant cote Lendermarket).
-function kidsPocket(kids, price, hist, lm) {
+function kidsPocket(kids, price, hist, lm, pot) {
   const px = price && Number(price.price);
   if (!kids || !(px > 0)) return null;
+  if (pot && pot.bascule && pot.bascule.enfants) return kidsCagnotte(kids, price, hist, pot);
   const by = {};
   asList(kids.contributions).forEach(c => {
     const o = by[c.child] || (by[c.child] = { child: c.child, units: 0, paid: 0 });
@@ -187,6 +190,33 @@ function kidsPocket(kids, price, hist, lm) {
   const day = prev ? units * (px - prev) : null, dayPct = prev ? (px / prev - 1) * 100 : null;
   children.forEach(o => { o.day = prev ? o.units * (px - prev) : null; o.lm = (lm && Number(lm[o.child]) > 0) ? Number(lm[o.child]) : 0; });
   return { day, dayPct, value, paid, pnl: value - paid, pct: paid > 0 ? (value - paid) / paid * 100 : 0, price: px, ticker: price.ticker, priceAt: price.marketAt || price.at, children };
+}
+
+// CAGNOTTE (depuis le 05/10/2026, meme calcul que potCompute du dashboard) : chaque enfant detient des parts de la
+// cagnotte entiere (ETF + Lendermarket), figees a la bascule (1 part = 1 EUR) ; un nouvel apport en achete.
+// Valeur d'un enfant = parts x (ETF + solde Lendermarket) / total des parts. Plus-value = depuis la bascule
+// (apports deduits). Jour = variation de l'ETF au prorata de la part (Lendermarket ne bouge qu'a la saisie mensuelle).
+function kidsCagnotte(kids, price, hist, pot) {
+  const px = Number(price.price), b = pot.bascule;
+  const units = asList(kids.contributions).reduce((a, c) => a + (Number(c.units) || 0), 0), etf = units * px;
+  const byDate = (x, y) => (x.date < y.date ? -1 : (x.date > y.date ? 1 : (Number(x.at) || 0) - (Number(y.at) || 0)));
+  const moves = asList(pot.lm).filter(m => m && m.date).sort(byDate);
+  const lm = moves.length ? Number(moves[moves.length - 1].balance) : Number(b.lendermarket.total);
+  const parts = {}, base = {};
+  Object.keys(b.enfants).forEach(n => { parts[n] = Number(b.enfants[n].parts) || 0; base[n] = Number(b.enfants[n].total) || 0; });
+  asList(pot.apports).forEach(a => { if (!a || !a.child) return; parts[a.child] = (parts[a.child] || 0) + (Number(a.parts) || 0); base[a.child] = (base[a.child] || 0) + (Number(a.amount) || 0); });
+  const totalParts = Object.values(parts).reduce((a, v) => a + v, 0), value = etf + lm, nav = totalParts > 0 ? value / totalParts : 0;
+  const d = new Date(), today = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  const prevKey = Object.keys(hist || {}).filter(k => k < today && Number(hist[k]) > 0).sort().pop();
+  const prev = prevKey ? Number(hist[prevKey]) : null;
+  const day = prev ? units * (px - prev) : null;
+  const children = Object.keys(parts).map(n => {
+    const share = totalParts > 0 ? parts[n] / totalParts : 0;
+    return { child: n, value: parts[n] * nav, paid: base[n], day: day == null ? null : day * share, etf: share * etf, lm: share * lm, share };
+  }).sort((x, y) => y.value - x.value);
+  const paid = children.reduce((a, o) => a + o.paid, 0);
+  return { pot: true, day, dayPct: (day != null && value - day > 0) ? day / (value - day) * 100 : null, value, paid, pnl: value - paid,
+    pct: paid > 0 ? (value - paid) / paid * 100 : 0, lmTotal: lm, price: px, ticker: price.ticker, priceAt: price.marketAt || price.at, children };
 }
 
 module.exports = { compute, extractFunctions };

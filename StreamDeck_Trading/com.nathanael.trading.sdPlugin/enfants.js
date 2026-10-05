@@ -29,25 +29,27 @@ function createEnfantsView({ C, esc, eur, sEur, sPct, col, getData, getMode }) {
     const pct = jour ? (c.value - c.day > 0 ? c.day / (c.value - c.day) * 100 : 0) : (c.paid > 0 ? (c.value - c.paid) / c.paid * 100 : 0);
     const nom = c.child.length > 9 ? c.child.split(' ')[0] : c.child;
     const pvTxt = pv == null ? '–' : sEur(pv), pc = pv == null ? C.gray : col(pv);
-    const capital = c.value + (c.lm || 0);   // ETF + Lendermarket (Noah et Elie)
-    // avec Lendermarket : detail « ETF + LM » sous le capital ; la plus-value et le % restent ceux de l'ETF
+    // cagnotte (depuis le 05/10/2026) : c.value = part de la cagnotte entiere, plus-value depuis la bascule.
+    // Avant : ETF + Lendermarket de Noah et Elie, plus-value et % de l'ETF seul.
+    const k = getData() && getData().kids, pot = !!(k && k.pot);
+    const capital = pot ? c.value : c.value + (c.lm || 0);
     const k1 = v => (v / 1000).toLocaleString('fr-FR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' k';
-    const detail = c.lm ? '<text x="72" y="88" ' + F + ' font-size="13" fill="' + C.dim + '">' + esc('ETF ' + k1(c.value) + ' + LM ' + k1(c.lm)) + '</text>' : '';
+    const detail = c.lm ? '<text x="72" y="88" ' + F + ' font-size="13" fill="' + C.dim + '">' + esc('ETF ' + k1(pot ? c.etf : c.value) + ' + LM ' + k1(c.lm)) + '</text>' : '';
     return wrap(COULEUR[c.child] || C.blue,
       '<text x="72" y="' + (c.lm ? 31 : 34) + '" ' + F + ' font-size="17" fill="' + C.txt + '">' + esc(nom.toUpperCase()) + '</text>'
       + '<text x="72" y="' + (c.lm ? 66 : 74) + '" ' + F + ' font-size="' + (eur(capital).length > 7 ? 26 : 30) + '" fill="' + C.txt + '">' + esc(eur(capital)) + '</text>'
       + detail
-      + '<text x="72" y="' + (c.lm ? 112 : 104) + '" ' + F + ' font-size="' + (c.lm ? 18 : 20) + '" fill="' + (pv == null ? C.gray : pc) + '">' + esc(pvTxt) + (c.lm ? ' ETF' : '') + '</text>'
+      + '<text x="72" y="' + (c.lm ? 112 : 104) + '" ' + F + ' font-size="' + (c.lm ? 18 : 20) + '" fill="' + (pv == null ? C.gray : pc) + '">' + esc(pvTxt) + (c.lm && !pot ? ' ETF' : '') + '</text>'
       + '<text x="72" y="' + (c.lm ? 133 : 128) + '" ' + F + ' font-size="' + (c.lm ? 15 : 17) + '" fill="' + (pv == null ? C.gray : pc) + '">' + esc(pv == null ? '' : sPct(pct).replace(' %', '%')) + (jour ? ' · jour' : '') + '</text>');
   }
   function total() {
     const k = getData() && getData().kids;
     if (!k) return wrap(C.gray, '<text x="72" y="80" ' + F + ' font-size="15" fill="' + C.gray + '">chargement</text>');
     const jour = getMode() === 'jour', pv = jour ? k.day : k.pnl, pct = jour ? k.dayPct : k.pct;
-    // total = somme des touches enfants (ETF + Lendermarket) ; plus-value = celle de l'ETF
-    const totalLm = k.children.reduce((a, c) => a + (c.lm || 0), 0);
+    // cagnotte : valeur totale (ETF + Lendermarket), plus-value depuis la bascule. Avant : ETF + LM, plus-value de l'ETF.
+    const totalLm = k.pot ? 0 : k.children.reduce((a, c) => a + (c.lm || 0), 0);
     return wrap(C.dim,
-      '<text x="72" y="34" ' + F + ' font-size="15" fill="' + C.dim + '">' + (totalLm ? 'TOTAL ENFANTS' : 'TOTAL POCHE') + '</text>'
+      '<text x="72" y="34" ' + F + ' font-size="15" fill="' + C.dim + '">' + (k.pot ? 'CAGNOTTE' : (totalLm ? 'TOTAL ENFANTS' : 'TOTAL POCHE')) + '</text>'
       + '<text x="72" y="74" ' + F + ' font-size="28" fill="' + C.txt + '">' + esc(eur(k.value + totalLm)) + '</text>'
       + '<text x="72" y="104" ' + F + ' font-size="20" fill="' + (pv == null ? C.gray : col(pv)) + '">' + esc(pv == null ? '–' : sEur(pv)) + '</text>'
       + '<text x="72" y="128" ' + F + ' font-size="17" fill="' + (pv == null ? C.gray : col(pv)) + '">' + esc(pct == null ? '' : sPct(pct).replace(' %', '%')) + (jour ? ' · jour' : '') + '</text>');
