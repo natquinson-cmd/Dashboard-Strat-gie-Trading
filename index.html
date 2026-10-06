@@ -12198,7 +12198,13 @@ function scrPerfChart(hist, bench, benchN) {
     const fh = filterHist(days), twr = twrCum(fh);
     const sp = compareSP ? spSeries(fh[0].date) : [], ndx = compareNdx ? ndxSeries(fh[0].date) : [];
     const lastTwr = twr.length ? twr[twr.length - 1].v : 0, lastSp = sp.length ? sp[sp.length - 1].v : null, lastNdx = ndx.length ? ndx[ndx.length - 1].v : null;
-    bigBox.replaceChildren(scrEl('div', { text: (lastTwr >= 0 ? '+' : '') + (lastTwr * 100).toFixed(2) + ' %', style: `font-size:1.7rem;font-weight:800;color:${lastTwr >= 0 ? '#1d9e74' : '#dd5f66'};line-height:1` }));
+    // la PERIODE est ecrite a cote du chiffre : sans elle, « +0,34 % sur 1 mois » se lisait comme une contradiction
+    // avec la performance de l'en-tete, mesuree depuis le debut du suivi (meme calcul, autre fenetre).
+    const d0 = parseD(fh[0].date), dTxt = String(d0.getDate()).padStart(2, '0') + '/' + String(d0.getMonth() + 1).padStart(2, '0');
+    const LIB = { '1J': 'sur 1 jour', '1S': 'sur 1 semaine', '1M': 'sur 1 mois', '1A': 'sur 1 an', 'Tout': 'depuis le début du suivi' };
+    bigBox.replaceChildren(scrEl('div', { style: 'display:flex;align-items:baseline;gap:8px;flex-wrap:wrap', kids: [
+      scrEl('span', { text: (lastTwr >= 0 ? '+' : '') + (lastTwr * 100).toFixed(2) + ' %', style: `font-size:1.7rem;font-weight:800;color:${lastTwr >= 0 ? '#1d9e74' : '#dd5f66'};line-height:1` }),
+      scrEl('span', { text: LIB[period] + ' (depuis le ' + dTxt + ')', style: 'font-size:0.7rem;color:#5b6b7d;font-weight:600' })] }));
     chartBox.replaceChildren(perfSvg(twr, sp, ndx));
     ctrlBox.replaceChildren();
     const pb = scrEl('div', { style: 'display:inline-flex;gap:4px;flex-wrap:wrap;margin-top:6px' });
@@ -12244,6 +12250,7 @@ function scrTopKpiBand(pos, badge) {
   const pot = fairBase > 0 ? (fair / fairBase - 1) : null;
   const real = scrRealized(SCR_TX);
   const twr = (typeof scrTWR === 'function') ? scrTWR(SCR_HIST) : null;
+  const twrDebut = (SCR_HIST && SCR_HIST.length) ? SCR_HIST[0].date.slice(8, 10) + '/' + SCR_HIST[0].date.slice(5, 7) : null;   // debut du suivi (TWR de l'en-tete)
   const GREEN = '#1d9e74', RED = '#dd5f66';
   const sign = (x) => (x >= 0 ? '+' : '');
   // Meme forme que le cadre de l'onglet Darwinex (dwxCell) : cellule de tete en grand, les autres
@@ -12271,8 +12278,8 @@ function scrTopKpiBand(pos, badge) {
       pnl >= 0 ? GREEN : RED, "Écart entre la valeur actuelle et ton prix de revient, sur les lignes que tu détiens encore."),
     tile('Résultat réalisé', sign(real.total) + scrUsd2(real.total), real.closed.length + ' cession' + (real.closed.length > 1 ? 's' : '') + ' · frais ' + scrUsd2(real.fees),
       real.total >= 0 ? GREEN : RED, "Plus et moins-values des lignes VENDUES, net de frais. C'est la base imposable en compte-titres."),
-    tile('Performance (TWR)', twr == null ? '–' : sign(twr) + (twr * 100).toFixed(2) + ' %', 'pondérée dans le temps, net des apports',
-      twr == null ? '#9aa7b4' : (twr >= 0 ? GREEN : RED), "Rendement réel de ta stratégie : il neutralise le calendrier de tes versements, donc il est comparable aux indices."),
+    tile('Performance (TWR)', twr == null ? '–' : sign(twr) + (twr * 100).toFixed(2) + ' %', (twrDebut ? 'depuis le ' + twrDebut + ' · ' : '') + 'net des apports',
+      twr == null ? '#9aa7b4' : (twr >= 0 ? GREEN : RED), "Rendement réel de ta stratégie depuis le début du suivi : il neutralise le calendrier de tes versements, donc il est comparable aux indices. Le graphique « Performance » donne la même mesure sur la période choisie (1J, 1S, 1M, 1A, Tout) : « Tout » retombe sur ce chiffre."),
     tile('Potentiel (juste valeur)', pot == null ? '–' : sign(pot) + (pot * 100).toFixed(0) + ' %', pot == null ? 'non évaluable' : 'juste valeur DCF vs cours',
       pot == null ? '#9aa7b4' : (pot >= 0 ? GREEN : RED), "Écart entre la juste valeur DCF agrégée de tes lignes et leur cours actuel. Estimation mécanique, pas un conseil."),
     tile('Dividendes / an', div > 0 ? scrUsd(div) : '–', div > 0 ? 'rendement ' + (val > 0 ? (div / val * 100).toFixed(2) : '0') + '%' : 'portefeuille orienté croissance',
