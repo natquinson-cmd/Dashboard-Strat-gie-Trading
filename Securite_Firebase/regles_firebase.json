@@ -3,27 +3,86 @@
     ".read": "auth != null && (auth.uid === '3TeVRklUsThrykDDWlGKM3S5IPK2' || root.child('acces').child(auth.uid).exists())",
     ".write": "auth != null && auth.uid === '3TeVRklUsThrykDDWlGKM3S5IPK2'",
     "$noeud": {
-      ".write": "auth != null && $noeud !== 'acces' && $noeud !== 'demandesAcces' && root.child('acces').child(auth.uid).child('niveau').val() === 'complet'"
+      ".write": "auth != null && $noeud !== 'acces' && $noeud !== 'demandesAcces' && $noeud !== 'canadaAcces' && $noeud !== 'canadaDemandes' && root.child('acces').child(auth.uid).child('niveau').val() === 'complet'"
     },
     "acces": {
-      "$uid": { ".read": "auth != null && auth.uid === $uid" }
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid"
+      }
     },
     "demandesAcces": {
       "$uid": {
         ".read": "auth != null && auth.uid === $uid",
         ".write": "auth != null && auth.uid === $uid",
         ".validate": "newData.hasChildren(['email', 'at'])",
-        "email": { ".validate": "newData.isString() && newData.val().length <= 200" },
-        "nom": { ".validate": "newData.isString() && newData.val().length <= 200" },
-        "at": { ".validate": "newData.isNumber()" },
-        "$autre": { ".validate": false }
+        "email": {
+          ".validate": "newData.isString() && newData.val().length <= 200"
+        },
+        "nom": {
+          ".validate": "newData.isString() && newData.val().length <= 200"
+        },
+        "at": {
+          ".validate": "newData.isNumber()"
+        },
+        "$autre": {
+          ".validate": false
+        }
       }
     },
-    "anacrossing": { ".read": true, ".write": true },
-    "mathfoot": { ".read": true, ".write": true },
-    "f1academy": { ".read": true, ".write": true },
-    "profil_psy": { "$personne": { ".write": true } },
-    "neuro_profil": { "$personne": { ".write": true } },
-    "signalsLeads": { "$lead": { ".write": "!data.exists() && newData.exists()" } }
+    "canada": {
+      ".read": "auth != null && root.child('canadaAcces').child(auth.uid).exists()",
+      ".write": "auth != null && root.child('canadaAcces').child(auth.uid).child('niveau').val() === 'complet'"
+    },
+    "canadaAcces": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid"
+      }
+    },
+    "canadaDemandes": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid",
+        ".validate": "newData.hasChildren(['email', 'at'])",
+        "email": {
+          ".validate": "newData.isString() && newData.val().length <= 200"
+        },
+        "nom": {
+          ".validate": "newData.isString() && newData.val().length <= 200"
+        },
+        "at": {
+          ".validate": "newData.isNumber()"
+        },
+        "$autre": {
+          ".validate": false
+        }
+      }
+    },
+    "anacrossing": {
+      ".read": true,
+      ".write": true
+    },
+    "mathfoot": {
+      ".read": true,
+      ".write": true
+    },
+    "f1academy": {
+      ".read": true,
+      ".write": true
+    },
+    "profil_psy": {
+      "$personne": {
+        ".write": true
+      }
+    },
+    "neuro_profil": {
+      "$personne": {
+        ".write": true
+      }
+    },
+    "signalsLeads": {
+      "$lead": {
+        ".write": "!data.exists() && newData.exists()"
+      }
+    }
   }
 }
