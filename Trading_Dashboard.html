@@ -13022,7 +13022,9 @@ function screenerPositionsModule() {
   if (typeof db !== 'undefined' && db) {
     const lpRef = db.ref('stocks/screener/livePrices');
     lpRef.off('value');   // évite d'empiler les écouteurs quand le module est re-monté
-    lpRef.on('value', (snap) => { if (scrApplyLpValue(snap.val())) { render(); if (SCR_HIST_RERENDER) SCR_HIST_RERENDER(); } });   // le point du jour du calendrier suit les cours
+    // le point du jour entre dans l'historique AVANT le rendu de l'en-tete : sinon sa performance (TWR) gardait les
+    // cours de la mise a jour precedente (+0,63 % affiche quand le graphique, lui a jour, donnait +0,68 %).
+    lpRef.on('value', (snap) => { if (scrApplyLpValue(snap.val())) { scrMergeLiveHist(); render(); if (SCR_HIST_RERENDER) SCR_HIST_RERENDER(); } });   // le point du jour du calendrier suit les cours
   }
   // Section "Évolution du capital" (courbe + calendriers) : la boite est declaree PLUS HAUT (remontee dans la refonte).
   SCR_HIST_RERENDER = () => { scrMergeLiveHist(); histBox.replaceChildren(scrBuildHistSection()); mRender(); };
