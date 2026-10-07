@@ -83,20 +83,23 @@ function createPositionKeys({ C, esc, nf1, nf0, igFeed, log }) {
     if (!r) return empty('SÉCURITÉ');
     const { p } = r;
     const buy = p.direction === 'BUY';
-    const trail = p.trailing ? '<text x="72" y="134" ' + F + ' font-size="13" fill="' + C.dim + '">suiveur ' + esc(pts(p.trailing)) + ' pts</text>' : '';
-    if (p.stop == null) return svgWrap(C.warn, title('SÉCURITÉ') + '<text x="72" y="82" ' + F + ' font-size="21" fill="' + C.warn + '">SANS STOP</text>' + trail);
+    // grands caracteres (demande du user) : points en tres gros, euros en gros, mention en bas
+    const bas = txt => '<text x="72" y="136" ' + F + ' font-size="15" fill="' + C.dim + '">' + esc(txt) + '</text>';
+    const trail = p.trailing ? bas('suiveur ' + pts(p.trailing) + ' pts') : '';
+    if (p.stop == null) return svgWrap(C.warn, title('SÉCURITÉ') + '<text x="72" y="84" ' + F + ' font-size="23" fill="' + C.warn + '">SANS STOP</text>' + trail);
     const sec = buy ? p.stop - p.level : p.level - p.stop;
     const ept = r.ept;
-    const eurLine = ept ? '<text x="72" y="112" ' + F + ' font-size="19" fill="__C__">' + esc(eurTxt(sec * ept)) + '</text>' : '';
-    if (Math.abs(sec) <= 0.05) return svgWrap(C.txt, title('SÉCURITÉ') + '<text x="72" y="82" ' + F + ' font-size="20" fill="' + C.txt + '">POINT MORT</text>' + trail);
+    const eurLine = ept ? '<text x="72" y="110" ' + F + ' font-size="28" fill="__C__">' + esc(eurTxt(sec * ept)) + '</text>' : '';
+    if (Math.abs(sec) <= 0.05) return svgWrap(C.txt, title('SÉCURITÉ') + '<text x="72" y="84" ' + F + ' font-size="21" fill="' + C.txt + '">POINT MORT</text>' + trail);
+    const nb = pts(Math.abs(sec)), taille = nb.length > 4 ? 38 : 46;
     if (sec > 0) {
       // cadenas ferme dessine (les emojis ne s'affichent pas sur la touche)
-      const lock = '<rect x="20" y="58" width="22" height="18" rx="3" fill="' + C.pos + '"/><path d="M24 58 v-6 a7 7 0 0 1 14 0 v6" fill="none" stroke="' + C.pos + '" stroke-width="3.5"/>';
-      return svgWrap(C.pos, title('SÉCURISÉE') + lock + '<text x="88" y="78" ' + F + ' font-size="27" fill="' + C.pos + '">+' + esc(pts(sec)) + '</text>'
-        + '<text x="88" y="92" ' + F + ' font-size="12" fill="' + C.pos + '">pts garantis</text>' + eurLine.replace('__C__', C.pos) + trail);
+      const lock = '<rect x="10" y="50" width="26" height="21" rx="4" fill="' + C.pos + '"/><path d="M15 50 v-7 a8 8 0 0 1 16 0 v7" fill="none" stroke="' + C.pos + '" stroke-width="4"/>';
+      return svgWrap(C.pos, title('SÉCURISÉE') + lock + '<text x="86" y="72" ' + F + ' font-size="' + taille + '" fill="' + C.pos + '">+' + esc(nb) + '</text>'
+        + eurLine.replace('__C__', C.pos) + (trail || bas('pts garantis')));
     }
-    return svgWrap(C.neg, title('RISQUE') + '<text x="72" y="74" ' + F + ' font-size="26" fill="' + C.neg + '">−' + esc(pts(-sec)) + ' pts</text>'
-      + '<text x="72" y="90" ' + F + ' font-size="12" fill="' + C.neg + '">si le stop est touché</text>' + eurLine.replace('__C__', C.neg) + trail);
+    return svgWrap(C.neg, title('RISQUE') + '<text x="72" y="72" ' + F + ' font-size="' + taille + '" fill="' + C.neg + '">−' + esc(nb) + '</text>'
+      + eurLine.replace('__C__', C.neg) + (trail || bas('pts si stop touché')));
   }
 
   return { gauge, secure };
