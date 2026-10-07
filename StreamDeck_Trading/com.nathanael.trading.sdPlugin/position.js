@@ -67,7 +67,7 @@ function createPositionKeys({ C, esc, nf1, nf0, igFeed, log }) {
     const securise = p.stop != null && f(p.stop) >= f(p.level);
     if (p.stop != null) tick(p.stop, securise ? C.pos : C.neg, 5);
     if (p.limit != null) tick(p.limit, C.pos, 5);
-    tick(p.level, C.txt, 7);
+    // pas de trait sur le prix d'entree (retire a la demande du user) : la jonction des deux couleurs le marque deja
     // cours actuel : barre verticale (le rond etait trop gros), plus epaisse et plus haute que le repere d'entree
     body += '<rect x="' + (x(exit) - 3).toFixed(1) + '" y="' + (Y - 9) + '" width="6" height="' + (H + 18) + '" rx="2" fill="' + C.txt + '" stroke="' + C.bg + '" stroke-width="1.5"/>';
     // distances depuis le cours, arrondies au point : jusqu'au stop (colonne gauche), jusqu'a l'objectif (droite)
