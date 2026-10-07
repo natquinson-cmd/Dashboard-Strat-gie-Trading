@@ -68,7 +68,8 @@ function createPositionKeys({ C, esc, nf1, nf0, igFeed, log }) {
     if (p.stop != null) tick(p.stop, securise ? C.pos : C.neg, 5);
     if (p.limit != null) tick(p.limit, C.pos, 5);
     tick(p.level, C.txt, 7);
-    body += '<circle cx="' + x(exit).toFixed(1) + '" cy="' + (Y + H / 2) + '" r="11" fill="' + C.txt + '" stroke="' + C.bg + '" stroke-width="3"/>';
+    // cours actuel : barre verticale (le rond etait trop gros), plus epaisse et plus haute que le repere d'entree
+    body += '<rect x="' + (x(exit) - 3).toFixed(1) + '" y="' + (Y - 9) + '" width="6" height="' + (H + 18) + '" rx="2" fill="' + C.txt + '" stroke="' + C.bg + '" stroke-width="1.5"/>';
     // distances depuis le cours, arrondies au point : jusqu'au stop (colonne gauche), jusqu'a l'objectif (droite)
     const col2 = (cx, etiq, nb, c) => '<text x="' + cx + '" y="86" ' + F + ' font-size="16" fill="' + c + '">' + esc(etiq) + '</text>'
       + '<text x="' + cx + '" y="120" ' + F + ' font-size="' + (String(nb).length > 4 ? 25 : 31) + '" fill="' + c + '">' + esc(nb) + '</text>';
