@@ -33,14 +33,14 @@ function createEnfantsView({ C, esc, eur, sEur, sPct, col, getData, getMode }) {
     // Avant : ETF + Lendermarket de Noah et Elie, plus-value et % de l'ETF seul.
     const k = getData() && getData().kids, pot = !!(k && k.pot);
     const capital = pot ? c.value : c.value + (c.lm || 0);
-    const k1 = v => (v / 1000).toLocaleString('fr-FR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' k';
-    const detail = c.lm ? '<text x="72" y="88" ' + F + ' font-size="13" fill="' + C.dim + '">' + esc('ETF ' + k1(pot ? c.etf : c.value) + ' + LM ' + k1(c.lm)) + '</text>' : '';
+    // meme mise en page pour tous (le detail « ETF + LM » est retire, trop petit, demande du user le 07/10) :
+    // prenom, capital, plus-value, %, en grand
+    const pvLbl = esc(pvTxt) + (c.lm && !pot ? ' ETF' : '');
     return wrap(COULEUR[c.child] || C.blue,
-      '<text x="72" y="' + (c.lm ? 31 : 34) + '" ' + F + ' font-size="17" fill="' + C.txt + '">' + esc(nom.toUpperCase()) + '</text>'
-      + '<text x="72" y="' + (c.lm ? 66 : 74) + '" ' + F + ' font-size="' + (eur(capital).length > 7 ? 26 : 30) + '" fill="' + C.txt + '">' + esc(eur(capital)) + '</text>'
-      + detail
-      + '<text x="72" y="' + (c.lm ? 112 : 104) + '" ' + F + ' font-size="' + (c.lm ? 18 : 20) + '" fill="' + (pv == null ? C.gray : pc) + '">' + esc(pvTxt) + (c.lm && !pot ? ' ETF' : '') + '</text>'
-      + '<text x="72" y="' + (c.lm ? 133 : 128) + '" ' + F + ' font-size="' + (c.lm ? 15 : 17) + '" fill="' + (pv == null ? C.gray : pc) + '">' + esc(pv == null ? '' : sPct(pct).replace(' %', '%')) + (jour ? ' · jour' : '') + '</text>');
+      '<text x="72" y="32" ' + F + ' font-size="19" fill="' + C.txt + '">' + esc(nom.toUpperCase()) + '</text>'
+      + '<text x="72" y="74" ' + F + ' font-size="' + (eur(capital).length > 7 ? 29 : 33) + '" fill="' + C.txt + '">' + esc(eur(capital)) + '</text>'
+      + '<text x="72" y="107" ' + F + ' font-size="' + (pvLbl.length > 9 ? 20 : 24) + '" fill="' + (pv == null ? C.gray : pc) + '">' + pvLbl + '</text>'
+      + '<text x="72" y="134" ' + F + ' font-size="' + (jour ? 17 : 21) + '" fill="' + (pv == null ? C.gray : pc) + '">' + esc(pv == null ? '' : sPct(pct).replace(' %', '%')) + (jour ? ' · jour' : '') + '</text>');
   }
   function total() {
     const k = getData() && getData().kids;
