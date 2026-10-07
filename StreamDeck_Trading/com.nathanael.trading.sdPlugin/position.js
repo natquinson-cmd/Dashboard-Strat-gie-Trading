@@ -55,7 +55,8 @@ function createPositionKeys({ C, esc, nf1, nf0, igFeed, log }) {
     const vals = [p.level, exit].concat(p.stop != null ? [p.stop] : []).concat(p.limit != null ? [p.limit] : []).map(f);
     let lo = Math.min(...vals), hi = Math.max(...vals);
     const pad = (hi - lo) * 0.06 || 1; lo -= pad; hi += pad;
-    const X0 = 12, X1 = 132, Y = 64, H = 14;
+    // grand format (demande du user) : barre epaisse en haut, distances SL / TP en gros dessous
+    const X0 = 9, X1 = 135, Y = 36, H = 22;
     const x = v => X0 + (X1 - X0) * (f(v) - lo) / (hi - lo);
     let body = '';
     body += '<rect x="' + X0 + '" y="' + Y + '" width="' + (X1 - X0) + '" height="' + H + '" rx="7" fill="#24303d"/>';
@@ -64,17 +65,19 @@ function createPositionKeys({ C, esc, nf1, nf0, igFeed, log }) {
     seg(p.level, exit, f(exit) >= f(p.level) ? C.pos : C.neg);                            // gain ou perte en cours
     const tick = (v, c, h) => { body += '<rect x="' + (x(v) - 1.5).toFixed(1) + '" y="' + (Y - h) + '" width="3" height="' + (H + 2 * h) + '" fill="' + c + '"/>'; };
     const securise = p.stop != null && f(p.stop) >= f(p.level);
-    if (p.stop != null) tick(p.stop, securise ? C.pos : C.neg, 4);
-    if (p.limit != null) tick(p.limit, C.pos, 4);
-    tick(p.level, C.txt, 6);
-    body += '<circle cx="' + x(exit).toFixed(1) + '" cy="' + (Y + H / 2) + '" r="8" fill="' + C.txt + '" stroke="' + C.bg + '" stroke-width="2.5"/>';
-    // distances depuis le cours : jusqu'au stop (gauche), jusqu'a l'objectif (droite)
-    const lab = (txt, anchor, xx, c) => '<text x="' + xx + '" y="112" font-family="Segoe UI, Arial" font-weight="800" font-size="16" text-anchor="' + anchor + '" fill="' + c + '">' + esc(txt) + '</text>';
-    body += p.stop != null ? lab('SL ' + pts(f(exit) - f(p.stop)), 'start', 6, securise ? C.pos : C.neg) : lab('sans SL', 'start', 6, C.warn);
-    body += p.limit != null ? lab('TP ' + pts(f(p.limit) - f(exit)), 'end', 138, C.pos) : lab('sans TP', 'end', 138, C.dim);
-    body += '<text x="72" y="134" ' + F + ' font-size="13" fill="' + C.dim + '">pts depuis le cours</text>';
+    if (p.stop != null) tick(p.stop, securise ? C.pos : C.neg, 5);
+    if (p.limit != null) tick(p.limit, C.pos, 5);
+    tick(p.level, C.txt, 7);
+    body += '<circle cx="' + x(exit).toFixed(1) + '" cy="' + (Y + H / 2) + '" r="11" fill="' + C.txt + '" stroke="' + C.bg + '" stroke-width="3"/>';
+    // distances depuis le cours, arrondies au point : jusqu'au stop (colonne gauche), jusqu'a l'objectif (droite)
+    const col2 = (cx, etiq, nb, c) => '<text x="' + cx + '" y="86" ' + F + ' font-size="16" fill="' + c + '">' + esc(etiq) + '</text>'
+      + '<text x="' + cx + '" y="120" ' + F + ' font-size="' + (String(nb).length > 4 ? 25 : 31) + '" fill="' + c + '">' + esc(nb) + '</text>';
+    body += p.stop != null ? col2(38, 'SL', Math.round(Math.abs(f(exit) - f(p.stop))), securise ? C.pos : C.neg) : col2(38, 'SL', '–', C.warn);
+    body += p.limit != null ? col2(106, 'TP', Math.round(Math.abs(f(p.limit) - f(exit))), C.pos) : col2(106, 'TP', '–', C.dim);
+    body += '<text x="72" y="139" ' + F + ' font-size="12" fill="' + C.dim + '">pts depuis le cours</text>';
     const arrow = buy ? '▲' : '▼';
-    return svgWrap(r.points >= 0 ? C.pos : C.neg, title(arrow + ' ' + nameOf(p) + (r.n > 1 ? ' (+' + (r.n - 1) + ')' : '')) + body);
+    const titre = '<text x="72" y="24" ' + F + ' font-size="17" fill="' + (buy ? C.pos : C.neg) + '">' + esc(arrow + ' ' + nameOf(p) + (r.n > 1 ? ' (+' + (r.n - 1) + ')' : '')) + '</text>';
+    return svgWrap(r.points >= 0 ? C.pos : C.neg, titre + body);
   }
 
   // SECURITE : ce qui est garanti si le stop est touche (achat : stop - entree ; vente : entree - stop)
