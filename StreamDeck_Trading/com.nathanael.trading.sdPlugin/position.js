@@ -2,7 +2,7 @@
 // Donnees : positions IG (niveau, stop, objectif, stop suiveur) + cours du flux. Aucune requete IG en plus.
 'use strict';
 
-function createPositionKeys({ C, esc, nf1, nf0, igFeed }) {
+function createPositionKeys({ C, esc, nf1, nf0, igFeed, log }) {
   const F = 'font-family="Segoe UI, Arial" text-anchor="middle" font-weight="800"';
   const svgWrap = (accent, body) => 'data:image/svg+xml;charset=utf8,' + encodeURIComponent(
     '<svg xmlns="http://www.w3.org/2000/svg" width="144" height="144" viewBox="0 0 144 144">'
@@ -14,7 +14,7 @@ function createPositionKeys({ C, esc, nf1, nf0, igFeed }) {
   const eurTxt = v => (v > 0 ? '+' : v < 0 ? '−' : '') + nf0.format(Math.abs(Math.round(v))).replace(/\s/g, ' ') + ' €';
 
   // €/point deduit du P&L latent / points (comme le dashboard), memorise par position une fois l'ecart net
-  const eurPerPt = {};
+  const eurPerPt = {}, verifie = {};
 
   // Position suivie : la premiere ouverte, avec son cours de sortie (bid si achat, offer si vente)
   function current() {
@@ -24,7 +24,18 @@ function createPositionKeys({ C, esc, nf1, nf0, igFeed }) {
     if (!q || Date.now() - q.at > 120000) return { p, n: s.positions.list.length, stale: true };
     const buy = p.direction === 'BUY', exit = buy ? q.bid : q.offer;
     const points = buy ? exit - p.level : p.level - exit;
-    if (s.positions.list.length === 1 && s.account && Math.abs(points) >= 3) eurPerPt[p.dealId] = s.account.pnl / points;
+    // Valeur d'1 point : FIXE pour une position. D'abord taille x valeur du contrat donnees par IG ; sinon,
+    // estimation P&L latent / points figee la premiere fois (la recalculer a chaque tick faisait bouger le
+    // montant du risque, P&L et cours n'arrivant pas au meme instant).
+    if (!eurPerPt[p.dealId]) {
+      if (p.size > 0 && p.contractSize > 0) eurPerPt[p.dealId] = p.size * p.contractSize;
+      else if (s.positions.list.length === 1 && s.account && Math.abs(points) >= 5) eurPerPt[p.dealId] = Math.abs(s.account.pnl / points);
+    }
+    // controle unique par position : valeur IG vs estimation P&L / points (doivent concorder)
+    if (log && eurPerPt[p.dealId] && !verifie[p.dealId] && s.positions.list.length === 1 && s.account && Math.abs(points) >= 5) {
+      verifie[p.dealId] = true;
+      log('position ' + p.dealId + ' : valeur du point ' + eurPerPt[p.dealId].toFixed(2) + ' (IG taille x contrat), estimation P&L/points ' + Math.abs(s.account.pnl / points).toFixed(2));
+    }
     return { p, n: s.positions.list.length, buy, exit, points, ept: eurPerPt[p.dealId] || null };
   }
   const nameOf = p => {

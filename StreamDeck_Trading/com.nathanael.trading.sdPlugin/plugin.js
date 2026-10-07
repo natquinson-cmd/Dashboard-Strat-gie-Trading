@@ -318,7 +318,7 @@ function posLine(s) {
   return out;
 }
 
-const posKeys = createPositionKeys({ C, esc, nf1, nf0, igFeed });
+const posKeys = createPositionKeys({ C, esc, nf1, nf0, igFeed, log });
 
 // P&L latent des algos (positions ouvertes du compte IG, en direct) + realise du jour (synchro IG du dashboard).
 // Points de P&L : cours de sortie (bid pour un achat, offer pour une vente) moins le niveau d'ouverture.

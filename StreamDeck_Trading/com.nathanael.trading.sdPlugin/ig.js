@@ -103,6 +103,7 @@ function createIgFeed(log, onChange) {
         const pos = p.position || {}, mkt = p.market || {};
         return {
           dealId: pos.dealId || '', direction: pos.direction, size: Number(pos.size) || 0, level: Number(pos.level) || 0,
+          contractSize: num(pos.contractSize), currency: pos.currency || '',   // valeur d'1 point = size x contractSize (fixe)
           stop: num(pos.stopLevel), limit: num(pos.limitLevel), trailing: num(pos.trailingStopDistance),
           epic: mkt.epic || '', name: mkt.instrumentName || '',
         };
