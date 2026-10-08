@@ -11793,12 +11793,11 @@ function scrValFairCurve(vh) {
     cont.replaceChildren(svg, tip);
   };
   draw(560);   // premier rendu avant insertion dans la page, puis a la vraie largeur
-  if (typeof ResizeObserver === 'function') {
-    new ResizeObserver((es) => {
-      const w = Math.round(es[0].contentRect.width);
-      if (w >= 200 && Math.abs(w - lastW) > 4) draw(w);
-    }).observe(cont);
-  }
+  const fit = (w) => { w = Math.round(w); if (w >= 200 && Math.abs(w - lastW) > 4) draw(w); };
+  // ResizeObserver suit les redimensionnements, mais ne se declenche pas dans un onglet masque (pas de rendu) :
+  // mesure de secours apres insertion (clientWidth force le calcul de mise en page, meme onglet masque)
+  if (typeof ResizeObserver === 'function') new ResizeObserver((es) => fit(es[0].contentRect.width)).observe(cont);
+  [0, 400].forEach((ms) => setTimeout(() => { if (cont.isConnected) fit(cont.clientWidth); }, ms));
   return cont;
 }
 // Bloc de synthese "Valorisation du portefeuille" (place au-dessus du tableau des positions).
