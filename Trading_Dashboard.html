@@ -7797,12 +7797,14 @@ function tabImg(src, alt) { return '<img src="' + src + '" width="15" height="15
 // Logo "Trading total" : donut a 3 segments aux couleurs des 3 sources agregees (IG rouge, Actions bleu, Darwinex jaune)
 const LOGO_TOTAL = '<svg width="15" height="15" viewBox="0 0 24 24" style="vertical-align:-3px;margin-right:5px" xmlns="http://www.w3.org/2000/svg"><g fill="none" stroke-width="5"><circle cx="12" cy="12" r="8.5" stroke="#b5564e" stroke-dasharray="17.8 35.6"/><circle cx="12" cy="12" r="8.5" stroke="#4a72b8" stroke-dasharray="17.8 35.6" stroke-dashoffset="-17.8"/><circle cx="12" cy="12" r="8.5" stroke="#a9b545" stroke-dasharray="17.8 35.6" stroke-dashoffset="-35.6"/></g></svg>';
 
+// Logo "Backtests" : axes + deux courbes (DAX bleu, NASDAQ violet) qui montent, l'historique simule des deux algos
+const LOGO_BACKTEST = '<svg width="15" height="15" viewBox="0 0 24 24" style="vertical-align:-3px;margin-right:5px" xmlns="http://www.w3.org/2000/svg" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18" stroke="#8a97a8" stroke-width="2.2"/><polyline points="6 16 10 11 13 13 19 6" stroke="#3563e9" stroke-width="2.4"/><polyline points="6 19 10 16 14 17 19 12" stroke="#8b6fc9" stroke-width="2.2"/></svg>';
 const GROUP_TABS = {
   trading: [
     { id: 'total', label: LOGO_TOTAL + 'Trading total' },
     { id: 'real', label: tabImg(LOGO_IG, 'IG') + 'Trading Auto' },
     // un seul onglet pour les deux backtests ; 'reinvest' reste un onglet valide, choisi a l'interieur
-    { id: 'fixed', label: 'Backtests', also: ['reinvest'] },
+    { id: 'fixed', label: LOGO_BACKTEST + 'Backtests', also: ['reinvest'] },
     { id: 'screener', label: LOGO_REVOLUT + "Portefeuille d'actions" },
     { id: 'opportunites', label: '🧭 Opportunités IA' },
     // Onglet Darwinex retire le 29/09/2026 : fonds en cours de retrait. Le code et les donnees restent
