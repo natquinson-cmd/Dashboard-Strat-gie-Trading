@@ -4397,13 +4397,13 @@ function buildMonthlyHeatReal() {
       const data = monthData[key];
       if (data) {
         totalMonths++;
-        if (data.pnl >= 0) totalWinMonths++; else totalLossMonths++;
         yearTotal += data.pnl;
         const pct = ((monthFactorMap[key] || 1) - 1) * 100; // TWR du mois
         yearFactor *= (monthFactorMap[key] || 1);
         const intensityRef = showPct ? Math.abs(pct) / 8 : Math.abs(data.pnl) / 500;
         const intensity = Math.min(intensityRef, 1);
         const up = showPct ? pct >= 0 : data.pnl >= 0;   // en %, la couleur suit le TWR du mois
+        if (up) totalWinMonths++; else totalLossMonths++;   // et le decompte aussi, pour coller aux cases affichees
         const bg = up
           ? `rgba(29,158,116,${(0.12 + intensity * 0.55).toFixed(2)})`
           : `rgba(221,95,102,${(0.12 + intensity * 0.55).toFixed(2)})`;
@@ -12484,9 +12484,11 @@ function renderMobileReal() {
   // neutralises), comme le calendrier PC. L'ancien resultat / (capital fin du mois precedent + depots du mois)
   // comptait un depot de fin de mois comme s'il avait travaille tout le mois.
   const now = new Date(), ym = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
-  const twrM = realTWRDaily(trades);
+  // Montant du mois = trades seuls, meme perimetre que ce TWR et que le « P&L du mois » du calendrier PC
+  // (frais de graphiques et interets de financement, types CHART / WITH, sont des flux pour realTWRDaily).
+  const twrM = realTWRDaily(trades), trM = aggregateByDay(trades);
   let mPnl = 0, mFac = 1;
-  days.forEach((d) => { if (d.indexOf(ym) === 0) { mPnl += pnlD[d] || 0; if (twrM.r[d] !== undefined) mFac *= 1 + twrM.r[d]; } });
+  Object.keys(trM).forEach((d) => { if (d.indexOf(ym) === 0) { mPnl += trM[d].pnl; if (twrM.r[d] !== undefined) mFac *= 1 + twrM.r[d]; } });
   const mPct = (mFac - 1) * 100;
   const rm = (typeof computeRealReturnMetrics === 'function') ? computeRealReturnMetrics() : null;
   // 1. capital, jour, mois, rendement
@@ -12496,7 +12498,9 @@ function renderMobileReal() {
     scrEl('div', { cls: 'mp-big', text: E(eq) }),
     scrEl('div', { cls: 'mp-sub', kids: [scrEl('b', { text: (dayPnl >= 0 ? '▲ ' : '▼ ') + S(dayPnl) + ' (' + P(dayPct, 2) + ')', style: col(dayPnl) }),
       document.createTextNode(' ' + dayLib)] }),
-    scrEl('div', { cls: 'mp-sub', kids: [document.createTextNode(monthNamesFull[now.getMonth()] + ' '), scrEl('b', { text: S(mPnl) + ' (' + P(mPct) + ')', style: col(mPnl) }),
+    scrEl('div', { cls: 'mp-sub', kids: [document.createTextNode(monthNamesFull[now.getMonth()] + ' '), scrEl('b', { text: S(mPnl), style: col(mPnl) }),
+      // le % (TWR) a sa propre couleur : un depot en cours de mois peut lui donner un signe oppose au montant
+      document.createTextNode(' ('), scrEl('b', { text: P(mPct), style: col(mPct) }), document.createTextNode(')'),
       document.createTextNode(rm ? ' · rendement ' : ''), ...(rm ? [scrEl('b', { text: P(rm.twrPct) + ' (TWR)', style: col(rm.twrPct) })] : [])] })] }));
   box.appendChild(igLiveSlot());   // position IG ouverte : P&L latent en direct (vide sinon)
   // 2. courbe du capital : dernier mois glissant ou tout l'historique
