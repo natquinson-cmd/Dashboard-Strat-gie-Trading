@@ -11710,6 +11710,19 @@ function scrTWR(hist) {   // Rendement pondéré dans le temps : neutralise les 
   }
   return ok ? twr - 1 : null;
 }
+// Performance ANNUALISEE : TWR depuis le debut du suivi ramene a une annee, (1 + TWR)^(365 / jours) - 1.
+// Sur peu de jours elle amplifie les ecarts (+1 % sur 2 mois = +6 %/an) : indicative tant que le suivi a moins d'un an.
+// hist par defaut : SCR_HIST (onglet Actions, point du jour en direct), sinon l'historique charge au demarrage.
+function scrTwrAnnual(hist) {
+  const h = hist || (Array.isArray(SCR_HIST) && SCR_HIST.length ? SCR_HIST
+    : ((typeof positionsHistoryData !== 'undefined' && positionsHistoryData && typeof scrHistArray === 'function') ? scrHistArray(positionsHistoryData) : null));
+  if (!h || h.length < 2) return null;
+  const twr = scrTWR(h);
+  if (twr == null) return null;
+  const days = Math.round((new Date(h[h.length - 1].date + 'T00:00:00') - new Date(h[0].date + 'T00:00:00')) / 86400000);
+  if (days < 7) return null;
+  return { twr: twr, days: days, ann: Math.pow(1 + twr, 365 / days) - 1, since: h[0].date };
+}
 function scrKpi(label, val, col, title) {
   return scrEl('div', { attrs: title ? { title } : {}, kids: [
     scrEl('div', { text: label, style: `font-size:0.62rem;color:#9aa7b4;text-transform:uppercase;font-weight:700;letter-spacing:.03em${title ? ';cursor:help' : ''}` }),
@@ -12257,6 +12270,7 @@ function scrTopKpiBand(pos, badge) {
   const real = scrRealized(SCR_TX);
   const twr = (typeof scrTWR === 'function') ? scrTWR(SCR_HIST) : null;
   const twrDebut = (SCR_HIST && SCR_HIST.length) ? SCR_HIST[0].date.slice(8, 10) + '/' + SCR_HIST[0].date.slice(5, 7) : null;   // debut du suivi (TWR de l'en-tete)
+  const twrAn = scrTwrAnnual(SCR_HIST);   // la meme TWR ramenee a un an
   const GREEN = '#1d9e74', RED = '#dd5f66';
   const sign = (x) => (x >= 0 ? '+' : '');
   // Meme forme que le cadre de l'onglet Darwinex (dwxCell) : cellule de tete en grand, les autres
@@ -12286,6 +12300,8 @@ function scrTopKpiBand(pos, badge) {
       real.total >= 0 ? GREEN : RED, "Plus et moins-values des lignes VENDUES, net de frais. C'est la base imposable en compte-titres."),
     tile('Performance (TWR)', twr == null ? '–' : sign(twr) + (twr * 100).toFixed(2) + ' %', (twrDebut ? 'depuis le ' + twrDebut + ' · ' : '') + 'net des apports',
       twr == null ? '#9aa7b4' : (twr >= 0 ? GREEN : RED), "Rendement réel de ta stratégie depuis le début du suivi : il neutralise le calendrier de tes versements, donc il est comparable aux indices. Le graphique « Performance » donne la même mesure sur la période choisie (1J, 1S, 1M, 1A, Tout) : « Tout » retombe sur ce chiffre."),
+    tile('Performance annualisée', twrAn == null ? '–' : sign(twrAn.ann) + (twrAn.ann * 100).toFixed(1) + ' %/an', twrAn == null ? 'dès 7 jours de suivi' : ('TWR ramené à un an, sur ' + twrAn.days + ' jours' + (twrAn.days < 365 ? ' · indicatif' : '')),
+      twrAn == null ? '#9aa7b4' : (twrAn.ann >= 0 ? GREEN : RED), "Performance TWR depuis le début du suivi, ramenée à une année : (1 + TWR)^(365 / jours) − 1. Sur moins d'un an, elle amplifie fortement les écarts (+1 % sur 2 mois devient +6 %/an) : une tendance, pas une promesse. Elle sert à estimer le rendement de la poche dans le point de bascule de l'onglet Emprunts."),
     tile('Potentiel (juste valeur)', pot == null ? '–' : sign(pot) + (pot * 100).toFixed(0) + ' %', pot == null ? 'non évaluable' : 'juste valeur DCF vs cours',
       pot == null ? '#9aa7b4' : (pot >= 0 ? GREEN : RED), "Écart entre la juste valeur DCF agrégée de tes lignes et leur cours actuel. Estimation mécanique, pas un conseil."),
     tile('Dividendes / an', div > 0 ? scrUsd(div) : '–', div > 0 ? 'rendement ' + (val > 0 ? (div / val * 100).toFixed(2) : '0') + '%' : 'portefeuille orienté croissance',
@@ -12771,7 +12787,13 @@ function scrMobilePortfolio(pos) {
     scrEl('div', { cls: 'mp-sub', kids: [scrEl('b', { text: (day >= 0 ? '▲ ' : '▼ ') + sg(day) + scrUsd(day) + ' (' + sg(dayPct) + (dayPct * 100).toFixed(2) + ' %)', style: col(day) }),
       document.createTextNode(' aujourd’hui')] }),
     scrEl('div', { cls: 'mp-sub', kids: [document.createTextNode('Plus-value latente '), scrEl('b', { text: sg(pnl) + scrUsd(pnl) + ' (' + sg(pnlPct) + (pnlPct * 100).toFixed(1) + ' %)', style: col(pnl) }),
-      document.createTextNode(' sur ' + scrUsd(inv))] })] }));
+      document.createTextNode(' sur ' + scrUsd(inv))] })].concat((() => {
+      const ta = scrTwrAnnual(SCR_HIST);
+      if (!ta) return [];
+      const dd = ta.since.slice(8, 10) + '/' + ta.since.slice(5, 7);
+      return [scrEl('div', { cls: 'mp-sub', kids: [document.createTextNode('Performance '), scrEl('b', { text: sg(ta.twr) + (ta.twr * 100).toFixed(2) + ' %', style: col(ta.twr) }),
+        document.createTextNode(' depuis le ' + dd + ' · '), scrEl('b', { text: sg(ta.ann) + (ta.ann * 100).toFixed(1) + ' %/an', style: col(ta.ann) }), document.createTextNode(' annualisé')] })];
+    })()) }));
   // 2. courbe d'evolution
   box.appendChild(scrEl('div', { cls: 'mp-card', kids: [scrEl('div', { cls: 'mp-lbl', text: 'Évolution de la valeur', style: 'margin-bottom:6px' }), mpCurve(SCR_HIST)] }));
   // 3. repartition par categorie
@@ -14922,6 +14944,7 @@ function invRenderLoans(t, labels, li) {
   });
   h += '</div>';
   h += '<div class="inv-chart-card"><h3>Évolution des emprunts</h3><div class="inv-canvas-wrap"><canvas id="inv-ch-loans"></canvas></div></div>';
+  h += invBreakEvenCardHtml();
   h += '<div class="inv-grid inv-grid-2">';
   h += '<div class="inv-chart-card"><h3>Capital net vs dette</h3><div class="inv-canvas-wrap"><canvas id="inv-ch-netdebt"></canvas></div></div>';
   h += '<div class="inv-card"><h3 style="font-size:1rem;font-weight:600;margin-bottom:20px;display:flex;align-items:center;gap:8px">Indicateurs clés</h3><div style="display:flex;flex-direction:column;gap:16px">';
@@ -14932,6 +14955,104 @@ function invRenderLoans(t, labels, li) {
   return h;
 }
 
+// ── POINT DE BASCULE (08/10/2026, demande du user) ──
+// Mois ou les revenus estimes des placements couvrent les mensualites. Mensualites : echeanciers officiels (un
+// prelevement dans le mois tant que le capital du mois precedent est > 0). Revenus estimes, poche par poche :
+//  - Debitum : capital x rendement des 12 derniers mois (mDebitum().y12) ;
+//  - Trading Auto : P&L realise moyen par mois depuis le premier trade ;
+//  - Actions : valeur x performance TWR ANNUALISEE depuis le debut du suivi (scrTwrAnnual).
+// Deux projections : revenus stables, et gains reinvestis (le capital croit au rendement global estime).
+// Les emprunts sans echeancier (RMM) sont ignores : soldes, ou sans mensualite connue a l'avance.
+function invNextYm(ym) { let [y, m] = ym.split('-').map(Number); m++; if (m > 12) { m = 1; y++; } return y + '-' + String(m).padStart(2, '0'); }
+function invLoanPaymentAt(ym) {
+  const d = portfolioData;
+  const all = [{ name: YOUNITED_LOAN_NAME, payment: YOUNITED_PAYMENT, first: YOUNITED_FIRST_YM, schedule: YOUNITED_SCHEDULE },
+    { name: REVOLUT_LOAN_NAME, payment: REVOLUT_LOAN_PAYMENT, first: REVOLUT_LOAN_FIRST_YM, schedule: REVOLUT_LOAN_SCHEDULE }].concat(LOANS_SCHEDULED);
+  return all.reduce((s, L) => {
+    if (!(d.loanNames || []).includes(L.name)) return s;
+    const prev = L.schedule[prevYm(ym)];
+    return (ym > L.first && prev != null && prev > 0) ? s + L.payment : s;
+  }, 0);
+}
+function invBreakEvenModel() {
+  const d = portfolioData;
+  if (!d || !d.months || !d.months.length) return null;
+  const deb = mDebitum(), debV = deb ? deb.value : 0, debY = (deb && deb.y12 != null) ? deb.y12 : 0;
+  const trades = (typeof realTrades !== 'undefined' && Array.isArray(realTrades)) ? realTrades : [];
+  let ta = 0, taDebut = null;
+  if (trades.length) {
+    taDebut = trades.map((t) => t[0]).sort()[0];
+    const mois = Math.max(1, (Date.now() - new Date(taDebut + 'T00:00:00')) / (30.44 * 86400000));
+    ta = trades.reduce((a, t) => a + (Number(t[2]) || 0), 0) / mois;
+  }
+  let A = null;
+  try { A = ttlCompute(); } catch (e) { console.warn('[bascule] capital indisponible', e); }
+  const stk = A ? A.stkNow : 0, ig = A ? A.igNow : 0;
+  const sa = scrTwrAnnual(), actY = sa ? sa.ann : 0;
+  const fr = (x, dec) => (x * 100).toFixed(dec == null ? 1 : dec).replace('.', ',');
+  const parts = [
+    { lib: 'Debitum', v: debV * debY / 12, note: fr(debY) + ' %/an sur 12 mois, sur ' + invFmt(Math.round(debV)) },
+    { lib: 'Trading Auto', v: ta, note: taDebut ? 'P&L réalisé moyen depuis le ' + taDebut.slice(8, 10) + '/' + taDebut.slice(5, 7) + '/' + taDebut.slice(0, 4) : 'aucun trade' },
+    { lib: 'Actions', v: stk * actY / 12, note: sa ? (fr(actY) + ' %/an : TWR annualisé sur ' + sa.days + ' jours, sur ' + invFmt(Math.round(stk))) : 'performance non évaluable' }];
+  const inc = parts.reduce((a, p) => a + p.v, 0), capital = debV + ig + stk, r = capital > 0 ? inc * 12 / capital : 0;
+  const n = d.months.length, cur = d.months[n - 1];
+  const hist = [];
+  for (let i = Math.max(0, n - 13); i < n - 1; i++) {
+    const ym = d.months[i];
+    hist.push({ ym: ym, rev: d.platforms.reduce((a, p) => a + invToEur(p, Number((d.interests[p] || [])[i]) || 0), 0), pay: invLoanPaymentAt(ym) });
+  }
+  const fut = [];
+  let ym = cur, capR = capital, bStable = null, bReinv = null, fin = null;
+  for (let k = 0; k < 160; k++) {
+    const pay = invLoanPaymentAt(ym), incR = r > 0 ? capR * r / 12 : inc;
+    fut.push({ ym: ym, pay: pay, stable: inc, reinv: incR });
+    if (!bStable && inc >= pay) bStable = ym;
+    if (!bReinv && incR >= pay) bReinv = ym;
+    if (!fin && pay === 0) fin = ym;
+    if (r > 0) capR *= 1 + r / 12;
+    const borne = [bStable, bReinv, fin].filter(Boolean).sort().pop();
+    if (bStable && bReinv && k >= 24 && fut.length > 12 && fut[fut.length - 13].ym >= borne) break;
+    ym = invNextYm(ym);
+  }
+  return { parts: parts, inc: inc, r: r, capital: capital, payNow: invLoanPaymentAt(cur), hist: hist, fut: fut, bStable: bStable, bReinv: bReinv, sa: sa };
+}
+function invMoisLong(ym) { return ym ? monthNamesFull[parseInt(ym.slice(5, 7), 10) - 1].toLowerCase() + ' ' + ym.slice(0, 4) : '–'; }
+function invBreakEvenCardHtml() {
+  let M = null;
+  try { M = invBreakEvenModel(); } catch (e) { console.warn('[bascule]', e); }
+  if (!M) return '';
+  const E = (v) => (v < 0 ? '−' : '') + invFmt(Math.round(Math.abs(v)));
+  const ecart = M.inc - M.payNow;
+  let h = '<div class="inv-chart-card"><h3>Point de bascule : revenus des placements vs mensualités</h3>';
+  h += '<div style="display:flex;flex-wrap:wrap;gap:18px;margin:4px 0 12px">';
+  const kpi = (lbl, val, sub, col) => `<div style="min-width:150px"><div style="font-size:11px;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.04em;font-weight:600">${lbl}</div><div style="font-size:20px;font-weight:700;color:${col || 'var(--text-primary)'}">${val}</div><div style="font-size:11px;color:var(--text-secondary)">${sub}</div></div>`;
+  h += kpi('Bascule estimée', invMoisLong(M.bStable), 'revenus stables', '#1d9e74');
+  h += kpi('Si gains réinvestis', invMoisLong(M.bReinv), 'rendement global ' + (M.r * 100).toFixed(1).replace('.', ',') + ' %/an', '#6366f1');
+  h += kpi('Revenus estimés', E(M.inc) + '/mois', 'mensualités ' + E(M.payNow) + '/mois', 'var(--text-primary)');
+  h += kpi('Écart actuel', (ecart >= 0 ? '+' : '') + E(ecart) + '/mois', ecart >= 0 ? 'les revenus couvrent les mensualités' : 'reste à couvrir chaque mois', ecart >= 0 ? '#1d9e74' : '#dd5f66');
+  h += '</div>';
+  h += '<div style="font-size:12px;color:var(--text-secondary);margin-bottom:10px;line-height:1.6">' + M.parts.map((p) => `<span style="white-space:nowrap">${p.lib} <b style="color:${p.v >= 0 ? '#1d9e74' : '#dd5f66'}">${p.v >= 0 ? '+' : '−'}${invFmt(Math.round(Math.abs(p.v)))}/mois</b></span> <span style="opacity:.8">(${p.note})</span>`).join(' · ') + '</div>';
+  h += '<div class="inv-canvas-wrap" style="height:300px"><canvas id="inv-ch-bascule"></canvas></div>';
+  h += '<div style="font-size:11px;color:var(--text-secondary);margin-top:8px;line-height:1.5">Barres : revenus réels saisis chaque mois (toutes plateformes). Ligne rouge : mensualités d’après les échéanciers. Les estimations partent des rendements actuels de chaque poche : la performance annualisée des actions sur moins d’un an est très instable, et Debitum est en cours de sortie. Revenus avant impôts. Une projection, pas une promesse ni un conseil.</div>';
+  return h + '</div>';
+}
+function invBuildBreakEvenChart() {
+  const el = document.getElementById('inv-ch-bascule');
+  if (!el) return;
+  const M = invBreakEvenModel();
+  if (!M) return;
+  const lbl = (ym) => monthNames[parseInt(ym.slice(5, 7), 10) - 1] + ' ' + ym.slice(2, 4);
+  const labels = M.hist.map((x) => lbl(x.ym)).concat(M.fut.map((x) => lbl(x.ym)));
+  const nh = M.hist.length, nul = (k) => Array(k).fill(null);
+  invCharts.bascule = new Chart(el, { type: 'bar', data: { labels: labels, datasets: [
+    { type: 'bar', label: 'Revenus réels', data: M.hist.map((x) => Math.round(x.rev)).concat(nul(M.fut.length)), backgroundColor: M.hist.map((x) => x.rev >= 0 ? 'rgba(29,158,116,0.55)' : 'rgba(221,95,102,0.55)').concat(nul(M.fut.length)), borderWidth: 0, order: 3 },
+    { type: 'line', label: 'Mensualités', data: M.hist.map((x) => Math.round(x.pay)).concat(M.fut.map((x) => Math.round(x.pay))), borderColor: '#dd5f66', backgroundColor: 'transparent', stepped: true, pointRadius: 0, borderWidth: 2, order: 1 },
+    { type: 'line', label: 'Revenus estimés (stables)', data: nul(nh).concat(M.fut.map((x) => Math.round(x.stable))), borderColor: '#1d9e74', borderDash: [6, 4], backgroundColor: 'transparent', pointRadius: 0, borderWidth: 2, order: 2 },
+    { type: 'line', label: 'Revenus estimés (gains réinvestis)', data: nul(nh).concat(M.fut.map((x) => Math.round(x.reinv))), borderColor: '#6366f1', borderDash: [2, 3], backgroundColor: 'transparent', pointRadius: 0, borderWidth: 2, order: 2 }
+  ] }, options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+    scales: { x: { ticks: { maxTicksLimit: 12 } }, y: { ticks: { callback: invFmtK } } },
+    plugins: { legend: invLineLegend(), tooltip: { callbacks: { label: (c) => c.raw == null ? null : c.dataset.label + ' : ' + invFmt(c.raw) } } } } });
+}
 function invBuildLoanCharts(t, labels, li) {
   const d = portfolioData, n = li + 1;
   const loanSets = (d.loanNames || []).map((l, i) => ({
@@ -14947,6 +15068,7 @@ function invBuildLoanCharts(t, labels, li) {
     { label: 'Emprunts', data: empD, borderColor: '#dd5f66', borderDash: [5,5], backgroundColor: 'transparent', pointBackgroundColor: '#dd5f66', pointRadius: 3, pointHoverRadius: 5, borderWidth: 1.5, tension: 0.3 },
     { label: 'Capital net', data: netD, borderColor: '#1d9e74', backgroundColor: invHexToRgba('#1d9e74', 0.06), pointBackgroundColor: '#1d9e74', pointRadius: 3, pointHoverRadius: 5, fill: true, borderWidth: 2, tension: 0.3 }
   ] }, options: { responsive: true, maintainAspectRatio: false, scales: { x: { ticks: { maxTicksLimit: 8 } }, y: { ticks: { callback: invFmtK } } }, plugins: { legend: invLineLegend() } } });
+  try { invBuildBreakEvenChart(); } catch (e) { console.warn('[bascule] graphique', e); }
 }
 
 // ══════════════════════════════════════════════════════════════
