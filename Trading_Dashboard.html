@@ -2832,16 +2832,21 @@ function aggregateByMonth(trades) {
 // performance par unité de capital engagé, indépendamment du timing des dépôts.
 // L'écart TWR vs rendement cash = coût du capital déployé tardivement (bonne/mauvaise
 // synchro des dépôts avec les bonnes/mauvaises passes). Compte complet, hors filtre.
+// FRAIS COMPRIS depuis le 08/10/2026 : frais de graphiques, intérêts de financement et dividendes sont des
+// événements du résultat (après les trades du même jour), seuls les dépôts et vrais retraits sont des flux.
 function computeRealReturnMetrics() {
   const trades = (typeof realTrades !== 'undefined' && realTrades) ? [...realTrades] : [];
   if (!trades.length) return null;
   trades.sort((a, b) => (a[0] || '').localeCompare(b[0] || ''));
-  const deps = (typeof realDeposits !== 'undefined' && realDeposits) ? realDeposits : [];
-  const depositsUpTo = (day) => deps.reduce((s, d) => s + (((d.date || '') <= day) ? (d.amount || 0) : 0), 0);
+  const { costs, flows } = realCashMaps();
+  const ev = trades.map(t => [t[0] || '', t[2] || 0]);
+  Object.keys(costs).forEach(d => ev.push([d, costs[d]]));
+  ev.sort((a, b) => a[0].localeCompare(b[0]));   // tri stable : les frais passent après les trades du même jour
+  const flowDays = Object.keys(flows).sort();
+  const flowsUpTo = (day) => flowDays.reduce((s, d) => s + (d <= day ? flows[d] : 0), 0);
   let cum = 0, idx = 1, peak = 1, maxDDret = 0;
-  for (const t of trades) {
-    const day = t[0] || '', g = t[2] || 0;
-    const base = depositsUpTo(day) + cum; // equity juste avant le trade
+  for (const [day, g] of ev) {
+    const base = flowsUpTo(day) + cum; // equity juste avant l'événement
     if (base > 0) {
       idx *= (1 + g / base);
       if (idx > peak) peak = idx;
@@ -2851,32 +2856,47 @@ function computeRealReturnMetrics() {
     cum += g;
   }
   const twrPct = (idx - 1) * 100;
-  const totalDeposits = (typeof getTotalDeposits === 'function') ? getTotalDeposits() : deps.reduce((s, d) => s + (d.amount || 0), 0);
+  const totalDeposits = flowDays.reduce((s, d) => s + flows[d], 0);   // dépôts nets des vrais retraits
   const cashPct = totalDeposits > 0 ? (cum / totalDeposits * 100) : 0;
   const curDDretPct = peak > 0 ? ((peak - idx) / peak) * 100 : 0; // drawdown TWR actuel (distance au plus haut)
   return { twrPct, ddRetPct: maxDDret * 100, curDDretPct, cashPct, gapPts: twrPct - cashPct };
 }
 
-// Rendements TWR JOURNALIERS d'un jeu de trades (base = equity du matin : dépôts,
-// dividendes et frais À LEUR DATE + P&L cumulé des trades passés du même jeu).
+// Frais et revenus IG qui font partie du RÉSULTAT : frais de graphiques (CHART), intérêts de financement
+// (« Ajustements d'intérêts / positions longues », qu'IG classe en WITH), ajustements de dividende et intérêts
+// reçus (realDividends). Un WITH qui n'est PAS un intérêt est un vrai retrait d'argent : un flux, comme un dépôt.
+function realIsWithdrawal(f) { return !!f && f.type === 'WITH' && !/int[eé]r[eê]t|interest|financ/i.test(String(f.market || '')); }
+// costs : résultat hors trades par jour (frais, financement, dividendes) ; flows : dépôts et vrais retraits par jour
+function realCashMaps() {
+  const costs = {}, flows = {};
+  const add = (m, d, v) => { if (!d) return; d = String(d).slice(0, 10); m[d] = (m[d] || 0) + v; };
+  ((typeof realDeposits !== 'undefined' && realDeposits) || []).forEach(x => add(flows, x.date, x.amount || 0));
+  ((typeof realDividends !== 'undefined' && realDividends) || []).forEach(x => add(costs, x.date, x.amount || 0));
+  ((typeof realFees !== 'undefined' && realFees) || []).forEach(x => add(realIsWithdrawal(x) ? flows : costs, x.date, x.amount || 0));
+  return { costs, flows };
+}
+
+// Rendements TWR JOURNALIERS du compte, à appeler avec TOUS les trades (base = equity du matin : dépôts et vrais
+// retraits À LEUR DATE + résultat cumulé). Résultat du jour = trades + frais, financement et dividendes du jour :
+// depuis le 08/10/2026 ces coûts comptent dans la performance (TWR 39,1 % -> 37,6 % ce jour-là), ils ne sont plus
+// traités comme des flux. Un jour de frais sans trade (financement du week-end, frais de graphiques) a donc lui aussi
+// un rendement. perf : résultat du jour en € ; costs : la part hors trades.
 // C'est la brique des % du calendrier / heatmap / graphe de drawdown : un même %
 // pèse son vrai poids quel que soit le capital du moment, un dépôt ne dilue rien.
 function realTWRDaily(trades) {
   const dayData = aggregateByDay(trades);
-  const flows = {};
-  const addF = (d, v) => { if (d) flows[d] = (flows[d] || 0) + v; };
-  (realDeposits || []).forEach(x => addF(x.date, x.amount || 0));
-  (realDividends || []).forEach(x => addF(x.date, x.amount || 0));
-  (realFees || []).forEach(x => addF(x.date, x.amount || 0));
-  const days = [...new Set([...Object.keys(dayData), ...Object.keys(flows)])].sort();
-  let eq = 0; const r = {}, baseByDay = {};
+  const { costs, flows } = realCashMaps();
+  const days = [...new Set([...Object.keys(dayData), ...Object.keys(flows), ...Object.keys(costs)])].sort();
+  let eq = 0; const r = {}, baseByDay = {}, perf = {};
   for (const d of days) {
     eq += flows[d] || 0;
-    const pnl = dayData[d] ? dayData[d].pnl : 0;
-    if (eq > 0 && dayData[d]) { r[d] = pnl / eq; baseByDay[d] = eq; }
+    const has = !!dayData[d] || costs[d] !== undefined;
+    const pnl = (dayData[d] ? dayData[d].pnl : 0) + (costs[d] || 0);
+    if (has) perf[d] = pnl;
+    if (eq > 0 && has) { r[d] = pnl / eq; baseByDay[d] = eq; }
     eq += pnl;
   }
-  return { r, baseByDay };
+  return { r, baseByDay, perf, costs };
 }
 
 // Rendements TWR journaliers de la SELECTION affichee (filtre DAX / NASDAQ, plage de dates), rapportes au
@@ -2884,11 +2904,32 @@ function realTWRDaily(trades) {
 // de la plage de dates (le P&L d'avant la plage fait partie du capital). Avant, realTWRDaily(jeu filtre)
 // oubliait l'autre algo ou les gains passes dans la base et gonflait les %. En "Tout" sur toute la periode,
 // identique a realTWRDaily(realTrades). Meme base que computeCusumBreak.
-function realTWRSel(trades) {
-  const base = realTWRDaily((typeof realTrades !== 'undefined' && realTrades) ? realTrades : []).baseByDay;
-  const by = aggregateByDay(trades), r = {};
-  Object.keys(by).forEach(d => { if (base[d] > 0) r[d] = by[d].pnl / base[d]; });
+// opt.costs : ajoute les frais, le financement et les dividendes du jour, y compris les jours sans trade (vue "Tout" ;
+// ils ne sont pas attribuables a un algo, donc absents des vues DAX / NASDAQ) ; opt.from / opt.to bornent ces jours
+// de frais sans trade a la plage de dates. Options de la vue courante : realSelOpt().
+function realTWRSel(trades, opt) {
+  const acct = realTWRDaily((typeof realTrades !== 'undefined' && realTrades) ? realTrades : []);
+  const base = acct.baseByDay, by = aggregateByDay(trades), r = {};
+  const withC = !!(opt && opt.costs), from = opt && opt.from, to = opt && opt.to;
+  const days = new Set(Object.keys(by));
+  if (withC) Object.keys(acct.costs).forEach(d => { if ((!from || d >= from) && (!to || d <= to)) days.add(d); });
+  days.forEach(d => { if (base[d] > 0) r[d] = ((by[d] ? by[d].pnl : 0) + (withC ? (acct.costs[d] || 0) : 0)) / base[d]; });
   return { r, baseByDay: base };
+}
+// Options de realTWRSel pour la vue Trading Auto affichee : frais compris en "Tout", bornes = curseur de dates
+function realSelOpt() {
+  if (typeof currentAssetFilter !== 'undefined' && currentAssetFilter !== 'all') return { costs: false };
+  const rg = (typeof getDateRange === 'function') ? getDateRange() : null;
+  const n = (typeof allTradingDays !== 'undefined' && allTradingDays) ? allTradingDays.length : 0;
+  if (!rg || !n || (rg.from === allTradingDays[0] && rg.to === allTradingDays[n - 1])) return { costs: true };
+  return { costs: true, from: rg.from, to: rg.to };
+}
+// Note sous les calendriers en mode % : ce que compte la TWR selon la vue
+function realTwrNote(compose) {
+  const tout = typeof currentAssetFilter === 'undefined' || currentAssetFilter === 'all';
+  return '% en TWR : ' + compose + (tout
+    ? ' Frais de graphiques, intérêts de financement et dividendes compris, y compris un jour sans trade ou un week-end.'
+    : ' Frais et financement exclus : ils ne sont pas attribuables à un seul algo (vue Tout pour les inclure).');
 }
 
 // ── Test de rupture CUSUM (pont brownien) sur les rendements TWR journaliers ──
@@ -3049,7 +3090,7 @@ function buildRealKPIs() {
       + (isATH ? '<span style="color:' + posC + ';font-weight:700">au plus haut historique</span>'
         : ('plus haut ' + fmt(Math.round(athCapital)) + ' €' + (athDateLabel ? ' (' + athDateLabel + ')' : '')
            + ' · <span style="color:' + negC + ';font-weight:700">' + fmt(Math.round(distToAthEUR)) + ' € (' + distToAthPct.toFixed(2) + ' % TWR)</span>')),
-    tip: 'Capital du compte IG : dépôts + gains des trades + dividendes + frais, sur TOUS les trades (le filtre ne change pas le capital). Le % est pondéré dans le temps (TWR) : chaque dépôt est neutralisé à sa date.' });
+    tip: 'Capital du compte IG : dépôts + gains des trades + dividendes + frais, sur TOUS les trades (le filtre ne change pas le capital). Le % est pondéré dans le temps (TWR) : chaque dépôt est neutralisé à sa date ; frais de graphiques, intérêts de financement et dividendes comptent dans la performance.' });
   cells.push({ label: 'Gain des trades', value: (total >= 0 ? '+' : '') + fmt(Math.round(total)) + ' €', color: total >= 0 ? posC : negC,
     sub: '<span style="color:' + posC + '">+' + fmt(Math.round(totalWins)) + ' €</span> / <span style="color:' + negC + '">-' + fmt(Math.round(totalLosses)) + ' €</span>',
     tip: 'Somme des gains et des pertes des trades de la sélection (filtre Tout / NASDAQ / DAX et période choisie).' });
@@ -4185,7 +4226,18 @@ function buildDailyCalendar() {
   const isInMonth = dt => dt.getMonth() === calMonth && dt.getFullYear() === calYear;
 
   // Mode % : rendements TWR journaliers (base = capital du compte entier le matin, dépôts datés)
-  const twrCal = realTWRSel(trades);
+  const twrCal = realTWRSel(trades, realSelOpt());
+  // semaines et mois composes sur TOUS les jours de rendement, y compris un jour de frais sans trade ou un week-end
+  // (financement), absents de la grille : semaine = du lundi au dimanche, cle = date du lundi
+  const mondayOf = (ds) => { const dt = new Date(ds + 'T12:00:00'); dt.setDate(dt.getDate() - (dt.getDay() + 6) % 7); return ymd(dt); };
+  const calPrefix = `${calYear}-${String(calMonth+1).padStart(2,'0')}`;
+  const weekFactorMap = {};
+  let monthFactor = 1;
+  Object.keys(twrCal.r).forEach(dd => {
+    const k = mondayOf(dd);
+    weekFactorMap[k] = (weekFactorMap[k] || 1) * (1 + twrCal.r[dd]);
+    if (dd.startsWith(calPrefix)) monthFactor *= (1 + twrCal.r[dd]);
+  });
 
   // Max |pnl| sur tous les jours affichés (intensité du dégradé)
   const maxAbsPnl = Math.max(1, ...dates.map(dt => { const v = dayData[ymd(dt)]; return v ? Math.abs(v.pnl) : 0; }));
@@ -4196,11 +4248,11 @@ function buildDailyCalendar() {
   });
 
   let totalWinDays = 0, totalLossDays = 0, totalTradeDays = 0;
-  let weekTotal = 0, weekFactor = 1, monthFactor = 1;
+  let weekTotal = 0;
 
-  function emitWeekTotal() {
+  function emitWeekTotal(mondayKey) {
     const sign = weekTotal >= 0 ? '+' : '';
-    const weekPct = (weekFactor - 1) * 100; // TWR composé de la semaine
+    const weekPct = ((weekFactorMap[mondayKey] || 1) - 1) * 100; // TWR composé de la semaine (lundi -> dimanche)
     const weekDisp = showPct ? `${weekPct>=0?'+':''}${weekPct.toFixed(2)}%` : `${sign}${weekTotal.toFixed(0)}€`;
     const wtIntensity = Math.min(Math.abs(weekTotal) / (maxAbsPnl * 3 || 1), 1);
     const wtUp = showPct ? weekPct >= 0 : weekTotal >= 0;   // en %, la couleur suit le TWR (signe parfois different du total en €)
@@ -4211,7 +4263,7 @@ function buildDailyCalendar() {
     html += `<div class="day-cell week-total" style="background:${wtBg}">
       <span class="day-pnl" style="color:${wtColor}">${weekDisp}</span>
     </div>`;
-    weekTotal = 0; weekFactor = 1;
+    weekTotal = 0;
   }
 
   dates.forEach(dateObj => {
@@ -4236,8 +4288,6 @@ function buildDailyCalendar() {
         displayVal = `${sign}${data.pnl.toFixed(0)}€`;
       }
       weekTotal += data.pnl; // le total hebdo inclut les jours débordants
-      weekFactor *= (1 + rDay);
-      if (inMonth) monthFactor *= (1 + rDay);
       const intensity = maxAbsPnl > 0 ? 0.08 + (Math.abs(data.pnl) / maxAbsPnl) * 0.37 : 0.12;
       const bgColor = data.pnl >= 0
         ? `rgba(29,158,116,${intensity.toFixed(2)})`
@@ -4247,11 +4297,19 @@ function buildDailyCalendar() {
         <span class="day-pnl">${displayVal}</span>
         <span class="day-trades">${data.trades} trade${data.trades>1?'s':''}</span>
       </div>`;
+    } else if (showPct && twrCal.r[dateStr] !== undefined) {
+      // jour sans trade mais avec frais, financement ou dividende (vue "Tout") : il compte dans la TWR
+      const pc = twrCal.r[dateStr] * 100;
+      html += `<div class="day-cell ${pc>=0?'win':'loss'} ${otherCls} ${isToday?'today':''}" style="background:rgba(148,160,180,0.14)" title="Frais, financement ou dividende sans trade ce jour-là">
+        <span class="day-num">${d}</span>
+        <span class="day-pnl">${pc>=0?'+':''}${pc.toFixed(2)}%</span>
+        <span class="day-trades">frais</span>
+      </div>`;
     } else {
       html += `<div class="day-cell no-trade ${otherCls} ${isToday?'today':''}"><span class="day-num">${d}</span></div>`;
     }
 
-    if (dow === 5) emitWeekTotal(); // Σ après chaque vendredi (semaine toujours complète)
+    if (dow === 5) emitWeekTotal(mondayOf(dateStr)); // Σ après chaque vendredi (semaine toujours complète)
   });
 
   document.getElementById('dayGrid').innerHTML = html;
@@ -4272,7 +4330,7 @@ function buildDailyCalendar() {
     <div class="stat-item"><span class="stat-dot red"></span>${totalLossDays} jours perdants (${lossPct}%)</div>
     <div class="stat-item"><strong>${showPct ? 'TWR du mois' : 'P&L du mois'} :</strong>&nbsp;<span style="color:${monthUp?'var(--positive)':'var(--negative)'}; font-weight:700">${monthDisplay}</span></div>
     <div class="stat-item" style="color:var(--text-secondary);font-size:0.72rem;">Capital du compte début mois : ${fmt(Math.round(startCap))} €</div>
-    ${showPct ? '<div class="stat-item" style="color:var(--text-secondary);font-size:0.72rem;">% en TWR : chaque jour rapporté au capital du compte le matin, semaines et mois composés</div>' : ''}
+    ${showPct ? '<div class="stat-item" style="color:var(--text-secondary);font-size:0.72rem;">' + realTwrNote('chaque jour rapporté au capital du compte le matin, semaines et mois composés.') + '</div>' : ''}
   `;
 }
 
@@ -4381,7 +4439,7 @@ function buildMonthlyHeatReal() {
   let html = '<table class="heatmap-table"><thead><tr>' + mh.map(h=>`<th>${h}</th>`).join('') + '</tr></thead><tbody>';
 
   // % TWR par mois : composition des rendements journaliers (dépôts datés neutralisés, base = compte entier)
-  const twrHeat = realTWRSel(trades);
+  const twrHeat = realTWRSel(trades, realSelOpt());
   const monthFactorMap = {};
   for (const [d, rv] of Object.entries(twrHeat.r)) {
     const ym = d.slice(0, 7);
@@ -4395,11 +4453,11 @@ function buildMonthlyHeatReal() {
     for (let m = 0; m < 12; m++) {
       const key = `${y}-${String(m+1).padStart(2,'0')}`;
       const data = monthData[key];
+      yearFactor *= (monthFactorMap[key] || 1);   // TWR annuel : tous les mois, meme un mois de frais sans trade
       if (data) {
         totalMonths++;
         yearTotal += data.pnl;
         const pct = ((monthFactorMap[key] || 1) - 1) * 100; // TWR du mois
-        yearFactor *= (monthFactorMap[key] || 1);
         const intensityRef = showPct ? Math.abs(pct) / 8 : Math.abs(data.pnl) / 500;
         const intensity = Math.min(intensityRef, 1);
         const up = showPct ? pct >= 0 : data.pnl >= 0;   // en %, la couleur suit le TWR du mois
@@ -4433,7 +4491,7 @@ function buildMonthlyHeatReal() {
   document.getElementById('monthStats').innerHTML = `
     <div class="stat-item"><span class="stat-dot green"></span>${totalWinMonths} mois gagnants (${winPct}%)</div>
     <div class="stat-item"><span class="stat-dot red"></span>${totalLossMonths} mois perdants (${lossPct}%)</div>
-    ${showPct ? '<div class="stat-item" style="color:var(--text-secondary);font-size:0.72rem;">% en TWR : rendements journaliers rapportés au capital du compte le matin, composés par mois et par année</div>' : ''}
+    ${showPct ? '<div class="stat-item" style="color:var(--text-secondary);font-size:0.72rem;">' + realTwrNote('rendements journaliers rapportés au capital du compte le matin, composés par mois et par année.') + '</div>' : ''}
   `;
 }
 
@@ -6720,12 +6778,14 @@ function buildDrawdownChart() {
   // dépôts/flux neutralisés À LEUR DATE (base = equity du matin). L'ancienne version
   // supposait tout le capital présent dès le 1er jour, ce qui sous-estimait les
   // drawdowns de la période petit capital et ne collait à aucune réalité du compte.
-  function computeDrawdownTWR(trades, masterDaysList) {
-    const twr = realTWRSel(trades);   // base = capital du compte entier, comme les calendriers
-    let idx = 1, peak = 1;
+  function computeDrawdownTWR(trades, masterDaysList, opt) {
+    const twr = realTWRSel(trades, opt);   // base = capital du compte entier, comme les calendriers
+    const rd = Object.keys(twr.r).sort();
+    let idx = 1, peak = 1, j = 0;
     const values = [];
     for (const d of masterDaysList) {
-      if (twr.r[d] !== undefined) idx *= (1 + twr.r[d]);
+      // tous les jours de rendement jusqu'a d, y compris un jour de frais sans trade (financement du week-end...)
+      while (j < rd.length && rd[j] <= d) { idx *= (1 + twr.r[rd[j]]); if (idx > peak) peak = idx; j++; }
       if (idx > peak) peak = idx;
       const dd = ((idx - peak) / peak) * 100;
       values.push(Math.round(dd * 100) / 100);
@@ -6751,9 +6811,10 @@ function buildDrawdownChart() {
   const daxTrades = filteredTrades.filter(t => t[1] === 'DAX');
   const nasTrades = filteredTrades.filter(t => t[1] === 'NASDAQ');
 
-  const allData = { labels: masterDays, values: computeDrawdownTWR(filteredTrades, masterRawDates), rawDates: masterRawDates };
-  const daxValues = computeDrawdownTWR(daxTrades, masterRawDates);
-  const nasValues = computeDrawdownTWR(nasTrades, masterRawDates);
+  // courbe globale : frais compris en vue "Tout" ; courbes DAX et NASDAQ : sans frais (non attribuables a un algo)
+  const allData = { labels: masterDays, values: computeDrawdownTWR(filteredTrades, masterRawDates, realSelOpt()), rawDates: masterRawDates };
+  const daxValues = computeDrawdownTWR(daxTrades, masterRawDates, { costs: false });
+  const nasValues = computeDrawdownTWR(nasTrades, masterRawDates, { costs: false });
 
   const datasets = [
     {
@@ -12478,17 +12539,17 @@ function renderMobileReal() {
   // jour : aujourd'hui, sinon la derniere seance avec des trades
   const tDays = Object.keys(aggregateByDay(trades)).sort(), auj = scrLocalDay(new Date());
   const dk = tDays.indexOf(auj) >= 0 ? auj : tDays[tDays.length - 1];
-  const dayPnl = pnlD[dk] || 0, dayPct = before[dk] > 0 ? dayPnl / before[dk] * 100 : 0;
+  // jour et mois : resultat (trades + frais, financement, dividendes) et TWR frais compris, comme l'en-tete PC
+  const twrM = realTWRDaily(trades);
+  const dayPnl = twrM.perf[dk] || 0, dayPct = twrM.r[dk] !== undefined ? twrM.r[dk] * 100 : 0;
   const dayLib = dk === auj ? 'aujourd’hui' : new Date(dk + 'T12:00:00').toLocaleDateString('fr-FR', { weekday: 'long', day: '2-digit', month: '2-digit' });
   // mois en cours : TWR, composition des rendements journaliers du mois (base = capital du matin, depots dates
   // neutralises), comme le calendrier PC. L'ancien resultat / (capital fin du mois precedent + depots du mois)
   // comptait un depot de fin de mois comme s'il avait travaille tout le mois.
   const now = new Date(), ym = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
-  // Montant du mois = trades seuls, meme perimetre que ce TWR et que le « P&L du mois » du calendrier PC
-  // (frais de graphiques et interets de financement, types CHART / WITH, sont des flux pour realTWRDaily).
-  const twrM = realTWRDaily(trades), trM = aggregateByDay(trades);
+  // Montant du mois = resultat (trades + frais, financement, dividendes), meme perimetre que la TWR du mois
   let mPnl = 0, mFac = 1;
-  Object.keys(trM).forEach((d) => { if (d.indexOf(ym) === 0) { mPnl += trM[d].pnl; if (twrM.r[d] !== undefined) mFac *= 1 + twrM.r[d]; } });
+  Object.keys(twrM.perf).forEach((d) => { if (d.indexOf(ym) === 0) { mPnl += twrM.perf[d]; if (twrM.r[d] !== undefined) mFac *= 1 + twrM.r[d]; } });
   const mPct = (mFac - 1) * 100;
   const rm = (typeof computeRealReturnMetrics === 'function') ? computeRealReturnMetrics() : null;
   // 1. capital, jour, mois, rendement
@@ -14599,7 +14660,7 @@ function invBreakEvenModel() {
   const fr = (x, dec) => (x * 100).toFixed(dec == null ? 1 : dec).replace('.', ',');
   const parts = [
     { lib: 'Debitum', v: debV * debY / 12, note: fr(debY) + ' %/an sur 12 mois, sur ' + invFmt(Math.round(debV)) },
-    { lib: 'Trading Auto', v: ig * taY / 12, note: taTwr != null ? (fr(taY) + ' %/an : TWR ' + (taTwr >= 0 ? '+' : '') + fr(taTwr) + ' % depuis le ' + taDebut.slice(8, 10) + '/' + taDebut.slice(5, 7) + '/' + taDebut.slice(0, 4) + ' (' + taJours + ' jours) annualisé, sur ' + invFmt(Math.round(ig))) : 'performance non évaluable' },
+    { lib: 'Trading Auto', v: ig * taY / 12, note: taTwr != null ? (fr(taY) + ' %/an : TWR frais compris ' + (taTwr >= 0 ? '+' : '') + fr(taTwr) + ' % depuis le ' + taDebut.slice(8, 10) + '/' + taDebut.slice(5, 7) + '/' + taDebut.slice(0, 4) + ' (' + taJours + ' jours) annualisé, sur ' + invFmt(Math.round(ig))) : 'performance non évaluable' },
     { lib: 'Actions', v: stk * actY / 12, note: sa ? (fr(actY) + ' %/an : TWR annualisé sur ' + sa.days + ' jours, sur ' + invFmt(Math.round(stk))) : 'performance non évaluable' }];
   const inc = parts.reduce((a, p) => a + p.v, 0), capital = debV + ig + stk, r = capital > 0 ? inc * 12 / capital : 0;
   const n = d.months.length, cur = d.months[n - 1];
