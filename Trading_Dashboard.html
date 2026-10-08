@@ -2921,8 +2921,13 @@ function realSelOpt() {
   if (typeof currentAssetFilter !== 'undefined' && currentAssetFilter !== 'all') return { costs: false };
   const rg = (typeof getDateRange === 'function') ? getDateRange() : null;
   const n = (typeof allTradingDays !== 'undefined' && allTradingDays) ? allTradingDays.length : 0;
-  if (!rg || !n || (rg.from === allTradingDays[0] && rg.to === allTradingDays[n - 1])) return { costs: true };
-  return { costs: true, from: rg.from, to: rg.to };
+  const o = { costs: true };
+  if (!rg || !n) return o;
+  // ne borner que le cote deplace : sinon un frais d'avant le 1er ou d'apres le dernier jour de trade (financement
+  // du week-end) disparaitrait des que l'on bouge l'autre poignee
+  if (rg.from !== allTradingDays[0]) o.from = rg.from;
+  if (rg.to !== allTradingDays[n - 1]) o.to = rg.to;
+  return o;
 }
 // Note sous les calendriers en mode % : ce que compte la TWR selon la vue
 function realTwrNote(compose) {
@@ -4276,10 +4281,12 @@ function buildDailyCalendar() {
     const isToday = dateStr === todayStr;
 
     if (data) {
-      if (inMonth) { totalTradeDays++; if (data.pnl >= 0) totalWinDays++; else totalLossDays++; }
-      const cls = data.pnl >= 0 ? 'win' : 'loss';
-      const sign = data.pnl >= 0 ? '+' : '';
       const rDay = twrCal.r[dateStr] || 0; // rendement TWR du jour
+      // en %, couleur et decompte suivent le TWR du jour (frais compris en vue Tout) ; en €, le P&L des trades
+      const up = showPct ? rDay >= 0 : data.pnl >= 0;
+      if (inMonth) { totalTradeDays++; if (up) totalWinDays++; else totalLossDays++; }
+      const cls = up ? 'win' : 'loss';
+      const sign = data.pnl >= 0 ? '+' : '';
       let displayVal;
       if (showPct) {
         const pct = rDay * 100;
@@ -4289,7 +4296,7 @@ function buildDailyCalendar() {
       }
       weekTotal += data.pnl; // le total hebdo inclut les jours débordants
       const intensity = maxAbsPnl > 0 ? 0.08 + (Math.abs(data.pnl) / maxAbsPnl) * 0.37 : 0.12;
-      const bgColor = data.pnl >= 0
+      const bgColor = up
         ? `rgba(29,158,116,${intensity.toFixed(2)})`
         : `rgba(221,95,102,${intensity.toFixed(2)})`;
       html += `<div class="day-cell ${cls} ${otherCls} ${isToday?'today':''}" style="background:${bgColor}" onclick="showDayDetail('${dateStr}',this)">
@@ -4469,6 +4476,12 @@ function buildMonthlyHeatReal() {
         const sign = data.pnl >= 0 ? '+' : '';
         const displayVal = showPct ? `${pct>=0?'+':''}${pct.toFixed(1)}%` : `${sign}${data.pnl.toFixed(0)}€`;
         html += `<td style="background:${bg};color:${c};" title="${data.trades} trades — ${sign}${data.pnl.toFixed(2)}€"><div>${displayVal}</div><div style="font-size:0.58rem;color:var(--text-secondary);margin-top:1px">${data.trades} trade${data.trades>1?'s':''}</div></td>`;
+      } else if (showPct && monthFactorMap[key] !== undefined) {
+        // mois sans trade mais avec frais, financement ou dividende (vue Tout) : il compte dans le total de l'annee,
+        // donc il a sa case et entre dans le decompte, comme la case « frais » du calendrier
+        const pf = (monthFactorMap[key] - 1) * 100;
+        totalMonths++; if (pf >= 0) totalWinMonths++; else totalLossMonths++;
+        html += `<td style="background:rgba(148,160,180,0.14);color:${pf >= 0 ? '#1d9e74' : '#dd5f66'};" title="Frais, financement ou dividende sans trade ce mois-là"><div>${pf>=0?'+':''}${pf.toFixed(1)}%</div><div style="font-size:0.58rem;color:var(--text-secondary);margin-top:1px">frais</div></td>`;
       } else {
         html += '<td style="background:rgba(34,49,77,0.05);color:#94a0b4;">—</td>';
       }
@@ -6789,6 +6802,11 @@ function buildDrawdownChart() {
       if (idx > peak) peak = idx;
       const dd = ((idx - peak) / peak) * 100;
       values.push(Math.round(dd * 100) / 100);
+    }
+    // frais apres le dernier jour de trade (financement du week-end) : appliques au dernier point, comme l'en-tete
+    if (j < rd.length && values.length) {
+      while (j < rd.length) { idx *= (1 + twr.r[rd[j]]); if (idx > peak) peak = idx; j++; }
+      values[values.length - 1] = Math.round(((idx - peak) / peak) * 100 * 100) / 100;
     }
     return values;
   }
