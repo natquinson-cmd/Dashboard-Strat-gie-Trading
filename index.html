@@ -9503,7 +9503,8 @@ function mPotScreen(P, M, cfg) {
         scrEl('div', { cls: 'mp-tk', text: 'ETF ' + F.E(k.etf) + ' · LM ' + F.E(k.lm) }),
         potKidBar(P, k, maxV)] }),
       scrEl('div', { cls: 'mp-right', kids: [
-        scrEl('div', { cls: 'mp-val', text: F.E(k.value) }),
+        // valeur de chaque enfant mise en avant, comme la colonne Valeur du tableau PC (09/10/2026)
+        scrEl('div', { cls: 'mp-val', text: F.E(k.value), style: 'display:inline-block;font-size:1.12rem;font-weight:800;padding:2px 8px;border-radius:8px;background:rgba(53,99,233,0.14);white-space:nowrap' }),
         scrEl('div', { cls: 'mp-pv', text: k.gain == null ? '–' : F.S(k.gain), style: 'color:' + F.col(k.gain) }),
         scrEl('div', { cls: 'mp-w', text: potNum(k.share * 100, 1) + ' %' })] })] }));
   });
