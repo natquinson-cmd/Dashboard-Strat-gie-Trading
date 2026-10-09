@@ -1407,7 +1407,7 @@
   .igl-foot { font-size: 0.66rem; color: var(--text-muted); margin-top: 8px; }
   html.m-mode .ig-live-pc { display: none; }
   /* vue d'ensemble de Trading total (PC) : la logique de l'accueil mobile, en largeur */
-  .ck-top { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 14px; margin-bottom: 14px; }
+  .ck-top { display: grid; grid-template-columns: minmax(0, 1fr) minmax(170px, 210px); gap: 14px; margin-bottom: 14px; }
   @media (max-width: 900px) { .ck-top { grid-template-columns: 1fr; } }
   .ck-hero { display: flex; gap: 22px; align-items: stretch; background: var(--bg-card); border: 1px solid var(--border); border-radius: 16px;
     padding: 20px 24px; background-image: linear-gradient(135deg, rgba(95,139,242,0.10), rgba(29,158,116,0.05)); }
@@ -7587,7 +7587,8 @@ function mSrcCol(k) {
 // GAINS MOIS PAR MOIS, par placement (accueil PC et mobile, demande du 09/10/2026) : remplace la courbe empilee du
 // capital, ou les marches etaient surtout des versements et des retraits. Debitum = interets saisis dans Portfolio ;
 // Trading Auto, actions et Darwinex = resultat net du mois (ttlMonthPnl, versements exclus).
-const HG_SRC = [['deb', 'Debitum'], ['ig', 'Trading Auto'], ['stk', 'Actions'], ['dwx', 'Darwinex']];
+// Darwinex retire le 09/10/2026 (demande du user) : quasi neutre sur ses quelques mois, compte solde le 29/09/2026
+const HG_SRC = [['deb', 'Debitum'], ['ig', 'Trading Auto'], ['stk', 'Actions']];
 function hgCol(k) { return k === 'dwx' ? '#9aa7b4' : mSrcCol(k); }
 function homeGainsData() {
   const d = portfolioData, debM = {};
@@ -7595,11 +7596,11 @@ function homeGainsData() {
   const yms = Object.keys(ttlMonthPnl || {}).sort();
   if (!yms.length) return null;
   const now = new Date(), cur = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
-  const tot = { deb: 0, ig: 0, stk: 0, dwx: 0 };
+  const tot = { deb: 0, ig: 0, stk: 0 };
   let cum = 0;
   const months = yms.filter((ym) => ym <= cur).map((ym) => {
-    const o = ttlMonthPnl[ym] || {}, r = { ym: ym, deb: debM[ym] || 0, ig: o.ig || 0, stk: o.stk || 0, dwx: o.dwx || 0, cur: ym === cur };
-    r.net = r.deb + r.ig + r.stk + r.dwx; cum += r.net; r.cum = cum;
+    const o = ttlMonthPnl[ym] || {}, r = { ym: ym, deb: debM[ym] || 0, ig: o.ig || 0, stk: o.stk || 0, cur: ym === cur };
+    r.net = HG_SRC.reduce((a, [k]) => a + r[k], 0); cum += r.net; r.cum = cum;
     HG_SRC.forEach(([k]) => { tot[k] += r[k]; });
     return r;
   });
@@ -7647,7 +7648,7 @@ function homeGainsChart(D, opts) {
   let lastW = 0;
   const draw = (W) => {
     lastW = W;
-    const Hh = opts.mobile ? 190 : 170, padT = 18, padB = 20, padX = 4;
+    const Hh = opts.mobile ? 200 : 180, padT = 18, padB = 36, padX = 4;   // padB : nom du mois + etiquette d'une perte
     const nMax = Math.max(3, Math.floor((W - 2 * padX) / (opts.mobile ? 32 : 40)));
     const M = D.months.slice(-nMax), n = M.length;
     const up = M.map((m) => HG_SRC.reduce((a, [k]) => a + Math.max(0, m[k]), 0)), dn = M.map((m) => HG_SRC.reduce((a, [k]) => a + Math.min(0, m[k]), 0));
@@ -7671,7 +7672,7 @@ function homeGainsChart(D, opts) {
       });
       // total net du mois, en gras, au-dessus des gains (ou sous les pertes s'il est negatif)
       const ly = m.net >= 0 ? y(hp) - 5 : y(hn) + 13;
-      const t = mk('text', { x: cx.toFixed(1), y: Math.max(11, Math.min(Hh - padB + 12, ly)).toFixed(1), 'text-anchor': 'middle', 'font-size': opts.mobile ? 10.5 : 11.5, 'font-weight': 800,
+      const t = mk('text', { x: cx.toFixed(1), y: Math.max(11, Math.min(Hh - 20, ly)).toFixed(1), 'text-anchor': 'middle', 'font-size': opts.mobile ? 10.5 : 11.5, 'font-weight': 800,
         fill: m.net >= 0 ? '#1d9e74' : '#dd5f66' });
       t.textContent = hgK(m.net);
       const ml = mk('text', { x: cx.toFixed(1), y: (Hh - 4).toFixed(1), 'text-anchor': 'middle', 'font-size': opts.mobile ? 10 : 10.5, fill: '#5b6b7d', 'font-weight': m.cur ? 700 : 400 });
