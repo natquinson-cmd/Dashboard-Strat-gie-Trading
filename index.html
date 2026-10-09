@@ -11806,6 +11806,8 @@ let SCR_BENCH = null;      // S&P 500 { date: close }
 let SCR_BENCH_NDX = null;  // Nasdaq Composite { date: close }
 // Graphique de PERFORMANCE (TWR %, façon Revolut) : notre portefeuille (positionsHistory, net des apports) vs S&P 500.
 // Sélecteurs de période (1J/1S/1M/1A/Tout) + comparaison optionnelle au S&P 500. Compact (tendance, pas large).
+// Periode et comparaisons choisies : gardees d'un rendu a l'autre (le graphique est reconstruit a chaque mise a jour des cours)
+const SCR_PERF_STATE = { period: '1M', sp: true, ndx: true };
 function scrPerfChart(hist, bench, benchN) {
   const wrap = scrEl('div');
   wrap.appendChild(scrEl('div', { style: 'font-weight:800;color:#22303f;font-size:0.9rem', text: 'Performance' }));
@@ -11816,7 +11818,7 @@ function scrPerfChart(hist, bench, benchN) {
   }
   const PERIODS = [['1J', 1], ['1S', 7], ['1M', 30], ['1A', 365], ['Tout', 1e9]];
   const SP_COL = '#7c94b5', NDX_COL = '#8b6fc9';   // S&P 500 = bleu-gris, Nasdaq = violet
-  let period = '1M', compareSP = true, compareNdx = true;
+  let period = SCR_PERF_STATE.period, compareSP = SCR_PERF_STATE.sp, compareNdx = SCR_PERF_STATE.ndx;
   const bigBox = scrEl('div', { style: 'margin:2px 0 4px' }), chartBox = scrEl('div'), ctrlBox = scrEl('div');
   const parseD = (s) => new Date(s + 'T00:00:00'), dayDiff = (a, b) => Math.round((parseD(a) - parseD(b)) / 86400000);
   const lastDate = hist[hist.length - 1].date;
@@ -11920,7 +11922,7 @@ function scrPerfChart(hist, bench, benchN) {
     chartBox.replaceChildren(perfSvg(twr, sp, ndx));
     ctrlBox.replaceChildren();
     const pb = scrEl('div', { style: 'display:inline-flex;gap:4px;flex-wrap:wrap;margin-top:6px' });
-    PERIODS.forEach(([lbl]) => { const b = scrEl('button', { text: lbl, style: `padding:3px 9px;border:1px solid ${period === lbl ? '#3563e9' : '#e3e8ee'};border-radius:7px;background:${period === lbl ? '#eaf0ff' : '#fff'};color:${period === lbl ? '#3563e9' : '#5b6b7d'};font-size:0.7rem;font-weight:700;cursor:pointer` }); b.onclick = () => { period = lbl; draw(); }; pb.appendChild(b); });
+    PERIODS.forEach(([lbl]) => { const b = scrEl('button', { text: lbl, style: `padding:3px 9px;border:1px solid ${period === lbl ? '#3563e9' : '#e3e8ee'};border-radius:7px;background:${period === lbl ? '#eaf0ff' : '#fff'};color:${period === lbl ? '#3563e9' : '#5b6b7d'};font-size:0.7rem;font-weight:700;cursor:pointer` }); b.onclick = () => { period = SCR_PERF_STATE.period = lbl; draw(); }; pb.appendChild(b); });
     ctrlBox.appendChild(pb);
     const mkTog = (labelTxt, col, checked, setter, lastVal) => {
       const t = scrEl('label', { style: 'display:flex;align-items:center;gap:6px;margin-top:8px;font-size:0.72rem;color:#42546a;cursor:pointer' });
@@ -11930,8 +11932,8 @@ function scrPerfChart(hist, bench, benchN) {
       if (checked && lastVal != null) t.appendChild(scrEl('span', { text: (lastVal >= 0 ? '+' : '') + (lastVal * 100).toFixed(2) + ' %', style: `margin-left:auto;font-weight:700;color:${lastVal >= 0 ? '#1d9e74' : '#dd5f66'}` }));
       return t;
     };
-    ctrlBox.appendChild(mkTog('S&P 500', SP_COL, compareSP, (v) => { compareSP = v; }, lastSp));
-    if (benchN) ctrlBox.appendChild(mkTog('Nasdaq', NDX_COL, compareNdx, (v) => { compareNdx = v; }, lastNdx));   // masque si non fourni
+    ctrlBox.appendChild(mkTog('S&P 500', SP_COL, compareSP, (v) => { compareSP = SCR_PERF_STATE.sp = v; }, lastSp));
+    if (benchN) ctrlBox.appendChild(mkTog('Nasdaq', NDX_COL, compareNdx, (v) => { compareNdx = SCR_PERF_STATE.ndx = v; }, lastNdx));   // masque si non fourni
   };
   wrap.appendChild(bigBox); wrap.appendChild(chartBox); wrap.appendChild(ctrlBox);
   draw();
@@ -12487,8 +12489,8 @@ function scrMobilePortfolio(pos) {
       return [scrEl('div', { cls: 'mp-sub', kids: [document.createTextNode('Performance '), scrEl('b', { text: sg(ta.twr) + (ta.twr * 100).toFixed(2) + ' %', style: col(ta.twr) }),
         document.createTextNode(' depuis le ' + dd + ' · '), scrEl('b', { text: sg(ta.ann) + (ta.ann * 100).toFixed(1) + ' %/an', style: col(ta.ann) }), document.createTextNode(' annualisé')] })];
     })()) }));
-  // 2. courbe d'evolution
-  box.appendChild(scrEl('div', { cls: 'mp-card', kids: [scrEl('div', { cls: 'mp-lbl', text: 'Évolution de la valeur', style: 'margin-bottom:6px' }), mpCurve(SCR_HIST)] }));
+  // 2. performance (TWR) comparee au S&P 500 et au Nasdaq, comme sur PC (demande du 09/10/2026, remplace la courbe de valeur)
+  box.appendChild(scrEl('div', { cls: 'mp-card', kids: [scrPerfChart(SCR_HIST, SCR_BENCH, SCR_BENCH_NDX)] }));
   // 3. repartition par categorie
   const cats = ['etf', 'actions', 'crypto'].map((k) => {
     const ls = lines.filter((l) => l.cat === k).sort((a, b) => b.valeur - a.valeur);
