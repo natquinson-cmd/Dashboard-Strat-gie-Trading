@@ -61,8 +61,9 @@ function createPositionKeys({ C, esc, nf1, nf0, igFeed, log }) {
     let body = '';
     body += '<rect x="' + X0 + '" y="' + Y + '" width="' + (X1 - X0) + '" height="' + H + '" rx="7" fill="#24303d"/>';
     const seg = (a, b, c) => { const xa = Math.min(x(a), x(b)), xb = Math.max(x(a), x(b)); if (xb - xa > 0.5) body += '<rect x="' + xa.toFixed(1) + '" y="' + Y + '" width="' + (xb - xa).toFixed(1) + '" height="' + H + '" fill="' + c + '" opacity="0.85"/>'; };
-    if (p.stop != null) seg(p.stop, p.level, f(p.stop) < f(p.level) ? C.neg : C.pos);   // rouge = risque, vert = securise
-    seg(p.level, exit, f(exit) >= f(p.level) ? C.pos : C.neg);                            // gain ou perte en cours
+    // une seule zone coloree (demande du user, lisible sur le Stream Deck) : entree -> cours, verte en
+    // plus-value, rouge en moins-value ; la zone stop -> entree n'est plus peinte
+    seg(p.level, exit, f(exit) >= f(p.level) ? C.pos : C.neg);
     const tick = (v, c, h) => { body += '<rect x="' + (x(v) - 1.5).toFixed(1) + '" y="' + (Y - h) + '" width="3" height="' + (H + 2 * h) + '" fill="' + c + '"/>'; };
     const securise = p.stop != null && f(p.stop) >= f(p.level);
     if (p.stop != null) tick(p.stop, securise ? C.pos : C.neg, 5);
