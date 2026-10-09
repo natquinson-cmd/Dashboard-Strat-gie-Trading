@@ -1451,7 +1451,20 @@
   .hg-chip { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
   .hg-chip i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
   .hg-chip b { font-weight: 800; }
-  .hg-bars { position: relative; width: 100%; }
+  .hg-cal { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 6px; margin-top: 8px; }
+  @media (max-width: 700px) { .hg-cal { grid-template-columns: repeat(6, minmax(0, 1fr)); row-gap: 10px; } }
+  .hg-col { min-width: 0; cursor: pointer; }
+  .hg-cell { border-radius: 9px; padding: 6px 4px 7px; text-align: center; border: 1px solid transparent; }
+  .hg-cell.hg-cur { border-color: var(--text-secondary); border-style: dashed; }
+  .hg-cell.hg-empty { background: var(--bg-input, rgba(127,127,127,0.08)); }
+  .hg-mo { font-size: 0.66rem; color: var(--text-secondary); font-weight: 600; white-space: nowrap; }
+  .hg-net { font-size: 0.86rem; font-weight: 800; margin-top: 2px; white-space: nowrap; letter-spacing: -0.01em; }
+  .hg-empty .hg-net { color: var(--text-muted); font-weight: 600; }
+  .hg-pct { font-size: 0.68rem; font-weight: 700; margin-top: 1px; white-space: nowrap; }
+  .hg-comp { margin-top: 4px; font-size: 0.68rem; line-height: 1.45; }
+  .hg-comp > div { display: flex; align-items: center; justify-content: center; gap: 4px; white-space: nowrap; }
+  .hg-comp i { width: 7px; height: 7px; border-radius: 2px; display: inline-block; flex: 0 0 auto; }
+  .hg-comp span { font-weight: 700; }
   .hg-tip { position: absolute; top: 0; transform: translateX(-50%); display: none; pointer-events: none; z-index: 5; background: #22303f; color: #fff;
     font-size: 0.72rem; line-height: 1.5; padding: 7px 10px; border-radius: 8px; white-space: nowrap; box-shadow: 0 4px 14px rgba(0,0,0,.25); }
   #ttlCockpit .ck-hero .hg-wrap { flex: 1 1 auto; min-width: 260px; }
@@ -7591,8 +7604,9 @@ function mSrcCol(k) {
 const HG_SRC = [['deb', 'Debitum'], ['ig', 'Trading Auto'], ['stk', 'Actions']];
 function hgCol(k) { return k === 'dwx' ? '#9aa7b4' : mSrcCol(k); }
 function homeGainsData() {
-  const d = portfolioData, debM = {};
+  const d = portfolioData, debM = {}, debP = {};
   if (d && d.months && d.interests) d.months.forEach((m, i) => { debM[m] = invToEur('Debitum', Number((d.interests.Debitum || [])[i]) || 0); });
+  if (d && d.months && d.principal) d.months.forEach((m, i) => { debP[m] = invToEur('Debitum', Number((d.principal.Debitum || [])[i]) || 0); });
   const yms = Object.keys(ttlMonthPnl || {}).sort();
   if (!yms.length) return null;
   const now = new Date(), cur = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
@@ -7601,6 +7615,10 @@ function homeGainsData() {
   const months = yms.filter((ym) => ym <= cur).map((ym) => {
     const o = ttlMonthPnl[ym] || {}, r = { ym: ym, deb: debM[ym] || 0, ig: o.ig || 0, stk: o.stk || 0, cur: ym === cur };
     r.net = HG_SRC.reduce((a, [k]) => a + r[k], 0); cum += r.net; r.cum = cum;
+    // % du mois : sur le capital en debut de mois (marches a la cloture du mois precedent + capital Debitum du mois precedent)
+    const y = +ym.slice(0, 4), mo = +ym.slice(5, 7) - 1, prev = mo ? y + '-' + String(mo).padStart(2, '0') : (y - 1) + '-12';
+    r.base = (typeof ttlEquityAtMonthStart === 'function' ? ttlEquityAtMonthStart(y, mo) : 0) + (debP[prev] || 0);
+    r.pct = r.base > 0 ? r.net / r.base * 100 : null;
     HG_SRC.forEach(([k]) => { tot[k] += r[k]; });
     return r;
   });
@@ -7611,93 +7629,70 @@ function hgK(v) {   // libelle court au-dessus des barres : +2,8k / −539
   const a = Math.abs(v), sg = v >= 0 ? '+' : '−';
   return a >= 1000 ? sg + (a / 1000).toFixed(1).replace('.', ',') + 'k' : sg + Math.round(a);
 }
-// opts.mobile : barres plus hautes, moins de mois si l'ecran est etroit
+// CALENDRIER des 12 derniers mois sur une ligne (6 + 6 sur mobile) : resultat net du mois dans une case coloree,
+// composition par placement en dessous. Remplace les barres et la mini-courbe du cumul (09/10/2026).
 function homeGainsChart(D, opts) {
   opts = opts || {};
   const MN = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
-  const lib = (ym) => MN[parseInt(ym.slice(5, 7), 10) - 1];
+  const MF = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
   const wrap = scrEl('div', { cls: 'hg-wrap' });
   if (!D || !D.months.length) return wrap;
   const pos = D.cum >= 0, d0 = D.months[0].ym;
-  // en-tete : cumul en grand + mini-courbe du cumul, puis le total de chaque placement en pastilles
-  const NS = 'http://www.w3.org/2000/svg';
-  const mini = document.createElementNS(NS, 'svg');
-  (function () {
-    const W = 90, Hh = 30, c = D.months.map((m) => m.cum).concat([0]);
-    const mn = Math.min.apply(null, c), mx = Math.max.apply(null, c), sp = (mx - mn) || 1;
-    const x = (i) => 2 + i * (W - 4) / Math.max(1, D.months.length - 1), y = (v) => 2 + (1 - (v - mn) / sp) * (Hh - 4);
-    mini.setAttribute('viewBox', '0 0 ' + W + ' ' + Hh); mini.setAttribute('width', W); mini.setAttribute('height', Hh);
-    let dd = ''; D.months.forEach((m, i) => { dd += (i ? 'L' : 'M') + x(i).toFixed(1) + ' ' + y(m.cum).toFixed(1) + ' '; });
-    const p = document.createElementNS(NS, 'path'); p.setAttribute('d', dd); p.setAttribute('fill', 'none'); p.setAttribute('stroke', pos ? '#1d9e74' : '#dd5f66');
-    p.setAttribute('stroke-width', '2'); p.setAttribute('stroke-linecap', 'round'); p.setAttribute('stroke-linejoin', 'round'); mini.appendChild(p);
-    const e = document.createElementNS(NS, 'circle'); const li = D.months.length - 1;
-    e.setAttribute('cx', x(li)); e.setAttribute('cy', y(D.months[li].cum)); e.setAttribute('r', '3'); e.setAttribute('fill', pos ? '#1d9e74' : '#dd5f66'); mini.appendChild(e);
-  })();
-  wrap.appendChild(scrEl('div', { cls: 'hg-head', kids: [
-    scrEl('div', { kids: [
-      scrEl('div', { cls: 'hg-lbl', text: 'Ce que rapportent tes placements' }),
-      scrEl('div', { cls: 'hg-big', kids: [scrEl('span', { text: hgEur(D.cum), style: 'color:' + (pos ? 'var(--positive)' : 'var(--negative)') }),
-        scrEl('span', { cls: 'hg-since', text: 'gagnés depuis ' + lib(d0) + ' ' + d0.slice(0, 4) })] })] }),
-    mini] }));
+  wrap.appendChild(scrEl('div', { cls: 'hg-head', kids: [scrEl('div', { kids: [
+    scrEl('div', { cls: 'hg-lbl', text: 'Ce que rapportent tes placements' }),
+    scrEl('div', { cls: 'hg-big', kids: [scrEl('span', { text: hgEur(D.cum), style: 'color:' + (pos ? 'var(--positive)' : 'var(--negative)') }),
+      scrEl('span', { cls: 'hg-since', text: 'gagnés depuis ' + MN[parseInt(d0.slice(5, 7), 10) - 1] + ' ' + d0.slice(0, 4) })] })] })] }));
   wrap.appendChild(scrEl('div', { cls: 'hg-chips', kids: HG_SRC.filter(([k]) => Math.round(D.tot[k]) !== 0).map(([k, nom]) => scrEl('span', { cls: 'hg-chip', kids: [
     scrEl('i', { style: 'background:' + hgCol(k) }), document.createTextNode(nom + ' '),
     scrEl('b', { text: hgEur(D.tot[k]), style: 'color:' + (D.tot[k] >= 0 ? 'var(--positive)' : 'var(--negative)') })] })) }));
-  // barres empilees : gains au-dessus de zero, pertes en dessous ; total net du mois ecrit sur chaque barre
-  const box = scrEl('div', { cls: 'hg-bars' });
+  // les 12 derniers mois (mois en cours compris) ; avant le debut du suivi, une case vide
+  const byYm = {}; D.months.forEach((m) => { byYm[m.ym] = m; });
+  const now = new Date(), slots = [];
+  for (let i = 11; i >= 0; i--) { const dt = new Date(now.getFullYear(), now.getMonth() - i, 1); slots.push(dt.getFullYear() + '-' + String(dt.getMonth() + 1).padStart(2, '0')); }
+  const maxAbs = Math.max.apply(null, slots.map((ym) => byYm[ym] ? Math.abs(byYm[ym].net) : 0).concat([1]));
+  const num = (v) => (v >= 0 ? '+' : '−') + fmt(Math.abs(Math.round(v)));
+  const cal = scrEl('div', { cls: 'hg-cal' });
   const tip = scrEl('div', { cls: 'hg-tip' });
-  let lastW = 0;
-  const draw = (W) => {
-    lastW = W;
-    const Hh = opts.mobile ? 200 : 180, padT = 18, padB = 36, padX = 4;   // padB : nom du mois + etiquette d'une perte
-    const nMax = Math.max(3, Math.floor((W - 2 * padX) / (opts.mobile ? 32 : 40)));
-    const M = D.months.slice(-nMax), n = M.length;
-    const up = M.map((m) => HG_SRC.reduce((a, [k]) => a + Math.max(0, m[k]), 0)), dn = M.map((m) => HG_SRC.reduce((a, [k]) => a + Math.min(0, m[k]), 0));
-    const top = Math.max.apply(null, up.concat([1])), bot = Math.min.apply(null, dn.concat([0]));
-    const span = (top - bot) || 1, ph = Hh - padT - padB;
-    const y = (v) => padT + (top - v) / span * ph;
-    const slot = (W - 2 * padX) / n, bw = Math.min(30, slot * 0.62);
-    const svg = document.createElementNS(NS, 'svg'); svg.setAttribute('viewBox', '0 0 ' + W + ' ' + Hh); svg.setAttribute('width', '100%'); svg.style.display = 'block';
-    const mk = (t, a) => { const e = document.createElementNS(NS, t); Object.keys(a).forEach((k) => e.setAttribute(k, a[k])); svg.appendChild(e); return e; };
-    mk('line', { x1: padX, x2: W - padX, y1: y(0).toFixed(1), y2: y(0).toFixed(1), stroke: '#c3ccd6', 'stroke-width': 1 });
-    M.forEach((m, i) => {
-      const cx = padX + slot * (i + 0.5), x0 = cx - bw / 2;
-      let hp = 0, hn = 0;
-      HG_SRC.forEach(([k]) => {
-        const v = m[k];
-        if (!v) return;
-        const a = v > 0 ? hp : hn, b = a + v;
-        const y1 = Math.min(y(a), y(b)), h = Math.max(1, Math.abs(y(a) - y(b)));
-        mk('rect', { x: x0.toFixed(1), y: y1.toFixed(1), width: bw.toFixed(1), height: h.toFixed(1), fill: hgCol(k), rx: 2 });
-        if (v > 0) hp = b; else hn = b;
-      });
-      // total net du mois, en gras, au-dessus des gains (ou sous les pertes s'il est negatif)
-      const ly = m.net >= 0 ? y(hp) - 5 : y(hn) + 13;
-      const t = mk('text', { x: cx.toFixed(1), y: Math.max(11, Math.min(Hh - 20, ly)).toFixed(1), 'text-anchor': 'middle', 'font-size': opts.mobile ? 10.5 : 11.5, 'font-weight': 800,
-        fill: m.net >= 0 ? '#1d9e74' : '#dd5f66' });
-      t.textContent = hgK(m.net);
-      const ml = mk('text', { x: cx.toFixed(1), y: (Hh - 4).toFixed(1), 'text-anchor': 'middle', 'font-size': opts.mobile ? 10 : 10.5, fill: '#5b6b7d', 'font-weight': m.cur ? 700 : 400 });
-      ml.textContent = lib(m.ym);
-      const hit = mk('rect', { x: (cx - slot / 2).toFixed(1), y: 0, width: slot.toFixed(1), height: Hh, fill: 'transparent' }); hit.style.cursor = 'pointer';
-      const show = () => {
-        const lignes = [scrEl('div', { text: MN[parseInt(m.ym.slice(5, 7), 10) - 1] + ' ' + m.ym.slice(0, 4) + (m.cur ? ' (en cours)' : ''), style: 'font-weight:800;margin-bottom:3px' })];
-        HG_SRC.forEach(([k, nom]) => { if (Math.round(m[k]) !== 0 || (k === 'deb' && m.cur)) lignes.push(scrEl('div', { kids: [
-          scrEl('span', { text: '■ ', style: 'color:' + hgCol(k) }), document.createTextNode(nom + ' '),
-          scrEl('b', { text: (k === 'deb' && m.cur && !m.deb) ? 'à saisir' : hgEur(m[k]) })] })); });
-        lignes.push(scrEl('div', { style: 'margin-top:3px;border-top:1px solid rgba(255,255,255,.25);padding-top:3px', kids: [document.createTextNode('Total '), scrEl('b', { text: hgEur(m.net) }),
-          document.createTextNode(' · cumul '), scrEl('b', { text: hgEur(m.cum) })] }));
-        tip.replaceChildren.apply(tip, lignes);
-        tip.style.left = Math.max(12, Math.min(88, cx / W * 100)) + '%'; tip.style.display = 'block';
-      };
-      hit.addEventListener('mouseenter', show); hit.addEventListener('click', show);
-      hit.addEventListener('mouseleave', () => { tip.style.display = 'none'; });
-    });
-    box.replaceChildren(svg, tip);
-  };
-  draw(opts.mobile ? 340 : 600);
-  const fit = (w) => { w = Math.round(w); if (w >= 200 && Math.abs(w - lastW) > 4) draw(w); };
-  if (typeof ResizeObserver === 'function') new ResizeObserver((es) => fit(es[0].contentRect.width)).observe(box);
-  [0, 400].forEach((ms) => setTimeout(() => { if (box.isConnected) fit(box.clientWidth); }, ms));
-  wrap.appendChild(box);
+  slots.forEach((ym, i) => {
+    const m = byYm[ym], mi = parseInt(ym.slice(5, 7), 10) - 1;
+    const an = (i === 0 || mi === 0) ? ' ' + ym.slice(2, 4) : '';   // annee sur la premiere case et en janvier
+    const col = scrEl('div', { cls: 'hg-col' });
+    if (!m) {
+      col.append(scrEl('div', { cls: 'hg-cell hg-empty', kids: [scrEl('div', { cls: 'hg-mo', text: MN[mi] + an }), scrEl('div', { cls: 'hg-net', text: '–' })] }));
+      cal.appendChild(col);
+      return;
+    }
+    const a = (0.16 + 0.5 * Math.abs(m.net) / maxAbs).toFixed(2);
+    const cell = scrEl('div', { cls: 'hg-cell' + (m.cur ? ' hg-cur' : ''), style: 'background:' + (m.net >= 0 ? 'rgba(29,158,116,' + a + ')' : 'rgba(221,95,102,' + a + ')'), kids: [
+      scrEl('div', { cls: 'hg-mo', text: MN[mi] + an + (m.cur ? ' ·' : '') }),
+      scrEl('div', { cls: 'hg-net', text: opts.mobile ? hgK(m.net) : hgEur(m.net), style: 'color:' + (m.net >= 0 ? 'var(--positive)' : 'var(--negative)') }),
+      scrEl('div', { cls: 'hg-pct', text: m.pct == null ? '' : (m.pct >= 0 ? '+' : '−') + Math.abs(m.pct).toFixed(opts.mobile ? 1 : 2).replace('.', ',') + ' %',
+        style: 'color:' + (m.net >= 0 ? 'var(--positive)' : 'var(--negative)') })] });
+    // composition sous la case : un placement par ligne, pastille de couleur + montant (mois en cours : Debitum a saisir)
+    const comp = scrEl('div', { cls: 'hg-comp', kids: HG_SRC.filter(([k]) => Math.round(m[k]) !== 0 || (k === 'deb' && m.cur)).map(([k]) => scrEl('div', { kids: [
+      scrEl('i', { style: 'background:' + hgCol(k) }),
+      scrEl('span', { text: (k === 'deb' && m.cur && !m.deb) ? 'à saisir' : (opts.mobile ? hgK(m[k]) : num(m[k])),
+        style: (k === 'deb' && m.cur && !m.deb) ? 'color:var(--text-muted)' : 'color:' + (m[k] >= 0 ? 'var(--positive)' : 'var(--negative)') })] })) });
+    col.append(cell, comp);
+    const show = () => {
+      const lignes = [scrEl('div', { text: MF[mi] + ' ' + ym.slice(0, 4) + (m.cur ? ' (en cours)' : ''), style: 'font-weight:800;margin-bottom:3px' })];
+      HG_SRC.forEach(([k, nom]) => { if (Math.round(m[k]) !== 0 || (k === 'deb' && m.cur)) lignes.push(scrEl('div', { kids: [
+        scrEl('span', { text: '■ ', style: 'color:' + hgCol(k) }), document.createTextNode(nom + ' '),
+        scrEl('b', { text: (k === 'deb' && m.cur && !m.deb) ? 'à saisir' : hgEur(m[k]) })] })); });
+      lignes.push(scrEl('div', { style: 'margin-top:3px;border-top:1px solid rgba(255,255,255,.25);padding-top:3px', kids: [document.createTextNode('Total '), scrEl('b', { text: hgEur(m.net) + (m.pct == null ? '' : ' (' + (m.pct >= 0 ? '+' : '−') + Math.abs(m.pct).toFixed(2).replace('.', ',') + ' %)') }),
+        document.createTextNode(' · cumul '), scrEl('b', { text: hgEur(m.cum) })] }));
+      if (m.base > 0) lignes.push(scrEl('div', { text: '% sur ' + fmt(Math.round(m.base)) + ' € de capital en début de mois', style: 'opacity:.75;font-size:0.66rem;margin-top:2px' }));
+      tip.replaceChildren.apply(tip, lignes);
+      const r = cal.getBoundingClientRect(), c = col.getBoundingClientRect();
+      tip.style.left = Math.max(70, Math.min(r.width - 70, c.left - r.left + c.width / 2)) + 'px';
+      tip.style.top = (c.top - r.top + c.height + 4) + 'px';
+      tip.style.display = 'block';
+    };
+    col.addEventListener('mouseenter', show); col.addEventListener('click', show);
+    col.addEventListener('mouseleave', () => { tip.style.display = 'none'; });
+    cal.appendChild(col);
+  });
+  wrap.appendChild(scrEl('div', { style: 'position:relative', kids: [cal, tip] }));
   return wrap;
 }
 // Debitum, seule plateforme P2P depuis le 01/10/2026 : capital place fin de mois et interets, saisis dans Portfolio.
