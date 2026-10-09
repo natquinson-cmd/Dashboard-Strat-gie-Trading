@@ -52,21 +52,24 @@ function createPositionKeys({ C, esc, nf1, nf0, igFeed, log }) {
     if (r.stale) return waiting('JAUGE', r);
     const { p, buy, exit } = r;
     const f = v => buy ? v : -v;   // espace « favorable » : plus grand = mieux
-    const vals = [p.level, exit].concat(p.stop != null ? [p.stop] : []).concat(p.limit != null ? [p.limit] : []).map(f);
-    let lo = Math.min(...vals), hi = Math.max(...vals);
-    const pad = (hi - lo) * 0.06 || 1; lo -= pad; hi += pad;
+    // Demi-jauge selon la situation (demande du user) : en plus-value, seulement entree -> objectif (zone verte) ;
+    // en moins-value, seulement stop -> entree (zone rouge). L'entree est toujours a une extremite.
+    const gain = f(exit) >= f(p.level);
+    let lo, hi;
+    if (gain) { lo = f(p.level); hi = Math.max(f(exit), p.limit != null ? f(p.limit) : f(exit)); }
+    else { hi = f(p.level); lo = Math.min(f(exit), p.stop != null ? f(p.stop) : f(exit)); }
+    const pad = (hi - lo) * 0.04 || 1; if (gain) hi += pad; else lo -= pad;
     // grand format (demande du user) : barre epaisse en haut, distances SL / TP en gros dessous
     const X0 = 9, X1 = 135, Y = 36, H = 22;
     const x = v => X0 + (X1 - X0) * (f(v) - lo) / (hi - lo);
     let body = '';
     body += '<rect x="' + X0 + '" y="' + Y + '" width="' + (X1 - X0) + '" height="' + H + '" rx="7" fill="#24303d"/>';
     const seg = (a, b, c) => { const xa = Math.min(x(a), x(b)), xb = Math.max(x(a), x(b)); if (xb - xa > 0.5) body += '<rect x="' + xa.toFixed(1) + '" y="' + Y + '" width="' + (xb - xa).toFixed(1) + '" height="' + H + '" fill="' + c + '" opacity="0.85"/>'; };
-    // une seule zone coloree (demande du user, lisible sur le Stream Deck) : entree -> cours, verte en
-    // plus-value, rouge en moins-value ; la zone stop -> entree n'est plus peinte
-    seg(p.level, exit, f(exit) >= f(p.level) ? C.pos : C.neg);
-    const tick = (v, c, h) => { body += '<rect x="' + (x(v) - 1.5).toFixed(1) + '" y="' + (Y - h) + '" width="3" height="' + (H + 2 * h) + '" fill="' + c + '"/>'; };
+    // zone parcourue depuis l'entree : verte en plus-value, rouge en moins-value
+    seg(p.level, exit, gain ? C.pos : C.neg);
+    const tick = (v, c, h) => { const xx = x(v); if (xx < X0 - 1 || xx > X1 + 1) return; body += '<rect x="' + (xx - 1.5).toFixed(1) + '" y="' + (Y - h) + '" width="3" height="' + (H + 2 * h) + '" fill="' + c + '"/>'; };
     const securise = p.stop != null && f(p.stop) >= f(p.level);
-    if (p.stop != null) tick(p.stop, securise ? C.pos : C.neg, 5);
+    if (p.stop != null) tick(p.stop, securise ? C.pos : C.neg, 5);   // hors de la demi-jauge -> pas affiche
     if (p.limit != null) tick(p.limit, C.pos, 5);
     // pas de trait sur le prix d'entree (retire a la demande du user) : la jonction des deux couleurs le marque deja
     // cours actuel : barre verticale (le rond etait trop gros), plus epaisse et plus haute que le repere d'entree
