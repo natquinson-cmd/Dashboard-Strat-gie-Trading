@@ -12529,11 +12529,13 @@ function scrMobilePortfolio(pos) {
     const card = scrEl('div', { cls: 'mp-card mp-grp' + (MP_CLOSED[g.k] ? ' closed' : '') });
     const gpnl = g.ls.reduce((a, l) => a + (l.pnl || 0), 0), gday = g.ls.reduce((a, l) => a + (l.day || 0), 0);
     const gdayPct = (g.value - gday) > 0 ? gday / (g.value - gday) : 0;
+    // % de la plus-value totale : sur le prix de revient des lignes qui ont une plus-value connue
+    const gcost = g.ls.reduce((a, l) => a + (l.pnl == null ? 0 : l.valeur - l.pnl), 0), gpnlPct = gcost > 0 ? gpnl / gcost : null;
     const head = scrEl('div', { cls: 'mp-grp-head', kids: [
       scrEl('span', { cls: 'mp-dot', style: 'background:' + MP_CAT[g.k][1] }),
       scrEl('div', { kids: [scrEl('div', { cls: 'mp-gname', text: MP_CAT[g.k][0] }),
         scrEl('div', { cls: 'mp-tk', text: g.ls.length + (g.ls.length > 1 ? ' lignes' : ' ligne') + ' · ', kids: [
-          scrEl('span', { cls: 'pv-t', text: sg(gpnl) + scrUsd(gpnl), style: 'font-weight:700;' + col(gpnl) }),
+          scrEl('span', { cls: 'pv-t', text: sg(gpnl) + scrUsd(gpnl) + (gpnlPct == null ? '' : ' (' + pctTxt(gpnlPct, 1) + ')'), style: 'font-weight:700;' + col(gpnl) }),
           scrEl('span', { cls: 'pv-j', text: sg(gday) + scrUsd(gday) + ' (' + pctTxt(gdayPct, 2) + ')', style: 'font-weight:700;' + col(gday) })] })] }),
       scrEl('span', { cls: 'mp-gval', text: scrUsd(g.value) }),
       scrEl('span', { cls: 'mp-gpct', text: (g.value / tot * 100).toFixed(1) + ' %' }),
