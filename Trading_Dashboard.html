@@ -9400,13 +9400,14 @@ function renderPotMain(host) {
         potKidBar(P, k, maxV)] }),
       td(potNum(k.share * 100, 2) + ' %', ';font-weight:800;color:#3563e9'),
       td(F.E(k.base), ';color:#42546a'),
-      td(F.E(k.value), ';font-weight:700;color:#22303f'),
+      // la valeur de chaque enfant est LE chiffre du tableau : colonne surlignee, plus grande (demande du 09/10/2026)
+      td(F.E(k.value), ';font-size:1.08rem;font-weight:800;color:#22303f;background:rgba(53,99,233,0.08);white-space:nowrap'),
       td(F.E(k.etf), ';color:' + POT_COL.etf),
       td(F.E(k.lm), ';color:' + POT_COL.lm),
       td(k.gain == null ? '–' : F.S(k.gain) + ' (' + F.P(k.gainPct, 2) + ')', ';font-weight:700;white-space:nowrap;color:' + F.col(k.gain))] }));
   });
   const table = scrEl('table', { style: 'width:100%;border-collapse:collapse;font-size:0.82rem', kids: [
-    scrEl('thead', { kids: [scrEl('tr', { style: 'background:#f6f8fb;color:#5b6b7d', kids: [th('Enfant', 'left'), th('Part'), th('Investi'), th('Valeur'), th('dont ETF'), th('dont Lendermarket'), th('Plus-value')] })] }), tbody] });
+    scrEl('thead', { kids: [scrEl('tr', { style: 'background:#f6f8fb;color:#5b6b7d', kids: [th('Enfant', 'left'), th('Part'), th('Investi'), (() => { const h = th('Valeur'); h.style.background = 'rgba(53,99,233,0.08)'; h.style.color = '#3563e9'; h.style.fontWeight = '800'; return h; })(), th('dont ETF'), th('dont Lendermarket'), th('Plus-value')] })] }), tbody] });
   wrap.appendChild(scrEl('div', { style: 'display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start;margin-bottom:14px', kids: [
     scrEl('div', { style: 'flex:0 0 auto;background:#fafbfc;border:1px solid #eef1f5;border-radius:12px;padding:12px', kids: [
       scrEl('div', { text: 'Parts de la cagnotte', style: 'font-size:0.7rem;text-transform:uppercase;letter-spacing:.03em;color:#5b6b7d;font-weight:700;margin-bottom:10px' }),
