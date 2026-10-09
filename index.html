@@ -1416,9 +1416,6 @@
   .ck-lbl { font-size: 0.68rem; letter-spacing: .06em; text-transform: uppercase; font-weight: 700; color: var(--text-secondary); }
   .ck-big { font-size: 2.5rem; font-weight: 800; line-height: 1.1; margin-top: 4px; color: var(--text-primary); white-space: nowrap; }
   .ck-sub { font-size: 0.86rem; color: var(--text-secondary); margin-top: 4px; white-space: nowrap; }
-  #ttlCockpit .m-spark { flex: 1 1 auto; min-width: 140px; position: relative; }
-  #ttlCockpit .m-spark svg { position: absolute; left: 0; top: 2px; width: 100%; height: calc(100% - 18px); display: block; }
-  #ttlCockpit .m-spark-cap { position: absolute; right: 0; bottom: 0; font-size: 0.66rem; color: var(--text-muted); }
   .ck-side { display: grid; gap: 14px; }
   .ck-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px; padding: 14px 18px; }
   .ck-mid { font-size: 1.6rem; font-weight: 800; line-height: 1.15; margin-top: 4px; }
@@ -1443,12 +1440,24 @@
   #tab-accueil .m-sub { font-size: 0.78rem; color: var(--text-secondary); margin-top: 5px; }
   /* carte Capital total : 4 lignes de texte a gauche, mini-courbe sur toute la hauteur a droite */
   #tab-accueil .m-hero-row { display: flex; align-items: stretch; gap: 12px; }
+  /* gains mois par mois (accueil PC et mobile) */
+  .hg-wrap { min-width: 0; }
+  .hg-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+  .hg-lbl { font-size: 0.66rem; letter-spacing: .06em; text-transform: uppercase; font-weight: 700; color: var(--text-secondary); }
+  .hg-big { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; margin-top: 2px; }
+  .hg-big > span:first-child { font-size: 1.45rem; font-weight: 800; line-height: 1.1; white-space: nowrap; }
+  .hg-since { font-size: 0.74rem; color: var(--text-secondary); font-weight: 600; }
+  .hg-chips { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 8px 0 4px; font-size: 0.76rem; color: var(--text-secondary); }
+  .hg-chip { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+  .hg-chip i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+  .hg-chip b { font-weight: 800; }
+  .hg-bars { position: relative; width: 100%; }
+  .hg-tip { position: absolute; top: 0; transform: translateX(-50%); display: none; pointer-events: none; z-index: 5; background: #22303f; color: #fff;
+    font-size: 0.72rem; line-height: 1.5; padding: 7px 10px; border-radius: 8px; white-space: nowrap; box-shadow: 0 4px 14px rgba(0,0,0,.25); }
+  #ttlCockpit .ck-hero .hg-wrap { flex: 1 1 auto; min-width: 260px; }
   #tab-accueil .m-hero-txt { flex: none; }
   #tab-accueil .m-hero-txt .m-big { font-size: 2rem; white-space: nowrap; }
   #tab-accueil .m-hero-txt .m-sub { margin-top: 3px; white-space: nowrap; }
-  #tab-accueil .m-spark { flex: 1 1 auto; min-width: 60px; position: relative; }
-  #tab-accueil .m-spark svg { position: absolute; left: 0; top: 2px; width: 100%; height: calc(100% - 16px); display: block; }
-  #tab-accueil .m-spark-cap { position: absolute; right: 0; bottom: 0; font-size: 0.6rem; color: var(--text-muted); }
   #tab-accueil .m-src { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 7px; vertical-align: 0; }
   #tab-accueil .m-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
   #tab-accueil .m-card { padding: 12px 14px; border-radius: 14px; }
@@ -7569,37 +7578,126 @@ function mMoreBtn() {   // bouton construit en JS (onglet Portefeuille d'actions
   b.onclick = () => mToggleMore(b);
   return b;
 }
-// Mini-courbe (sans axes) pour la carte Capital total de l'accueil mobile.
 // Couleur de chaque source, identique a Trading total (TTL_COL), en variante Baggr sur le theme fonce.
 function mSrcCol(k) {
   const dark = { ig: '#de6058', stk: '#3f76ed', dwx: '#efc560', deb: '#f5b041' };
   if (k === 'deb' && THEME !== 'dark') return INV_NATURE_LIB.p2p[1];   // ambre des prets P2P (Portfolio)
   return THEME === 'dark' ? dark[k] : TTL_COL[k];
 }
-function mSpark(serie, keys, tip) {
-  keys = keys || ['ig', 'stk', 'dwx'];
-  const pts = (serie || []).filter((p) => p && p.value > 0);
-  if (pts.length < 2) return scrEl('span');
-  const NS = 'http://www.w3.org/2000/svg', W = 160, Hh = 100, pd = 1;
-  const mx = Math.max.apply(null, pts.map((p) => p.value)) || 1;
-  const x = (i) => pd + i * (W - 2 * pd) / (pts.length - 1), y = (v) => pd + (1 - v / mx) * (Hh - 2 * pd);
-  const svg = document.createElementNS(NS, 'svg');
-  svg.setAttribute('viewBox', '0 0 ' + W + ' ' + Hh);
-  svg.setAttribute('preserveAspectRatio', 'none');   // aires sans trait : on peut les etirer a la taille de la carte
-  const mk = (t, a) => { const e = document.createElementNS(NS, t); Object.keys(a).forEach((k) => e.setAttribute(k, a[k])); svg.appendChild(e); return e; };
-  // aires empilees, dans l'ordre de keys (la premiere en bas)
-  let bas = pts.map(() => 0);
-  keys.forEach((k) => {
-    const haut = pts.map((p, i) => bas[i] + (p[k] || 0));
-    let d = '';
-    haut.forEach((v, i) => { d += (i ? 'L' : 'M') + x(i).toFixed(1) + ' ' + y(v).toFixed(1) + ' '; });
-    for (let i = pts.length - 1; i >= 0; i--) d += 'L' + x(i).toFixed(1) + ' ' + y(bas[i]).toFixed(1) + ' ';
-    mk('path', { d: d + 'Z', fill: mSrcCol(k), 'fill-opacity': 0.9, stroke: 'none' });
-    bas = haut;
+// GAINS MOIS PAR MOIS, par placement (accueil PC et mobile, demande du 09/10/2026) : remplace la courbe empilee du
+// capital, ou les marches etaient surtout des versements et des retraits. Debitum = interets saisis dans Portfolio ;
+// Trading Auto, actions et Darwinex = resultat net du mois (ttlMonthPnl, versements exclus).
+const HG_SRC = [['deb', 'Debitum'], ['ig', 'Trading Auto'], ['stk', 'Actions'], ['dwx', 'Darwinex']];
+function hgCol(k) { return k === 'dwx' ? '#9aa7b4' : mSrcCol(k); }
+function homeGainsData() {
+  const d = portfolioData, debM = {};
+  if (d && d.months && d.interests) d.months.forEach((m, i) => { debM[m] = invToEur('Debitum', Number((d.interests.Debitum || [])[i]) || 0); });
+  const yms = Object.keys(ttlMonthPnl || {}).sort();
+  if (!yms.length) return null;
+  const now = new Date(), cur = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+  const tot = { deb: 0, ig: 0, stk: 0, dwx: 0 };
+  let cum = 0;
+  const months = yms.filter((ym) => ym <= cur).map((ym) => {
+    const o = ttlMonthPnl[ym] || {}, r = { ym: ym, deb: debM[ym] || 0, ig: o.ig || 0, stk: o.stk || 0, dwx: o.dwx || 0, cur: ym === cur };
+    r.net = r.deb + r.ig + r.stk + r.dwx; cum += r.net; r.cum = cum;
+    HG_SRC.forEach(([k]) => { tot[k] += r[k]; });
+    return r;
   });
-  const cap = 'depuis ' + new Date(pts[0].date + 'T12:00:00').toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' });
-  return scrEl('div', { cls: 'm-spark', attrs: { title: tip || 'Capital total jour par jour, versements compris : Trading Auto, actions et Darwinex empilés' },
-    kids: [svg, scrEl('div', { cls: 'm-spark-cap', text: cap })] });
+  return { months: months, tot: tot, cum: cum };
+}
+function hgEur(v) { return (v >= 0 ? '+' : '−') + fmt(Math.abs(Math.round(v))) + ' €'; }
+function hgK(v) {   // libelle court au-dessus des barres : +2,8k / −539
+  const a = Math.abs(v), sg = v >= 0 ? '+' : '−';
+  return a >= 1000 ? sg + (a / 1000).toFixed(1).replace('.', ',') + 'k' : sg + Math.round(a);
+}
+// opts.mobile : barres plus hautes, moins de mois si l'ecran est etroit
+function homeGainsChart(D, opts) {
+  opts = opts || {};
+  const MN = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
+  const lib = (ym) => MN[parseInt(ym.slice(5, 7), 10) - 1];
+  const wrap = scrEl('div', { cls: 'hg-wrap' });
+  if (!D || !D.months.length) return wrap;
+  const pos = D.cum >= 0, d0 = D.months[0].ym;
+  // en-tete : cumul en grand + mini-courbe du cumul, puis le total de chaque placement en pastilles
+  const NS = 'http://www.w3.org/2000/svg';
+  const mini = document.createElementNS(NS, 'svg');
+  (function () {
+    const W = 90, Hh = 30, c = D.months.map((m) => m.cum).concat([0]);
+    const mn = Math.min.apply(null, c), mx = Math.max.apply(null, c), sp = (mx - mn) || 1;
+    const x = (i) => 2 + i * (W - 4) / Math.max(1, D.months.length - 1), y = (v) => 2 + (1 - (v - mn) / sp) * (Hh - 4);
+    mini.setAttribute('viewBox', '0 0 ' + W + ' ' + Hh); mini.setAttribute('width', W); mini.setAttribute('height', Hh);
+    let dd = ''; D.months.forEach((m, i) => { dd += (i ? 'L' : 'M') + x(i).toFixed(1) + ' ' + y(m.cum).toFixed(1) + ' '; });
+    const p = document.createElementNS(NS, 'path'); p.setAttribute('d', dd); p.setAttribute('fill', 'none'); p.setAttribute('stroke', pos ? '#1d9e74' : '#dd5f66');
+    p.setAttribute('stroke-width', '2'); p.setAttribute('stroke-linecap', 'round'); p.setAttribute('stroke-linejoin', 'round'); mini.appendChild(p);
+    const e = document.createElementNS(NS, 'circle'); const li = D.months.length - 1;
+    e.setAttribute('cx', x(li)); e.setAttribute('cy', y(D.months[li].cum)); e.setAttribute('r', '3'); e.setAttribute('fill', pos ? '#1d9e74' : '#dd5f66'); mini.appendChild(e);
+  })();
+  wrap.appendChild(scrEl('div', { cls: 'hg-head', kids: [
+    scrEl('div', { kids: [
+      scrEl('div', { cls: 'hg-lbl', text: 'Ce que rapportent tes placements' }),
+      scrEl('div', { cls: 'hg-big', kids: [scrEl('span', { text: hgEur(D.cum), style: 'color:' + (pos ? 'var(--positive)' : 'var(--negative)') }),
+        scrEl('span', { cls: 'hg-since', text: 'gagnés depuis ' + lib(d0) + ' ' + d0.slice(0, 4) })] })] }),
+    mini] }));
+  wrap.appendChild(scrEl('div', { cls: 'hg-chips', kids: HG_SRC.filter(([k]) => Math.round(D.tot[k]) !== 0).map(([k, nom]) => scrEl('span', { cls: 'hg-chip', kids: [
+    scrEl('i', { style: 'background:' + hgCol(k) }), document.createTextNode(nom + ' '),
+    scrEl('b', { text: hgEur(D.tot[k]), style: 'color:' + (D.tot[k] >= 0 ? 'var(--positive)' : 'var(--negative)') })] })) }));
+  // barres empilees : gains au-dessus de zero, pertes en dessous ; total net du mois ecrit sur chaque barre
+  const box = scrEl('div', { cls: 'hg-bars' });
+  const tip = scrEl('div', { cls: 'hg-tip' });
+  let lastW = 0;
+  const draw = (W) => {
+    lastW = W;
+    const Hh = opts.mobile ? 190 : 170, padT = 18, padB = 20, padX = 4;
+    const nMax = Math.max(3, Math.floor((W - 2 * padX) / (opts.mobile ? 32 : 40)));
+    const M = D.months.slice(-nMax), n = M.length;
+    const up = M.map((m) => HG_SRC.reduce((a, [k]) => a + Math.max(0, m[k]), 0)), dn = M.map((m) => HG_SRC.reduce((a, [k]) => a + Math.min(0, m[k]), 0));
+    const top = Math.max.apply(null, up.concat([1])), bot = Math.min.apply(null, dn.concat([0]));
+    const span = (top - bot) || 1, ph = Hh - padT - padB;
+    const y = (v) => padT + (top - v) / span * ph;
+    const slot = (W - 2 * padX) / n, bw = Math.min(30, slot * 0.62);
+    const svg = document.createElementNS(NS, 'svg'); svg.setAttribute('viewBox', '0 0 ' + W + ' ' + Hh); svg.setAttribute('width', '100%'); svg.style.display = 'block';
+    const mk = (t, a) => { const e = document.createElementNS(NS, t); Object.keys(a).forEach((k) => e.setAttribute(k, a[k])); svg.appendChild(e); return e; };
+    mk('line', { x1: padX, x2: W - padX, y1: y(0).toFixed(1), y2: y(0).toFixed(1), stroke: '#c3ccd6', 'stroke-width': 1 });
+    M.forEach((m, i) => {
+      const cx = padX + slot * (i + 0.5), x0 = cx - bw / 2;
+      let hp = 0, hn = 0;
+      HG_SRC.forEach(([k]) => {
+        const v = m[k];
+        if (!v) return;
+        const a = v > 0 ? hp : hn, b = a + v;
+        const y1 = Math.min(y(a), y(b)), h = Math.max(1, Math.abs(y(a) - y(b)));
+        mk('rect', { x: x0.toFixed(1), y: y1.toFixed(1), width: bw.toFixed(1), height: h.toFixed(1), fill: hgCol(k), rx: 2 });
+        if (v > 0) hp = b; else hn = b;
+      });
+      // total net du mois, en gras, au-dessus des gains (ou sous les pertes s'il est negatif)
+      const ly = m.net >= 0 ? y(hp) - 5 : y(hn) + 13;
+      const t = mk('text', { x: cx.toFixed(1), y: Math.max(11, Math.min(Hh - padB + 12, ly)).toFixed(1), 'text-anchor': 'middle', 'font-size': opts.mobile ? 10.5 : 11.5, 'font-weight': 800,
+        fill: m.net >= 0 ? '#1d9e74' : '#dd5f66' });
+      t.textContent = hgK(m.net);
+      const ml = mk('text', { x: cx.toFixed(1), y: (Hh - 4).toFixed(1), 'text-anchor': 'middle', 'font-size': opts.mobile ? 10 : 10.5, fill: '#5b6b7d', 'font-weight': m.cur ? 700 : 400 });
+      ml.textContent = lib(m.ym);
+      const hit = mk('rect', { x: (cx - slot / 2).toFixed(1), y: 0, width: slot.toFixed(1), height: Hh, fill: 'transparent' }); hit.style.cursor = 'pointer';
+      const show = () => {
+        const lignes = [scrEl('div', { text: MN[parseInt(m.ym.slice(5, 7), 10) - 1] + ' ' + m.ym.slice(0, 4) + (m.cur ? ' (en cours)' : ''), style: 'font-weight:800;margin-bottom:3px' })];
+        HG_SRC.forEach(([k, nom]) => { if (Math.round(m[k]) !== 0 || (k === 'deb' && m.cur)) lignes.push(scrEl('div', { kids: [
+          scrEl('span', { text: '■ ', style: 'color:' + hgCol(k) }), document.createTextNode(nom + ' '),
+          scrEl('b', { text: (k === 'deb' && m.cur && !m.deb) ? 'à saisir' : hgEur(m[k]) })] })); });
+        lignes.push(scrEl('div', { style: 'margin-top:3px;border-top:1px solid rgba(255,255,255,.25);padding-top:3px', kids: [document.createTextNode('Total '), scrEl('b', { text: hgEur(m.net) }),
+          document.createTextNode(' · cumul '), scrEl('b', { text: hgEur(m.cum) })] }));
+        tip.replaceChildren.apply(tip, lignes);
+        tip.style.left = Math.max(12, Math.min(88, cx / W * 100)) + '%'; tip.style.display = 'block';
+      };
+      hit.addEventListener('mouseenter', show); hit.addEventListener('click', show);
+      hit.addEventListener('mouseleave', () => { tip.style.display = 'none'; });
+    });
+    box.replaceChildren(svg, tip);
+  };
+  draw(opts.mobile ? 340 : 600);
+  const fit = (w) => { w = Math.round(w); if (w >= 200 && Math.abs(w - lastW) > 4) draw(w); };
+  if (typeof ResizeObserver === 'function') new ResizeObserver((es) => fit(es[0].contentRect.width)).observe(box);
+  [0, 400].forEach((ms) => setTimeout(() => { if (box.isConnected) fit(box.clientWidth); }, ms));
+  wrap.appendChild(box);
+  return wrap;
 }
 // Debitum, seule plateforme P2P depuis le 01/10/2026 : capital place fin de mois et interets, saisis dans Portfolio.
 // Les interets sont retires chaque mois (le capital reste plat des mois durant) : gain = interets cumules,
@@ -7638,15 +7736,6 @@ function mLoans() {
   return { now: now, chg: prev > 0 ? (now / prev - 1) * 100 : null, diff: prev > 0 ? now - prev : null,
     prevLib: ym ? monthNamesFull[parseInt(ym.slice(5, 7), 10) - 1].toLowerCase() : '',
     names: d.loanNames.filter((l) => du(l, n - 1) > 0).map((l) => l.replace(/^Emprunt\s+/i, '')).join(' + ') };
-}
-// Capital complet jour par jour : marches (ttlTotalSeries, sans Darwinex) + Debitum au palier du mois.
-function mHomeSeries(deb) {
-  return ttlTotalSeries().map((p) => {
-    const ym = p.date.slice(0, 7);
-    let dv = 0;
-    if (deb) for (const m of deb.months) { if (m <= ym) dv = deb.byMonth[m] || 0; else break; }
-    return { date: p.date, deb: dv, ig: p.ig, stk: p.stk, value: dv + p.ig + p.stk };
-  });
 }
 // ECRAN ACCUEIL MOBILE : l'essentiel en un coup d'oeil, sans defiler.
 // CHIFFRES DE L'ACCUEIL : un seul calcul pour l'accueil mobile et la vue d'ensemble de Trading total (PC).
@@ -7729,7 +7818,6 @@ function homeGainTip(H) {
     + '\n\nRealT et RMM exclus (estimés perdus). Les intérêts Debitum sont retirés chaque mois : ils ne figurent pas dans le capital.'
     + '\nPourcentage calculé sur le capital investi actuellement (' + fmt(H.base) + ' € : apports nets des marchés et capital placé sur Debitum).';
 }
-const HOME_SPARK_TIP = 'Capital total jour par jour, versements compris : Debitum, Trading Auto et actions empilés';
 // ECRAN ACCUEIL MOBILE : l'essentiel en un coup d'oeil, sans defiler.
 function renderMobileHome() {
   const box = document.getElementById('tab-accueil');
@@ -7743,16 +7831,16 @@ function renderMobileHome() {
   const col = (v) => 'color:' + (v >= 0 ? 'var(--positive)' : 'var(--negative)');
   const kids = [];
   // 1. capital total
-  let spark = scrEl('span');
-  try { spark = mSpark(mHomeSeries(H.deb), ['deb', 'ig', 'stk'], HOME_SPARK_TIP); } catch (e) {}
+  let gains = null;
+  try { gains = homeGainsChart(homeGainsData(), { mobile: true }); } catch (e) { console.warn('[accueil] gains mois par mois', e); }
   kids.push(scrEl('div', { cls: 'm-hero', kids: [
     scrEl('div', { cls: 'm-hero-row', kids: [
       scrEl('div', { cls: 'm-hero-txt', attrs: { title: homeGainTip(H) }, kids: [
         scrEl('div', { cls: 'm-lbl', text: 'Capital total' }),
         scrEl('div', { cls: 'm-big', text: E(H.cap) }),
         scrEl('div', { cls: 'm-sub', text: (H.gain >= 0 ? '▲ ' : '▼ ') + S(H.gain) + (H.gainPct != null ? ' (' + P(H.gainPct) + ')' : ''), style: 'font-weight:700;' + col(H.gain) }),
-        scrEl('div', { cls: 'm-sub', text: 'sur ' + E(H.base) + ' investis · détail ▾' })] }),
-      spark] }), homeGainDetail(H)] }));
+        scrEl('div', { cls: 'm-sub', text: 'sur ' + E(H.base) + ' investis · détail ▾' })] })] }), homeGainDetail(H)] }));
+  if (gains) kids.push(scrEl('div', { cls: 'm-card', kids: [gains] }));
   // 2. aujourd'hui (ou derniere seance) et mois en cours
   const card = (lbl, v, p, vide) => scrEl('div', { cls: 'm-card', kids: [
     scrEl('div', { cls: 'm-lbl', text: lbl }),
@@ -7824,7 +7912,7 @@ function renderTtlCockpit() {
   const col = (v) => 'color:' + (v >= 0 ? 'var(--positive)' : 'var(--negative)');
   // haut : capital total + mini-courbe pleine hauteur, cartes du jour et du mois
   let spark = scrEl('span');
-  try { spark = mSpark(mHomeSeries(H.deb), ['deb', 'ig', 'stk'], HOME_SPARK_TIP); } catch (e) {}
+  try { spark = homeGainsChart(homeGainsData()); } catch (e) { console.warn('[accueil] gains mois par mois', e); }
   const carte = (lbl, v, p, vide) => scrEl('div', { cls: 'ck-card', kids: [
     scrEl('div', { cls: 'ck-lbl', text: lbl }),
     scrEl('div', { cls: 'ck-mid', text: v == null ? '–' : S(v), style: v == null ? '' : col(v) }),
