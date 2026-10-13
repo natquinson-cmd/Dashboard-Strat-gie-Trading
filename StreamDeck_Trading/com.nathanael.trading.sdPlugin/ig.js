@@ -117,24 +117,41 @@ function createIgFeed(log, onChange) {
     }
   }
 
+  // Prix en direct : format CHART:<epic>:TICK. IG refuse l'ancien format MARKET:<epic> depuis le 13/10/2026
+  // (« 21 Invalid group » pour tous les instruments, alors que CHART et PRICE sont acceptes, verifie par
+  // diag_flux_ig.js). En DISTINCT, un champ inchange peut arriver vide : on garde la derniere valeur connue.
+  function chartSub(epic, onPrix, onErreur) {
+    const sub = new Subscription('DISTINCT', ['CHART:' + epic + ':TICK'], ['BID', 'OFR', 'DAY_PERC_CHG_MID']);
+    let bid = NaN, offer = NaN, pct = NaN;
+    sub.addListener({
+      onItemUpdate(u) {
+        const b = parseFloat(u.getValue('BID')), o = parseFloat(u.getValue('OFR')), p = parseFloat(u.getValue('DAY_PERC_CHG_MID'));
+        if (isFinite(b)) bid = b; if (isFinite(o)) offer = o; if (isFinite(p)) pct = p;
+        if (isFinite(bid) && isFinite(offer)) onPrix(bid, offer, isFinite(pct) ? pct : null);
+      },
+      onSubscriptionError: onErreur,
+    });
+    return sub;
+  }
+
   function subscribeIndex(me, n, i) {
     const list = candidates[n] || [];
     if (client !== me) return;
     if (i >= list.length) { log('IG : aucun code valide pour ' + n + ' (essayés : ' + list.join(', ') + ')'); return; }
     const epic = list[i];
-    const sub = new Subscription('MERGE', ['MARKET:' + epic], ['BID', 'OFFER', 'CHANGE_PCT', 'MARKET_STATE']);
     let first = true;
-    sub.addListener({
-      onItemUpdate(u) {
-        const bid = parseFloat(u.getValue('BID')), offer = parseFloat(u.getValue('OFFER'));
-        if (!isFinite(bid) || !isFinite(offer)) return;
+    const sub = chartSub(epic, (bid, offer, pct) => {
         if (first) { first = false; log('IG : ' + n + ' en direct via ' + epic); }
         state.quotes[epic] = { bid, offer, at: Date.now() };
-        state.prices[n] = { mid: (bid + offer) / 2, pct: parseFloat(u.getValue('CHANGE_PCT')) || 0, marketState: u.getValue('MARKET_STATE'), at: Date.now(), epic };
+        state.prices[n] = { mid: (bid + offer) / 2, pct: pct != null ? pct : 0, at: Date.now(), epic };
         onChange();
-      },
-      onSubscriptionError(code, msg) { log('IG : ' + epic + ' refusé (' + code + ' ' + msg + '), essai suivant'); subscribeIndex(me, n, i + 1); },
-    });
+      }, function (code, msg) {
+        // 21 « Invalid group » = la session de flux n'est plus reconnue par IG (vu le 13/10 apres une coupure
+        // reseau) : ce n'est pas le code d'instrument qui est en cause. On ne passe pas au candidat suivant,
+        // on refait une connexion complete (avec l'espacement prudent de fail : 2, 4, 8... 30 min).
+        if (code === 21) { sessionRefusee(me, 'abonnement ' + epic); return; }
+        log('IG : ' + epic + ' refusé (' + code + ' ' + msg + '), essai suivant'); subscribeIndex(me, n, i + 1);
+      });
     epicSubs.add(epic);
     me.subscribe(sub);
   }
@@ -143,14 +160,8 @@ function createIgFeed(log, onChange) {
   function subscribeEpic(me, epic) {
     if (epicSubs.has(epic)) return;
     epicSubs.add(epic);
-    const sub = new Subscription('MERGE', ['MARKET:' + epic], ['BID', 'OFFER']);
-    sub.addListener({
-      onItemUpdate(u) {
-        const bid = parseFloat(u.getValue('BID')), offer = parseFloat(u.getValue('OFFER'));
-        if (isFinite(bid) && isFinite(offer)) { state.quotes[epic] = { bid, offer, at: Date.now() }; onChange(); }
-      },
-      onSubscriptionError(code, msg) { log('IG : cours de ' + epic + ' refusé (' + code + ' ' + msg + ')'); },
-    });
+    const sub = chartSub(epic, (bid, offer) => { state.quotes[epic] = { bid, offer, at: Date.now() }; onChange(); },
+      function (code, msg) { if (code === 21) { sessionRefusee(me, 'cours ' + epic); return; } log('IG : cours de ' + epic + ' refusé (' + code + ' ' + msg + ')'); });
     me.subscribe(sub);
   }
 
@@ -199,6 +210,15 @@ function createIgFeed(log, onChange) {
     epicSubs.clear();
   }
   function restart(why) { log('IG : reconnexion (' + why + ')'); stopClient(); start(); }
+
+  // Session de flux refusee par IG : une seule reconnexion par client (plusieurs abonnements echouent en meme temps)
+  let refusVu = null;
+  function sessionRefusee(me, quoi) {
+    if (client !== me || refusVu === me) return;
+    refusVu = me;
+    stopClient();
+    fail('session de flux refusée par IG (21, ' + quoi + '), reconnexion');
+  }
 
   async function start() {
     stopClient();
