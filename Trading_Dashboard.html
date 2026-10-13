@@ -7828,7 +7828,20 @@ function renderMobileHome() {
   const kids = [];
   // 1. capital total
   let gains = null;
-  try { gains = homeGainsChart(homeGainsData(), { mobile: true }); } catch (e) { console.warn('[accueil] gains mois par mois', e); }
+  // mobile : anneau de repartition du capital (le calendrier des 12 mois, trop charge sur un telephone, reste sur PC ; 13/10/2026)
+  try {
+    const parts = [['Debitum', H.debV, mSrcCol('deb')], ['Actions', A.stkNow, mSrcCol('stk')], ['Trading Auto', A.igNow, mSrcCol('ig')]]
+      .filter((p) => p[1] > 0).sort((a, b) => b[1] - a[1]);
+    const tot = parts.reduce((a, p) => a + p[1], 0);
+    if (tot > 0) gains = scrEl('div', { kids: [
+      scrEl('div', { cls: 'm-lbl', text: 'Répartition du capital' }),
+      scrEl('div', { style: 'display:flex;justify-content:center;margin:6px 0 4px', kids: [mpDonut(parts.map((p) => ({ value: p[1], color: p[2] })), E(tot))] }),
+      scrEl('div', { kids: parts.map((p) => scrEl('div', { style: 'display:flex;align-items:center;gap:8px;padding:5px 0;border-top:1px solid var(--border);font-size:0.86rem', kids: [
+        scrEl('span', { style: 'width:11px;height:11px;border-radius:3px;flex:0 0 auto;background:' + p[2] }),
+        scrEl('span', { text: p[0], style: 'flex:1;color:var(--text-primary);font-weight:600' }),
+        scrEl('b', { text: E(p[1]), style: 'color:var(--text-primary)' }),
+        scrEl('span', { text: (p[1] / tot * 100).toFixed(1).replace('.', ',') + ' %', style: 'width:52px;text-align:right;color:var(--text-secondary)' })] })) })] });
+  } catch (e) { console.warn('[accueil] repartition', e); }
   kids.push(scrEl('div', { cls: 'm-hero', kids: [
     scrEl('div', { cls: 'm-hero-row', kids: [
       scrEl('div', { cls: 'm-hero-txt', attrs: { title: homeGainTip(H) }, kids: [
