@@ -9467,7 +9467,7 @@ function kidsProjChart(v0, investi, r, sig, ans, money) {
   let min = Math.min.apply(null, tous), max = Math.max.apply(null, tous);
   const marge = (max - min) * 0.06 || 1; min = Math.max(0, min - marge); max += marge;
   const X = (t) => pL + t / ans * (W - pL - pR), Y = (v) => Ht - pB - (v - min) / (max - min) * (Ht - pT - pB);
-  const kf = (v) => v >= 10000 ? Math.round(v / 1000).toLocaleString('fr-FR') + ' k€' : money(v);
+  const kf = (v) => v >= 10000 ? Math.round(v / 1000).toLocaleString('fr-FR') + ' k€' : money(v, 0);
   const cont = scrEl('div', { style: 'position:relative;width:100%;margin-top:4px' });
   const svg = mk('svg', { viewBox: '0 0 ' + W + ' ' + Ht, width: '100%' }); svg.style.display = 'block';
   for (let i = 0; i <= 4; i++) {
