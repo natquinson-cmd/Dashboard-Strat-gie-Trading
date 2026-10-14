@@ -8315,13 +8315,13 @@ function renderAbosTab() {
       grosChiffre('Par mois', aboEur(eco), ecoFutur > 0.005 ? 'dont ' + aboEur(ecoFutur) + ' à venir (résiliation en cours)' : 'chaque mois en moins'),
       grosChiffre('Par an', aboEur(eco * 12, 0), 'si tu ne reprends rien'),
       grosChiffre('Déjà gagné', aboEur(ecoCumul, 0), premier && premier <= cur ? 'depuis ' + moisTxt(premier) : 'le compteur démarre le mois prochain')] })]
-    .concat(ecoRes.map((r) => scrEl('div', { style: 'display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;padding:6px 0;border-top:1px solid #e3efe9', kids: [
+    .concat(ecoRes.map((r) => scrEl('div', { style: 'display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;padding:6px 0;border-top:1px solid #e3e8ee', kids: [
       scrEl('span', { text: r.a.nom, style: 'flex:1 1 180px;min-width:0;font-weight:800;color:#22303f;font-size:0.84rem' }),
       scrEl('span', { text: (r.f > cur ? 'à partir de ' : 'depuis ') + moisTxt(r.f), style: 'font-size:0.72rem;color:#5b6b7d;white-space:nowrap' }),
       scrEl('span', { text: '−' + aboEur(r.a.m) + ' /mois · −' + aboEur(r.a.m * 12, 0) + ' /an', style: 'font-weight:800;color:#1d9e74;font-size:0.82rem;white-space:nowrap' }),
-      r.g > 0 ? scrEl('span', { text: aboEur(r.g, 0) + ' déjà gagnés', style: 'font-size:0.72rem;color:#127a54;background:#e7f7f0;border-radius:20px;padding:1px 8px;white-space:nowrap' }) : null] })))
+      r.g > 0 ? scrEl('span', { text: aboEur(r.g, 0) + ' déjà gagnés', style: 'font-size:0.72rem;color:#127a54;background:#ffffff;border:1px solid #1d9e74;border-radius:20px;padding:0 8px;white-space:nowrap' }) : null] })))
     : [scrEl('div', { text: 'Rien encore : chaque abonnement résilié s’ajoutera ici, par mois, par an et en cumul.', style: 'font-size:0.8rem;color:#5b6b7d' })];
-  wrap.appendChild(aboCarte('💚 Tes économies', ecoKids, 'border-color:#1d9e74;background:#f6fcf9;margin-bottom:14px'));
+  wrap.appendChild(aboCarte('💚 Tes économies', ecoKids, 'border-color:#1d9e74;background:#e5f4ee;margin-bottom:14px'));
   // a) objectif
   const objKids = [];
   const champ = scrEl('input', { attrs: { type: 'number', step: '1', min: '0', placeholder: '€ par mois' }, style: 'width:110px;padding:6px 8px;border:1px solid #e3e8ee;border-radius:8px;font-size:0.85rem;background:#fff;color:#22303f' });
@@ -8386,7 +8386,7 @@ function renderAbosTab() {
     const h = Math.max(2, p.v / vmax * 140), he = p.e / vmax * 140, ok = obj == null || p.v <= obj;
     cols.appendChild(scrEl('div', { attrs: { title: MN[+p.ym.slice(5, 7) - 1] + ' ' + p.ym.slice(0, 4) + ' : ' + aboEur(p.v) + ' payés' + (p.e > 0.005 ? ', ' + aboEur(p.e) + ' économisés' : '') + (p.recon ? ' (reconstitué)' : '') }, style: 'flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%', kids: [
       p.e > 0.005 ? scrEl('div', { text: '−' + Math.round(p.e), style: 'font-size:0.62rem;font-weight:800;color:#1d9e74;margin-bottom:1px' }) : null,
-      p.e > 0.005 ? scrEl('div', { style: 'width:72%;max-width:34px;height:' + Math.max(3, he).toFixed(0) + 'px;border-radius:5px 5px 0 0;border:1.5px solid #1d9e74;border-bottom:none;box-sizing:border-box;background:repeating-linear-gradient(135deg,#bfe9d8 0 3px,#f6fcf9 3px 6px)' }) : null,
+      p.e > 0.005 ? scrEl('div', { style: 'width:72%;max-width:34px;height:' + Math.max(3, he).toFixed(0) + 'px;border-radius:5px 5px 0 0;border:1.5px solid #1d9e74;border-bottom:none;box-sizing:border-box;background:repeating-linear-gradient(135deg,rgba(29,158,116,.45) 0 3px,transparent 3px 6px)' }) : null,
       scrEl('div', { text: Math.round(p.v), style: 'font-size:0.62rem;font-weight:800;color:' + (p.ym === cur ? '#22303f' : '#5b6b7d') + ';margin:1px 0 2px' }),
       scrEl('div', { style: 'width:72%;max-width:34px;height:' + h.toFixed(0) + 'px;border-radius:' + (p.e > 0.005 ? '0' : '5px 5px 0 0') + ';background:' + (ok ? '#1d9e74' : '#dd5f66') + ';opacity:' + (p.recon ? '.35' : (p.ym === cur ? '1' : '.75')) }),
       scrEl('div', { text: MN[+p.ym.slice(5, 7) - 1], style: 'font-size:0.62rem;color:#5b6b7d;margin-top:3px;white-space:nowrap' + (p.ym === cur ? ';font-weight:800;color:#22303f' : '') })] }));
