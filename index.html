@@ -8214,7 +8214,7 @@ function aboForm(a, host) {
     o.utile = o.utile === '' ? null : Number(o.utile);
     const id = a.id || (o.nom.toLowerCase().normalize('NFD').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) + '-' + Date.now().toString(36));
     ABO_EDIT = null;
-    aboSave(id, o);
+    aboSave(id, Object.assign({ source: a.source, pauses: a.pauses }, o));
   };
   ko.onclick = () => { ABO_EDIT = null; renderAbosTab(); };
   box.appendChild(scrEl('div', { style: 'display:flex;gap:8px', kids: [ok, ko] }));
@@ -8230,6 +8230,7 @@ function aboMoisTotal(L, ym) {
     if (a.statut === 'piste' || a.m == null) return x;
     if (a.debut && a.debut > ym) return x;
     if (a.statut === 'resilie' && (!a.fin || a.fin <= ym)) return x;
+    if (aboEnPause(a, ym)) return x;
     return x + a.m;
   }, 0);
 }
@@ -8238,7 +8239,11 @@ function aboMoisTotal(L, ym) {
 // paiement). Sans fin saisie, on part du mois qui suit la derniere modification.
 function aboFinEff(a) { return a.fin || aboYmAdd(String(a.maj || '').slice(0, 7) || aboYm(), 1); }
 function aboEcoMois(L, ym) {
-  return L.reduce((x, a) => (a.statut === 'resilie' && a.m && aboFinEff(a) <= ym ? x + a.m : x), 0);
+  return L.reduce((x, a) => {
+    if (!a.m || a.statut === 'piste') return x;
+    if (a.statut === 'resilie') return aboFinEff(a) <= ym ? x + a.m : x;
+    return aboEnPause(a, ym) ? x + a.m : x;
+  }, 0);
 }
 // cumul reellement economise jusqu'au mois ym inclus
 function aboEcoCumul(a, ym) {
@@ -8246,6 +8251,35 @@ function aboEcoCumul(a, ym) {
   const f = aboFinEff(a).split('-').map(Number), c = ym.split('-').map(Number);
   const n = (c[0] * 12 + c[1]) - (f[0] * 12 + f[1]) + 1;
   return n > 0 ? n * a.m : 0;
+}
+// ── Pauses (14/10/2026, demande du user : « Audible en pause pour 3 mois, ajoute un bouton pour le faire moi-même ») :
+// a.pauses = { premier mois sans paiement 'YYYY-MM' : premier mois de reprise 'YYYY-MM' }. L'abonnement reste actif,
+// il sort des totaux pendant la pause et chaque mois de pause compte comme une economie. Reprise automatique.
+function aboPauses(a) { const p = a.pauses || {}; return Object.keys(p).filter((d) => p[d] > d).sort().map((d) => [d, p[d]]); }
+function aboEnPause(a, ym) { return aboPauses(a).some(([d, f]) => d <= ym && ym < f); }
+// pause en cours ou a venir (la plus proche) : [debut, reprise], sinon null
+function aboPauseProchaine(a, ym) { return aboPauses(a).find(([, f]) => f > ym) || null; }
+function aboNbMois(d, f) { const x = d.split('-').map(Number), y = f.split('-').map(Number); return (y[0] * 12 + y[1]) - (x[0] * 12 + x[1]); }
+// economie deja realisee par les pauses, jusqu'au mois ym inclus
+function aboPauseCumul(a, ym) {
+  if (!a.m || a.statut === 'resilie' || a.statut === 'piste') return 0;
+  return aboPauses(a).reduce((x, [d, f]) => { const fin = f <= ym ? f : aboYmAdd(ym, 1); return x + (fin > d ? aboNbMois(d, fin) * a.m : 0); }, 0);
+}
+function aboPauser(a) {
+  const n = parseInt(prompt('Combien de mois de pause pour « ' + a.nom + ' » ?', '3'), 10);
+  if (!(n >= 1 && n <= 24)) return;
+  // prelevement du mois pas encore passe : la pause commence ce mois-ci, sinon le mois prochain
+  const cur = aboYm(), d = (a.jour && Number(a.jour) > new Date().getDate()) ? cur : aboYmAdd(cur, 1), f = aboYmAdd(d, n);
+  const MF = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
+  db.ref('abonnements/items/' + a.id + '/pauses/' + d).set(f)
+    .then(() => aboToast('⏸ ' + a.nom + ' en pause, reprise en ' + MF[+f.slice(5, 7) - 1] + ' ' + f.slice(0, 4) + (a.m ? ' : ' + aboEur(n * a.m, 0) + ' économisés' : '')))
+    .catch((e) => alert('Enregistrement impossible : ' + ((e && e.message) || e)));
+}
+function aboReprendre(a, p) {
+  if (!confirm('Reprendre « ' + a.nom + ' » dès maintenant ? Il comptera de nouveau dans le total.')) return;
+  const cur = aboYm(), ref = db.ref('abonnements/items/' + a.id + '/pauses/' + p[0]);
+  // pause pas encore commencee : on l'efface ; commencee : elle s'arrete ce mois-ci (les mois deja en pause restent des economies)
+  (p[0] >= cur ? ref.remove() : ref.set(cur)).catch((e) => alert('Enregistrement impossible : ' + ((e && e.message) || e)));
 }
 function aboToast(txt) {
   const t = scrEl('div', { text: txt, style: 'position:fixed;left:50%;bottom:28px;transform:translateX(-50%);z-index:9999;background:#1d9e74;color:#fff;font-weight:800;font-size:0.95rem;padding:12px 20px;border-radius:14px;box-shadow:0 8px 24px rgba(0,0,0,.25);max-width:90vw;text-align:center' });
@@ -8279,7 +8313,10 @@ function renderAbosTab() {
   if (ABO_ERR) { c.replaceChildren(scrEl('div', { style: 'padding:20px;color:#c0392b', text: 'Lecture des abonnements impossible : ' + ABO_ERR })); return; }
   const mob = !!(typeof M_MQ !== 'undefined' && M_MQ.matches);
   const L = aboList(), act = L.filter((a) => a.statut !== 'resilie' && a.statut !== 'piste'), res = L.filter((a) => a.statut === 'resilie'), pistes = L.filter((a) => a.statut === 'piste');
-  const tm = act.reduce((x, a) => x + (a.m || 0), 0), manq = act.filter((a) => a.m == null).length, eco = res.reduce((x, a) => x + (a.m || 0), 0);
+  const ym0 = aboYm(), enPause = act.filter((a) => aboEnPause(a, ym0)), ecoPause = enPause.reduce((x, a) => x + (a.m || 0), 0);
+  const tm = act.reduce((x, a) => x + (aboEnPause(a, ym0) ? 0 : (a.m || 0)), 0), manq = act.filter((a) => a.m == null).length, eco = res.reduce((x, a) => x + (a.m || 0), 0);
+  // valeur totale des pauses en cours ou a venir (mois de pause x montant)
+  const pauseTot = act.reduce((x, a) => { const p = a.m ? aboPauseProchaine(a, ym0) : null; return x + (p ? aboNbMois(p[0] > ym0 ? p[0] : ym0, p[1]) * a.m : 0); }, 0);
   const wrap = scrEl('div', { style: 'max-width:1400px' });
   // 1. chiffres cles
   const kpi = (lbl, val, sub, col) => scrEl('div', { style: 'flex:1 1 170px;background:#fff;border:1px solid #e3e8ee;border-radius:14px;padding:12px 16px', kids: [
@@ -8287,10 +8324,10 @@ function renderAbosTab() {
     scrEl('div', { text: val, style: 'font-size:1.6rem;font-weight:800;margin-top:2px;color:' + (col || '#22303f') }),
     scrEl('div', { text: sub, style: 'font-size:0.72rem;color:#5b6b7d;margin-top:2px' })] });
   wrap.appendChild(scrEl('div', { style: 'display:flex;flex-wrap:wrap;gap:12px;margin-bottom:14px', kids: [
-    kpi('Par mois', aboEur(tm), act.length + ' abonnement' + (act.length > 1 ? 's' : '') + ' en cours', '#dd5f66'),
+    kpi('Par mois', aboEur(tm), act.length + ' abonnement' + (act.length > 1 ? 's' : '') + ' en cours' + (enPause.length ? ' · ' + enPause.length + ' en pause' : ''), '#dd5f66'),
     kpi('Par an', aboEur(tm * 12, 0), 'soit ' + aboEur(tm * 12 / 365) + ' par jour', '#dd5f66'),
     kpi('À compléter', String(manq), manq ? 'montant' + (manq > 1 ? 's' : '') + ' à saisir (hors totaux)' : 'tous les montants sont saisis', manq ? '#e0922c' : '#1d9e74'),
-    kpi('Économisé', aboEur(eco) + ' /mois', 'soit ' + aboEur(eco * 12, 0) + ' par an · ' + res.length + ' résilié' + (res.length > 1 ? 's' : ''), '#1d9e74')] }));
+    kpi('Économisé', aboEur(eco + ecoPause) + ' /mois', 'soit ' + aboEur(eco * 12 + pauseTot, 0) + ' par an · ' + res.length + ' résilié' + (res.length > 1 ? 's' : '') + (enPause.length ? ' · ' + enPause.length + ' en pause' : ''), '#1d9e74')] }));
   // 2. motivation : objectif, niveau et badges, defis ; puis suivi mois par mois
   const cur = aboYm(), r2 = (v) => Math.round(v * 100) / 100;
   // photo du mois en cours (suivi) et point de depart (premiere visite) : ecrits seulement s'ils changent
@@ -8298,29 +8335,38 @@ function renderAbosTab() {
     db.ref('abonnements/historique/' + cur).set({ total: r2(tm), n: act.length, maj: new Date().toISOString().slice(0, 10) }).catch((e) => console.warn('[abonnements] suivi', e));
   if (!ABO_CFG.depart) db.ref('abonnements/config/depart').set({ ym: cur, total: r2(tm) }).catch((e) => console.warn('[abonnements] depart', e));
   const dep = ABO_CFG.depart || { ym: cur, total: tm }, obj = ABO_CFG.objectif != null ? Number(ABO_CFG.objectif) : null;
-  const ctx = { nRes: res.length, ecoAn: eco * 12, clair: !manq && !pistes.length, objOk: obj != null && tm <= obj };
+  const ctx = { nRes: res.length, ecoAn: eco * 12 + pauseTot, clair: !manq && !pistes.length, objOk: obj != null && tm <= obj };
   const badges = aboBadges(ctx), nb = badges.filter((b) => b[3]).length;
   // economies : par mois, par an, deja gagne (cumul reel depuis chaque resiliation), detail par abonnement
   const MNC = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
   const moisTxt = (ym) => MNC[+ym.slice(5, 7) - 1] + ' ' + ym.slice(0, 4);
   const ecoRes = res.filter((a) => a.m).map((a) => ({ a: a, f: aboFinEff(a), g: aboEcoCumul(a, cur) })).sort((x, y) => y.a.m - x.a.m);
   const ecoCumul = ecoRes.reduce((x, r) => x + r.g, 0), ecoFutur = ecoRes.filter((r) => r.f > cur).reduce((x, r) => x + r.a.m, 0);
-  const premier = ecoRes.length ? ecoRes.map((r) => r.f).sort()[0] : null;
+  // pauses en cours ou a venir (lignes), et cumul de toutes les pauses deja vecues
+  const ecoPz = act.filter((a) => a.m).map((a) => ({ a: a, p: aboPauseProchaine(a, cur), g: aboPauseCumul(a, cur) }));
+  const pzLignes = ecoPz.filter((r) => r.p).sort((x, y) => y.a.m - x.a.m), pzCumul = ecoPz.reduce((x, r) => x + r.g, 0);
+  const premier = ecoRes.map((r) => r.f).concat(ecoPz.filter((r) => r.g > 0).map((r) => aboPauses(r.a)[0][0])).sort()[0] || null;
   const grosChiffre = (lbl, val, sub) => scrEl('div', { style: 'flex:1 1 150px;min-width:0', kids: [
     scrEl('div', { text: lbl, style: 'font-size:0.7rem;font-weight:700;color:#127a54' }),
     scrEl('div', { text: val, style: 'font-size:1.9rem;font-weight:800;color:#1d9e74;line-height:1.15;white-space:nowrap' }),
     sub ? scrEl('div', { text: sub, style: 'font-size:0.72rem;color:#5b6b7d' }) : null] });
-  const ecoKids = ecoRes.length ? [
+  const ecoMoisTxt = [ecoFutur > 0.005 ? aboEur(ecoFutur) + ' à venir (résiliation en cours)' : '', ecoPause > 0.005 ? aboEur(ecoPause) + ' de pause' : ''].filter(Boolean);
+  const ecoKids = (ecoRes.length || pzLignes.length || pzCumul > 0) ? [
     scrEl('div', { style: 'display:flex;flex-wrap:wrap;gap:12px 20px;margin-bottom:8px', kids: [
-      grosChiffre('Par mois', aboEur(eco), ecoFutur > 0.005 ? 'dont ' + aboEur(ecoFutur) + ' à venir (résiliation en cours)' : 'chaque mois en moins'),
-      grosChiffre('Par an', aboEur(eco * 12, 0), 'si tu ne reprends rien'),
-      grosChiffre('Déjà gagné', aboEur(ecoCumul, 0), premier && premier <= cur ? 'depuis ' + moisTxt(premier) : 'le compteur démarre le mois prochain')] })]
+      grosChiffre('Par mois', aboEur(eco + ecoPause), ecoMoisTxt.length ? 'dont ' + ecoMoisTxt.join(' et ') : 'chaque mois en moins'),
+      grosChiffre('Par an', aboEur(eco * 12 + pauseTot, 0), pauseTot > 0.005 ? 'dont ' + aboEur(pauseTot, 0) + ' grâce aux pauses' : 'si tu ne reprends rien'),
+      grosChiffre('Déjà gagné', aboEur(ecoCumul + pzCumul, 0), premier && premier <= cur ? 'depuis ' + moisTxt(premier) : 'le compteur démarre le mois prochain')] })]
     .concat(ecoRes.map((r) => scrEl('div', { style: 'display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;padding:6px 0;border-top:1px solid #e3e8ee', kids: [
       scrEl('span', { text: r.a.nom, style: 'flex:1 1 180px;min-width:0;font-weight:800;color:#22303f;font-size:0.84rem' }),
       scrEl('span', { text: (r.f > cur ? 'à partir de ' : 'depuis ') + moisTxt(r.f), style: 'font-size:0.72rem;color:#5b6b7d;white-space:nowrap' }),
       scrEl('span', { text: '−' + aboEur(r.a.m) + ' /mois · −' + aboEur(r.a.m * 12, 0) + ' /an', style: 'font-weight:800;color:#1d9e74;font-size:0.82rem;white-space:nowrap' }),
       r.g > 0 ? scrEl('span', { text: aboEur(r.g, 0) + ' déjà gagnés', style: 'font-size:0.72rem;color:#127a54;background:#ffffff;border:1px solid #1d9e74;border-radius:20px;padding:0 8px;white-space:nowrap' }) : null] })))
-    : [scrEl('div', { text: 'Rien encore : chaque abonnement résilié s’ajoutera ici, par mois, par an et en cumul.', style: 'font-size:0.8rem;color:#5b6b7d' })];
+    .concat(pzLignes.map((r) => { const n = aboNbMois(r.p[0], r.p[1]); return scrEl('div', { style: 'display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;padding:6px 0;border-top:1px solid #e3e8ee', kids: [
+      scrEl('span', { text: '⏸ ' + r.a.nom, style: 'flex:1 1 180px;min-width:0;font-weight:800;color:#22303f;font-size:0.84rem' }),
+      scrEl('span', { text: (r.p[0] > cur ? 'pause à partir de ' + moisTxt(r.p[0]) : 'en pause') + ', reprise en ' + moisTxt(r.p[1]), style: 'font-size:0.72rem;color:#5b6b7d;white-space:nowrap' }),
+      scrEl('span', { text: '−' + aboEur(r.a.m) + ' /mois pendant ' + n + ' mois = −' + aboEur(n * r.a.m, 0), style: 'font-weight:800;color:#1d9e74;font-size:0.82rem;white-space:nowrap' }),
+      r.g > 0 ? scrEl('span', { text: aboEur(r.g, 0) + ' déjà gagnés', style: 'font-size:0.72rem;color:#127a54;background:#ffffff;border:1px solid #1d9e74;border-radius:20px;padding:0 8px;white-space:nowrap' }) : null] }); }))
+    : [scrEl('div', { text: 'Rien encore : chaque abonnement résilié ou mis en pause (bouton ⏸ de la liste) s’ajoutera ici, par mois, par an et en cumul.', style: 'font-size:0.8rem;color:#5b6b7d' })];
   wrap.appendChild(aboCarte('💚 Tes économies', ecoKids, 'border-color:#1d9e74;background:#e5f4ee;margin-bottom:14px'));
   // a) objectif
   const objKids = [];
@@ -8353,7 +8399,7 @@ function renderAbosTab() {
       kids: [scrEl('div', { text: b[0], style: 'font-size:1.25rem;line-height:1.2' }), scrEl('div', { text: b[1], style: 'font-size:0.62rem;font-weight:700;color:#42546a;line-height:1.2' })] })) })];
   // c) defis : les plus chers, pas notes indispensables ; note d'utilite en etoiles, bouton Resilie.
   // Les dons (categorie Dons, 14/10/2026) comptent dans le total mais ne sont jamais proposes a la resiliation.
-  const cand = act.filter((a) => (a.m || 0) > 0 && !(Number(a.utile) >= 3) && a.categorie !== 'Dons').sort((x, y) => y.m - x.m).slice(0, 3);
+  const cand = act.filter((a) => (a.m || 0) > 0 && !(Number(a.utile) >= 3) && a.categorie !== 'Dons' && !aboPauseProchaine(a, cur)).sort((x, y) => y.m - x.m).slice(0, 3);
   const etoiles = (a) => scrEl('span', { style: 'white-space:nowrap', kids: [1, 2, 3].map((n) => { const b = scrEl('button', { text: '★', attrs: { type: 'button', title: ['peu utile', 'utile', 'indispensable (sort des défis)'][n - 1] },
     style: 'border:none;background:none;cursor:pointer;font-size:1rem;padding:0 1px;color:' + (Number(a.utile) >= n ? '#f5b041' : '#c3ccd6') }); b.onclick = () => aboMaj(a.id, { utile: n }); return b; }) });
   const defis = cand.length ? cand.map((a) => { const btn = scrEl('button', { text: 'Résilié ✓', attrs: { type: 'button' }, style: 'padding:5px 10px;border-radius:8px;border:none;background:#1d9e74;color:#fff;font-weight:700;cursor:pointer;white-space:nowrap' });
@@ -8429,21 +8475,26 @@ function renderAbosTab() {
     const ed = scrEl('button', { text: '✎', attrs: { type: 'button', title: 'Modifier' }, style: 'border:none;background:none;cursor:pointer;font-size:0.95rem;color:#5b6b7d' });
     const del = scrEl('button', { text: '✕', attrs: { type: 'button', title: 'Supprimer' }, style: 'border:none;background:none;cursor:pointer;font-size:0.9rem;color:#dd5f66' });
     ed.onclick = () => { ABO_EDIT = a.id; renderAbosTab(); };
+    const p = (a.statut === 'resilie' || a.statut === 'piste') ? undefined : aboPauseProchaine(a, cur);
+    const pz = p === undefined ? null : scrEl('button', { text: p ? '▶' : '⏸', attrs: { type: 'button', title: p ? 'Reprendre l’abonnement' : 'Mettre en pause quelques mois' }, style: 'border:none;background:none;cursor:pointer;font-size:0.9rem;color:#8b5cf6' });
+    if (pz) pz.onclick = () => (p ? aboReprendre(a, p) : aboPauser(a));
     del.onclick = () => { if (confirm('Supprimer « ' + a.nom + ' » ?')) db.ref('abonnements/items/' + a.id).remove().catch((e) => alert('Suppression impossible : ' + ((e && e.message) || e))); };
-    return scrEl('span', { style: 'white-space:nowrap', kids: [ed, del] });
+    return scrEl('span', { style: 'white-space:nowrap', kids: [pz, ed, del] });
   };
+  const chipPause = (a) => { const p = a.statut === 'resilie' || a.statut === 'piste' ? null : aboPauseProchaine(a, cur);
+    return p ? chip(p[0] > cur ? '⏸ pause dès ' + moisTxt(p[0]) : '⏸ en pause → ' + moisTxt(p[1]), '#8b5cf6') : null; };
   const montantTxt = (a, an) => a.m == null ? 'à saisir' : aboEur(an ? a.m * 12 : a.m, an ? 0 : 2) + (a.devise === 'USD' && !an ? ' *' : '');
   if (mob) {
     // mobile : une carte par abonnement
     ordre.forEach((a) => {
       if (ABO_EDIT === a.id) { aboForm(a, wrap); return; }
       const st = ABO_STATUT[a.statut] || ABO_STATUT.actif;
-      wrap.appendChild(scrEl('div', { style: 'display:flex;gap:10px;align-items:center;background:#fff;border:1px solid #e3e8ee;border-radius:12px;padding:10px 12px;margin-bottom:8px' + (a.statut === 'resilie' ? ';opacity:.55' : ''), kids: [
+      wrap.appendChild(scrEl('div', { style: 'display:flex;gap:10px;align-items:center;background:#fff;border:1px solid #e3e8ee;border-radius:12px;padding:10px 12px;margin-bottom:8px' + (a.statut === 'resilie' ? ';opacity:.55' : aboEnPause(a, cur) ? ';opacity:.7' : ''), kids: [
         scrEl('span', { style: 'width:10px;height:36px;border-radius:4px;flex:0 0 auto;background:' + (ABO_CAT[a.categorie] || '#9aa7b4') }),
         scrEl('div', { style: 'flex:1;min-width:0', kids: [
           scrEl('div', { text: a.nom, style: 'font-weight:800;color:#22303f;font-size:0.9rem' }),
           scrEl('div', { text: [a.categorie, a.qui, a.jour ? 'le ' + a.jour : null].filter(Boolean).join(' · '), style: 'font-size:0.72rem;color:#5b6b7d' }),
-          a.statut !== 'actif' ? chip(st[0], st[1]) : null] }),
+          a.statut !== 'actif' ? chip(st[0], st[1]) : null, chipPause(a)] }),
         scrEl('div', { style: 'text-align:right', kids: [scrEl('div', { text: montantTxt(a), style: 'font-weight:800;font-size:0.95rem;color:' + (a.m == null ? '#e0922c' : '#22303f') }),
           scrEl('div', { text: a.m == null ? '' : montantTxt(a, true) + ' /an', style: 'font-size:0.7rem;color:#5b6b7d' })] }),
         actions(a)] }));
@@ -8456,23 +8507,23 @@ function renderAbosTab() {
     ordre.forEach((a) => {
       if (ABO_EDIT === a.id) { const td = scrEl('td', { attrs: { colspan: '8' } }); aboForm(a, td); tbody.appendChild(scrEl('tr', { kids: [td] })); return; }
       const st = ABO_STATUT[a.statut] || ABO_STATUT.actif;
-      tbody.appendChild(scrEl('tr', { style: a.statut === 'resilie' ? 'opacity:.5' : '', kids: [
+      tbody.appendChild(scrEl('tr', { style: a.statut === 'resilie' ? 'opacity:.5' : aboEnPause(a, cur) ? 'opacity:.7' : '', kids: [
         scrEl('td', { style: bd, kids: [scrEl('div', { text: a.nom, style: 'font-weight:800;color:#22303f' }), a.note ? scrEl('div', { text: a.note, style: 'font-size:0.7rem;color:#5b6b7d;margin-top:1px' }) : null] }),
         scrEl('td', { style: bd, kids: [chip(a.categorie || 'Autre', ABO_CAT[a.categorie] || '#9aa7b4')] }),
         scrEl('td', { style: bd + 'color:#42546a', text: a.qui || '' }),
         scrEl('td', { style: bd + 'color:#42546a;white-space:nowrap', text: a.jour ? 'le ' + a.jour : '–' }),
-        scrEl('td', { style: bd, kids: [chip(st[0], st[1])] }),
+        scrEl('td', { style: bd, kids: [chip(st[0], st[1]), chipPause(a)] }),
         scrEl('td', { style: bd + 'text-align:right;font-weight:800;white-space:nowrap;font-size:0.92rem;color:' + (a.m == null ? '#e0922c' : '#22303f'), text: montantTxt(a) }),
         scrEl('td', { style: bd + 'text-align:right;white-space:nowrap;color:#42546a', text: a.m == null ? '' : montantTxt(a, true) }),
         scrEl('td', { style: bd + 'text-align:right', kids: [actions(a)] })] }));
     });
-    tbody.appendChild(scrEl('tr', { style: 'background:#f6f8fb', kids: [scrEl('td', { attrs: { colspan: '5' }, style: 'padding:9px 10px;font-weight:800;color:#22303f', text: 'Total des abonnements en cours' + (manq ? ' (hors ' + manq + ' montant' + (manq > 1 ? 's' : '') + ' à saisir)' : '') }),
+    tbody.appendChild(scrEl('tr', { style: 'background:#f6f8fb', kids: [scrEl('td', { attrs: { colspan: '5' }, style: 'padding:9px 10px;font-weight:800;color:#22303f', text: 'Total des abonnements en cours' + (manq ? ' (hors ' + manq + ' montant' + (manq > 1 ? 's' : '') + ' à saisir)' : '') + (enPause.length ? ' (hors ' + enPause.length + ' en pause)' : '') }),
       scrEl('td', { style: 'padding:9px 10px;text-align:right;font-weight:800;color:#dd5f66;white-space:nowrap', text: aboEur(tm) }),
       scrEl('td', { style: 'padding:9px 10px;text-align:right;font-weight:800;color:#dd5f66;white-space:nowrap', text: aboEur(tm * 12, 0) }), scrEl('td')] }));
     wrap.appendChild(scrEl('div', { style: 'background:#fff;border:1px solid #e3e8ee;border-radius:14px;overflow-x:auto', kids: [scrEl('table', { style: 'width:100%;border-collapse:collapse;font-size:0.84rem', kids: [
       scrEl('thead', { kids: [scrEl('tr', { style: 'background:#f6f8fb;color:#5b6b7d', kids: [th('Abonnement', 'nom'), th('Catégorie', 'categorie'), th('Pour qui', 'qui'), th('Prélèvement', 'jour'), th('Statut'), th('Par mois', 'mensuel', 'right'), th('Par an', null, 'right'), th('')] })] }), tbody] })] }));
   }
-  wrap.appendChild(scrEl('div', { style: 'font-size:0.7rem;color:#9aa7b4;margin-top:8px', text: '* montant en dollars converti au taux du jour. Les abonnements « à vérifier » comptent dans les totaux ; les résiliés n’y comptent plus et alimentent « Économisé ». Données privées (base Firebase), modifiables ici.' }));
+  wrap.appendChild(scrEl('div', { style: 'font-size:0.7rem;color:#9aa7b4;margin-top:8px', text: '* montant en dollars converti au taux du jour. Les abonnements « à vérifier » comptent dans les totaux ; les résiliés n’y comptent plus et alimentent « Économisé ». ⏸ met un abonnement en pause quelques mois : il sort du total pendant la pause, compte comme une économie, puis revient tout seul. Données privées (base Firebase), modifiables ici.' }));
   c.replaceChildren(wrap);
 }
 
