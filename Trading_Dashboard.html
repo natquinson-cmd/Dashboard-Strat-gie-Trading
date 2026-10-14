@@ -6332,6 +6332,7 @@ function loadKidsFromFirebase() {
     db.ref('stocks/kids').once('value').then((s) => { const v = s.val(); if (v) SCR_KIDS = v; }).catch(() => {}),
     db.ref('stocks/kidsPrice').once('value').then((s) => { SCR_KIDS_PRICE = s.val() || null; }).catch(() => {}),
     db.ref('stocks/kidsHistory').once('value').then((s) => { SCR_KIDS_HIST = s.val() || null; }).catch(() => {}),
+    db.ref('stocks/kidsHistoryLong').once('value').then((s) => { SCR_KIDS_HIST_LONG = s.val() || null; }).catch((e) => console.warn('[enfants] historique long', e)),
     // cagnotte (bascule du 05/10/2026) et historique de la poche Lendermarket des enfants d'avant la bascule
     db.ref('stocks/kidsPot').once('value').then((s) => { SCR_KIDS_POT = s.val() || null; }).catch((e) => console.warn('[cagnotte] lecture', e)),
     db.ref('dashboard/data/repartition/history').once('value').then((s) => { SCR_KIDS_LMHIST = s.val() || null; }).catch((e) => console.warn('[cagnotte] historique Lendermarket', e)),
@@ -9382,6 +9383,10 @@ function scrTableBox(table, opts) {
 let SCR_KIDS = null;         // { config:{ticker,horizonYears,annualReturn}, contributions:[{date,child,amount,units}] }
 let SCR_KIDS_PRICE = null;   // { price, at }        cours courant de l'ETF (pousse par le VPS)
 let SCR_KIDS_HIST = null;    // { 'YYYY-MM-DD': close }  historique de l'ETF (pousse par le VPS)
+// { ticker, source, maj, closes: { 'YYYY-MM-DD': close } } : cours HEBDOMADAIRES depuis le lancement de l'ETF
+// (VWCE.DE depuis juillet 2019, Yahoo range=max), pousse une fois le 14/10/2026. Sert au rendement historique
+// de la projection ; le cours du jour (kidsPrice / kidsHistory, VPS) prolonge la serie, il n'a donc pas a etre rafraichi.
+let SCR_KIDS_HIST_LONG = null;
 // Couleur FIXE par enfant (choix user) : elle doit rester identique dans le camembert, le tableau
 // et les tuiles de projection, quel que soit l'ordre de tri (qui depend des montants et peut changer).
 const KID_COLOR_BY_NAME = { 'anaia': '#a855f7', 'robin': '#3563e9', 'lily rose': '#ec4899', 'noah': '#f59e0b', 'elie': '#eaff00' };
@@ -9422,6 +9427,87 @@ function kidsContribs() {
   const raw = (SCR_KIDS && SCR_KIDS.contributions) || [];
   const list = Array.isArray(raw) ? raw : Object.values(raw);
   return list.filter((c) => c && c.date && c.child).sort((a, b) => (a.date < b.date ? -1 : 1));
+}
+// Rendement HISTORIQUE de l'ETF (14/10/2026, demande du user : « pour le rendement annuel, prends l'historique ») :
+// rendement annualise (CAGR) du premier cours connu au cours du jour, et volatilite annuelle des rendements
+// hebdomadaires (fourchette de la projection). null si l'historique long manque, n'est pas celui de l'ETF suivi,
+// ou couvre moins de 3 ans.
+function kidsRendementHist() {
+  const cfg = kidsCfg(), L = SCR_KIDS_HIST_LONG;
+  if (!L || !L.closes || String(L.ticker || '').toUpperCase() !== cfg.ticker.toUpperCase()) return null;
+  const C = L.closes, d = Object.keys(C).filter((k) => C[k] > 0).sort();
+  if (d.length < 30) return null;
+  const recent = SCR_KIDS_HIST ? Object.keys(SCR_KIDS_HIST).filter((k) => SCR_KIDS_HIST[k] > 0).sort() : [];
+  const last = (SCR_KIDS_PRICE && SCR_KIDS_PRICE.price > 0) ? SCR_KIDS_PRICE.price
+    : (recent.length ? SCR_KIDS_HIST[recent[recent.length - 1]] : C[d[d.length - 1]]);
+  const ans = (Date.now() - Date.parse(d[0] + 'T00:00:00Z')) / (365.25 * 864e5);
+  if (!(ans >= 3) || !(last > 0)) return null;
+  const lr = [];
+  for (let i = 1; i < d.length; i++) {
+    const jours = (Date.parse(d[i]) - Date.parse(d[i - 1])) / 864e5;
+    if (jours >= 5 && jours <= 9) lr.push(Math.log(C[d[i]] / C[d[i - 1]]));   // semaines completes seulement
+  }
+  const moy = lr.reduce((x, v) => x + v, 0) / (lr.length || 1);
+  const sd = lr.length > 20 ? Math.sqrt(lr.reduce((x, v) => x + (v - moy) * (v - moy), 0) / (lr.length - 1)) * Math.sqrt(52) : null;
+  return { r: Math.pow(last / C[d[0]], 1 / ans) - 1, sigma: sd, since: d[0], ans: ans };
+}
+// taux des projections : l'historique de l'ETF s'il existe, sinon l'ancien reglage
+function kidsTaux(cfg) { const h = kidsRendementHist(); return h ? h.r : (cfg || kidsCfg()).annualReturn; }
+// Graphique de la projection : trajectoire au rendement historique (ligne verte), fourchette d'un ecart-type
+// (zone verte, sigma * racine du temps, loi log-normale), total verse (pointilles gris). Survol : valeur annee par annee.
+function kidsProjChart(v0, investi, r, sig, ans, money) {
+  const NS = 'http://www.w3.org/2000/svg', W = 620, Ht = 220, pL = 58, pR = 70, pT = 14, pB = 26;
+  const mk = (t, a) => { const e = document.createElementNS(NS, t); for (const k in a) e.setAttribute(k, a[k]); return e; };
+  const N = Math.max(12, ans * 12), pts = [];
+  for (let i = 0; i <= N; i++) {
+    const t = ans * i / N, m = Math.log(1 + r) * t;
+    pts.push({ t: t, v: v0 * Math.exp(m), b: sig ? v0 * Math.exp(m - sig * Math.sqrt(t)) : null, h: sig ? v0 * Math.exp(m + sig * Math.sqrt(t)) : null });
+  }
+  const tous = pts.map((p) => p.v).concat(pts.map((p) => p.h).filter((x) => x != null), pts.map((p) => p.b).filter((x) => x != null), [investi]);
+  let min = Math.min.apply(null, tous), max = Math.max.apply(null, tous);
+  const marge = (max - min) * 0.06 || 1; min = Math.max(0, min - marge); max += marge;
+  const X = (t) => pL + t / ans * (W - pL - pR), Y = (v) => Ht - pB - (v - min) / (max - min) * (Ht - pT - pB);
+  const kf = (v) => v >= 10000 ? Math.round(v / 1000).toLocaleString('fr-FR') + ' k€' : money(v);
+  const cont = scrEl('div', { style: 'position:relative;width:100%;margin-top:4px' });
+  const svg = mk('svg', { viewBox: '0 0 ' + W + ' ' + Ht, width: '100%' }); svg.style.display = 'block';
+  for (let i = 0; i <= 4; i++) {
+    const v = min + (max - min) * i / 4, yy = Y(v);
+    svg.appendChild(mk('line', { x1: pL, x2: W - pR, y1: yy.toFixed(1), y2: yy.toFixed(1), stroke: '#eef1f5', 'stroke-width': 1 }));
+    const tx = mk('text', { x: pL - 7, y: (yy + 3).toFixed(1), 'font-size': 9.5, fill: '#9aa7b4', 'text-anchor': 'end' }); tx.textContent = kf(v); svg.appendChild(tx);
+  }
+  const an0 = new Date().getFullYear(), pas = ans <= 6 ? 1 : (ans <= 12 ? 2 : 5);
+  for (let a = 0; a <= ans; a += pas) {
+    const tx = mk('text', { x: X(a).toFixed(1), y: Ht - 9, 'font-size': 9.5, fill: '#9aa7b4', 'text-anchor': a === 0 ? 'start' : 'middle' }); tx.textContent = String(an0 + a); svg.appendChild(tx);
+  }
+  svg.appendChild(mk('line', { x1: pL, x2: W - pR, y1: Ht - pB, y2: Ht - pB, stroke: '#e3e8ee', 'stroke-width': 1 }));
+  const chemin = (k) => pts.map((p, i) => (i ? 'L' : 'M') + X(p.t).toFixed(1) + ' ' + Y(p[k]).toFixed(1)).join(' ');
+  if (sig) svg.appendChild(mk('path', { d: chemin('h') + ' ' + pts.slice().reverse().map((p) => 'L' + X(p.t).toFixed(1) + ' ' + Y(p.b).toFixed(1)).join(' ') + ' Z', fill: 'rgba(29,158,116,0.13)', stroke: 'none' }));
+  svg.appendChild(mk('line', { x1: pL, x2: W - pR, y1: Y(investi).toFixed(1), y2: Y(investi).toFixed(1), stroke: '#94a3b5', 'stroke-width': 1.6, 'stroke-dasharray': '4 3' }));
+  svg.appendChild(mk('path', { d: chemin('v'), fill: 'none', stroke: '#1d9e74', 'stroke-width': 2.4 }));
+  // etiquettes de fin : valeur moyenne, haute et basse, total verse
+  const fin = pts[pts.length - 1], etiq = (v, txt, col, poids) => { const tx = mk('text', { x: W - pR + 6, y: (Y(v) + 3).toFixed(1), 'font-size': 10, fill: col, 'font-weight': poids || 700 }); tx.textContent = txt; svg.appendChild(tx); };
+  etiq(fin.v, kf(fin.v), '#1d9e74', 800);
+  if (sig) { etiq(fin.h, kf(fin.h), '#5b6b7d', 600); etiq(fin.b, kf(fin.b), '#5b6b7d', 600); }
+  if (Math.abs(Y(investi) - Y(fin.v)) > 12 && (!sig || Math.abs(Y(investi) - Y(fin.b)) > 12)) etiq(investi, 'versé', '#94a3b5', 600);
+  // survol : ligne verticale + infobulle
+  const cross = mk('line', { y1: pT, y2: Ht - pB, stroke: '#c3ccd6', 'stroke-width': 1, 'stroke-dasharray': '3 3' }); cross.style.display = 'none'; svg.appendChild(cross);
+  const dot = mk('circle', { r: 3.6, fill: '#1d9e74', stroke: '#ffffff', 'stroke-width': 1.3 }); dot.style.display = 'none'; svg.appendChild(dot);
+  const tip = scrEl('div', { style: 'position:absolute;pointer-events:none;background:#22303f;color:#fff;font-size:0.7rem;padding:6px 9px;border-radius:6px;white-space:nowrap;display:none;transform:translate(-50%,-112%);z-index:5' });
+  const zone = mk('rect', { x: pL, y: pT, width: W - pL - pR, height: Ht - pT - pB, fill: 'transparent' }); zone.style.cursor = 'crosshair'; svg.appendChild(zone);
+  const bouge = (ev) => {
+    const bb = svg.getBoundingClientRect(), vx = (ev.clientX - bb.left) / bb.width * W;
+    const a = Math.max(0, Math.min(ans, Math.round((vx - pL) / (W - pL - pR) * ans))), p = pts[Math.round(a / ans * N)];
+    const px = X(a); cross.setAttribute('x1', px.toFixed(1)); cross.setAttribute('x2', px.toFixed(1)); cross.style.display = '';
+    dot.setAttribute('cx', px.toFixed(1)); dot.setAttribute('cy', Y(p.v).toFixed(1)); dot.style.display = '';
+    tip.replaceChildren(scrEl('div', { text: (an0 + a) + (a ? ' (dans ' + a + ' an' + (a > 1 ? 's' : '') + ')' : ' (aujourd’hui)'), style: 'font-weight:800;margin-bottom:2px' }),
+      scrEl('div', { text: 'Valeur ' + money(p.v) }),
+      p.b != null && a ? scrEl('div', { text: 'Fourchette ' + money(p.b) + ' à ' + money(p.h), style: 'color:#c9eadb' }) : null);
+    tip.style.left = (px / W * 100) + '%'; tip.style.top = (Y(p.v) / Ht * 100) + '%'; tip.style.display = 'block';
+  };
+  zone.addEventListener('mousemove', bouge); zone.addEventListener('click', bouge);
+  zone.addEventListener('mouseleave', () => { cross.style.display = 'none'; dot.style.display = 'none'; tip.style.display = 'none'; });
+  cont.append(svg, tip);
+  return cont;
 }
 function kidsSave() {
   if (typeof db === 'undefined' || !db) return;
@@ -9901,13 +9987,13 @@ function renderPotMain(host) {
   // ---- courbe de la cagnotte ----
   wrap.appendChild(scrEl('div', { style: 'background:#fff;border:1px solid #e3e8ee;border-radius:10px;padding:12px 14px;margin-bottom:6px', kids: [
     scrEl('div', { text: 'Évolution de la cagnotte', style: 'font-size:0.7rem;text-transform:uppercase;letter-spacing:.03em;color:#5b6b7d;font-weight:700;margin-bottom:8px' }),
-    scrEquityCurve(M.serie)] }));
+    scrEquityCurve(M.serie, kidsMoney)] }));
   wrap.appendChild(scrFoldNote('Lire la courbe', scrEl('div', { style: 'font-size:0.66rem;color:#9aa7b4;line-height:1.45',
     text: 'Ligne de couleur : valeur de la cagnotte (ETF au cours du jour + solde Lendermarket). Ligne grise : capital engagé (achats d’ETF au prix payé + solde Lendermarket), l’écart entre les deux est la plus-value latente de l’ETF. Avant le ' + dB + ', le solde Lendermarket est reconstitué à partir des transferts vers l’ETF ; les intérêts de septembre y sont comptés dès le début du mois.' }), 'potCourbe', 'margin-bottom:14px'));
 
   // ---- projection ----
   if (P.value != null) {
-    const y = cfg.horizonYears, r = cfg.annualReturn, f = Math.pow(1 + r, y);
+    const y = cfg.horizonYears, r = kidsTaux(cfg), f = Math.pow(1 + r, y);
     const tile = (label, main, sub, col) => scrEl('div', { style: 'flex:1;min-width:140px;background:#fff;border:1px solid #e3e8ee;border-radius:12px;padding:11px 13px', kids: [
       scrEl('div', { text: label, style: 'font-size:0.59rem;color:#9aa7b4;text-transform:uppercase;font-weight:800;letter-spacing:.05em' }),
       scrEl('div', { text: main, style: 'font-size:1.3rem;font-weight:800;line-height:1.15;margin-top:3px;color:' + (col || '#22303f') }),
@@ -9917,7 +10003,7 @@ function renderPotMain(host) {
     wrap.appendChild(scrEl('div', { style: 'background:#fafbfc;border:1px solid #eef1f5;border-radius:12px;padding:12px 14px;margin-bottom:14px', kids: [
       scrEl('div', { text: 'Projection à ' + y + ' ans', style: 'font-size:0.7rem;text-transform:uppercase;letter-spacing:.03em;color:#5b6b7d;font-weight:700;margin-bottom:10px' }), prow,
       scrEl('div', { style: 'font-size:0.66rem;color:#9aa7b4;margin-top:9px;line-height:1.45',
-        text: 'Projection mécanique : toute la cagnotte capitalisée à ' + potNum(r * 100, 1) + ' % par an (rendement supposé de l’ETF, réglable dans le sous-onglet ETF VWCE), sans nouvel apport. Hypothèse, pas une promesse ni un conseil.' })] }));
+        text: 'Projection mécanique : toute la cagnotte capitalisée à ' + potNum(r * 100, 1) + ' % par an (rendement historique de l’ETF ; durée réglable dans le sous-onglet ETF VWCE), sans nouvel apport. Hypothèse, pas une promesse ni un conseil.' })] }));
   }
 
   // ---- nouvel apport pour un enfant ----
@@ -10000,7 +10086,7 @@ function mPotScreen(P, M, cfg) {
   hKids.onclick = () => { MP_CLOSED.potKids = !MP_CLOSED.potKids; cKids.classList.toggle('closed', !!MP_CLOSED.potKids); };
   cKids.append(hKids, rows);
   box.appendChild(cKids);
-  const y = cfg.horizonYears, r = cfg.annualReturn;
+  const y = cfg.horizonYears, r = kidsTaux(cfg);
   if (P.value != null) box.appendChild(scrEl('div', { cls: 'mp-card', kids: [
     scrEl('div', { cls: 'mp-lbl', text: 'Projection à ' + y + ' ans' }),
     scrEl('div', { style: 'font-size:1.4rem;font-weight:800;margin-top:3px;color:var(--text-primary)', text: F.E(P.value * Math.pow(1 + r, y)) }),
@@ -10329,7 +10415,7 @@ function mKidsScreen(o) {
     box.appendChild(cV);
   }
   // 6. projection a l'horizon choisi (hypothese, pas une promesse)
-  const y = cfg.horizonYears, r = cfg.annualReturn, proj = agg.value * Math.pow(1 + r, y);
+  const y = cfg.horizonYears, r = kidsTaux(cfg), proj = agg.value * Math.pow(1 + r, y);
   box.appendChild(scrEl('div', { cls: 'mp-card', kids: [
     scrEl('div', { cls: 'mp-lbl', text: 'Projection à ' + y + ' ans' }),
     scrEl('div', { style: 'font-size:1.4rem;font-weight:800;margin-top:3px;color:var(--text-primary)', text: E(proj) }),
@@ -10358,24 +10444,19 @@ function renderKidsEtf(host) {
   // ---- Reglages (ticker, horizon, rendement) ----
   const iSt = 'padding:7px 9px;border:1px solid #e3e8ee;border-radius:9px;font-size:0.84rem;color:#22303f';
   const tkIn = scrEl('input', { attrs: { type: 'text', value: cfg.ticker, title: "Ticker de l'ETF (le VPS ira chercher son cours)" }, style: iSt + ';width:110px;text-transform:uppercase' });
-  const hzIn = scrEl('input', { attrs: { type: 'number', min: '1', max: '40', step: '1', value: String(cfg.horizonYears) }, style: iSt + ';width:64px' });
-  const rdIn = scrEl('input', { attrs: { type: 'number', min: '0', max: '20', step: '0.5', value: String((cfg.annualReturn * 100).toFixed(1)) }, style: iSt + ';width:70px' });
   const saveCfg = () => {
     SCR_KIDS = SCR_KIDS || {};
-    SCR_KIDS.config = { ticker: (tkIn.value || 'VWCE.DE').toUpperCase().trim(),
-                        horizonYears: Math.max(1, +hzIn.value || 10),
-                        annualReturn: Math.max(0, (+rdIn.value || 7) / 100) };
+    SCR_KIDS.config = { ticker: (tkIn.value || 'VWCE.DE').toUpperCase().trim(), horizonYears: cfg.horizonYears, annualReturn: cfg.annualReturn };
     kidsSave(); renderEnfantsTab();
   };
-  [tkIn, hzIn, rdIn].forEach((el) => { el.onchange = saveCfg; });
+  tkIn.onchange = saveCfg;
   // Réglages et saisie vivent dans un bloc à part, placé SOUS les deux graphiques (demande user) :
   // ce qu'on regarde tous les jours en haut, ce qu'on touche une fois par mois en bas.
   const formBlock = scrEl('div', { style: 'background:#fafbfc;border:1px solid #eef1f5;border-radius:10px;padding:12px 14px;margin-bottom:14px' });
   formBlock.appendChild(scrEl('div', { text: pot ? 'Réglages de la projection' : 'Réglages et saisie des versements', style: 'font-size:0.62rem;color:#9aa7b4;text-transform:uppercase;font-weight:800;letter-spacing:.05em;margin-bottom:10px' }));
   formBlock.appendChild(scrEl('div', { style: 'display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px;font-size:0.8rem;color:#5b6b7d', kids: [
     scrEl('span', { text: 'ETF' }), tkIn,
-    scrEl('span', { text: 'horizon' }), hzIn, scrEl('span', { text: 'ans' }),
-    scrEl('span', { text: 'rendement annuel supposé' }), rdIn, scrEl('span', { text: '%' })] }));
+    scrEl('span', { text: 'la projection prend le rendement historique de cet ETF, la durée se règle sur son graphique', style: 'font-size:0.74rem;color:#9aa7b4' })] }));
 
   // ---- Saisie d'un versement ----
   const dIn = scrEl('input', { attrs: { type: 'date', value: new Date().toISOString().slice(0, 10) }, style: iSt + ';width:140px' });
@@ -10539,7 +10620,7 @@ function renderKidsEtf(host) {
     // Courbe d evolution A GAUCHE + performance A DROITE. Pas de Nasdaq ici : un indice 100 % tech US
     // n a aucun sens face a un ETF monde. Le S&P 500 est fourni comme simple CONTEXTE.
     wrap.appendChild(scrEl('div', { style: 'display:flex;gap:14px;flex-wrap:wrap;align-items:stretch;margin-bottom:6px', kids: [
-      scrEl('div', { style: 'flex:1.7;min-width:340px;background:#fff;border:1px solid #e3e8ee;border-radius:10px;padding:12px 14px', kids: [scrEquityCurve(serie)] }),
+      scrEl('div', { style: 'flex:1.7;min-width:340px;background:#fff;border:1px solid #e3e8ee;border-radius:10px;padding:12px 14px', kids: [scrEquityCurve(serie, kidsMoney)] }),
       scrEl('div', { style: 'flex:1;min-width:290px;background:#fff;border:1px solid #e3e8ee;border-radius:10px;padding:12px 14px', kids: [scrPerfChart(serie, SCR_BENCH, null)] })] }));
     wrap.appendChild(scrFoldNote('Pourquoi le S&P 500 n’est qu’un repère', scrEl('div', { style: 'font-size:0.66rem;color:#9aa7b4;line-height:1.45',
       text: 'Le S&P 500 n’est PAS un indice de référence pour cet ETF : il ne contient que 500 grandes valeurs américaines, quand VWCE en détient plus de 4 000 réparties sur plus de 45 pays, émergents compris. Il est affiché à titre de contexte, pour voir ce qu’aurait donné une concentration sur les États-Unis, pas pour juger la poche.' }), 'kidsSp', 'margin-bottom:14px'));
@@ -10582,30 +10663,58 @@ function renderKidsEtf(host) {
   // Bandeau "équité entre enfants" retiré : les écarts de versement sont voulus (âges et parcours
   // différents), le tableau ci-dessus suffit à les lire.
 
-  // ---- Projection a l'horizon ----
+  // ---- Projection a l'horizon (14/10/2026) : rendement HISTORIQUE de l'ETF, duree au curseur ou aux boutons,
+  // graphique avec la fourchette « 2 chances sur 3 » tiree de la volatilite historique ----
   if (agg.value != null) {
-    const y = cfg.horizonYears, r = cfg.annualReturn;
-    const f = Math.pow(1 + r, y);
-    const proj = agg.value * f;
-    const box = scrEl('div', { style: 'background:#fafbfc;border:1px solid #eef1f5;border-radius:12px;padding:12px 14px' });
-    box.appendChild(scrEl('div', { text: 'Projection à ' + y + ' ans', style: 'font-size:0.7rem;text-transform:uppercase;letter-spacing:.03em;color:#5b6b7d;font-weight:700;margin-bottom:10px' }));
-    const prow = scrEl('div', { style: 'display:flex;gap:10px;flex-wrap:wrap' });
-    // Plus-value estimee = valeur projetee moins ce qui a ete REELLEMENT verse (pas moins la valeur du jour).
-    // Le % est calcule sur la MEME base que le montant : ce qui a ete reellement verse.
+    const HR = kidsRendementHist(), r = kidsTaux(cfg), sig = HR ? HR.sigma : null;
     const gainOf = (v, base) => ({ col: v >= 0 ? '#1d9e74' : '#dd5f66',
       txt: sign(v) + money(v) + ((base > 0) ? ' (' + sign(v / base) + (v / base * 100).toFixed(1) + ' %)' : '') });
-    prow.appendChild(tile('Valeur projetée', money(proj), 'sans nouveau versement', '#1d9e74',
-      'Valeur actuelle capitalisée à ' + (r * 100).toFixed(1) + ' % par an pendant ' + y + ' ans, moins le total versé pour la plus-value. HYPOTHÈSE, pas une promesse : les marchés ne montent pas en ligne droite.',
-      gainOf(proj - agg.invested, agg.invested)));
-    agg.kids.forEach((k, i) => {
-      if (k.value == null || pot) return;   // cagnotte : la projection par enfant est dans le sous-onglet Cagnotte
-      prow.appendChild(tile(k.child, money(k.value * f), 'aujourd’hui ' + money(k.value), kidInk(k.child, i),
-        'Projection de la part de ' + k.child + ' au même rythme. La plus-value est calculée par rapport aux ' + money(k.invested) + ' réellement versés pour ' + k.child + '.',
-        gainOf(k.value * f - k.invested, k.invested)));
-    });
-    box.appendChild(prow);
-    box.appendChild(scrEl('div', { style: 'font-size:0.66rem;color:#9aa7b4;margin-top:9px;line-height:1.45',
-      text: 'Projection mécanique à rendement constant, à titre indicatif. Le rendement réel sera irrégulier et peut être négatif sur plusieurs années. Ce n’est ni une prévision ni un conseil en investissement.' }));
+    const pct1 = (x) => (x >= 0 ? '+' : '') + (x * 100).toFixed(1).replace('.', ',') + ' %';
+    const dFr = (d) => { const x = new Date(d + 'T00:00:00'); return ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'][x.getMonth()] + ' ' + x.getFullYear(); };
+    const box = scrEl('div', { style: 'background:#fafbfc;border:1px solid #eef1f5;border-radius:12px;padding:12px 14px' });
+    const titre = scrEl('div', { style: 'font-size:0.7rem;text-transform:uppercase;letter-spacing:.03em;color:#5b6b7d;font-weight:700' });
+    const rTxt = HR ? ('Rendement historique de ' + cfg.ticker + ' : ' + pct1(HR.r) + ' par an en moyenne, de ' + dFr(HR.since) + ' à aujourd’hui (' + HR.ans.toFixed(1).replace('.', ',') + ' ans)'
+      + (sig ? ', avec des écarts de ' + (sig * 100).toFixed(0) + ' % par an autour de cette moyenne.' : '.'))
+      : ('Historique long de ' + cfg.ticker + ' indisponible : la projection utilise ' + pct1(r) + ' par an.');
+    const lbl = scrEl('b', { style: 'font-size:0.95rem;color:#22303f;min-width:58px' });
+    const sl = scrEl('input', { attrs: { type: 'range', min: '1', max: '30', step: '1', value: String(Math.min(30, Math.max(1, cfg.horizonYears || 10))), title: 'Durée de la projection' },
+      style: 'flex:1 1 220px;min-width:160px;accent-color:#3563e9;cursor:pointer' });
+    const DUREES = [5, 10, 15, 20, 25];
+    const btns = DUREES.map((n) => { const b = scrEl('button', { text: n + ' ans', attrs: { type: 'button' } }); b.onclick = () => { sl.value = String(n); maj(true); }; return b; });
+    const corps = scrEl('div');
+    box.append(titre, scrEl('div', { text: rTxt, style: 'font-size:0.76rem;color:#42546a;margin-top:4px;line-height:1.4' }),
+      scrEl('div', { style: 'display:flex;align-items:center;gap:8px 10px;flex-wrap:wrap;margin:10px 0 8px', kids: [
+        scrEl('span', { text: 'Durée', style: 'font-size:0.78rem;color:#5b6b7d;font-weight:700' }), sl, lbl].concat(btns) }),
+      corps,
+      scrEl('div', { style: 'font-size:0.66rem;color:#9aa7b4;margin-top:9px;line-height:1.45',
+        text: 'Projection mécanique au rendement moyen passé de l’ETF, sans nouveau versement. La zone verte montre la fourchette où la valeur aurait 2 chances sur 3 de se trouver si l’ETF gardait la même irrégularité qu’avant ; le passé ne garantit rien, le rendement réel peut être négatif plusieurs années de suite. Ce n’est ni une prévision ni un conseil en investissement.' }));
+    let tSave = null;
+    const maj = (save) => {
+      const y = +sl.value, f = Math.pow(1 + r, y), proj = agg.value * f;
+      const bas = sig ? agg.value * Math.exp(Math.log(1 + r) * y - sig * Math.sqrt(y)) : null;
+      const haut = sig ? agg.value * Math.exp(Math.log(1 + r) * y + sig * Math.sqrt(y)) : null;
+      lbl.textContent = y + ' an' + (y > 1 ? 's' : '');
+      titre.textContent = 'Projection à ' + y + ' an' + (y > 1 ? 's' : '') + ' (' + (new Date().getFullYear() + y) + ')';
+      btns.forEach((b, i) => { b.style.cssText = 'padding:4px 10px;border-radius:8px;font-size:0.74rem;font-weight:700;cursor:pointer;border:1px solid '
+        + (DUREES[i] === y ? '#3563e9;background:#3563e9;color:#ffffff' : '#e3e8ee;background:#ffffff;color:#42546a'); });
+      const prow = scrEl('div', { style: 'display:flex;gap:10px;flex-wrap:wrap;margin-top:10px' });
+      prow.appendChild(tile('Valeur projetée', money(proj), 'sans nouveau versement', '#1d9e74',
+        'Valeur actuelle capitalisée à ' + pct1(r) + ' par an pendant ' + y + ' ans. Plus-value calculée par rapport au total réellement versé.',
+        gainOf(proj - agg.invested, agg.invested)));
+      if (bas != null) prow.appendChild(tile('Fourchette (2 chances sur 3)', money(bas) + ' à ' + money(haut), 'selon l’irrégularité passée de l’ETF', '#3563e9',
+        'Valeur basse et haute de la zone verte du graphique : un écart-type de part et d’autre de la trajectoire moyenne, mesuré sur les rendements hebdomadaires passés de l’ETF.'));
+      agg.kids.forEach((k, i) => {
+        if (k.value == null || pot) return;   // cagnotte : la projection par enfant est dans le sous-onglet Cagnotte
+        prow.appendChild(tile(k.child, money(k.value * f), 'aujourd’hui ' + money(k.value), kidInk(k.child, i),
+          'Projection de la part de ' + k.child + ' au même rythme. La plus-value est calculée par rapport aux ' + money(k.invested) + ' réellement versés pour ' + k.child + '.',
+          gainOf(k.value * f - k.invested, k.invested)));
+      });
+      corps.replaceChildren(kidsProjChart(agg.value, agg.invested, r, sig, y, money), prow);
+      if (save) { clearTimeout(tSave); tSave = setTimeout(() => { SCR_KIDS = SCR_KIDS || {}; SCR_KIDS.config = Object.assign({}, kidsCfg(), { horizonYears: y }); kidsSave(); }, 500); }
+    };
+    sl.oninput = () => maj(false);
+    sl.onchange = () => maj(true);
+    maj(false);
     wrap.appendChild(box);
   }
 
@@ -11890,7 +11999,9 @@ function scrKpi(label, val, col, title) {
     scrEl('div', { text: label, style: `font-size:0.62rem;color:#9aa7b4;text-transform:uppercase;font-weight:700;letter-spacing:.03em${title ? ';cursor:help' : ''}` }),
     scrEl('div', { text: val, style: `font-size:1rem;font-weight:800;color:${col || '#22303f'}` })] });
 }
-function scrEquityCurve(hist) {
+// fm : formatage des montants (scrUsd par defaut = portefeuille en USD ; kidsMoney pour la poche des enfants, en EUR)
+function scrEquityCurve(hist, fm) {
+  fm = fm || scrUsd;
   if (hist.length < 2) return scrEl('div', { style: 'color:#9aa7b4;font-size:0.78rem;padding:6px 0', text: 'La courbe se dessine dès 2 journées enregistrées (1 point/jour via le VPS).' });
   const NS = 'http://www.w3.org/2000/svg';
   const W = 620, H = 210, padL = 58, padR = 14, padT = 12, padB = 26, n = hist.length;
@@ -11912,7 +12023,7 @@ function scrEquityCurve(hist) {
     const v = min + span * i / TICKS, yy = y(v);
     svg.appendChild(mk('line', { x1: padL, x2: W - padR, y1: yy.toFixed(1), y2: yy.toFixed(1), stroke: '#eef1f5', 'stroke-width': 1 }));
     const t = mk('text', { x: padL - 7, y: (yy + 3).toFixed(1), 'font-size': 9.5, fill: '#9aa7b4', 'text-anchor': 'end' });
-    t.textContent = scrUsd(v); svg.appendChild(t);
+    t.textContent = fm(v); svg.appendChild(t);
   }
   // AXE X : dates
   const MN = ['janv', 'févr', 'mars', 'avr', 'mai', 'juin', 'juil', 'août', 'sept', 'oct', 'nov', 'déc'];
@@ -11947,8 +12058,8 @@ function scrEquityCurve(hist) {
     const b = fp.buy >= seuil, sv = -fp.sell >= seuil;
     if (!b && !sv) continue;
     const kind = (b && sv) ? 'reeq' : (b ? 'in' : 'out');
-    evts[i] = { kind: kind, label: kind === 'reeq' ? ('Rééquilibrage : achats +' + scrUsd(fp.buy) + ', ventes ' + scrUsd(fp.sell))
-      : (kind === 'in' ? ('Apport +' + scrUsd(fp.buy)) : ('Retrait ' + scrUsd(fp.sell))) };
+    evts[i] = { kind: kind, label: kind === 'reeq' ? ('Rééquilibrage : achats +' + fm(fp.buy) + ', ventes ' + fm(fp.sell))
+      : (kind === 'in' ? ('Apport +' + fm(fp.buy)) : ('Retrait ' + fm(fp.sell))) };
     const px = x(i), yb = H - padB - 6, sz = 4.5;
     svg.appendChild(mk('line', { x1: px.toFixed(1), x2: px.toFixed(1), y1: padT, y2: H - padB, stroke: EVT_COL[kind], 'stroke-width': 1, 'stroke-dasharray': '2 3', 'stroke-opacity': 0.45 }));
     const pts = kind === 'in' ? [[px, yb - sz], [px + sz, yb + sz * 0.8], [px - sz, yb + sz * 0.8]]
@@ -11972,9 +12083,9 @@ function scrEquityCurve(hist) {
       const dt = new Date(h.date + 'T00:00:00');
       tip.replaceChildren(
         scrEl('div', { text: dt.getDate() + ' ' + MN[dt.getMonth()] + ' ' + dt.getFullYear(), style: 'font-weight:700;margin-bottom:3px' }),
-        scrEl('div', { kids: [scrEl('span', { text: '● ', style: 'color:' + valCol }), scrEl('span', { text: 'Valeur ' + scrUsd(h.value) })] }),
-        scrEl('div', { kids: [scrEl('span', { text: '● ', style: 'color:' + GREY }), scrEl('span', { text: 'Investi ' + scrUsd(h.invested) })] }),
-        scrEl('div', { style: 'margin-top:2px;font-weight:700;color:' + (gain >= 0 ? '#7ee2bb' : '#ffa8ad'), text: 'Gain ' + (gain >= 0 ? '+' : '') + scrUsd(gain) }),
+        scrEl('div', { kids: [scrEl('span', { text: '● ', style: 'color:' + valCol }), scrEl('span', { text: 'Valeur ' + fm(h.value) })] }),
+        scrEl('div', { kids: [scrEl('span', { text: '● ', style: 'color:' + GREY }), scrEl('span', { text: 'Investi ' + fm(h.invested) })] }),
+        scrEl('div', { style: 'margin-top:2px;font-weight:700;color:' + (gain >= 0 ? '#7ee2bb' : '#ffa8ad'), text: 'Gain ' + (gain >= 0 ? '+' : '') + fm(gain) }),
         ...(evts[i] ? [scrEl('div', { text: evts[i].label, style: 'margin-top:3px;font-weight:600;color:#b8c7ff' })] : []));
       tip.style.left = (px / W * 100) + '%';
       tip.style.top = (Math.min(y(h.value), y(h.invested)) / H * 100) + '%';
@@ -11991,7 +12102,7 @@ function scrEquityCurve(hist) {
     ...['in', 'out', 'reeq'].filter((k) => Object.keys(evts).some((i) => evts[i].kind === k)).map((k) => scrEl('span', { style: 'display:flex;align-items:center;gap:4px', kids: [
       scrEl('span', { text: k === 'in' ? '▲' : (k === 'out' ? '▼' : '◆'), style: 'font-size:0.66rem;color:' + EVT_COL[k] }),
       scrEl('span', { text: k === 'in' ? 'apport' : (k === 'out' ? 'retrait' : 'rééquilibrage') })] })),
-    scrEl('span', { style: 'margin-left:auto;font-weight:700;color:' + valCol, text: (last.value - last.invested >= 0 ? '+' : '') + scrUsd(last.value - last.invested) })] });
+    scrEl('span', { style: 'margin-left:auto;font-weight:700;color:' + valCol, text: (last.value - last.invested >= 0 ? '+' : '') + fm(last.value - last.invested) })] });
   cont.appendChild(leg); cont.appendChild(svg); cont.appendChild(tip);
   return cont;
 }
