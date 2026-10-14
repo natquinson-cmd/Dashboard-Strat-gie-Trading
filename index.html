@@ -9442,10 +9442,14 @@ function kidsRendementHist() {
     : (recent.length ? SCR_KIDS_HIST[recent[recent.length - 1]] : C[d[d.length - 1]]);
   const ans = (Date.now() - Date.parse(d[0] + 'T00:00:00Z')) / (365.25 * 864e5);
   if (!(ans >= 3) || !(last > 0)) return null;
+  // volatilite : semaines de l'historique long, prolongees par l'historique quotidien du VPS (stocks/kidsHistory,
+  // qui ne perd jamais une seance) echantillonne une fois par semaine : l'ecart se recalcule donc lui aussi au fil du temps
+  const S = d.map((k) => [k, C[k]]);
+  recent.forEach((k) => { if (k > S[S.length - 1][0] && (Date.parse(k) - Date.parse(S[S.length - 1][0])) / 864e5 >= 7) S.push([k, SCR_KIDS_HIST[k]]); });
   const lr = [];
-  for (let i = 1; i < d.length; i++) {
-    const jours = (Date.parse(d[i]) - Date.parse(d[i - 1])) / 864e5;
-    if (jours >= 5 && jours <= 9) lr.push(Math.log(C[d[i]] / C[d[i - 1]]));   // semaines completes seulement
+  for (let i = 1; i < S.length; i++) {
+    const jours = (Date.parse(S[i][0]) - Date.parse(S[i - 1][0])) / 864e5;
+    if (jours >= 5 && jours <= 9) lr.push(Math.log(S[i][1] / S[i - 1][1]));   // semaines completes seulement
   }
   const moy = lr.reduce((x, v) => x + v, 0) / (lr.length || 1);
   const sd = lr.length > 20 ? Math.sqrt(lr.reduce((x, v) => x + (v - moy) * (v - moy), 0) / (lr.length - 1)) * Math.sqrt(52) : null;
