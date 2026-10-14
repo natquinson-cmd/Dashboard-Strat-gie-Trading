@@ -8219,6 +8219,26 @@ function aboForm(a, host) {
   };
   ko.onclick = () => { ABO_EDIT = null; renderAbosTab(); };
   box.appendChild(scrEl('div', { style: 'display:flex;gap:8px', kids: [ok, ko] }));
+  // pause : seulement ici, dans le formulaire de modification (14/10/2026)
+  if (a.id && a.statut !== 'resilie' && a.statut !== 'piste') {
+    const MF = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
+    const moisF = (ym) => MF[+ym.slice(5, 7) - 1] + ' ' + ym.slice(0, 4);
+    const cur = aboYm(), p = aboPauseProchaine(a, cur);
+    const bSt = 'padding:7px 14px;border-radius:8px;border:1px solid #8b5cf6;background:#ffffff;color:#6d3fd6;font-weight:700;cursor:pointer';
+    const zone = scrEl('div', { style: 'grid-column:1 / -1;display:flex;align-items:center;gap:8px;flex-wrap:wrap;border-top:1px solid #e3e8ee;padding-top:10px;font-size:0.8rem;color:#42546a' });
+    if (p) {
+      const rep = scrEl('button', { text: '▶ Reprendre maintenant', attrs: { type: 'button' }, style: bSt });
+      rep.onclick = () => { ABO_EDIT = null; aboReprendre(a, p); renderAbosTab(); };
+      zone.append(scrEl('span', { text: '⏸ ' + (p[0] > cur ? 'Pause prévue de ' + moisF(p[0]) : 'En pause') + ', reprise en ' + moisF(p[1]) + '.' }), rep);
+    } else {
+      const nb = scrEl('input', { attrs: { type: 'number', min: '1', max: '24', step: '1', value: '3' }, style: 'width:70px;padding:6px 8px;border:1px solid #e3e8ee;border-radius:8px;font-size:0.82rem;background:#fff;color:#22303f' });
+      const go = scrEl('button', { text: '⏸ Mettre en pause', attrs: { type: 'button' }, style: bSt });
+      go.onclick = () => { const n = parseInt(nb.value, 10); if (!(n >= 1 && n <= 24)) { alert('Indique une durée de pause entre 1 et 24 mois.'); return; } ABO_EDIT = null; aboPauser(a, n); renderAbosTab(); };
+      zone.append(scrEl('span', { text: 'Mettre en pause pendant' }), nb, scrEl('span', { text: 'mois' }), go,
+        scrEl('span', { text: 'Il sort du total pendant la pause, compte comme une économie, puis revient tout seul.', style: 'flex-basis:100%;font-size:0.72rem;color:#5b6b7d' }));
+    }
+    box.appendChild(zone);
+  }
   host.appendChild(box);
 }
 // ── Motivation et suivi mensuel (15/10/2026, demande du user : « gamifier pour me motiver à supprimer des
@@ -8266,9 +8286,8 @@ function aboPauseCumul(a, ym) {
   if (!a.m || a.statut === 'resilie' || a.statut === 'piste') return 0;
   return aboPauses(a).reduce((x, [d, f]) => { const fin = f <= ym ? f : aboYmAdd(ym, 1); return x + (fin > d ? aboNbMois(d, fin) * a.m : 0); }, 0);
 }
-function aboPauser(a) {
-  const n = parseInt(prompt('Combien de mois de pause pour « ' + a.nom + ' » ?', '3'), 10);
-  if (!(n >= 1 && n <= 24)) return;
+function aboPauser(a, n) {
+  if (!(n >= 1 && n <= 24)) { alert('Indique une durée de pause entre 1 et 24 mois.'); return; }
   // prelevement du mois pas encore passe : la pause commence ce mois-ci, sinon le mois prochain
   const cur = aboYm(), d = (a.jour && Number(a.jour) > new Date().getDate()) ? cur : aboYmAdd(cur, 1), f = aboYmAdd(d, n);
   const MF = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
@@ -8367,7 +8386,7 @@ function renderAbosTab() {
       scrEl('span', { text: (r.p[0] > cur ? 'pause à partir de ' + moisTxt(r.p[0]) : 'en pause') + ', reprise en ' + moisTxt(r.p[1]), style: 'font-size:0.72rem;color:#5b6b7d;white-space:nowrap' }),
       scrEl('span', { text: '−' + aboEur(r.a.m) + ' /mois pendant ' + n + ' mois = −' + aboEur(n * r.a.m, 0), style: 'font-weight:800;color:#1d9e74;font-size:0.82rem;white-space:nowrap' }),
       r.g > 0 ? scrEl('span', { text: aboEur(r.g, 0) + ' déjà gagnés', style: 'font-size:0.72rem;color:#127a54;background:#ffffff;border:1px solid #1d9e74;border-radius:20px;padding:0 8px;white-space:nowrap' }) : null] }); }))
-    : [scrEl('div', { text: 'Rien encore : chaque abonnement résilié ou mis en pause (bouton ⏸ de la liste) s’ajoutera ici, par mois, par an et en cumul.', style: 'font-size:0.8rem;color:#5b6b7d' })];
+    : [scrEl('div', { text: 'Rien encore : chaque abonnement résilié ou mis en pause (crayon ✎ puis « Mettre en pause ») s’ajoutera ici, par mois, par an et en cumul.', style: 'font-size:0.8rem;color:#5b6b7d' })];
   wrap.appendChild(aboCarte('💚 Tes économies', ecoKids, 'border-color:#1d9e74;background:#e5f4ee;margin-bottom:14px'));
   // a) objectif
   const objKids = [];
@@ -8476,11 +8495,8 @@ function renderAbosTab() {
     const ed = scrEl('button', { text: '✎', attrs: { type: 'button', title: 'Modifier' }, style: 'border:none;background:none;cursor:pointer;font-size:0.95rem;color:#5b6b7d' });
     const del = scrEl('button', { text: '✕', attrs: { type: 'button', title: 'Supprimer' }, style: 'border:none;background:none;cursor:pointer;font-size:0.9rem;color:#dd5f66' });
     ed.onclick = () => { ABO_EDIT = a.id; renderAbosTab(); };
-    const p = (a.statut === 'resilie' || a.statut === 'piste') ? undefined : aboPauseProchaine(a, cur);
-    const pz = p === undefined ? null : scrEl('button', { text: p ? '▶' : '⏸', attrs: { type: 'button', title: p ? 'Reprendre l’abonnement' : 'Mettre en pause quelques mois' }, style: 'border:none;background:none;cursor:pointer;font-size:0.9rem;color:#8b5cf6' });
-    if (pz) pz.onclick = () => (p ? aboReprendre(a, p) : aboPauser(a));
     del.onclick = () => { if (confirm('Supprimer « ' + a.nom + ' » ?')) db.ref('abonnements/items/' + a.id).remove().catch((e) => alert('Suppression impossible : ' + ((e && e.message) || e))); };
-    return scrEl('span', { style: 'white-space:nowrap', kids: [pz, ed, del] });
+    return scrEl('span', { style: 'white-space:nowrap', kids: [ed, del] });
   };
   const chipPause = (a) => { const p = a.statut === 'resilie' || a.statut === 'piste' ? null : aboPauseProchaine(a, cur);
     return p ? chip(p[0] > cur ? '⏸ pause dès ' + moisTxt(p[0]) : '⏸ en pause → ' + moisTxt(p[1]), '#8b5cf6') : null; };
@@ -8524,7 +8540,7 @@ function renderAbosTab() {
     wrap.appendChild(scrEl('div', { style: 'background:#fff;border:1px solid #e3e8ee;border-radius:14px;overflow-x:auto', kids: [scrEl('table', { style: 'width:100%;border-collapse:collapse;font-size:0.84rem', kids: [
       scrEl('thead', { kids: [scrEl('tr', { style: 'background:#f6f8fb;color:#5b6b7d', kids: [th('Abonnement', 'nom'), th('Catégorie', 'categorie'), th('Pour qui', 'qui'), th('Prélèvement', 'jour'), th('Statut'), th('Par mois', 'mensuel', 'right'), th('Par an', null, 'right'), th('')] })] }), tbody] })] }));
   }
-  wrap.appendChild(scrEl('div', { style: 'font-size:0.7rem;color:#9aa7b4;margin-top:8px', text: '* montant en dollars converti au taux du jour. Les abonnements « à vérifier » comptent dans les totaux ; les résiliés n’y comptent plus et alimentent « Économisé ». ⏸ met un abonnement en pause quelques mois : il sort du total pendant la pause, compte comme une économie, puis revient tout seul. Données privées (base Firebase), modifiables ici.' }));
+  wrap.appendChild(scrEl('div', { style: 'font-size:0.7rem;color:#9aa7b4;margin-top:8px', text: '* montant en dollars converti au taux du jour. Les abonnements « à vérifier » comptent dans les totaux ; les résiliés n’y comptent plus et alimentent « Économisé ». La pause (crayon ✎ puis « Mettre en pause ») retire un abonnement quelques mois : il sort du total pendant la pause, compte comme une économie, puis revient tout seul. Données privées (base Firebase), modifiables ici.' }));
   c.replaceChildren(wrap);
 }
 
