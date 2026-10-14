@@ -8233,6 +8233,20 @@ function aboMoisTotal(L, ym) {
     return x + a.m;
   }, 0);
 }
+// ── Economies (14/10/2026, demande du user : « on n'arrive pas à voir suffisamment ce qu'on a économisé par mois
+// et par an ») : une resiliation economise son equivalent mensuel chaque mois a partir de fin (premier mois sans
+// paiement). Sans fin saisie, on part du mois qui suit la derniere modification.
+function aboFinEff(a) { return a.fin || aboYmAdd(String(a.maj || '').slice(0, 7) || aboYm(), 1); }
+function aboEcoMois(L, ym) {
+  return L.reduce((x, a) => (a.statut === 'resilie' && a.m && aboFinEff(a) <= ym ? x + a.m : x), 0);
+}
+// cumul reellement economise jusqu'au mois ym inclus
+function aboEcoCumul(a, ym) {
+  if (a.statut !== 'resilie' || !a.m) return 0;
+  const f = aboFinEff(a).split('-').map(Number), c = ym.split('-').map(Number);
+  const n = (c[0] * 12 + c[1]) - (f[0] * 12 + f[1]) + 1;
+  return n > 0 ? n * a.m : 0;
+}
 function aboToast(txt) {
   const t = scrEl('div', { text: txt, style: 'position:fixed;left:50%;bottom:28px;transform:translateX(-50%);z-index:9999;background:#1d9e74;color:#fff;font-weight:800;font-size:0.95rem;padding:12px 20px;border-radius:14px;box-shadow:0 8px 24px rgba(0,0,0,.25);max-width:90vw;text-align:center' });
   document.body.appendChild(t);
@@ -8276,7 +8290,7 @@ function renderAbosTab() {
     kpi('Par mois', aboEur(tm), act.length + ' abonnement' + (act.length > 1 ? 's' : '') + ' en cours', '#dd5f66'),
     kpi('Par an', aboEur(tm * 12, 0), 'soit ' + aboEur(tm * 12 / 365) + ' par jour', '#dd5f66'),
     kpi('À compléter', String(manq), manq ? 'montant' + (manq > 1 ? 's' : '') + ' à saisir (hors totaux)' : 'tous les montants sont saisis', manq ? '#e0922c' : '#1d9e74'),
-    kpi('Économisé', aboEur(eco * 12, 0) + ' /an', res.length + ' abonnement' + (res.length > 1 ? 's' : '') + ' résilié' + (res.length > 1 ? 's' : ''), '#1d9e74')] }));
+    kpi('Économisé', aboEur(eco) + ' /mois', 'soit ' + aboEur(eco * 12, 0) + ' par an · ' + res.length + ' résilié' + (res.length > 1 ? 's' : ''), '#1d9e74')] }));
   // 2. motivation : objectif, niveau et badges, defis ; puis suivi mois par mois
   const cur = aboYm(), r2 = (v) => Math.round(v * 100) / 100;
   // photo du mois en cours (suivi) et point de depart (premiere visite) : ecrits seulement s'ils changent
@@ -8286,6 +8300,28 @@ function renderAbosTab() {
   const dep = ABO_CFG.depart || { ym: cur, total: tm }, obj = ABO_CFG.objectif != null ? Number(ABO_CFG.objectif) : null;
   const ctx = { nRes: res.length, ecoAn: eco * 12, clair: !manq && !pistes.length, objOk: obj != null && tm <= obj };
   const badges = aboBadges(ctx), nb = badges.filter((b) => b[3]).length;
+  // economies : par mois, par an, deja gagne (cumul reel depuis chaque resiliation), detail par abonnement
+  const MNC = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
+  const moisTxt = (ym) => MNC[+ym.slice(5, 7) - 1] + ' ' + ym.slice(0, 4);
+  const ecoRes = res.filter((a) => a.m).map((a) => ({ a: a, f: aboFinEff(a), g: aboEcoCumul(a, cur) })).sort((x, y) => y.a.m - x.a.m);
+  const ecoCumul = ecoRes.reduce((x, r) => x + r.g, 0), ecoFutur = ecoRes.filter((r) => r.f > cur).reduce((x, r) => x + r.a.m, 0);
+  const premier = ecoRes.length ? ecoRes.map((r) => r.f).sort()[0] : null;
+  const grosChiffre = (lbl, val, sub) => scrEl('div', { style: 'flex:1 1 150px;min-width:0', kids: [
+    scrEl('div', { text: lbl, style: 'font-size:0.7rem;font-weight:700;color:#127a54' }),
+    scrEl('div', { text: val, style: 'font-size:1.9rem;font-weight:800;color:#1d9e74;line-height:1.15;white-space:nowrap' }),
+    sub ? scrEl('div', { text: sub, style: 'font-size:0.72rem;color:#5b6b7d' }) : null] });
+  const ecoKids = ecoRes.length ? [
+    scrEl('div', { style: 'display:flex;flex-wrap:wrap;gap:12px 20px;margin-bottom:8px', kids: [
+      grosChiffre('Par mois', aboEur(eco), ecoFutur > 0.005 ? 'dont ' + aboEur(ecoFutur) + ' à venir (résiliation en cours)' : 'chaque mois en moins'),
+      grosChiffre('Par an', aboEur(eco * 12, 0), 'si tu ne reprends rien'),
+      grosChiffre('Déjà gagné', aboEur(ecoCumul, 0), premier && premier <= cur ? 'depuis ' + moisTxt(premier) : 'le compteur démarre le mois prochain')] })]
+    .concat(ecoRes.map((r) => scrEl('div', { style: 'display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;padding:6px 0;border-top:1px solid #e3efe9', kids: [
+      scrEl('span', { text: r.a.nom, style: 'flex:1 1 180px;min-width:0;font-weight:800;color:#22303f;font-size:0.84rem' }),
+      scrEl('span', { text: (r.f > cur ? 'à partir de ' : 'depuis ') + moisTxt(r.f), style: 'font-size:0.72rem;color:#5b6b7d;white-space:nowrap' }),
+      scrEl('span', { text: '−' + aboEur(r.a.m) + ' /mois · −' + aboEur(r.a.m * 12, 0) + ' /an', style: 'font-weight:800;color:#1d9e74;font-size:0.82rem;white-space:nowrap' }),
+      r.g > 0 ? scrEl('span', { text: aboEur(r.g, 0) + ' déjà gagnés', style: 'font-size:0.72rem;color:#127a54;background:#e7f7f0;border-radius:20px;padding:1px 8px;white-space:nowrap' }) : null] })))
+    : [scrEl('div', { text: 'Rien encore : chaque abonnement résilié s’ajoutera ici, par mois, par an et en cumul.', style: 'font-size:0.8rem;color:#5b6b7d' })];
+  wrap.appendChild(aboCarte('💚 Tes économies', ecoKids, 'border-color:#1d9e74;background:#f6fcf9;margin-bottom:14px'));
   // a) objectif
   const objKids = [];
   const champ = scrEl('input', { attrs: { type: 'number', step: '1', min: '0', placeholder: '€ par mois' }, style: 'width:110px;padding:6px 8px;border:1px solid #e3e8ee;border-radius:8px;font-size:0.85rem;background:#fff;color:#22303f' });
@@ -8341,15 +8377,18 @@ function renderAbosTab() {
   // e) suivi mois par mois : 12 derniers mois, photo enregistree chaque mois (sinon reconstitue), objectif en pointilles
   const mois = []; for (let i = 11; i >= 0; i--) mois.push(aboYmAdd(cur, -i));
   const MN = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
-  const serie = mois.map((ym) => ({ ym: ym, v: ym === cur ? tm : (ABO_HIST[ym] ? Number(ABO_HIST[ym].total) : aboMoisTotal(L, ym)), recon: ym !== cur && !ABO_HIST[ym] }));
-  const vmax = Math.max.apply(null, serie.map((p) => p.v).concat([obj || 0, 1])) * 1.12;
-  const prec = serie[serie.length - 2], dlt = tm - prec.v;
-  const cols = scrEl('div', { style: 'position:relative;display:flex;align-items:flex-end;gap:4px;height:170px;padding-top:16px' });
+  // e = economise ce mois-la (resiliations deja effectives), empile en hachures vertes sur la barre payee
+  const serie = mois.map((ym) => ({ ym: ym, v: ym === cur ? tm : (ABO_HIST[ym] ? Number(ABO_HIST[ym].total) : aboMoisTotal(L, ym)), e: aboEcoMois(L, ym), recon: ym !== cur && !ABO_HIST[ym] }));
+  const vmax = Math.max.apply(null, serie.map((p) => p.v + p.e).concat([obj || 0, 1])) * 1.12;
+  const prec = serie[serie.length - 2], dlt = tm - prec.v, ecoCur = serie[serie.length - 1].e;
+  const cols = scrEl('div', { style: 'position:relative;display:flex;align-items:flex-end;gap:4px;height:190px;padding-top:16px' });
   serie.forEach((p) => {
-    const h = Math.max(2, p.v / vmax * 140), ok = obj == null || p.v <= obj;
-    cols.appendChild(scrEl('div', { attrs: { title: MN[+p.ym.slice(5, 7) - 1] + ' ' + p.ym.slice(0, 4) + ' : ' + aboEur(p.v) + (p.recon ? ' (reconstitué)' : '') }, style: 'flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%', kids: [
-      scrEl('div', { text: Math.round(p.v), style: 'font-size:0.62rem;font-weight:800;color:' + (p.ym === cur ? '#22303f' : '#5b6b7d') + ';margin-bottom:2px' }),
-      scrEl('div', { style: 'width:72%;max-width:34px;height:' + h.toFixed(0) + 'px;border-radius:5px 5px 0 0;background:' + (ok ? '#1d9e74' : '#dd5f66') + ';opacity:' + (p.recon ? '.35' : (p.ym === cur ? '1' : '.75')) }),
+    const h = Math.max(2, p.v / vmax * 140), he = p.e / vmax * 140, ok = obj == null || p.v <= obj;
+    cols.appendChild(scrEl('div', { attrs: { title: MN[+p.ym.slice(5, 7) - 1] + ' ' + p.ym.slice(0, 4) + ' : ' + aboEur(p.v) + ' payés' + (p.e > 0.005 ? ', ' + aboEur(p.e) + ' économisés' : '') + (p.recon ? ' (reconstitué)' : '') }, style: 'flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%', kids: [
+      p.e > 0.005 ? scrEl('div', { text: '−' + Math.round(p.e), style: 'font-size:0.62rem;font-weight:800;color:#1d9e74;margin-bottom:1px' }) : null,
+      p.e > 0.005 ? scrEl('div', { style: 'width:72%;max-width:34px;height:' + Math.max(3, he).toFixed(0) + 'px;border-radius:5px 5px 0 0;border:1.5px solid #1d9e74;border-bottom:none;box-sizing:border-box;background:repeating-linear-gradient(135deg,#bfe9d8 0 3px,#f6fcf9 3px 6px)' }) : null,
+      scrEl('div', { text: Math.round(p.v), style: 'font-size:0.62rem;font-weight:800;color:' + (p.ym === cur ? '#22303f' : '#5b6b7d') + ';margin:1px 0 2px' }),
+      scrEl('div', { style: 'width:72%;max-width:34px;height:' + h.toFixed(0) + 'px;border-radius:' + (p.e > 0.005 ? '0' : '5px 5px 0 0') + ';background:' + (ok ? '#1d9e74' : '#dd5f66') + ';opacity:' + (p.recon ? '.35' : (p.ym === cur ? '1' : '.75')) }),
       scrEl('div', { text: MN[+p.ym.slice(5, 7) - 1], style: 'font-size:0.62rem;color:#5b6b7d;margin-top:3px;white-space:nowrap' + (p.ym === cur ? ';font-weight:800;color:#22303f' : '') })] }));
   });
   if (obj != null) cols.appendChild(scrEl('div', { attrs: { title: 'Objectif : ' + aboEur(obj, 0) + ' par mois' }, style: 'position:absolute;left:0;right:0;bottom:' + (obj / vmax * 140 + 17).toFixed(0) + 'px;border-top:2px dashed #3563e9;pointer-events:none' }));
@@ -8357,9 +8396,10 @@ function renderAbosTab() {
     scrEl('div', { style: 'display:flex;flex-wrap:wrap;gap:6px 16px;font-size:0.8rem;color:#42546a;margin-bottom:4px', kids: [
       scrEl('span', { kids: [document.createTextNode('Ce mois : '), scrEl('b', { text: aboEur(tm), style: 'color:#22303f' })] }),
       scrEl('span', { kids: [document.createTextNode('vs ' + MN[+prec.ym.slice(5, 7) - 1] + ' : '), scrEl('b', { text: (dlt > 0.005 ? '+' : dlt < -0.005 ? '−' : '') + aboEur(Math.abs(dlt) < 0.005 ? 0 : Math.abs(dlt)), style: 'color:' + (dlt > 0.005 ? '#dd5f66' : '#1d9e74') })] }),
-      scrEl('span', { kids: [document.createTextNode('depuis le départ : '), scrEl('b', { text: (tm - dep.total > 0.005 ? '+' : tm - dep.total < -0.005 ? '−' : '') + aboEur(Math.abs(tm - dep.total) < 0.005 ? 0 : Math.abs(tm - dep.total)), style: 'color:' + (tm - dep.total > 0.005 ? '#dd5f66' : '#1d9e74') })] })] }),
+      scrEl('span', { kids: [document.createTextNode('depuis le départ : '), scrEl('b', { text: (tm - dep.total > 0.005 ? '+' : tm - dep.total < -0.005 ? '−' : '') + aboEur(Math.abs(tm - dep.total) < 0.005 ? 0 : Math.abs(tm - dep.total)), style: 'color:' + (tm - dep.total > 0.005 ? '#dd5f66' : '#1d9e74') })] }),
+      scrEl('span', { kids: [document.createTextNode('économisé ce mois : '), scrEl('b', { text: aboEur(ecoCur), style: 'color:#1d9e74' })] })] }),
     cols,
-    scrEl('div', { text: 'Barres pâles : mois reconstitués à partir des dates de début et de résiliation. Chaque mois est ensuite photographié. Vert = sous l’objectif (pointillés bleus).', style: 'font-size:0.68rem;color:#9aa7b4;margin-top:6px' })], 'margin-bottom:14px'));
+    scrEl('div', { text: 'Barre pleine : ce que tu paies. Hachures vertes au-dessus : ce que tes résiliations t’évitent de payer ce mois-là. Barres pâles : mois reconstitués à partir des dates de début et de résiliation, chaque mois est ensuite photographié. Vert = sous l’objectif (pointillés bleus).', style: 'font-size:0.68rem;color:#9aa7b4;margin-top:6px' })], 'margin-bottom:14px'));
   // 3. analyse : par categorie et par personne (barres horizontales, mensuel et % du total)
   const barres = (titre, cle, couleur) => {
     const g = {};
