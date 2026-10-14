@@ -8354,8 +8354,8 @@ function renderAbosTab() {
   wrap.appendChild(aboCarte('📉 Suivi mois par mois', [
     scrEl('div', { style: 'display:flex;flex-wrap:wrap;gap:6px 16px;font-size:0.8rem;color:#42546a;margin-bottom:4px', kids: [
       scrEl('span', { kids: [document.createTextNode('Ce mois : '), scrEl('b', { text: aboEur(tm), style: 'color:#22303f' })] }),
-      scrEl('span', { kids: [document.createTextNode('vs ' + MN[+prec.ym.slice(5, 7) - 1] + ' : '), scrEl('b', { text: (dlt > 0 ? '+' : dlt < 0 ? '−' : '') + aboEur(Math.abs(dlt)), style: 'color:' + (dlt > 0.005 ? '#dd5f66' : '#1d9e74') })] }),
-      scrEl('span', { kids: [document.createTextNode('depuis le départ : '), scrEl('b', { text: (tm - dep.total > 0 ? '+' : tm - dep.total < 0 ? '−' : '') + aboEur(Math.abs(tm - dep.total)), style: 'color:' + (tm - dep.total > 0.005 ? '#dd5f66' : '#1d9e74') })] })] }),
+      scrEl('span', { kids: [document.createTextNode('vs ' + MN[+prec.ym.slice(5, 7) - 1] + ' : '), scrEl('b', { text: (dlt > 0.005 ? '+' : dlt < -0.005 ? '−' : '') + aboEur(Math.abs(dlt) < 0.005 ? 0 : Math.abs(dlt)), style: 'color:' + (dlt > 0.005 ? '#dd5f66' : '#1d9e74') })] }),
+      scrEl('span', { kids: [document.createTextNode('depuis le départ : '), scrEl('b', { text: (tm - dep.total > 0.005 ? '+' : tm - dep.total < -0.005 ? '−' : '') + aboEur(Math.abs(tm - dep.total) < 0.005 ? 0 : Math.abs(tm - dep.total)), style: 'color:' + (tm - dep.total > 0.005 ? '#dd5f66' : '#1d9e74') })] })] }),
     cols,
     scrEl('div', { text: 'Barres pâles : mois reconstitués à partir des dates de début et de résiliation. Chaque mois est ensuite photographié. Vert = sous l’objectif (pointillés bleus).', style: 'font-size:0.68rem;color:#9aa7b4;margin-top:6px' })], 'margin-bottom:14px'));
   // 3. analyse : par categorie et par personne (barres horizontales, mensuel et % du total)
