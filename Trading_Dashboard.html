@@ -8213,6 +8213,9 @@ function aboForm(a, host) {
     o.montant = o.montant === '' ? null : Number(String(o.montant).replace(',', '.'));
     o.jour = o.jour === '' ? null : Math.max(1, Math.min(31, parseInt(o.jour, 10) || 1));
     o.utile = o.utile === '' ? null : Number(o.utile);
+    // resilie sans « plus paye a partir de » : premier mois sans paiement = mois prochain, fige ici. Sinon le repli
+    // d'aboFinEff (mois de la derniere modification) glissait a chaque retouche de la ligne et faussait les economies.
+    if (o.statut === 'resilie' && !o.fin) o.fin = a.fin || aboYmAdd(aboYm(), 1);
     const id = a.id || (o.nom.toLowerCase().normalize('NFD').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) + '-' + Date.now().toString(36));
     ABO_EDIT = null;
     aboSave(id, Object.assign({ source: a.source, pauses: a.pauses }, o));
