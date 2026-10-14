@@ -8221,7 +8221,14 @@ function aboForm(a, host) {
     aboSave(id, Object.assign({ source: a.source, pauses: a.pauses }, o));
   };
   ko.onclick = () => { ABO_EDIT = null; renderAbosTab(); };
-  box.appendChild(scrEl('div', { style: 'display:flex;gap:8px', kids: [ok, ko] }));
+  // supprimer : seulement ici, a l'oppose d'Enregistrer, avec confirmation
+  let delBtn = null;
+  if (a.id) {
+    delBtn = scrEl('button', { text: 'Supprimer cet abonnement', attrs: { type: 'button' }, style: 'margin-left:auto;padding:7px 14px;border-radius:8px;border:1px solid #dd5f66;background:#ffffff;color:#c0392b;font-weight:700;cursor:pointer' });
+    delBtn.onclick = () => { if (!confirm('Supprimer définitivement « ' + a.nom + ' » ? (Pour un abonnement arrêté, préfère le statut Résilié : il compte dans tes économies.)')) return;
+      ABO_EDIT = null; db.ref('abonnements/items/' + a.id).remove().catch((e) => alert('Suppression impossible : ' + ((e && e.message) || e))); };
+  }
+  box.appendChild(scrEl('div', { style: 'grid-column:1 / -1;display:flex;gap:8px;align-items:center;flex-wrap:wrap', kids: [ok, ko, delBtn] }));
   // pause : seulement ici, dans le formulaire de modification (14/10/2026)
   if (a.id && a.statut !== 'resilie' && a.statut !== 'piste') {
     const MF = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
@@ -8494,12 +8501,12 @@ function renderAbosTab() {
     qui: (a, b) => String(a.qui).localeCompare(String(b.qui)) || (b.m || 0) - (a.m || 0), jour: (a, b) => (a.jour || 99) - (b.jour || 99) };
   const ordre = act.slice().sort(tri[ABO_SORT] || tri.mensuel).concat(res.slice().sort(tri.mensuel));
   const chip = (txt, col) => scrEl('span', { text: txt, style: 'display:inline-block;padding:2px 8px;border-radius:20px;font-size:0.68rem;font-weight:700;white-space:nowrap;color:' + col + ';background:' + col + '1f' });
+  // la liste n'a plus que le crayon : supprimer (et mettre en pause) se fait dans le formulaire de modification,
+  // le ✕ colle au ✎ provoquait des erreurs de clic (demande du 14/10/2026)
   const actions = (a) => {
-    const ed = scrEl('button', { text: '✎', attrs: { type: 'button', title: 'Modifier' }, style: 'border:none;background:none;cursor:pointer;font-size:0.95rem;color:#5b6b7d' });
-    const del = scrEl('button', { text: '✕', attrs: { type: 'button', title: 'Supprimer' }, style: 'border:none;background:none;cursor:pointer;font-size:0.9rem;color:#dd5f66' });
+    const ed = scrEl('button', { text: '✎', attrs: { type: 'button', title: 'Modifier, mettre en pause ou supprimer' }, style: 'border:none;background:none;cursor:pointer;font-size:1rem;color:#5b6b7d;padding:4px 8px' });
     ed.onclick = () => { ABO_EDIT = a.id; renderAbosTab(); };
-    del.onclick = () => { if (confirm('Supprimer « ' + a.nom + ' » ?')) db.ref('abonnements/items/' + a.id).remove().catch((e) => alert('Suppression impossible : ' + ((e && e.message) || e))); };
-    return scrEl('span', { style: 'white-space:nowrap', kids: [ed, del] });
+    return scrEl('span', { style: 'white-space:nowrap', kids: [ed] });
   };
   const chipPause = (a) => { const p = a.statut === 'resilie' || a.statut === 'piste' ? null : aboPauseProchaine(a, cur);
     return p ? chip(p[0] > cur ? '⏸ pause dès ' + moisTxt(p[0]) : '⏸ en pause → ' + moisTxt(p[1]), '#8b5cf6') : null; };
