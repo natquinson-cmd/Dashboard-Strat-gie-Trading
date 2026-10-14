@@ -8154,7 +8154,7 @@ function activateTab(tab) {
 // semaines4 : salles de sport prelevees toutes les 4 semaines, soit 13 paiements par an (releve Revolut du 14/10/2026)
 const ABO_FREQ = { mois: ['par mois', 1], semaines4: ['toutes les 4 semaines', 13 / 12], an: ['par an', 1 / 12], trimestre: ['par trimestre', 1 / 3], semaine: ['par semaine', 52 / 12] };
 const ABO_CAT = { 'IA et logiciels': '#6366f1', 'Télécom et internet': '#0ea5e9', 'Vidéo et jeux': '#ef4444', 'Musique, presse et réseaux': '#22c55e',
-  'Hébergement et sites': '#f59e0b', 'Maison et énergie': '#a16207', 'Sport et enfants': '#ec4899', 'Banque et assurance': '#64748b', 'Autre': '#9aa7b4' };
+  'Hébergement et sites': '#f59e0b', 'Maison et énergie': '#a16207', 'Sport et enfants': '#ec4899', 'Banque et assurance': '#64748b', 'Dons': '#14b8a6', 'Autre': '#9aa7b4' };
 // piste : prelevement detecte (releve bancaire) dont on ne sait pas encore si c'est un abonnement, hors totaux
 const ABO_STATUT = { actif: ['Actif', '#1d9e74'], a_verifier: ['À vérifier', '#e0922c'], resilie: ['Résilié', '#9aa7b4'], piste: ['Piste à trancher', '#8b5cf6'] };
 let ABOS = null, ABO_CFG = {}, ABO_HIST = {}, ABO_ERR = null, ABO_LISTEN = false, ABO_EDIT = null, ABO_SORT = 'mensuel';
@@ -8315,8 +8315,9 @@ function renderAbosTab() {
       attrs: { title: b[1] + ' : ' + b[2] + (b[3] ? ' (gagné)' : ' (à débloquer)') },
       style: 'text-align:center;padding:6px 2px;border-radius:10px;border:1px solid ' + (b[3] ? '#1d9e74' : '#e3e8ee') + ';background:' + (b[3] ? '#e7f7f0' : '#f6f8fb') + ';' + (b[3] ? '' : 'filter:grayscale(1);opacity:.45'),
       kids: [scrEl('div', { text: b[0], style: 'font-size:1.25rem;line-height:1.2' }), scrEl('div', { text: b[1], style: 'font-size:0.62rem;font-weight:700;color:#42546a;line-height:1.2' })] })) })];
-  // c) defis : les plus chers, pas notes indispensables ; note d'utilite en etoiles, bouton Resilie
-  const cand = act.filter((a) => (a.m || 0) > 0 && !(Number(a.utile) >= 3)).sort((x, y) => y.m - x.m).slice(0, 3);
+  // c) defis : les plus chers, pas notes indispensables ; note d'utilite en etoiles, bouton Resilie.
+  // Les dons (categorie Dons, 14/10/2026) comptent dans le total mais ne sont jamais proposes a la resiliation.
+  const cand = act.filter((a) => (a.m || 0) > 0 && !(Number(a.utile) >= 3) && a.categorie !== 'Dons').sort((x, y) => y.m - x.m).slice(0, 3);
   const etoiles = (a) => scrEl('span', { style: 'white-space:nowrap', kids: [1, 2, 3].map((n) => { const b = scrEl('button', { text: '★', attrs: { type: 'button', title: ['peu utile', 'utile', 'indispensable (sort des défis)'][n - 1] },
     style: 'border:none;background:none;cursor:pointer;font-size:1rem;padding:0 1px;color:' + (Number(a.utile) >= n ? '#f5b041' : '#c3ccd6') }); b.onclick = () => aboMaj(a.id, { utile: n }); return b; }) });
   const defis = cand.length ? cand.map((a) => { const btn = scrEl('button', { text: 'Résilié ✓', attrs: { type: 'button' }, style: 'padding:5px 10px;border-radius:8px;border:none;background:#1d9e74;color:#fff;font-weight:700;cursor:pointer;white-space:nowrap' });
