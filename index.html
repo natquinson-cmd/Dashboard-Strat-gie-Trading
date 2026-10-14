@@ -1665,7 +1665,7 @@
   <div id="tab-accueil" class="tab-content"></div>
   <div id="mPlus">
     <div class="m-plus-title">Trading</div><div class="m-plus-grid"><button type="button" onclick="mGo('trading','total')">Trading total</button><button type="button" onclick="mGo('trading','enfants')">Enfants</button><button type="button" onclick="kidsOpenSub('lm')">Lendermarket</button><button type="button" onclick="mGo('trading','fixed')">Backtests</button></div>
-    <div class="m-plus-title">Portfolio</div><div class="m-plus-grid"><button type="button" onclick="mGo('invest','interests')">Intérêts</button><button type="button" onclick="mGo('invest','evolution')">Évolution</button><button type="button" onclick="mGo('invest','loans')">Emprunts</button><button type="button" onclick="mGo('invest','realestate')">Immobilier</button><button type="button" onclick="mGo('invest','simulateur')">Rembourser vs Placer</button><button type="button" onclick="mGo('invest','update')">Mise à jour</button></div>
+    <div class="m-plus-title">Portfolio</div><div class="m-plus-grid"><button type="button" onclick="mGo('invest','interests')">Intérêts</button><button type="button" onclick="mGo('invest','evolution')">Évolution</button><button type="button" onclick="mGo('invest','loans')">Emprunts</button><button type="button" onclick="mGo('invest','realestate')">Immobilier</button><button type="button" onclick="mGo('invest','simulateur')">Rembourser vs Placer</button><button type="button" onclick="mGo('invest','abonnements')">Abonnements</button><button type="button" onclick="mGo('invest','update')">Mise à jour</button></div>
   </div>
   <nav id="mNav"><button type="button" data-k="home" onclick="mGo('trading','accueil')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/></svg>Accueil</button><button type="button" data-k="trading" onclick="mGo('trading','real')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 17 9 11 13 15 21 7"/><polyline points="15 7 21 7 21 13"/></svg>Trading</button><button type="button" data-k="actions" onclick="mGo('trading','screener')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V11"/><path d="M10 20V5"/><path d="M16 20v-8"/><path d="M22 20H2"/></svg>Actions</button><button type="button" data-k="portfolio" onclick="mGo('invest','overview')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="14" rx="2"/><path d="M3 10h18"/><path d="M16 14h2"/></svg>Portfolio</button><button type="button" data-k="plus" onclick="mPlusToggle(event)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/></svg>Plus</button></nav>
 
@@ -2108,6 +2108,7 @@
   <div id="tab-realestate" class="tab-content"></div>
   <div id="tab-darwinex" class="tab-content"></div>
   <div id="tab-simulateur" class="tab-content"></div>
+  <div id="tab-abonnements" class="tab-content"></div>
   <div id="tab-repartition" class="tab-content"></div>
   <div id="tab-screener" class="tab-content"></div>
   <div id="tab-enfants" class="tab-content"></div>
@@ -8011,13 +8012,14 @@ const GROUP_TABS = {
     { id: 'loans', label: 'Emprunts' },
     { id: 'realestate', label: 'Immobilier' },
     { id: 'simulateur', label: 'Rembourser vs Placer' },
+    { id: 'abonnements', label: 'Abonnements' },
     // Lendermarket : deplace le 05/10/2026 dans l'onglet Enfants (sous-onglet de la cagnotte). L'ancienne page
     // (invRenderRepartition) reste dans le code, son historique alimente celui du sous-onglet.
     { id: 'update', label: 'Mise à jour' }
   ]
 };
 
-const ALL_TAB_IDS = ['accueil', 'total', 'real', 'fixed', 'reinvest', 'overview', 'interests', 'evolution', 'loans', 'realestate', 'darwinex', 'simulateur', 'repartition', 'screener', 'enfants', 'update'];
+const ALL_TAB_IDS = ['accueil', 'total', 'real', 'fixed', 'reinvest', 'overview', 'interests', 'evolution', 'loans', 'realestate', 'darwinex', 'simulateur', 'abonnements', 'repartition', 'screener', 'enfants', 'update'];
 
 // Dernier backtest consulte (fixe ou reinvesti), pour que l'onglet « Backtests » le rouvre.
 function btLastTab() {
@@ -8133,11 +8135,179 @@ function activateTab(tab) {
     }
   }
 
+  // Abonnements : rendu autonome (donnees privees abonnements/items)
+  if (tab === 'abonnements') { renderAbosTab(); return; }
+
   // Portfolio tabs
   if (['overview', 'interests', 'evolution', 'loans', 'realestate', 'darwinex', 'simulateur', 'repartition', 'update'].includes(tab)) {
     invDestroyCharts();
     renderPortfolioTab(tab);
   }
+}
+
+// ══════════════════════════════════════════════════════════════
+// ABONNEMENTS (groupe Portfolio, 14/10/2026) : tout ce qui est preleve regulierement pour le foyer.
+// Donnees PRIVEES dans Firebase `abonnements/items` (jamais dans le code : le depot est public).
+// Mensuel et annuel calcules selon la frequence ; montants en dollars convertis au taux du jour.
+// Statuts : actif, a_verifier (compte dans les totaux, a confirmer), resilie (hors totaux, economie affichee).
+// ══════════════════════════════════════════════════════════════
+const ABO_FREQ = { mois: ['par mois', 1], an: ['par an', 1 / 12], trimestre: ['par trimestre', 1 / 3], semaine: ['par semaine', 52 / 12] };
+const ABO_CAT = { 'IA et logiciels': '#6366f1', 'Télécom et internet': '#0ea5e9', 'Vidéo et jeux': '#ef4444', 'Musique, presse et réseaux': '#22c55e',
+  'Hébergement et sites': '#f59e0b', 'Maison et énergie': '#a16207', 'Sport et enfants': '#ec4899', 'Banque et assurance': '#64748b', 'Autre': '#9aa7b4' };
+const ABO_STATUT = { actif: ['Actif', '#1d9e74'], a_verifier: ['À vérifier', '#e0922c'], resilie: ['Résilié', '#9aa7b4'] };
+let ABOS = null, ABO_ERR = null, ABO_LISTEN = false, ABO_EDIT = null, ABO_SORT = 'mensuel';
+function aboLoad() {
+  if (ABO_LISTEN || typeof db === 'undefined') return;
+  ABO_LISTEN = true;
+  db.ref('abonnements/items').on('value', (snap) => { ABOS = snap.val() || {}; ABO_ERR = null; if (currentTab === 'abonnements') renderAbosTab(); },
+    (e) => { ABO_ERR = (e && e.message) || String(e); console.warn('[abonnements]', e); if (currentTab === 'abonnements') renderAbosTab(); });
+}
+// equivalent mensuel en euros (null si le montant n'est pas encore saisi)
+function aboMensuel(a) {
+  if (a.montant == null || a.montant === '' || !isFinite(Number(a.montant))) return null;
+  const f = ABO_FREQ[a.frequence] || ABO_FREQ.mois;
+  return Number(a.montant) * f[1] * (a.devise === 'USD' ? ttlEurPerUsd() : 1);
+}
+function aboList() {
+  return Object.keys(ABOS || {}).map((id) => Object.assign({ id: id }, ABOS[id])).map((a) => Object.assign(a, { m: aboMensuel(a) }));
+}
+function aboEur(v, dec) { return v == null ? '–' : v.toLocaleString('fr-FR', { minimumFractionDigits: dec == null ? 2 : dec, maximumFractionDigits: dec == null ? 2 : dec }) + ' €'; }
+function aboSave(id, obj) {
+  const clean = {};
+  Object.keys(obj).forEach((k) => { if (obj[k] !== '' && obj[k] != null) clean[k] = obj[k]; });
+  clean.maj = new Date().toISOString().slice(0, 10);
+  return db.ref('abonnements/items/' + id).set(clean).catch((e) => alert('Enregistrement impossible : ' + ((e && e.message) || e)));
+}
+function aboForm(a, host) {
+  a = a || { statut: 'actif', frequence: 'mois', devise: 'EUR', categorie: 'Autre', qui: 'Famille' };
+  const box = scrEl('div', { style: 'background:#f6f8fb;border:1px solid #e3e8ee;border-radius:12px;padding:12px;margin:10px 0;display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;align-items:end' });
+  const inp = (lbl, key, type, opts) => {
+    let el;
+    if (opts) { el = scrEl('select'); opts.forEach(([v, t]) => { const o = scrEl('option', { text: t, attrs: { value: v } }); if (String(a[key] == null ? '' : a[key]) === v) o.selected = true; el.appendChild(o); }); }
+    else { el = scrEl('input', { attrs: { type: type || 'text' } }); if (a[key] != null) el.value = a[key]; if (type === 'number') el.step = 'any'; }
+    el.style.cssText = 'width:100%;padding:6px 8px;border:1px solid #e3e8ee;border-radius:8px;font-size:0.82rem;background:#fff;color:#22303f';
+    el.dataset.k = key;
+    return scrEl('label', { style: 'display:flex;flex-direction:column;gap:3px;font-size:0.68rem;color:#5b6b7d;font-weight:700', kids: [document.createTextNode(lbl), el] });
+  };
+  box.append(
+    inp('Abonnement', 'nom'), inp('Montant (vide si inconnu)', 'montant', 'number'),
+    inp('Devise', 'devise', null, [['EUR', '€'], ['USD', '$']]),
+    inp('Fréquence', 'frequence', null, Object.keys(ABO_FREQ).map((k) => [k, ABO_FREQ[k][0]])),
+    inp('Jour de prélèvement', 'jour', 'number'),
+    inp('Catégorie', 'categorie', null, Object.keys(ABO_CAT).map((k) => [k, k])),
+    inp('Pour qui', 'qui'),
+    inp('Statut', 'statut', null, Object.keys(ABO_STATUT).map((k) => [k, ABO_STATUT[k][0]])),
+    inp('Note', 'note'));
+  const ok = scrEl('button', { text: a.id ? 'Enregistrer' : 'Ajouter', attrs: { type: 'button' }, style: 'padding:7px 14px;border-radius:8px;border:none;background:#3563e9;color:#fff;font-weight:700;cursor:pointer' });
+  const ko = scrEl('button', { text: 'Annuler', attrs: { type: 'button' }, style: 'padding:7px 14px;border-radius:8px;border:1px solid #e3e8ee;background:#fff;color:#42546a;font-weight:700;cursor:pointer' });
+  ok.onclick = () => {
+    const o = {};
+    box.querySelectorAll('[data-k]').forEach((el) => { o[el.dataset.k] = el.value.trim(); });
+    if (!o.nom) { alert('Donne un nom à l’abonnement.'); return; }
+    o.montant = o.montant === '' ? null : Number(String(o.montant).replace(',', '.'));
+    o.jour = o.jour === '' ? null : Math.max(1, Math.min(31, parseInt(o.jour, 10) || 1));
+    const id = a.id || (o.nom.toLowerCase().normalize('NFD').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) + '-' + Date.now().toString(36));
+    ABO_EDIT = null;
+    aboSave(id, o);
+  };
+  ko.onclick = () => { ABO_EDIT = null; renderAbosTab(); };
+  box.appendChild(scrEl('div', { style: 'display:flex;gap:8px', kids: [ok, ko] }));
+  host.appendChild(box);
+}
+function renderAbosTab() {
+  const c = document.getElementById('tab-abonnements');
+  if (!c) return;
+  aboLoad();
+  if (ABOS === null && !ABO_ERR) { scrMsg(c, 'Chargement des abonnements…'); return; }
+  if (ABO_ERR) { c.replaceChildren(scrEl('div', { style: 'padding:20px;color:#c0392b', text: 'Lecture des abonnements impossible : ' + ABO_ERR })); return; }
+  const mob = !!(typeof M_MQ !== 'undefined' && M_MQ.matches);
+  const L = aboList(), act = L.filter((a) => a.statut !== 'resilie'), res = L.filter((a) => a.statut === 'resilie');
+  const tm = act.reduce((x, a) => x + (a.m || 0), 0), manq = act.filter((a) => a.m == null).length, eco = res.reduce((x, a) => x + (a.m || 0), 0);
+  const wrap = scrEl('div', { style: 'max-width:1400px' });
+  // 1. chiffres cles
+  const kpi = (lbl, val, sub, col) => scrEl('div', { style: 'flex:1 1 170px;background:#fff;border:1px solid #e3e8ee;border-radius:14px;padding:12px 16px', kids: [
+    scrEl('div', { text: lbl, style: 'font-size:0.66rem;letter-spacing:.06em;text-transform:uppercase;font-weight:700;color:#5b6b7d' }),
+    scrEl('div', { text: val, style: 'font-size:1.6rem;font-weight:800;margin-top:2px;color:' + (col || '#22303f') }),
+    scrEl('div', { text: sub, style: 'font-size:0.72rem;color:#5b6b7d;margin-top:2px' })] });
+  wrap.appendChild(scrEl('div', { style: 'display:flex;flex-wrap:wrap;gap:12px;margin-bottom:14px', kids: [
+    kpi('Par mois', aboEur(tm), act.length + ' abonnement' + (act.length > 1 ? 's' : '') + ' en cours', '#dd5f66'),
+    kpi('Par an', aboEur(tm * 12, 0), 'soit ' + aboEur(tm * 12 / 365) + ' par jour', '#dd5f66'),
+    kpi('À compléter', String(manq), manq ? 'montant' + (manq > 1 ? 's' : '') + ' à saisir (hors totaux)' : 'tous les montants sont saisis', manq ? '#e0922c' : '#1d9e74'),
+    kpi('Économisé', aboEur(eco * 12, 0) + ' /an', res.length + ' abonnement' + (res.length > 1 ? 's' : '') + ' résilié' + (res.length > 1 ? 's' : ''), '#1d9e74')] }));
+  // 2. analyse : par categorie et par personne (barres horizontales, mensuel et % du total)
+  const barres = (titre, cle, couleur) => {
+    const g = {};
+    act.forEach((a) => { const k = a[cle] || 'Autre'; g[k] = (g[k] || 0) + (a.m || 0); });
+    const rows = Object.keys(g).map((k) => [k, g[k]]).filter((r) => r[1] > 0).sort((x, y) => y[1] - x[1]);
+    const mx = rows.length ? rows[0][1] : 1;
+    return scrEl('div', { style: 'flex:1 1 320px;background:#fff;border:1px solid #e3e8ee;border-radius:14px;padding:12px 16px', kids: [
+      scrEl('div', { text: titre, style: 'font-size:0.66rem;letter-spacing:.06em;text-transform:uppercase;font-weight:700;color:#5b6b7d;margin-bottom:6px' })].concat(rows.map(([k, v]) => scrEl('div', { style: 'margin:7px 0', kids: [
+        scrEl('div', { style: 'display:flex;justify-content:space-between;gap:8px;font-size:0.8rem', kids: [scrEl('span', { text: k, style: 'font-weight:700;color:#22303f' }),
+          scrEl('span', { kids: [scrEl('b', { text: aboEur(v), style: 'color:#22303f' }), scrEl('span', { text: '  ' + (tm > 0 ? (v / tm * 100).toFixed(0) : 0) + ' %', style: 'color:#5b6b7d' })] })] }),
+        scrEl('div', { style: 'height:7px;background:#eef1f5;border-radius:4px;margin-top:3px;overflow:hidden', kids: [scrEl('div', { style: 'height:7px;border-radius:4px;width:' + (v / mx * 100).toFixed(1) + '%;background:' + couleur(k) })] })] }))) });
+  };
+  wrap.appendChild(scrEl('div', { style: 'display:flex;flex-wrap:wrap;gap:12px;margin-bottom:14px', kids: [
+    barres('Par catégorie (par mois)', 'categorie', (k) => ABO_CAT[k] || '#9aa7b4'), barres('Par personne (par mois)', 'qui', () => '#3563e9')] }));
+  // 3. liste : tri par colonne, ajout, modification, suppression
+  const head = scrEl('div', { style: 'display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin:4px 0 6px' });
+  const add = scrEl('button', { text: '＋ Ajouter un abonnement', attrs: { type: 'button' }, style: 'padding:7px 14px;border-radius:9px;border:1px solid #3563e9;background:#eaf0ff;color:#3563e9;font-weight:700;cursor:pointer' });
+  add.onclick = () => { ABO_EDIT = 'new'; renderAbosTab(); };
+  head.append(scrEl('div', { text: 'Tous les abonnements', style: 'font-weight:800;color:#22303f;font-size:0.95rem' }), add);
+  wrap.appendChild(head);
+  if (ABO_EDIT === 'new') aboForm(null, wrap);
+  const tri = { mensuel: (a, b) => (b.m || -1) - (a.m || -1), nom: (a, b) => String(a.nom).localeCompare(String(b.nom)), categorie: (a, b) => String(a.categorie).localeCompare(String(b.categorie)) || (b.m || 0) - (a.m || 0),
+    qui: (a, b) => String(a.qui).localeCompare(String(b.qui)) || (b.m || 0) - (a.m || 0), jour: (a, b) => (a.jour || 99) - (b.jour || 99) };
+  const ordre = act.slice().sort(tri[ABO_SORT] || tri.mensuel).concat(res.slice().sort(tri.mensuel));
+  const chip = (txt, col) => scrEl('span', { text: txt, style: 'display:inline-block;padding:2px 8px;border-radius:20px;font-size:0.68rem;font-weight:700;white-space:nowrap;color:' + col + ';background:' + col + '1f' });
+  const actions = (a) => {
+    const ed = scrEl('button', { text: '✎', attrs: { type: 'button', title: 'Modifier' }, style: 'border:none;background:none;cursor:pointer;font-size:0.95rem;color:#5b6b7d' });
+    const del = scrEl('button', { text: '✕', attrs: { type: 'button', title: 'Supprimer' }, style: 'border:none;background:none;cursor:pointer;font-size:0.9rem;color:#dd5f66' });
+    ed.onclick = () => { ABO_EDIT = a.id; renderAbosTab(); };
+    del.onclick = () => { if (confirm('Supprimer « ' + a.nom + ' » ?')) db.ref('abonnements/items/' + a.id).remove().catch((e) => alert('Suppression impossible : ' + ((e && e.message) || e))); };
+    return scrEl('span', { style: 'white-space:nowrap', kids: [ed, del] });
+  };
+  const montantTxt = (a, an) => a.m == null ? 'à saisir' : aboEur(an ? a.m * 12 : a.m, an ? 0 : 2) + (a.devise === 'USD' && !an ? ' *' : '');
+  if (mob) {
+    // mobile : une carte par abonnement
+    ordre.forEach((a) => {
+      if (ABO_EDIT === a.id) { aboForm(a, wrap); return; }
+      const st = ABO_STATUT[a.statut] || ABO_STATUT.actif;
+      wrap.appendChild(scrEl('div', { style: 'display:flex;gap:10px;align-items:center;background:#fff;border:1px solid #e3e8ee;border-radius:12px;padding:10px 12px;margin-bottom:8px' + (a.statut === 'resilie' ? ';opacity:.55' : ''), kids: [
+        scrEl('span', { style: 'width:10px;height:36px;border-radius:4px;flex:0 0 auto;background:' + (ABO_CAT[a.categorie] || '#9aa7b4') }),
+        scrEl('div', { style: 'flex:1;min-width:0', kids: [
+          scrEl('div', { text: a.nom, style: 'font-weight:800;color:#22303f;font-size:0.9rem' }),
+          scrEl('div', { text: [a.categorie, a.qui, a.jour ? 'le ' + a.jour : null].filter(Boolean).join(' · '), style: 'font-size:0.72rem;color:#5b6b7d' }),
+          a.statut !== 'actif' ? chip(st[0], st[1]) : null] }),
+        scrEl('div', { style: 'text-align:right', kids: [scrEl('div', { text: montantTxt(a), style: 'font-weight:800;font-size:0.95rem;color:' + (a.m == null ? '#e0922c' : '#22303f') }),
+          scrEl('div', { text: a.m == null ? '' : montantTxt(a, true) + ' /an', style: 'font-size:0.7rem;color:#5b6b7d' })] }),
+        actions(a)] }));
+    });
+  } else {
+    const th = (lbl, key, al) => { const t = scrEl('th', { text: lbl + (ABO_SORT === key ? ' ▾' : ''), style: 'padding:8px 10px;text-align:' + (al || 'left') + ';font-size:0.66rem;text-transform:uppercase;letter-spacing:.03em;border-bottom:1px solid #e3e8ee;white-space:nowrap;' + (key ? 'cursor:pointer' : '') });
+      if (key) t.onclick = () => { ABO_SORT = key; renderAbosTab(); }; return t; };
+    const tbody = scrEl('tbody');
+    const bd = 'padding:8px 10px;border-bottom:1px solid #eef1f5;';
+    ordre.forEach((a) => {
+      if (ABO_EDIT === a.id) { const td = scrEl('td', { attrs: { colspan: '8' } }); aboForm(a, td); tbody.appendChild(scrEl('tr', { kids: [td] })); return; }
+      const st = ABO_STATUT[a.statut] || ABO_STATUT.actif;
+      tbody.appendChild(scrEl('tr', { style: a.statut === 'resilie' ? 'opacity:.5' : '', kids: [
+        scrEl('td', { style: bd, kids: [scrEl('div', { text: a.nom, style: 'font-weight:800;color:#22303f' }), a.note ? scrEl('div', { text: a.note, style: 'font-size:0.7rem;color:#5b6b7d;margin-top:1px' }) : null] }),
+        scrEl('td', { style: bd, kids: [chip(a.categorie || 'Autre', ABO_CAT[a.categorie] || '#9aa7b4')] }),
+        scrEl('td', { style: bd + 'color:#42546a', text: a.qui || '' }),
+        scrEl('td', { style: bd + 'color:#42546a;white-space:nowrap', text: a.jour ? 'le ' + a.jour : '–' }),
+        scrEl('td', { style: bd, kids: [chip(st[0], st[1])] }),
+        scrEl('td', { style: bd + 'text-align:right;font-weight:800;white-space:nowrap;font-size:0.92rem;color:' + (a.m == null ? '#e0922c' : '#22303f'), text: montantTxt(a) }),
+        scrEl('td', { style: bd + 'text-align:right;white-space:nowrap;color:#42546a', text: a.m == null ? '' : montantTxt(a, true) }),
+        scrEl('td', { style: bd + 'text-align:right', kids: [actions(a)] })] }));
+    });
+    tbody.appendChild(scrEl('tr', { style: 'background:#f6f8fb', kids: [scrEl('td', { attrs: { colspan: '5' }, style: 'padding:9px 10px;font-weight:800;color:#22303f', text: 'Total des abonnements en cours' + (manq ? ' (hors ' + manq + ' montant' + (manq > 1 ? 's' : '') + ' à saisir)' : '') }),
+      scrEl('td', { style: 'padding:9px 10px;text-align:right;font-weight:800;color:#dd5f66;white-space:nowrap', text: aboEur(tm) }),
+      scrEl('td', { style: 'padding:9px 10px;text-align:right;font-weight:800;color:#dd5f66;white-space:nowrap', text: aboEur(tm * 12, 0) }), scrEl('td')] }));
+    wrap.appendChild(scrEl('div', { style: 'background:#fff;border:1px solid #e3e8ee;border-radius:14px;overflow-x:auto', kids: [scrEl('table', { style: 'width:100%;border-collapse:collapse;font-size:0.84rem', kids: [
+      scrEl('thead', { kids: [scrEl('tr', { style: 'background:#f6f8fb;color:#5b6b7d', kids: [th('Abonnement', 'nom'), th('Catégorie', 'categorie'), th('Pour qui', 'qui'), th('Prélèvement', 'jour'), th('Statut'), th('Par mois', 'mensuel', 'right'), th('Par an', null, 'right'), th('')] })] }), tbody] })] }));
+  }
+  wrap.appendChild(scrEl('div', { style: 'font-size:0.7rem;color:#9aa7b4;margin-top:8px', text: '* montant en dollars converti au taux du jour. Les abonnements « à vérifier » comptent dans les totaux ; les résiliés n’y comptent plus et alimentent « Économisé ». Données privées (base Firebase), modifiables ici.' }));
+  c.replaceChildren(wrap);
 }
 
 // ══════════════════════════════════════════════════════════════
