@@ -8151,7 +8151,8 @@ function activateTab(tab) {
 // Mensuel et annuel calcules selon la frequence ; montants en dollars convertis au taux du jour.
 // Statuts : actif, a_verifier (compte dans les totaux, a confirmer), resilie (hors totaux, economie affichee).
 // ══════════════════════════════════════════════════════════════
-const ABO_FREQ = { mois: ['par mois', 1], an: ['par an', 1 / 12], trimestre: ['par trimestre', 1 / 3], semaine: ['par semaine', 52 / 12] };
+// semaines4 : salles de sport prelevees toutes les 4 semaines, soit 13 paiements par an (releve Revolut du 14/10/2026)
+const ABO_FREQ = { mois: ['par mois', 1], semaines4: ['toutes les 4 semaines', 13 / 12], an: ['par an', 1 / 12], trimestre: ['par trimestre', 1 / 3], semaine: ['par semaine', 52 / 12] };
 const ABO_CAT = { 'IA et logiciels': '#6366f1', 'Télécom et internet': '#0ea5e9', 'Vidéo et jeux': '#ef4444', 'Musique, presse et réseaux': '#22c55e',
   'Hébergement et sites': '#f59e0b', 'Maison et énergie': '#a16207', 'Sport et enfants': '#ec4899', 'Banque et assurance': '#64748b', 'Autre': '#9aa7b4' };
 // piste : prelevement detecte (releve bancaire) dont on ne sait pas encore si c'est un abonnement, hors totaux
