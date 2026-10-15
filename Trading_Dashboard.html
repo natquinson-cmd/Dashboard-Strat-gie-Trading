@@ -10316,7 +10316,8 @@ function renderPotLm(host) {
   hb.appendChild(head);
   const tb = scrEl('tbody'), bd = 'border-bottom:1px solid #f1f4f8';
   potLmHistory().forEach((r) => {
-    tb.appendChild(scrEl('tr', { style: r.mark ? 'background:#f2fbfb;font-weight:700' : (r.avant ? 'color:#5b6b7d' : ''), kids: [
+    // ligne de la bascule : fond pris en charge par le moteur de theme (#f2fbfb ne l'etait pas : texte clair sur fond blanc en theme fonce)
+    tb.appendChild(scrEl('tr', { style: r.mark ? 'background:#eef2f8;font-weight:700;color:#22303f' : (r.avant ? 'color:#5b6b7d' : ''), kids: [
       scrEl('td', { text: potDate(r.date), style: 'padding:6px 8px;' + bd + ';white-space:nowrap' }),
       scrEl('td', { text: r.lib, style: 'padding:6px 8px;' + bd }),
       scrEl('td', { text: r.delta == null ? '' : F.S(r.delta), style: 'padding:6px 8px;text-align:right;' + bd + ';white-space:nowrap;color:' + (r.delta == null ? '#9aa7b4' : (r.delta >= 0 ? '#1d9e74' : '#dd5f66')) }),
