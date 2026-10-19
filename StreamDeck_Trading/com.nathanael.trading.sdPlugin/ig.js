@@ -2,9 +2,32 @@
 // Identifiants dans ig_config.json (a remplir par le user, ignore par git, jamais journalise).
 // Lecture seule : aucune requete d'ordre, seulement /session, /positions et le flux.
 'use strict';
+const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const { LightstreamerClient, Subscription } = require('lightstreamer-client-node');
+
+// Double authentification IG (optionnelle, 19/10/2026) : avec elle, l'API du compte reel exige le code a 6 chiffres
+// colle au mot de passe. Code TOTP (RFC 6238, comme l'appli d'authentification) calcule depuis la cle secrete
+// affichee par IG a l'activation : variable IG_TOTP_SECRET, sinon ig_config.json "totpSecret". Sans cle : comme avant.
+function igTotp(secret, t) {
+  const A = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+  let bits = '';
+  for (const ch of String(secret).toUpperCase()) {
+    if (ch === ' ' || ch === '-' || ch === '=') continue;
+    const v = A.indexOf(ch);
+    if (v < 0) throw new Error('clé de double authentification illisible');
+    bits += v.toString(2).padStart(5, '0');
+  }
+  const octets = [];
+  for (let i = 0; i + 8 <= bits.length; i += 8) octets.push(parseInt(bits.slice(i, i + 8), 2));
+  const compteur = Buffer.alloc(8);
+  compteur.writeBigUInt64BE(BigInt(Math.floor((t == null ? Date.now() / 1000 : t) / 30)));
+  const h = crypto.createHmac('sha1', Buffer.from(octets)).update(compteur).digest();
+  const o = h[h.length - 1] & 0x0f;
+  return String((h.readUInt32BE(o) & 0x7fffffff) % 1000000).padStart(6, '0');
+}
+const pause = (ms) => new Promise((ok) => setTimeout(ok, ms));
 
 const CONFIG_FILE = path.join(__dirname, 'ig_config.json');
 const API = 'https://api.ig.com/gateway/deal';
@@ -54,7 +77,28 @@ function createIgFeed(log, onChange) {
 
   async function login() {
     session = null;
-    const r = await rest('/session', { method: 'POST', body: { identifier: cfg.username, password: cfg.password } });
+    const secret = String(process.env.IG_TOTP_SECRET || cfg.totpSecret || '').trim();
+    const essais = secret ? 2 : 1;   // avec code : un 2e essai sur le code suivant (code deja utilise par le pont)
+    let r = null;
+    for (let i = 0; i < essais; i++) {
+      let pwd = cfg.password;
+      if (secret) {
+        const reste = 30 - (Date.now() / 1000) % 30;
+        if (reste < 3) await pause((reste + 0.5) * 1000);   // code sur le point d'expirer : attendre le suivant
+        pwd += igTotp(secret);
+      }
+      try {
+        r = await rest('/session', { method: 'POST', body: { identifier: cfg.username, password: pwd } });
+        break;
+      } catch (e) {
+        if (secret && i + 1 < essais && /invalid-details|error\.security/i.test(e.message)) {
+          log('IG : code de double authentification refusé, essai avec le code suivant');
+          await pause((30 - (Date.now() / 1000) % 30 + 1) * 1000);
+          continue;
+        }
+        throw e;
+      }
+    }
     session = {
       cst: r.headers.get('cst'), xst: r.headers.get('x-security-token'),
       accountId: cfg.accountId || r.body.currentAccountId,
@@ -231,7 +275,8 @@ function createIgFeed(log, onChange) {
     try { await login(); }
     catch (e) {
       const bad = /invalid\.details|error\.security|account-disabled|api-key-(invalid|disabled|revoked)|accountId/i.test(e.message);
-      fail('connexion refusée : ' + e.message, bad);
+      const sansCle = !String(process.env.IG_TOTP_SECRET || cfg.totpSecret || '').trim();
+      fail('connexion refusée : ' + e.message + (bad && sansCle ? ' (double authentification IG activée ? renseigner IG_TOTP_SECRET)' : ''), bad);
       return;
     }
     await resolveEpics();
@@ -246,4 +291,4 @@ function createIgFeed(log, onChange) {
   return { state, start, stop() { stopped = true; stopClient(); } };
 }
 
-module.exports = { createIgFeed };
+module.exports = { createIgFeed, igTotp };

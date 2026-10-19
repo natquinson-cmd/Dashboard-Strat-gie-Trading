@@ -27,9 +27,13 @@ Firebase (dashboard/pontLive, que le pont IG reecrit a chaque fermeture de posit
 IG que si une fermeture n'a pas encore ete synchronisee : deux appels IG par trade clos, pas plus.
 La cle IG est partagee avec le pont, qui interroge deja IG toutes les 2 s : on ne l'encombre pas.
 """
+import base64
+import hashlib
+import hmac
 import json
 import os
 import re
+import struct
 import sys
 import time
 import urllib.error
@@ -84,6 +88,47 @@ def ig_request(base, path, method, headers, body=None):
         except Exception:
             code = 'HTTP %s' % e.code
         raise RuntimeError('IG %s %s -> %s' % (method, path, code))
+
+
+# ------------------------------------------------- double authentification IG
+# Optionnelle (19/10/2026). Avec la double authentification activee, l'API IG du compte reel exige le code
+# a 6 chiffres colle au mot de passe. On le calcule (TOTP RFC 6238, comme l'appli d'authentification) a partir
+# de la cle secrete affichee par IG a l'activation : variable IG_TOTP_SECRET (celle du pont), sinon
+# ig_config.json "totpSecret". Sans cle : mot de passe seul, comme avant.
+def ig_totp(secret, t=None, step=30, digits=6):
+    cle = re.sub(r'[\s-]', '', secret).upper()
+    cle = base64.b32decode(cle + '=' * (-len(cle) % 8))
+    h = hmac.new(cle, struct.pack('>Q', int((time.time() if t is None else t) // step)), hashlib.sha1).digest()
+    o = h[-1] & 0x0F
+    return str((struct.unpack('>I', h[o:o + 4])[0] & 0x7FFFFFFF) % (10 ** digits)).zfill(digits)
+
+
+def ig_login(cfg):
+    """POST /session. Avec cle : un 2e essai sur le code suivant si le premier est refuse
+    (code deja utilise par le pont dans la meme demi-minute, horloge limite), jamais plus."""
+    secret = (os.environ.get('IG_TOTP_SECRET') or cfg.get('totpSecret') or '').strip()
+    essais = 2 if secret else 1
+    for i in range(essais):
+        pwd = cfg['password']
+        if secret:
+            reste = 30 - time.time() % 30
+            if reste < 3:
+                time.sleep(reste + 0.5)
+            pwd += ig_totp(secret)
+        try:
+            return ig_request(cfg['apiBase'], '/session', 'POST',
+                              {'X-IG-API-KEY': cfg['apiKey'], 'Version': '2'},
+                              {'identifier': cfg['username'], 'password': pwd})
+        except RuntimeError as e:
+            refus = re.search(r'invalid-details|error\.security\.', str(e))
+            if refus and i + 1 < essais:
+                log('IG refuse le code de double authentification, essai avec le code suivant...')
+                time.sleep(30 - time.time() % 30 + 1)
+                continue
+            if refus:
+                raise RuntimeError('%s : %s' % (e, 'verifier la cle IG_TOTP_SECRET et l heure du VPS' if secret
+                                                else 'si la double authentification IG est activee, renseigner IG_TOTP_SECRET'))
+            raise
 
 
 # ---------------------------------------------------------------- conversion
@@ -184,9 +229,7 @@ def row_to_trade(r):
 def run(cfg, db, full, dry):
     # 1. connexion IG
     log('Connexion a IG...')
-    hdrs, _ = ig_request(cfg['apiBase'], '/session', 'POST',
-                         {'X-IG-API-KEY': cfg['apiKey'], 'Version': '2'},
-                         {'identifier': cfg['username'], 'password': cfg['password']})
+    hdrs, _ = ig_login(cfg)
     cst, token = hdrs.get('cst'), hdrs.get('x-security-token')
     if not cst or not token:
         log('ERREUR : IG n a pas renvoye de jeton de session.')

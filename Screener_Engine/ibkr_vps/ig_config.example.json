@@ -3,5 +3,7 @@
   "apiKey": "TA_CLE_API_IG",
   "username": "TON_IDENTIFIANT_IG",
   "password": "TON_MOT_DE_PASSE_IG",
+  "totpSecret": "",
+  "_totpSecret": "Facultatif : cle secrete de la double authentification IG (sinon variable IG_TOTP_SECRET). Vide = mot de passe seul.",
   "apiBase": "https://api.ig.com/gateway/deal"
 }
