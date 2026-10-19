@@ -6364,7 +6364,9 @@ function igWatchUpdates() {
       showLoading = () => {};
       Promise.all([loadTradesFromFirebase(), loadDividendsFromFirebase(), loadDepositsFromFirebase(), loadFeesToFirebase()]).finally(() => { showLoading = sl; }).then(() => {
         try { syncRobotTrading(); } catch (e) {}
-        try { updateDataTimestamp(); } catch (e) {}
+        // AFFICHER la date, surtout ne pas la RECRIRE : updateDataTimestamp() ecrivait lastDataUpdate, ce qui relancait
+        // ce meme ecouteur dans tous les dashboards ouverts -> boucle sans fin (~14 redessins/s, page qui saute, 19/10/2026)
+        try { displayDataTimestamp(v); } catch (e) {}
         // onglet Trading Auto : redessine s'il est affiche, sinon a sa prochaine ouverture (graphiques dimensionnes a l'ecran)
         if (currentTab === 'real') { try { renderRealTab(); } catch (e) {} } else tabRendered.real = false;
         if (currentTab === 'total') { try { renderTotalTab(); } catch (e) {} }
