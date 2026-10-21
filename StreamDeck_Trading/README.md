@@ -74,3 +74,10 @@ Après une modification : `npm install` dans le dossier du plugin si besoin, pui
 - Touche BOURSE (icône chandeliers, `icone_bourse.png`) en haut à droite (4,0) de la page par défaut (A17F…) : action Elgato
   « Page précédente », qui mène à la page Trading puisqu'elle est juste avant. Si l'ordre des pages change, elle ne pointera plus au bon endroit.
 - Sauvegarde du manifeste d'origine de cette page : `backup_page_defaut_manifest.json`.
+
+## Position via le pont (`pontlive.js`) et interrupteur `ig_pause`
+- Les touches ALGOS LIVE, JAUGE et SÉCURITÉ lisent le flux IG du Stream Deck s'il tourne, sinon la position publiée par le pont du VPS
+  (`dashboard/pontLive`, lue toutes les 5 s dans Firebase, aucune connexion IG). Valeur du point = euros sécurisés / points sécurisés.
+- Fichier `ig_pause` présent dans le dossier du plugin = le Stream Deck ne se connecte plus à IG (créé le 21/10/2026 après la suspension
+  de la clé API par IG le 19/10, « error.security.client-suspended »). Indices alors sur Yahoo (DAX ~15 min de retard).
+  Pour réactiver le direct IG : supprimer `ig_pause` puis relancer le logiciel Stream Deck.

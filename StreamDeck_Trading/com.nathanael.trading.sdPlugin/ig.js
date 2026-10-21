@@ -266,6 +266,9 @@ function createIgFeed(log, onChange) {
 
   async function start() {
     stopClient();
+    // Interrupteur : fichier « ig_pause » present = le Stream Deck ne se connecte pas a IG (cle API partagee avec
+    // le pont ; IG l'a suspendue le 19/10/2026). Les touches de position lisent alors la position publiee par le pont.
+    if (fs.existsSync(path.join(__dirname, 'ig_pause'))) { state.status = 'off'; state.error = 'IG en pause'; onChange(); return; }
     try { cfg = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8')); }
     catch (e) { state.status = 'off'; state.error = 'ig_config.json absent'; onChange(); return; }
     if (!cfg.apiKey || !cfg.username || !cfg.password || /^TA_|^TON_/.test(cfg.apiKey + cfg.username)) {

@@ -8,6 +8,7 @@ const { spawn } = require('child_process');
 const WebSocket = require('ws');
 const { compute } = require('./engine');
 const { createIgFeed } = require('./ig');
+const { createPontLive } = require('./pontlive');
 const { createPositionKeys } = require('./position');
 const { createEnfantsView } = require('./enfants');
 const { createPortefeuilleView } = require('./portefeuille');
@@ -318,7 +319,15 @@ function posLine(s) {
   return out;
 }
 
-const posKeys = createPositionKeys({ C, esc, nf1, nf0, igFeed, log });
+// Source des touches de position : le flux IG du Stream Deck s'il tourne, sinon la position publiee par le pont
+// (dashboard/pontLive), qui ne demande aucune connexion IG au Stream Deck.
+const pontLive = createPontLive(log, () => { for (const [c, n] of contexts) if (n === 'algos' || n === 'jauge' || n === 'securite') paint(c); });
+function effState() {
+  const s = igFeed.state;
+  if (s.status === 'ok' && s.account && Date.now() - s.account.at < 10 * 60000) return s;
+  return pontLive.etat() || s;
+}
+const posKeys = createPositionKeys({ C, esc, nf1, nf0, igFeed: { get state() { return effState(); } }, log });
 
 // P&L latent des algos (positions ouvertes du compte IG, en direct) + realise du jour (synchro IG du dashboard).
 // Points de P&L : cours de sortie (bid pour un achat, offer pour une vente) moins le niveau d'ouverture.
@@ -332,7 +341,7 @@ function openPoints(s) {
 }
 const sPts = v => (v > 0 ? '+' : '') + nf1.format(v).replace(/\s/g, ' ') + ' pts';
 function renderAlgos() {
-  const s = igFeed.state, a = s.account;
+  const s = effState(), a = s.account;
   const pts = s.status === 'ok' ? openPoints(s) : null;
   const F = 'font-family="Segoe UI, Arial" text-anchor="middle" font-weight="800"';
   const realise = data ? data.today.ig : null;
