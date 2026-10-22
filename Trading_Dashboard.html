@@ -13705,22 +13705,9 @@ function screenerRenderQuality(c, data, config) {
   const top = [...(data.top || [])].sort((a, b) => sortFn(b) - sortFn(a));
   const frag = document.createDocumentFragment();
   frag.appendChild(screenerPositionsModule());
-  frag.appendChild(scrEl('div', { style: 'display:flex;align-items:center;gap:12px;margin:26px 0 14px', kids: [
-    scrEl('div', { style: 'height:3px;flex:0 0 44px;background:#3563e9;border-radius:2px' }),
-    scrEl('div', { kids: [
-      scrEl('div', { text: 'SCREENER', style: 'font-size:0.74rem;font-weight:800;color:#3563e9;letter-spacing:.09em' }),
-      scrEl('div', { text: "Où déployer : classement qualité-valorisation et proposition de répartition", style: 'font-size:0.72rem;color:#9aa7b4' })] }),
-    scrEl('div', { style: 'flex:1;height:1px;background:#e3e8ee' })] }));
-
-  const grid = scrEl('div', { cls: 'inv-grid-kpi', style: 'margin-bottom:14px' });
-  [['Notées', String(top.length), 'Achat fort → Surévaluée'],
-   ['Univers qualité', String(s.universe ?? '–'), 'grandes caps US + Europe'],
-   ['Passent le filtre', String(s.survivors ?? '–'), 'ROE, FCF, dette'],
-   ['Achat fort', String(top.filter((t) => scrRatingFromScore(scrRowNote(t)) === 'Achat fort').length), 'les mieux notées']
-  ].forEach((k) => grid.appendChild(scrEl('div', { cls: 'kpi-card', kids: [
-    scrEl('div', { cls: 'stripe', style: 'background:linear-gradient(90deg,#1d9e74,#34d399)' }),
-    scrEl('div', { cls: 'label', text: k[0] }), scrEl('div', { cls: 'value', style: 'font-size:1.5rem', text: k[1] }), scrEl('div', { cls: 'sub', text: k[2] })]})));
-  frag.appendChild(grid);
+  // Bandeau « SCREENER / Où déployer » et ses 4 compteurs (Notées, Univers qualité, Passent le filtre, Achat fort)
+  // RETIRES le 22/10/2026 a la demande du user : obsoletes. Un simple espace separe les positions du screener.
+  frag.appendChild(scrEl('div', { style: 'height:22px' }));
 
   const refresh = scrEl('button', { text: 'Rafraîchir', style: 'padding:7px 13px;border:1px solid #e3e8ee;border-radius:9px;background:#fff;font-weight:600;cursor:pointer' });
   refresh.onclick = () => renderScreenerTab();
