@@ -58,11 +58,11 @@ def _poslist(pos):
 
 
 # --- DCA programme ETF Revolut : le VPS fait grossir les lignes ETF au cours du jour ---
-# (choix user) 20 EUR VUAA le mercredi + 10 EUR VFEA le jeudi. Applique 1 fois par jour concerne (idempotent).
-DCA_PLAN = [
-    {'ticker': 'VUAA.DE', 'amountEur': 20.0, 'weekday': 2},   # mercredi (lundi=0 .. dimanche=6)
-    {'ticker': 'VFEA.DE', 'amountEur': 10.0, 'weekday': 3},   # jeudi
-]
+# ARRETE le 22/10/2026 : le user a annule ses 2 achats recurrents chez Revolut (20 EUR VUAA le mercredi,
+# 10 EUR VFEA le jeudi). Plan vide = plus aucune ligne grossie ; le mecanisme reste pour une reprise eventuelle :
+#   {'ticker': 'VUAA.DE', 'amountEur': 20.0, 'weekday': 2},   # mercredi (lundi=0 .. dimanche=6)
+#   {'ticker': 'VFEA.DE', 'amountEur': 10.0, 'weekday': 3},   # jeudi
+DCA_PLAN = []
 
 
 def _price_eur(price_native, exch, fx):
