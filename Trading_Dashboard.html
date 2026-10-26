@@ -4560,6 +4560,40 @@ function ttlStockHist() {
   if (typeof positionsHistoryData !== 'undefined' && positionsHistoryData) return scrHistArray(positionsHistoryData);
   return [];
 }
+// P&L par jour et par mois (toutes sources), recalculables seuls, sans redessiner les graphiques de l'onglet.
+function ttlRefreshDayMonth() {
+  ttlDayData = ttlDailyMap();
+  ttlMonthPnl = {};
+  Object.keys(ttlDayData).forEach(d => { const ym = d.slice(0,7); const o = ttlMonthPnl[ym] || (ttlMonthPnl[ym] = { ig:0, stk:0, dwx:0, total:0 }); o.ig += ttlDayData[d].ig; o.stk += ttlDayData[d].stk; o.dwx += ttlDayData[d].dwx; o.total += ttlDayData[d].total; });
+}
+// « AUJOURD'HUI » EN DIRECT (26/10/2026, « les données ne se mettent pas à jour ») : l'historique du portefeuille
+// d'actions n'était lu qu'à l'ouverture, donc le P&L du jour et du mois restait figé (−7 € affichés quand une page
+// rouverte donnait −45 €). À chaque nouvelle série de cours (toutes les 5 min), on relit SEULEMENT la dernière photo
+// du portefeuille, puis on recalcule jour et mois. Lecture seule : aucune écriture, donc aucun risque de boucle.
+// Si l'onglet Actions a déjà calculé un point du jour en direct (cours live), il prime sur la photo du VPS.
+let TTL_TODAY_BUSY = false;
+async function ttlRefreshToday() {
+  if (TTL_TODAY_BUSY || typeof db === 'undefined' || !db) return;
+  TTL_TODAY_BUSY = true;
+  try {
+    const v = (await db.ref('stocks/screener/positionsHistory').orderByKey().limitToLast(1).once('value')).val();
+    const day = v ? Object.keys(v)[0] : null;
+    if (day && v[day]) {
+      positionsHistoryData = positionsHistoryData || {};
+      positionsHistoryData[day] = v[day];
+      if (Array.isArray(SCR_HIST) && SCR_HIST.length) {
+        const pt = scrHistArray({ [day]: v[day] })[0], i = SCR_HIST.findIndex((h) => h.date === day);
+        if (i >= 0 && !SCR_HIST[i].live) SCR_HIST[i] = pt;
+        else if (i < 0 && SCR_HIST[SCR_HIST.length - 1].date < day) SCR_HIST.push(pt);
+      }
+    }
+    ttlRefreshDayMonth();
+  } catch (e) { console.warn('[trading total] P&L du jour', e); }
+  finally { TTL_TODAY_BUSY = false; }
+  renderTtlDaySummary();
+  if (currentTab === 'accueil') renderMobileHome();
+  if (currentTab === 'total') renderTtlCockpit();
+}
 function ttlDwxDates() {
   const ks = Object.keys(darwinexDaily || {}).filter(k => /^\d{4}-\d{2}-\d{2}$/.test(k) && darwinexDaily[k] && typeof darwinexDaily[k].value === 'number' && isFinite(darwinexDaily[k].value)).sort();
   // un zero AVANT le premier versement ne compte pas ; APRES, il dit que le compte est solde (retrait total du 29/09/2026)
@@ -4728,11 +4762,9 @@ function ttlCompute() {
   const capTotal = igNow + stkNow + dwxNow, pnlTotal = igPnl + stkPnl + dwxPnl, invTotal = igDep + stkInv + dwxInv;
   const pnlPct = invTotal > 0 ? pnlTotal/invTotal*100 : 0;
 
-  ttlDayData = ttlDailyMap();
+  ttlRefreshDayMonth();
   ttlSeries = ttlEquitySeries();
   ttlEqMonths = { months: ttlSeries.months, total: ttlSeries.months.map((_,i) => (ttlSeries.ig[i]||0)+(ttlSeries.stk[i]||0)+(ttlSeries.dwx[i]||0)) };
-  ttlMonthPnl = {};
-  Object.keys(ttlDayData).forEach(d => { const ym = d.slice(0,7); const o = ttlMonthPnl[ym] || (ttlMonthPnl[ym] = { ig:0, stk:0, dwx:0, total:0 }); o.ig += ttlDayData[d].ig; o.stk += ttlDayData[d].stk; o.dwx += ttlDayData[d].dwx; o.total += ttlDayData[d].total; });
   return { fx, igDep, igNow, igPnl, stkUsd, stkNow, stkPnl, stkInv, dwxNow, dwxPnl, dwxInv, capTotal, pnlTotal, invTotal, pnlPct };
 }
 function renderTotalTab() {
@@ -6321,7 +6353,8 @@ function loadHealthBar() {
   sub('dashboard/pontIG', 'pont');
   sub('igSyncStatus', 'igSync');
   sub('stocks/kidsPrice/at', 'kids');
-  try { db.ref('stocks/screener/livePrices/prices').on('value', (x) => { TTL_LP = x.val(); renderTtlDaySummary(); if (currentTab === 'accueil') renderMobileHome(); if (currentTab === 'total') renderTtlCockpit(); }); } catch (e) {}
+  // nouvelle série de cours : la ligne des variations suit tout de suite, puis le P&L du jour et du mois (ttlRefreshToday)
+  try { db.ref('stocks/screener/livePrices/prices').on('value', (x) => { TTL_LP = x.val(); renderTtlDaySummary(); ttlRefreshToday(); }); } catch (e) {}
   renderHealthBar();
   setInterval(renderHealthBar, 60000);   // les ages vieillissent meme sans nouvel evenement
   return Promise.resolve();
