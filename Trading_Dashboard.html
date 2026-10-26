@@ -8692,14 +8692,20 @@ const SCR_CYCLICAL_MEMORY = ['MU', 'SKHY', 'SNDK', 'WDC', '000660.KS', '005930.K
 const SCR_CYCLE = { maxGrowth: 0.08, maxExitPe: 12 };
 function scrIsMemory(m) { return !!(m && SCR_CYCLICAL_MEMORY.includes(String(m.symbol || '').toUpperCase())); }
 // Benefice par action de milieu de cycle : moitie benefice actuel, moitie benefice MOYEN des exercices connus
-// (creux compris), jamais au-dessus du benefice actuel. Calcule en RATIO (moyenne / dernier exercice) pour etre
-// insensible a la devise : l'historique des ADR est dans la monnaie locale (SKHY : wons) quand le cours est en
-// dollars. null si l'historique manque (moins de 3 exercices) ou si le dernier exercice n'est pas benefique.
+// (creux et pertes compris), jamais au-dessus du benefice actuel ni sous le quart. Historique en dollars (titres
+// US) : moyenne directe (SNDK, en perte sur tous ses exercices passes : 31,76 $ au lieu de 73,76 $). Historique
+// dans une autre devise que le cours (ADR : SKHY en wons) : RATIO moyenne / dernier exercice, insensible a la
+// devise, possible seulement si ce dernier exercice est benefique. null si moins de 3 exercices connus.
 function scrCycleEps(m, eps) {
-  const h = (m && m.hist && Array.isArray(m.hist.eps)) ? m.hist.eps.filter((x) => x != null && isFinite(x)) : [];
-  if (h.length < 3 || !(eps > 0) || !(h[h.length - 1] > 0)) return null;
-  const ratio = (h.reduce((a, b) => a + b, 0) / h.length) / h[h.length - 1];   // moyenne du cycle / dernier exercice
-  return Math.max(eps * 0.25, Math.min(eps, eps * (1 + ratio) / 2));
+  const hist = m && m.hist;
+  const h = (hist && Array.isArray(hist.eps)) ? hist.eps.filter((x) => x != null && isFinite(x)) : [];
+  if (h.length < 3 || !(eps > 0)) return null;
+  const moy = h.reduce((a, b) => a + b, 0) / h.length, dernier = h[h.length - 1];
+  let milieu;
+  if (!hist.ccy || hist.ccy === 'USD') milieu = (eps + moy) / 2;
+  else if (dernier > 0) milieu = eps * (1 + moy / dernier) / 2;
+  else return null;
+  return Math.max(eps * 0.25, Math.min(eps, milieu));
 }
 // Juste prix = potentiel brut (PE cible / PE actuel) PONDERE par une FIABILITE de la lentille
 // benefices. Fiabilite faible = cyclique (PE anormalement bas = benefices de pic, pic de croissance,
