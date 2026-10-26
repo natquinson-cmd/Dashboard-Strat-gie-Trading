@@ -13801,8 +13801,8 @@ function screenerRenderQuality(c, data, config) {
   const refresh = scrEl('button', { text: 'Rafraîchir', style: 'padding:7px 13px;border:1px solid #e3e8ee;border-radius:9px;background:#fff;font-weight:600;cursor:pointer' });
   refresh.onclick = () => renderScreenerTab();
   // Coche « Masquer les moats faibles » (26/10/2026, demande du user) : ne garde dans le TABLEAU que les moats Large
-  // (Étroit, Aucun et non analysés masqués), la même règle que la répartition. Les rangs restent ceux du classement
-  // complet. Choix retenu dans le navigateur.
+  // (Étroit, Aucun et non analysés masqués), la même règle que la répartition. Les rangs suivent le tableau
+  // affiché (numérotation qui se resserre : 1, 2, 3...). Choix retenu dans le navigateur.
   let hideWeak = false;
   try { hideWeak = localStorage.getItem('scrHideWeakMoat') === '1'; } catch (e) {}
   const moatOf = (cd) => (SCR_PRICE_MAP[String(cd.symbol || '').toUpperCase()] || {}).moat;
@@ -13811,14 +13811,13 @@ function screenerRenderQuality(c, data, config) {
   weakBox.checked = hideWeak;
   weakBox.onchange = () => { try { localStorage.setItem('scrHideWeakMoat', weakBox.checked ? '1' : '0'); } catch (e) {} if (SCR_LAST_Q) scrRerenderQuality(); else renderScreenerTab(); };
   const weakLbl = scrEl('label', { attrs: { title: 'Ne garder que les moats « Large ». Masque les moats « Étroit », « Aucun » et ceux pas encore analysés (même règle que la répartition proposée).' },
-    style: 'display:inline-flex;align-items:center;gap:6px;color:#42546a;font-size:0.76rem;font-weight:600;cursor:pointer;margin-left:14px', kids: [weakBox,
+    style: 'display:inline-flex;align-items:center;gap:6px;color:#42546a;font-size:0.76rem;font-weight:600;cursor:pointer', kids: [weakBox,
       document.createTextNode('Masquer les moats faibles' + (hideWeak ? ' (' + (top.length - rows.length) + ' masqués)' : ''))] });
   // Selecteur de tri RETIRE : le classement ne se choisit plus, il est fige sur juste valeur + potentiel/an.
   // On garde le critere affiche en clair, pour qu'un tableau non triable ne soit pas un tableau opaque.
   frag.appendChild(scrEl('div', { style: 'display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px', kids: [
-    scrEl('div', { style: 'display:flex;align-items:center;flex-wrap:wrap;gap:4px', kids: [
-      scrEl('span', { attrs: { title: "Classement figé : combinaison de la décote vs juste valeur DCF et du potentiel annuel attendu. Il n'y a plus d'autre tri." },
-        style: 'color:#5b6b7d;font-size:0.76rem;cursor:help', text: 'Classé par juste valeur + potentiel/an' }), weakLbl] }),
+    scrEl('span', { attrs: { title: "Classement figé : combinaison de la décote vs juste valeur DCF et du potentiel annuel attendu. Il n'y a plus d'autre tri." },
+      style: 'color:#5b6b7d;font-size:0.76rem;cursor:help', text: 'Classé par juste valeur + potentiel/an' }),
     scrEl('div', { style: 'display:flex;align-items:center;gap:10px', kids: [
       scrEl('span', { style: 'color:#5b6b7d;font-size:0.76rem', text: (data.generatedAt ? 'Généré le ' + new Date(data.generatedAt).toLocaleString('fr-FR') : '') + ' · Yahoo' }),
       scrFreshBadge(data.generatedAt), refresh] })]}));
@@ -13907,8 +13906,7 @@ function screenerRenderQuality(c, data, config) {
 
   if (!rows.length) {
     tbody.appendChild(scrEl('tr', { kids: [scrEl('td', { attrs: { colspan: '21' }, text: hideWeak ? 'Aucune candidate avec un moat Large.' : 'Aucune candidate.', style: 'padding:22px;color:#5b6b7d' })] }));
-  } else rows.forEach((cd) => {
-    const i = top.indexOf(cd);   // rang dans le classement complet, meme quand des lignes sont masquees
+  } else rows.forEach((cd, i) => {   // numerotation des lignes AFFICHEES : 1, 2, 3... meme quand des lignes sont masquees
     const m = cd.metrics || {}, rc = SCR_RATING_COL[cd.rating] || SCR_RATING_COL['Neutre'];
     const link = scrEl('a', { text: cd.symbol || '', href: scrQuoteUrl(cd.symbol, m.exchange), attrs: { target: '_blank', rel: 'noopener' }, style: 'font-weight:800;color:#3563e9;text-decoration:none' });
     const chip = scrEl('span', { text: cd.rating, style: `background:${rc[0]};color:${rc[1]};border-radius:20px;padding:2px 10px;font-size:0.7rem;font-weight:700;white-space:nowrap` });
@@ -13934,6 +13932,8 @@ function screenerRenderQuality(c, data, config) {
     ]}));
   });
   const table = scrEl('table', { style: 'width:100%;border-collapse:collapse;font-size:0.82rem', kids: [scrEl('thead', { kids: [thead] }), tbody] });
+  // coche « Masquer les moats faibles » juste au-dessus du tableau du screener (demande du user : pas au-dessus de la répartition)
+  frag.appendChild(scrEl('div', { style: 'display:flex;align-items:center;margin:16px 0 8px', kids: [weakLbl] }));
   // Table large : scrollbar horizontale en haut (synchronisée) + en-têtes figés
   frag.appendChild(scrEl('div', { style: 'background:#fff;border:1px solid #e3e8ee;border-radius:14px;overflow:hidden', kids: [scrTableBox(table)] }));
 
