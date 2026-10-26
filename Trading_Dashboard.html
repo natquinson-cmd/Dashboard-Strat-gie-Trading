@@ -8692,12 +8692,14 @@ const SCR_CYCLICAL_MEMORY = ['MU', 'SKHY', 'SNDK', 'WDC', '000660.KS', '005930.K
 const SCR_CYCLE = { maxGrowth: 0.08, maxExitPe: 12 };
 function scrIsMemory(m) { return !!(m && SCR_CYCLICAL_MEMORY.includes(String(m.symbol || '').toUpperCase())); }
 // Benefice par action de milieu de cycle : moitie benefice actuel, moitie benefice MOYEN des exercices connus
-// (creux compris), jamais au-dessus du benefice actuel. null si l'historique manque (moins de 3 exercices).
+// (creux compris), jamais au-dessus du benefice actuel. Calcule en RATIO (moyenne / dernier exercice) pour etre
+// insensible a la devise : l'historique des ADR est dans la monnaie locale (SKHY : wons) quand le cours est en
+// dollars. null si l'historique manque (moins de 3 exercices) ou si le dernier exercice n'est pas benefique.
 function scrCycleEps(m, eps) {
   const h = (m && m.hist && Array.isArray(m.hist.eps)) ? m.hist.eps.filter((x) => x != null && isFinite(x)) : [];
-  if (h.length < 3 || !(eps > 0)) return null;
-  const moy = h.reduce((a, b) => a + b, 0) / h.length;
-  return Math.max(eps * 0.25, Math.min(eps, (eps + moy) / 2));
+  if (h.length < 3 || !(eps > 0) || !(h[h.length - 1] > 0)) return null;
+  const ratio = (h.reduce((a, b) => a + b, 0) / h.length) / h[h.length - 1];   // moyenne du cycle / dernier exercice
+  return Math.max(eps * 0.25, Math.min(eps, eps * (1 + ratio) / 2));
 }
 // Juste prix = potentiel brut (PE cible / PE actuel) PONDERE par une FIABILITE de la lentille
 // benefices. Fiabilite faible = cyclique (PE anormalement bas = benefices de pic, pic de croissance,
