@@ -4568,15 +4568,18 @@ function ttlRefreshDayMonth() {
 }
 // « AUJOURD'HUI » EN DIRECT (26/10/2026, « les données ne se mettent pas à jour ») : l'historique du portefeuille
 // d'actions n'était lu qu'à l'ouverture, donc le P&L du jour et du mois restait figé (−7 € affichés quand une page
-// rouverte donnait −45 €). À chaque nouvelle série de cours (toutes les 5 min), on relit SEULEMENT la dernière photo
-// du portefeuille, puis on recalcule jour et mois. Lecture seule : aucune écriture, donc aucun risque de boucle.
-// Si l'onglet Actions a déjà calculé un point du jour en direct (cours live), il prime sur la photo du VPS.
-let TTL_TODAY_BUSY = false;
-async function ttlRefreshToday() {
-  if (TTL_TODAY_BUSY || typeof db === 'undefined' || !db) return;
-  TTL_TODAY_BUSY = true;
+// rouverte donnait −45 €). On écoute SEULEMENT la dernière photo du portefeuille (écrite par le VPS toutes les 5 min,
+// juste APRÈS les cours : relire à l'arrivée des cours donnait la photo précédente), puis on recalcule jour et mois.
+// Lecture seule : aucune écriture, donc aucun risque de boucle. Si l'onglet Actions a déjà calculé un point du jour
+// en direct (cours live), il prime sur la photo du VPS.
+let TTL_TODAY_ON = false;
+function ttlWatchToday() {
+  if (TTL_TODAY_ON || typeof db === 'undefined' || !db) return;
+  TTL_TODAY_ON = true;
+  try { db.ref('stocks/screener/positionsHistory').orderByKey().limitToLast(1).on('value', (s) => ttlRefreshToday(s.val())); } catch (e) {}
+}
+function ttlRefreshToday(v) {
   try {
-    const v = (await db.ref('stocks/screener/positionsHistory').orderByKey().limitToLast(1).once('value')).val();
     const day = v ? Object.keys(v)[0] : null;
     if (day && v[day]) {
       positionsHistoryData = positionsHistoryData || {};
@@ -4589,7 +4592,6 @@ async function ttlRefreshToday() {
     }
     ttlRefreshDayMonth();
   } catch (e) { console.warn('[trading total] P&L du jour', e); }
-  finally { TTL_TODAY_BUSY = false; }
   renderTtlDaySummary();
   if (currentTab === 'accueil') renderMobileHome();
   if (currentTab === 'total') renderTtlCockpit();
@@ -6353,8 +6355,9 @@ function loadHealthBar() {
   sub('dashboard/pontIG', 'pont');
   sub('igSyncStatus', 'igSync');
   sub('stocks/kidsPrice/at', 'kids');
-  // nouvelle série de cours : la ligne des variations suit tout de suite, puis le P&L du jour et du mois (ttlRefreshToday)
-  try { db.ref('stocks/screener/livePrices/prices').on('value', (x) => { TTL_LP = x.val(); renderTtlDaySummary(); ttlRefreshToday(); }); } catch (e) {}
+  // nouvelle série de cours : la ligne des variations suit ; le P&L du jour et du mois suit la photo du portefeuille
+  try { db.ref('stocks/screener/livePrices/prices').on('value', (x) => { TTL_LP = x.val(); renderTtlDaySummary(); if (currentTab === 'accueil') renderMobileHome(); if (currentTab === 'total') renderTtlCockpit(); }); } catch (e) {}
+  ttlWatchToday();
   renderHealthBar();
   setInterval(renderHealthBar, 60000);   // les ages vieillissent meme sans nouvel evenement
   return Promise.resolve();
