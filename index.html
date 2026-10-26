@@ -12645,7 +12645,8 @@ function scrTopKpiBand(pos, badge) {
     const v = (pu != null) ? qty * pu : investi;
     val += v; inv += investi;
     const chg = (d && d.changePct != null) ? d.changePct : null;
-    if (chg != null && pu != null) day += v * chg / (1 + chg);
+    const dj = (pu != null) ? scrDayImpact(p.ticker, qty, pu, chg) : null;   // meme reference que le calendrier
+    if (dj) day += dj.usd;
     if (d && pu != null) {
       const dcf = scrDcf(d, d.sector || 'Autre');
       const fu = (dcf && dcf.fair > 0) ? scrToUsd(dcf.fair, d.exchange) : null;
@@ -13160,7 +13161,7 @@ function scrMobilePortfolio(pos) {
     const investi = qty * (p.pru || 0), pu = d ? scrToUsd(d.price, d.exchange) : null;
     const valeur = pu != null ? qty * pu : investi;
     const chg = (d && d.changePct != null) ? d.changePct : null;
-    const dj = (chg != null && pu != null) ? scrDayImpact(p.ticker, qty, pu, chg) : null;
+    const dj = (pu != null) ? scrDayImpact(p.ticker, qty, pu, chg) : null;   // reference = derniere photo, comme le calendrier
     return { t: t, d: d, qty: qty, investi: investi, valeur: valeur, cat: mpCat(t, d),
       pnl: pu != null ? valeur - investi : null, pnlPct: (pu != null && p.pru > 0) ? pu / p.pru - 1 : null, day: dj ? dj.usd : 0,
       dayOk: !!dj, dayPct: dj ? ((valeur - dj.usd) > 0 ? dj.usd / (valeur - dj.usd) : chg) : null };
@@ -13480,8 +13481,27 @@ function screenerPositionsModule() {
 // que 2 des 8 actions, achetees a 249,33 $ dans la journee, n'avaient perdu que 0,98 $ chacune. Le
 // calendrier compte depuis le prix d'achat, d'ou deux chiffres differents pour "la journee". On lit donc
 // le journal : achats du jour comptes depuis leur prix, ventes du jour jusqu'a leur prix.
+// COURS DE REFERENCE DU JOUR, EN USD (26/10/2026) : celui de la derniere photo du portefeuille d'un jour precedent,
+// la meme reference que le calendrier. L'en-tete prenait la variation du jour de Yahoo : pour la crypto c'est 24 h
+// glissantes (le lundi, la baisse du week-end de SHIB, -77 $, tombait dans le calendrier mais pas dans l'en-tete :
+// +22 $ d'un cote, -59 $ de l'autre) et pour les ETF en euros elle ignore le change. Repli : cloture de la veille
+// deduite de la variation Yahoo (pas encore de photo, ou ligne absente de la photo car achetee depuis).
+function scrPrevUsd(ticker, priceUsd, chg) {
+  const today = scrLocalDay(new Date()), k = String(ticker || '').toUpperCase().trim();
+  if (Array.isArray(SCR_HIST)) {
+    for (let i = SCR_HIST.length - 1; i >= 0; i--) {
+      const h = SCR_HIST[i];
+      if (h.date >= today) continue;
+      const l = (h.lines || []).find((x) => String(x.ticker || '').toUpperCase().trim() === k);
+      if (l && l.qty > 0 && l.value > 0) return l.value / l.qty;
+      break;
+    }
+  }
+  return (chg != null && priceUsd != null) ? priceUsd / (1 + chg) : null;
+}
 function scrDayImpact(ticker, qty, priceUsd, chg) {
-  const prev = priceUsd / (1 + chg), k = scrTxKey(ticker), today = scrLocalDay(new Date());
+  const prev = scrPrevUsd(ticker, priceUsd, chg), k = scrTxKey(ticker), today = scrLocalDay(new Date());
+  if (prev == null || !(priceUsd > 0)) return null;
   const buys = scrTxOn(today, 'BUY', k), sells = scrTxOn(today, 'SELL', k);
   const gainBought = buys.reduce((a, t) => a + t.q * (priceUsd - t.px), 0), gainSold = sells.reduce((a, t) => a + t.q * (t.px - prev), 0);
   const sold = sells.reduce((a, t) => a + t.q, 0);
@@ -13520,7 +13540,7 @@ function renderPositionsTable(pos, onChange) {
     const pnl = priceUsd != null ? valeur - investi : null;
     const pnlPct = (priceUsd != null && p.pru > 0) ? priceUsd / p.pru - 1 : null;
     const chg = d && d.changePct != null ? d.changePct : null;
-    const dj = (chg != null && priceUsd != null) ? scrDayImpact(p.ticker, qty, priceUsd, chg) : null;
+    const dj = (priceUsd != null) ? scrDayImpact(p.ticker, qty, priceUsd, chg) : null;   // reference = derniere photo, comme le calendrier
     const dayImp = dj ? dj.usd : null;
     totInv += investi; totVal += valeur; if (dayImp != null) totDay += dayImp;
     // Valorisation DCF de la ligne : juste valeur par action (meme modele que la fiche) -> ecart cours / juste valeur.
@@ -13534,8 +13554,10 @@ function renderPositionsTable(pos, onChange) {
     const del = scrEl('button', { text: '×', style: 'border:none;background:none;color:#c0392b;font-size:1.15rem;cursor:pointer;font-weight:800;line-height:1' });
     del.onclick = () => { const arr = scrGetPositions().slice(); arr.splice(i, 1); scrSavePositions(arr); onChange(); if (SCR_HIST_RERENDER) SCR_HIST_RERENDER(); };
     const pnlCol = pnl == null ? '#5b6b7d' : (pnl >= 0 ? '#1d9e74' : '#dd5f66');
-    const dayCol = chg == null ? '#5b6b7d' : (chg >= 0 ? '#1d9e74' : '#dd5f66');
-    const dayTxt = chg == null ? '–' : (chg >= 0 ? '+' : '') + (chg * 100).toFixed(1) + '%' + (dayImp != null ? ' (' + (dayImp >= 0 ? '+' : '') + scrUsd(dayImp) + ')' : '');
+    // % du jour sur la meme reference que le montant (derniere photo) : sinon SHIB affichait -0,2 % (24 h Yahoo) a cote de -80 $
+    const dPct = (dayImp != null && valeur - dayImp > 0) ? dayImp / (valeur - dayImp) : chg;
+    const dayCol = dPct == null ? '#5b6b7d' : (dPct >= 0 ? '#1d9e74' : '#dd5f66');
+    const dayTxt = dPct == null ? '–' : (dPct >= 0 ? '+' : '') + (dPct * 100).toFixed(1) + '%' + (dayImp != null ? ' (' + (dayImp >= 0 ? '+' : '') + scrUsd(dayImp) + ')' : '');
     // Signaux de VENTE facon DK (les mecanisables) : à vérifier, pas un ordre de vente.
     const sell = [];
     if (d) {
