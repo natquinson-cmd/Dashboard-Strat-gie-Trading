@@ -1665,7 +1665,7 @@
   <div id="tab-accueil" class="tab-content"></div>
   <div id="mPlus">
     <div class="m-plus-title">Trading</div><div class="m-plus-grid"><button type="button" onclick="mGo('trading','total')">Trading total</button><button type="button" onclick="mGo('trading','enfants')">Enfants</button><button type="button" onclick="kidsOpenSub('lm')">Lendermarket</button><button type="button" onclick="mGo('trading','fixed')">Backtests</button></div>
-    <div class="m-plus-title">Portfolio</div><div class="m-plus-grid"><button type="button" onclick="mGo('invest','interests')">Intérêts</button><button type="button" onclick="mGo('invest','evolution')">Évolution</button><button type="button" onclick="mGo('invest','loans')">Emprunts</button><button type="button" onclick="mGo('invest','realestate')">Immobilier</button><button type="button" onclick="mGo('invest','simulateur')">Rembourser vs Placer</button><button type="button" onclick="mGo('invest','abonnements')">Abonnements</button><button type="button" onclick="mGo('invest','update')">Mise à jour</button></div>
+    <div class="m-plus-title">Portfolio</div><div class="m-plus-grid"><button type="button" onclick="mGo('invest','interests')">Intérêts</button><button type="button" onclick="mGo('invest','evolution')">Évolution</button><button type="button" onclick="mGo('invest','loans')">Emprunts</button><button type="button" onclick="mGo('invest','realestate')">Immobilier</button><button type="button" onclick="mGo('invest','simulateur')">Rembourser vs Placer</button><button type="button" onclick="mGo('invest','abonnements')">Abonnements</button><button type="button" onclick="mGo('invest','depenses')">Dépenses</button><button type="button" onclick="mGo('invest','update')">Mise à jour</button></div>
   </div>
   <nav id="mNav"><button type="button" data-k="home" onclick="mGo('trading','accueil')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/></svg>Accueil</button><button type="button" data-k="trading" onclick="mGo('trading','real')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 17 9 11 13 15 21 7"/><polyline points="15 7 21 7 21 13"/></svg>Trading</button><button type="button" data-k="actions" onclick="mGo('trading','screener')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V11"/><path d="M10 20V5"/><path d="M16 20v-8"/><path d="M22 20H2"/></svg>Actions</button><button type="button" data-k="portfolio" onclick="mGo('invest','overview')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="14" rx="2"/><path d="M3 10h18"/><path d="M16 14h2"/></svg>Portfolio</button><button type="button" data-k="plus" onclick="mPlusToggle(event)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/></svg>Plus</button></nav>
 
@@ -2109,6 +2109,7 @@
   <div id="tab-darwinex" class="tab-content"></div>
   <div id="tab-simulateur" class="tab-content"></div>
   <div id="tab-abonnements" class="tab-content"></div>
+  <div id="tab-depenses" class="tab-content"></div>
   <div id="tab-repartition" class="tab-content"></div>
   <div id="tab-screener" class="tab-content"></div>
   <div id="tab-enfants" class="tab-content"></div>
@@ -8052,13 +8053,14 @@ const GROUP_TABS = {
     { id: 'realestate', label: 'Immobilier' },
     { id: 'simulateur', label: 'Rembourser vs Placer' },
     { id: 'abonnements', label: 'Abonnements' },
+    { id: 'depenses', label: 'Dépenses' },
     // Lendermarket : deplace le 05/10/2026 dans l'onglet Enfants (sous-onglet de la cagnotte). L'ancienne page
     // (invRenderRepartition) reste dans le code, son historique alimente celui du sous-onglet.
     { id: 'update', label: 'Mise à jour' }
   ]
 };
 
-const ALL_TAB_IDS = ['accueil', 'total', 'real', 'fixed', 'reinvest', 'overview', 'interests', 'evolution', 'loans', 'realestate', 'darwinex', 'simulateur', 'abonnements', 'repartition', 'screener', 'enfants', 'update'];
+const ALL_TAB_IDS = ['accueil', 'total', 'real', 'fixed', 'reinvest', 'overview', 'interests', 'evolution', 'loans', 'realestate', 'darwinex', 'simulateur', 'abonnements', 'depenses', 'repartition', 'screener', 'enfants', 'update'];
 
 // Dernier backtest consulte (fixe ou reinvesti), pour que l'onglet « Backtests » le rouvre.
 function btLastTab() {
@@ -8176,11 +8178,558 @@ function activateTab(tab) {
 
   // Abonnements : rendu autonome (donnees privees abonnements/items)
   if (tab === 'abonnements') { renderAbosTab(); return; }
+  // Depenses : rendu autonome (donnees privees depenses/, importees du releve Revolut)
+  if (tab === 'depenses') { renderDepTab(); return; }
 
   // Portfolio tabs
   if (['overview', 'interests', 'evolution', 'loans', 'realestate', 'darwinex', 'simulateur', 'repartition', 'update'].includes(tab)) {
     invDestroyCharts();
     renderPortfolioTab(tab);
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+// DEPENSES (groupe Portfolio, 27/10/2026, demande du user : « analyse toutes mes depenses [...] faire la chasse
+// aux depenses inutiles »). Source : export CSV du compte Revolut, importe depuis la page (bouton « Importer »).
+// Donnees PRIVEES dans Firebase `depenses/` (jamais dans le code : le depot est public) :
+//   depenses/tx      lignes TERMINEES [date AAAA-MM-JJ, type, description, montant net des frais]
+//   depenses/regles  categorie choisie a la main pour un marchand (cle depKey)
+//   depenses/cibles  marchands marques « a couper » {depuis: AAAA-MM, moy: moyenne mensuelle avant}
+//   depenses/meta    date et periode du dernier import
+// Les mouvements qui ne sont pas des depenses (epargne, placements, virements entre mes comptes, change,
+// rechargements) sont classes « Hors dépenses » et sortent des totaux.
+// ══════════════════════════════════════════════════════════════
+// [couleur, emoji, nature] ; nature : ess = essentiel, comp = compressible (propose a la chasse), neutre, hors
+const DEP_CATS = {
+  'Courses': ['#1d9e74', '🛒', 'ess'],
+  'Restaurants et fast-food': ['#dd5f66', '🍔', 'comp'],
+  'Achats en ligne': ['#f97316', '📦', 'comp'],
+  'Vêtements': ['#ec4899', '👕', 'comp'],
+  'Abonnements et applis': ['#6366f1', '📱', 'comp'],
+  'Outils et projets': ['#0ea5e9', '💻', 'neutre'],
+  'Frais de trading': ['#8b5cf6', '📉', 'comp'],
+  'Voiture et transport': ['#a16207', '⛽', 'ess'],
+  'Loisirs et sorties': ['#f59e0b', '🎬', 'comp'],
+  'Voyages': ['#14b8a6', '✈️', 'comp'],
+  'Santé': ['#2eb5a0', '🩺', 'ess'],
+  'École et enfants': ['#3b82f6', '🎒', 'ess'],
+  'Sport': ['#56cbb4', '🏃', 'neutre'],
+  'Maison et équipement': ['#7c94b5', '🏠', 'neutre'],
+  'Beauté et coiffure': ['#a78bfa', '💈', 'comp'],
+  'Amendes et frais bancaires': ['#c0392b', '🚨', 'comp'],
+  'Crédits et impôts': ['#64748f', '🏛️', 'ess'],
+  'Dons et église': ['#46ba90', '🙏', 'neutre'],
+  'Virements à des proches': ['#e6b422', '👨‍👧', 'neutre'],
+  'Compte joint': ['#94a0b4', '🤝', 'neutre'],
+  'Espèces': ['#9aa7b4', '💶', 'neutre'],
+  'Autres': ['#c3ccd6', '❔', 'neutre'],
+  'Hors dépenses': ['#c3ccd6', '↔️', 'hors']
+};
+// regles automatiques : [categorie, expression testee sur la description en minuscules]
+const DEP_REGLES = [
+  ['Hors dépenses', /fonds mon[ée]taires|compte d'investissement|ig group|lendermarket|darwinex|mintos|debitum|trade republic|revolut digital assets|boursorama|quinson ca\b|^to nathana[eë]l quinson|nathanael quinson$|coffre|vault|pocket|sapiens market|amp global|interactive brokers|ibkr|^change en/],
+  ['Compte joint', /emilie ada arlette masnada & nathanael/],
+  ['Frais de trading', /apex trader|tradeify|ninjatrader|trading institut|topstep|tradingview|prorealtime|myfundedfutures|ftmo|take profit trader|lucid trading|alpha futures/],
+  ['Amendes et frais bancaires', /webamende|amende|creances publiq|antai|frais d'abonnement|plan fee|frais d'émission|card delivery|frais de|\bfee\b/],
+  ['Crédits et impôts', /cofidis|younited|^repayment$|finances publiques|dgfip|impots|urssaf|cetelem|sofinco|floa|oney/],
+  ['Courses', /lidl|magasin u|super u|hyper u|auchan|carrefour|leclerc|intermarch|spar\b|conad|casino|monoprix|franprix|aldi|picard|grand frais|biocoop|utile coop|brut butcher|boucherie|boulangerie|la mie c[âa]line|fruggies|migros|coop\b|denner|netto|cora\b|^match\b|marie blach|terroir|primeur|fromager|bo ma so|lbb fish/],
+  ['Restaurants et fast-food', /mcdonald|burger|kfc|o'tacos|tacos|uber ? ?eats|deliveroo|just eat|kebab|erkan|pizza|pizzeria|ristorante|restaurant|bistro|brasserie|saigon|panda gourm|sushi|teriyaki|\bthai\b|naan|chez |caf[ée]|starbucks|subway|domino|quick\b|five guys|gourmet|trattoria|osteria|bettola|la romana|la strada|cocotte|my chef|crescendo|hysteria|little italy|mamma|via quadronno|le k\b|l'alpin|snack|cut pizza|obb food|fat dyne|burger man|lido mania|piazzale|eskay|othai|oe thai|crêpe|creperie|glacier|le temps des copains|la terrasse|wok|street food|tarte trop|sprüngli|chaise longue|chiosco/],
+  ['Achats en ligne', /amazon(?! prime)|shein|temu|joom|aliexpress|vinted|^wish\b|cdiscount|fnac|ebay|leboncoin|madewis|multi ?store|virtual dreams/],
+  ['Vêtements', /kiabi|h&m|new yorker|celio|hugo boss|\bvans\b|adidas|nike|new balance|zara|primark|jules|bershka|pull&bear|zalando|uniqlo|gemo|la halle|c&a|sport's house|elles et lui|promod|the north face/],
+  ['Abonnements et applis', /netflix|spotify|apple|google play|google one|microsoft|amazon prime|disney|canal|deezer|youtube|audible|ligue 1|dazn|playstation|xbox|nintendo|starlink|^orange|free mobile|sfr|bouygues|sosh|twitter|x corp/],
+  ['Outils et projets', /anthropic|openai|chatgpt|cloudflare|contabo|infomaniak|shopify|canva|suno|capcut|captions|facebook|meta ads|kairos insider|ableton|native instruments|github|ovh|hostinger|wix|adobe|notion|midjourney|elevenlabs|sky marketing|thomann|numworks|distrokid|wetransfer/],
+  ['Voiture et transport', /tesla|\btotal|\besso\b|^bp |\bshell\b|^avia\b|tamoil|sarni|italiana petroli|ip italiana|agip|autostrade|autoroute|vinci|area\b|aprr|satap|s\.a\.v|tunnel|sibra|sncf|tgv|parking|indigo|auto ?flex|rentacar|garage|moteurs et culasses|norauto|feu vert|midas|speedy|carglass|contr[ôo]le technique|ads novara|area di servizio|gare de|bla ?bla|uber(?! ?eats)|curb\b|ionity|batteries center|autogrill/],
+  ['Voyages', /booking|airbnb|h[ôo]tel|chalet|a[ée]roport|airport|easyjet|ryanair|air france|swiss|lufthansa|customs|\besta\b|big city|tourism|central park|s[ée]jour|camping|vrbo|bundesamt f[üu]r zoll|fr dfs|duty free|broadway|ibis|residence inn|novotel|mercure|campanile/],
+  ['Loisirs et sorties', /megarama|path[ée]|multiplex|cin[ée]ma|ticketingcine|cultura|water splash|parc glace|foot 5|olympique|bowling|jigsaw|fruit ninja|wave of art|escape|laser|karting|mus[ée]e|zoo|parc |concert|ticketmaster|fnac spectacles|seetickets|jouets|jypy|king jouet|joueclub|la grande r[ée]cr|puissance des divs/],
+  ['Santé', /pharmacie|^phie\b|^dr |docteur|dentaire|dentiste|doctolib|point vision|optic|opticien|laboratoire|cerballiance|biogroup|kin[ée]|ost[ée]o|h[ôo]pital|clinique|marion dautel|drouin jordan|mutuelle|elsan|doktorabc/],
+  ['École et enfants', /ogec|lyc[ée]e|coll[èe]ge|[ée]cole|cantine|garderie|centre de loisirs|cr[èe]che|association h24|maxence coach|epfl restau/],
+  ['Sport', /basic.fit|unyk sport|fitness|decathlon|intersport|sport 2000|unisport|pringy foot|us pringy|h(au)?te savoie sport|go sport|salle de sport|piscine|\bski|forfait/],
+  ['Maison et équipement', /castorama|leroy merlin|darty|boulanger|^action\b|foir'fouille|vorwerk|ikea|^but\b|conforama|maisons du monde|gifi|bricomarch|brico|renov|valenti bois|monceau fleurs|florajet|truffaut|jardiland|lumys|monat|home renov|broadway cameras/],
+  ['Beauté et coiffure', /barber|coiff|planity|sephora|beaut|nocib[ée]|yves rocher|marionnaud|ild beaute|esth[ée]tique/],
+  ['Dons et église', /[ée]glise|helloasso|cemi|un coeur pour les nations|\bdons?\b|mission|paroisse/],
+  ['Espèces', /retrait d'esp[èe]ces|cash/]
+];
+const DEP_HORS_TYPES = { 'Changes': 1, 'Ajout de fonds': 1, 'LOAN': 1, 'Récompense': 1, 'CARD_CREDIT': 1, 'TEMP_BLOCK': 1, 'Exchange': 1, 'Topup': 1, 'Reward': 1 };
+// marchand : description sans prefixe de virement (« To X », « Virement à : X »), en minuscules
+function depKey(desc) {
+  return String(desc || '').replace(/^(to|vers|virement à\s*:|virement de\s*:|paiement envoyé par|from)\s+/i, '').trim().toLowerCase();
+}
+function depNom(desc) {
+  return String(desc || '').replace(/^(to|vers|virement à\s*:|virement de\s*:|paiement envoyé par|from)\s+/i, '').trim();
+}
+// categorie d'une ligne [d, type, desc, montant] ; regles = choix manuels du user (prioritaires)
+function depCat(t, regles) {
+  const type = t[1], k = depKey(t[2]);
+  if (regles && regles[depKeyFb(k)]) return regles[depKeyFb(k)];
+  if (DEP_HORS_TYPES[type]) return 'Hors dépenses';
+  if ((type === 'Virement' || type === 'Transfer') && t[3] > 0) return 'Hors dépenses';   // argent recu
+  if (type === 'DAB' || type === 'ATM') return 'Espèces';
+  if (type === 'LOAN_PAYMENT') return 'Crédits et impôts';
+  if (type === 'Frais de dossier initiaux' || type === 'Valider le paiement' || type === 'Fee') return 'Amendes et frais bancaires';
+  const d = String(t[2] || '').toLowerCase();
+  for (let i = 0; i < DEP_REGLES.length; i++) if (DEP_REGLES[i][1].test(d)) return DEP_REGLES[i][0];
+  if (type === 'Virement' || type === 'Transfer') {
+    if (/quinson/.test(d)) return 'Virements à des proches';
+    return 'Autres';
+  }
+  return 'Autres';
+}
+// cle Firebase sure (pas de . # $ [ ] /)
+function depKeyFb(k) { return String(k).replace(/[.#$\[\]\/]/g, '_').slice(0, 120) || '_'; }
+
+// lecture du CSV Revolut (francais ou anglais : memes colonnes dans le meme ordre)
+function depParseCsv(txt) {
+  const rows = [];
+  let row = [], f = '', q = false;
+  for (let i = 0; i < txt.length; i++) {
+    const c = txt[i];
+    if (q) { if (c === '"') { if (txt[i + 1] === '"') { f += '"'; i++; } else q = false; } else f += c; }
+    else if (c === '"') q = true;
+    else if (c === ',') { row.push(f); f = ''; }
+    else if (c === '\n' || c === '\r') { if (c === '\r' && txt[i + 1] === '\n') i++; row.push(f); rows.push(row); row = []; f = ''; }
+    else f += c;
+  }
+  if (f !== '' || row.length) { row.push(f); rows.push(row); }
+  const head = (rows.shift() || []).map((h) => h.trim().toLowerCase());
+  const ix = (names, def) => { for (const n of names) { const i = head.indexOf(n); if (i >= 0) return i; } return def; };
+  const iT = ix(['type'], 0), iD = ix(['date de début', 'started date'], 2), iDe = ix(['description'], 4), iM = ix(['montant', 'amount'], 5),
+    iF = ix(['frais', 'fee'], 6), iC = ix(['devise', 'currency'], 7), iE = ix(['état', 'state'], 8);
+  if (head.indexOf('description') < 0 || (head.indexOf('montant') < 0 && head.indexOf('amount') < 0)) throw new Error('Ce fichier ne ressemble pas à un relevé Revolut (colonnes Description et Montant introuvables).');
+  const out = [];
+  rows.forEach((r) => {
+    if (r.length < 6) return;
+    const etat = String(r[iE] || '').trim().toUpperCase();
+    if (etat && etat !== 'TERMINÉ' && etat !== 'COMPLETED') return;
+    if (r[iC] && String(r[iC]).trim() !== 'EUR') return;   // compte en euros seulement
+    const m = parseFloat(String(r[iM]).replace(',', '.')) || 0, fr = parseFloat(String(r[iF]).replace(',', '.')) || 0;
+    const net = Math.round((m - fr) * 100) / 100;
+    if (!net) return;
+    out.push([String(r[iD]).slice(0, 10), String(r[iT]).trim(), String(r[iDe]).trim(), net]);
+  });
+  out.sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0));
+  return out;
+}
+// fusion : les lignes deja en base hors de la periode du nouveau fichier sont gardees, le reste est remplace
+function depMerge(old, nouv) {
+  if (!nouv.length) return old || [];
+  const d0 = nouv[0][0], d1 = nouv[nouv.length - 1][0];
+  return (old || []).filter((t) => t[0] < d0 || t[0] > d1).concat(nouv).sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0));
+}
+
+// ── Analyse ──
+function depYm(d) { return d.slice(0, 7); }
+function depYmAdd(ym, k) { const p = ym.split('-').map(Number); const dt = new Date(p[0], p[1] - 1 + k, 1); return dt.getFullYear() + '-' + String(dt.getMonth() + 1).padStart(2, '0'); }
+// lignes enrichies : {d, ym, type, desc, k, nom, cat, v} ; v = depense en positif (un remboursement est negatif)
+function depLignes(tx, regles) {
+  return (tx || []).map((t) => {
+    const cat = depCat(t, regles);
+    return { d: t[0], ym: depYm(t[0]), type: t[1], desc: t[2], k: depKeyFb(depKey(t[2])), nom: depNom(t[2]), cat: cat, v: -t[3] };
+  });
+}
+// periode d'analyse : n mois complets avant le mois en cours (n = 12 par defaut)
+function depFenetre(curYm, n) { return [depYmAdd(curYm, -n), depYmAdd(curYm, -1)]; }
+function depDans(l, f) { return l.ym >= f[0] && l.ym <= f[1]; }
+function depSomme(L) { return L.reduce((x, l) => x + l.v, 0); }
+
+// categories ou un paiement regulier ressemble a un abonnement
+const DEP_REC_CATS = { 'Abonnements et applis': 1, 'Outils et projets': 1, 'Sport': 1, 'Amendes et frais bancaires': 1, 'Crédits et impôts': 1, 'École et enfants': 1, 'Dons et église': 1, 'Frais de trading': 1, 'Autres': 1, 'Maison et équipement': 1 };
+// paiements recurrents : >= 3 mois distincts sur les 6 derniers mois complets, montant stable (+/- 25 %)
+function depRecurrents(L, curYm) {
+  const f = depFenetre(curYm, 6), par = {};
+  L.forEach((l) => { if (l.cat === 'Hors dépenses' || l.v <= 0 || !depDans(l, f)) return; (par[l.k] = par[l.k] || []).push(l); });
+  const out = [];
+  Object.keys(par).forEach((k) => {
+    const A = par[k], mois = {};
+    A.forEach((l) => { mois[l.ym] = (mois[l.ym] || 0) + l.v; });
+    const ms = Object.keys(mois);
+    if (ms.length < 3) return;
+    const vals = ms.map((m) => mois[m]), moy = vals.reduce((a, b) => a + b, 0) / vals.length;
+    const ecart = Math.sqrt(vals.reduce((a, b) => a + (b - moy) * (b - moy), 0) / vals.length) / moy;
+    const parMois = A.length / ms.length;
+    if (ecart > 0.25 || parMois > 2.2) return;   // trop variable ou trop frequent : pas un abonnement
+    if (!DEP_REC_CATS[A[0].cat]) return;   // courses, restaurants, sante... : achats frequents, pas des abonnements
+    if (moy < 3) return;
+    const dern = A[A.length - 1];
+    out.push({ k: k, nom: dern.nom, cat: dern.cat, mensuel: moy * ms.length / 6, nMois: ms.length, dernier: dern.d, montant: dern.v, actif: dern.ym >= depYmAdd(curYm, -2) });
+  });
+  return out.sort((a, b) => b.mensuel - a.mensuel);
+}
+// marchands d'une liste de lignes : {k, nom, cat, n, total, dernier}
+function depMarchands(L) {
+  const m = {};
+  L.forEach((l) => {
+    const x = m[l.k] || (m[l.k] = { k: l.k, nom: l.nom, cat: l.cat, n: 0, total: 0, dernier: '' });
+    if (l.v > 0) x.n++;
+    x.total += l.v;
+    if (l.d >= x.dernier) { x.dernier = l.d; x.nom = l.nom; x.cat = l.cat; }
+  });
+  return Object.keys(m).map((k) => m[k]).filter((x) => Math.abs(x.total) >= 0.5).sort((a, b) => b.total - a.total);
+}
+// pistes d'economie sur les 12 derniers mois complets. Chaque piste : {id, emoji, titre, an (cout annuel), eco (economie
+// annuelle estimee), detail, cles (marchands concernes, pour « ajouter a ma chasse »)}
+function depPistes(L, curYm, abosNoms) {
+  const f = depFenetre(curYm, 12), fp = [depYmAdd(f[0], -12), depYmAdd(f[1], -12)];
+  const W = L.filter((l) => depDans(l, f) && l.cat !== 'Hors dépenses'), P = L.filter((l) => depDans(l, fp) && l.cat !== 'Hors dépenses');
+  const out = [], eur = (v) => Math.round(v).toLocaleString('fr-FR') + ' €';
+  const cat = (c) => W.filter((l) => l.cat === c);
+  const top = (A, n) => depMarchands(A).slice(0, n || 3);
+  // 1. achats en ligne
+  const al = cat('Achats en ligne'), alT = depSomme(al), alN = al.filter((l) => l.v > 0).length;
+  if (alT > 200) {
+    const petits = al.filter((l) => l.v > 0 && l.v < 20);
+    out.push({ id: 'enligne', emoji: '📦', titre: 'Achats en ligne', an: alT, eco: alT * 0.3,
+      detail: alN + ' commandes en 12 mois, soit ' + (alN / 52).toFixed(1).replace('.', ',') + ' par semaine (panier moyen ' + eur(alT / Math.max(1, alN)) + '). ' +
+        petits.length + ' achats de moins de 20 € pour ' + eur(depSomme(petits)) + '. ' + top(al, 3).map((x) => x.nom + ' ' + eur(x.total)).join(' · ') +
+        '. Règle des 48 h : laisser le panier deux jours avant de valider.', cles: top(al, 3).map((x) => x.k) });
+  }
+  // 2. restaurants et fast-food
+  const re = cat('Restaurants et fast-food'), reT = depSomme(re), reN = re.filter((l) => l.v > 0).length;
+  if (reT > 200) {
+    const ff = re.filter((l) => /mcdonald|burger|kfc|tacos|uber|deliveroo|kebab|erkan|subway|quick/i.test(l.desc));
+    out.push({ id: 'resto', emoji: '🍔', titre: 'Restaurants et fast-food', an: reT, eco: reT * 0.4,
+      detail: reN + ' passages en 12 mois (' + eur(reT / 12) + ' par mois), dont ' + ff.length + ' en fast-food et livraison pour ' + eur(depSomme(ff)) + '. ' +
+        top(re, 3).map((x) => x.nom + ' ' + eur(x.total)).join(' · ') + '.', cles: top(ff.length ? ff : re, 3).map((x) => x.k) });
+  }
+  // 3. achats dans les applis et jeux (petits montants repetes)
+  const app = W.filter((l) => /apple|google play|playstation|xbox|nintendo|steam|roblox|fortnite|epic games/i.test(l.desc));
+  const appT = depSomme(app);
+  if (appT > 100) out.push({ id: 'applis', emoji: '🎮', titre: 'Achats dans les applis et les jeux', an: appT, eco: appT * 0.5,
+    detail: app.filter((l) => l.v > 0).length + ' paiements Apple, Google Play ou console en 12 mois. Souvent des achats intégrés ou des abonnements oubliés : à passer en revue dans les réglages du téléphone (Abonnements) et à bloquer par code parental.',
+    cles: top(app, 3).map((x) => x.k) });
+  // 4. paiements recurrents en double (meme besoin paye deux fois)
+  const rec = depRecurrents(L, curYm).filter((r) => r.actif), dbl = [];
+  const sport = rec.filter((r) => r.cat === 'Sport');
+  if (sport.length >= 2) dbl.push([sport.length + ' abonnements de sport en parallèle', sport]);
+  const mot = {};
+  rec.forEach((r) => { const w = r.nom.toLowerCase().split(/\s+/).slice(0, 2).join(' '); (mot[w] = mot[w] || []).push(r); });
+  Object.keys(mot).forEach((w) => { if (mot[w].length >= 2 && !mot[w].every((r) => r.cat === 'Sport')) dbl.push([mot[w].map((r) => r.nom).join(' et '), mot[w]]); });
+  const lig = W.filter((l) => /ligue 1/i.test(l.desc)), ligK = {};
+  lig.forEach((l) => { ligK[l.k] = 1; });
+  if (Object.keys(ligK).length >= 2 && !dbl.some((d) => /ligue 1/i.test(d[0]))) dbl.push(['Ligue 1 payée sur ' + Object.keys(ligK).length + ' abonnements', Object.keys(ligK).map((k) => ({ k: k, mensuel: depSomme(lig.filter((l) => l.k === k)) / 12 }))]);
+  dbl.forEach((d, i) => {
+    const an = d[1].reduce((x, r) => x + r.mensuel * 12, 0), min = Math.min.apply(null, d[1].map((r) => r.mensuel * 12));
+    out.push({ id: 'double' + i, emoji: '👯', titre: 'En double : ' + d[0], an: an, eco: min,
+      detail: 'Le même besoin payé plusieurs fois : en garder un seul économise au moins ' + eur(min) + ' par an.', cles: d[1].map((r) => r.k) });
+  });
+  // 5. abonnements detectes pas encore suivis dans l'onglet Abonnements
+  const noms = (abosNoms || []).map((n) => n.toLowerCase());
+  const suivi = (r) => noms.some((n) => n && (r.nom.toLowerCase().indexOf(n) >= 0 || n.indexOf(r.nom.toLowerCase().split(/\s+/)[0]) >= 0));
+  const dejaDbl = {};
+  dbl.forEach((d) => d[1].forEach((r) => { dejaDbl[r.k] = 1; }));
+  const nonSuivis = rec.filter((r) => r.cat !== 'Crédits et impôts' && r.cat !== 'Amendes et frais bancaires' && !dejaDbl[r.k] && !suivi(r));
+  if (nonSuivis.length) {
+    const an = nonSuivis.reduce((x, r) => x + r.mensuel * 12, 0);
+    out.push({ id: 'abos', emoji: '🔁', titre: nonSuivis.length + ' prélèvement' + (nonSuivis.length > 1 ? 's' : '') + ' réguliers hors de l’onglet Abonnements', an: an, eco: an * 0.25,
+      detail: nonSuivis.slice(0, 6).map((r) => r.nom + ' ' + eur(r.mensuel) + '/mois').join(' · ') + '. Ajoute-les à l’onglet Abonnements (bouton ➕ plus bas) pour les noter et les résilier.', cles: nonSuivis.map((r) => r.k) });
+  }
+  // 6. amendes et frais bancaires : evitables a 100 %
+  const am = cat('Amendes et frais bancaires'), amT = depSomme(am);
+  if (amT > 20) out.push({ id: 'frais', emoji: '🚨', titre: 'Amendes et frais bancaires', an: amT, eco: amT,
+    detail: top(am, 4).map((x) => x.nom + ' ' + eur(x.total)).join(' · ') + '. De l’argent perdu sans contrepartie : forfait de compte à rabaisser si ses avantages ne servent pas, amendes à éviter.', cles: top(am, 4).map((x) => x.k) });
+  // 7. frais de trading (prop firms, plateformes, formations)
+  const tr = cat('Frais de trading'), trT = depSomme(tr);
+  if (trT > 50) out.push({ id: 'trading', emoji: '📉', titre: 'Frais de trading', an: trT, eco: trT * 0.5,
+    detail: top(tr, 4).map((x) => x.nom + ' ' + eur(x.total)).join(' · ') + '. Comptes d’évaluation et plateformes : à mettre en regard de ce qu’ils ont rapporté.', cles: top(tr, 4).map((x) => x.k) });
+  // 8. petites depenses (moins de 10 €) hors courses : l'effet goutte d'eau
+  const pt = W.filter((l) => l.v > 0 && l.v < 10 && DEP_CATS[l.cat] && DEP_CATS[l.cat][2] === 'comp');
+  const ptT = depSomme(pt);
+  if (pt.length >= 50) out.push({ id: 'petits', emoji: '💧', titre: 'Petites dépenses de moins de 10 €', an: ptT, eco: ptT * 0.3,
+    detail: pt.length + ' achats « sans importance » qui font ' + eur(ptT) + ' en 12 mois, soit ' + eur(ptT / 52) + ' par semaine.', cles: [] });
+  // 9. postes en forte hausse par rapport aux 12 mois d'avant
+  if (P.length) {
+    const sc = (A, c) => depSomme(A.filter((l) => l.cat === c));
+    const dedie = { 'Restaurants et fast-food': 1, 'Achats en ligne': 1, 'Amendes et frais bancaires': 1, 'Frais de trading': 1 };
+    Object.keys(DEP_CATS).filter((c) => DEP_CATS[c][2] === 'comp' && !dedie[c]).forEach((c) => {
+      const a = sc(W, c), b = sc(P, c);
+      if (b > 300 && a > b * 1.3 && a - b > 400) out.push({ id: 'hausse-' + c, emoji: '📈', titre: c + ' en hausse de ' + Math.round((a / b - 1) * 100) + ' %', an: a, eco: a - b,
+        detail: eur(a) + ' sur les 12 derniers mois contre ' + eur(b) + ' sur les 12 mois d’avant. Revenir au niveau d’avant économise ' + eur(a - b) + ' par an.', cles: top(W.filter((l) => l.cat === c), 3).map((x) => x.k) });
+    });
+  }
+  return out.sort((a, b) => b.eco - a.eco);
+}
+// potentiel total : les petites depenses recoupent les autres pistes, elles n'y comptent pas
+function depPotentiel(P) { return P.filter((p) => p.id !== 'petits').reduce((x, p) => x + p.eco, 0); }
+// ── Etat et chargement ──
+let DEP_TX = null, DEP_REG = {}, DEP_CIB = {}, DEP_META = null, DEP_ERR = null, DEP_LISTEN = false;
+let DEP_PER = '12m', DEP_CATF = '', DEP_Q = '', DEP_OPEN = null, DEP_NMARCH = 40, DEP_CHART = null, DEP_BUSY = '';
+function depLoad() {
+  if (DEP_LISTEN || typeof db === 'undefined') return;
+  DEP_LISTEN = true;
+  const err = (e) => { DEP_ERR = (e && e.message) || String(e); console.warn('[depenses]', e); if (currentTab === 'depenses') renderDepTab(); };
+  // lignes : lues une fois (plusieurs centaines de Ko), relues apres chaque import
+  db.ref('depenses/tx').once('value').then((s) => { DEP_TX = s.val() || []; if (currentTab === 'depenses') renderDepTab(); }, err);
+  db.ref('depenses/regles').on('value', (s) => { DEP_REG = s.val() || {}; if (currentTab === 'depenses' && DEP_TX) renderDepTab(); }, err);
+  db.ref('depenses/cibles').on('value', (s) => { DEP_CIB = s.val() || {}; if (currentTab === 'depenses' && DEP_TX) renderDepTab(); }, err);
+  db.ref('depenses/meta').on('value', (s) => { DEP_META = s.val(); if (currentTab === 'depenses' && DEP_TX) renderDepTab(); }, err);
+}
+function depEur(v, dec) { return aboEur(v, dec == null ? 0 : dec); }
+function depMoisTxt(ym) { const M = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.']; return M[+ym.slice(5, 7) - 1] + ' ' + ym.slice(0, 4); }
+function depDateTxt(d) { return d.slice(8, 10) + '/' + d.slice(5, 7) + '/' + d.slice(0, 4); }
+// import d'un export CSV Revolut : lu dans le navigateur, seules les lignes terminees partent dans Firebase
+function depImporter(file) {
+  if (!file) return;
+  const rd = new FileReader();
+  rd.onload = () => {
+    let nouv;
+    try { nouv = depParseCsv(String(rd.result)); } catch (e) { alert(e.message || e); return; }
+    if (!nouv.length) { alert('Aucune opération terminée en euros dans ce fichier.'); return; }
+    const tout = depMerge(DEP_TX || [], nouv);
+    DEP_BUSY = 'Enregistrement de ' + nouv.length.toLocaleString('fr-FR') + ' opérations…';
+    renderDepTab();
+    const meta = { importe: new Date().toISOString().slice(0, 16).replace('T', ' '), du: tout[0][0], au: tout[tout.length - 1][0], n: tout.length, fichier: String(file.name || '').slice(0, 80) };
+    db.ref('depenses/tx').set(tout).then(() => db.ref('depenses/meta').set(meta)).then(() => {
+      DEP_TX = tout; DEP_BUSY = '';
+      aboToast('✅ ' + nouv.length.toLocaleString('fr-FR') + ' opérations importées (' + depDateTxt(nouv[0][0]) + ' → ' + depDateTxt(nouv[nouv.length - 1][0]) + ')');
+      renderDepTab();
+    }).catch((e) => { DEP_BUSY = ''; alert('Enregistrement impossible : ' + ((e && e.message) || e)); renderDepTab(); });
+  };
+  rd.readAsText(file, 'utf-8');
+}
+function depBoutonImport(principal) {
+  const inp = scrEl('input', { attrs: { type: 'file', accept: '.csv,text/csv' }, style: 'display:none' });
+  inp.onchange = () => { depImporter(inp.files && inp.files[0]); inp.value = ''; };
+  const b = scrEl('button', { text: principal ? '⬆ Importer mon relevé Revolut (CSV)' : '⬆ Nouveau relevé', attrs: { type: 'button' },
+    style: 'padding:8px 14px;border-radius:8px;border:' + (principal ? 'none;background:#3563e9;color:#fff' : '1px solid #3563e9;background:#ffffff;color:#3563e9') + ';font-weight:700;cursor:pointer;font-size:0.82rem' });
+  b.onclick = () => inp.click();
+  return scrEl('span', { kids: [b, inp] });
+}
+function depSetRegle(k, cat) {
+  const ref = db.ref('depenses/regles/' + k);
+  (cat ? ref.set(cat) : ref.remove()).catch((e) => alert('Enregistrement impossible : ' + ((e && e.message) || e)));
+}
+// « a couper » : on fige la moyenne mensuelle des 6 derniers mois complets pour mesurer l'economie ensuite
+function depCibler(k, L) {
+  if (DEP_CIB[k]) { if (confirm('Retirer ce marchand de ta liste de chasse ?')) db.ref('depenses/cibles/' + k).remove(); return; }
+  const cur = aboYm(), f = depFenetre(cur, 6), A = L.filter((l) => l.k === k && depDans(l, f));
+  db.ref('depenses/cibles/' + k).set({ depuis: cur, moy: Math.round(depSomme(A) / 6 * 100) / 100, nom: (A[0] || L.find((l) => l.k === k) || {}).nom || k })
+    .then(() => aboToast('🎯 Ajouté à ta liste de chasse')).catch((e) => alert('Enregistrement impossible : ' + ((e && e.message) || e)));
+}
+// ajoute un prelevement regulier a l'onglet Abonnements, statut « a verifier »
+function depVersAbo(r) {
+  const catAbo = { 'Abonnements et applis': 'Vidéo et jeux', 'Outils et projets': 'IA et logiciels', 'Sport': 'Sport et enfants', 'École et enfants': 'Sport et enfants', 'Dons et église': 'Dons', 'Amendes et frais bancaires': 'Banque et assurance' }[r.cat] || 'Autre';
+  const id = r.nom.toLowerCase().normalize('NFD').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) + '-' + Date.now().toString(36);
+  aboSave(id, { nom: r.nom, montant: Math.round(r.montant * 100) / 100, devise: 'EUR', frequence: 'mois', jour: +r.dernier.slice(8, 10), categorie: catAbo, qui: 'Famille', statut: 'a_verifier', source: 'Relevé Revolut (onglet Dépenses)', debut: null })
+    .then(() => aboToast('➕ « ' + r.nom + ' » ajouté aux Abonnements (à vérifier)'));
+}
+
+function renderDepTab() {
+  const c = document.getElementById('tab-depenses');
+  if (!c) return;
+  depLoad(); aboLoad();
+  if (DEP_ERR) { c.replaceChildren(scrEl('div', { style: 'padding:20px;color:#c0392b', text: 'Lecture des dépenses impossible : ' + DEP_ERR })); return; }
+  if (DEP_TX === null) { scrMsg(c, 'Chargement des dépenses…'); return; }
+  const mob = !!(typeof M_MQ !== 'undefined' && M_MQ.matches);
+  const wrap = scrEl('div', { style: 'max-width:1400px' });
+  const carte = (titre, kids, extra) => aboCarte(titre, kids, extra);
+  const muted = 'font-size:0.72rem;color:#5b6b7d';
+  // en-tete : dernier import + bouton
+  const meta = DEP_META;
+  wrap.appendChild(scrEl('div', { style: 'display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;margin-bottom:12px', kids: [
+    scrEl('div', { style: 'flex:1 1 260px;min-width:0', kids: [
+      scrEl('div', { text: 'Dépenses du compte Revolut', style: 'font-weight:800;color:#22303f;font-size:1rem' }),
+      scrEl('div', { text: meta ? 'Relevé du ' + depDateTxt(meta.du) + ' au ' + depDateTxt(meta.au) + ' · ' + Number(meta.n).toLocaleString('fr-FR') + ' opérations · importé le ' + depDateTxt(meta.importe.slice(0, 10)) : 'Aucun relevé importé pour l’instant.', style: muted })] }),
+    DEP_BUSY ? scrEl('span', { text: '⏳ ' + DEP_BUSY, style: 'font-size:0.8rem;color:#e0922c;font-weight:700' }) : null,
+    depBoutonImport(!DEP_TX.length)] }));
+  if (!DEP_TX.length) {
+    wrap.appendChild(carte('Comment importer', [scrEl('div', { style: 'font-size:0.84rem;color:#42546a;line-height:1.55', kids: [
+      scrEl('div', { text: '1. Dans l’app Revolut : compte en euros, « … » puis Relevé, format Excel (CSV), période « depuis l’ouverture » ou les 2 dernières années.' }),
+      scrEl('div', { text: '2. Clique sur « Importer mon relevé Revolut » et choisis le fichier. Il est lu dans ton navigateur, puis enregistré dans ta base privée (jamais dans le dépôt GitHub).' }),
+      scrEl('div', { text: '3. Reviens chaque mois avec un relevé récent : les opérations déjà connues sont remplacées, pas doublées.' })] })]));
+    c.replaceChildren(wrap); return;
+  }
+  const L = depLignes(DEP_TX, DEP_REG), cur = aboYm();
+  const D = L.filter((l) => l.cat !== 'Hors dépenses');
+  // periodes : 12 derniers mois complets, annees civiles presentes, tout
+  const ans = Array.from(new Set(D.map((l) => l.ym.slice(0, 4)))).sort().reverse();
+  const perF = (p) => p === '12m' ? depFenetre(cur, 12) : p === 'tout' ? [D[0] ? D[0].ym : cur, cur] : [p + '-01', p + '-12'];
+  if (DEP_PER !== '12m' && DEP_PER !== 'tout' && ans.indexOf(DEP_PER) < 0) DEP_PER = '12m';
+  const f = perF(DEP_PER);
+  const W = D.filter((l) => depDans(l, f));
+  const moisPer = (() => { const out = []; let m = f[0]; const fin = f[1] > cur ? cur : f[1]; while (m <= fin && out.length < 400) { out.push(m); m = depYmAdd(m, 1); } return out; })();
+  const nMois = Math.max(1, moisPer.filter((m) => m < cur).length || 1);
+  const seg = scrEl('div', { cls: 'scr-seg', style: 'flex-wrap:wrap;margin-bottom:12px' });
+  [['12m', '12 derniers mois']].concat(ans.slice(0, 4).map((a) => [a, a])).concat([['tout', 'Tout']]).forEach(([v, t]) => {
+    const b = scrEl('button', { text: t, cls: DEP_PER === v ? 'on' : '', attrs: { type: 'button' } });
+    b.onclick = () => { DEP_PER = v; DEP_NMARCH = 40; renderDepTab(); };
+    seg.appendChild(b);
+  });
+  wrap.appendChild(seg);
+  // 1. chiffres cles
+  const tot = depSomme(W), moy = tot / nMois;
+  const fp = DEP_PER === '12m' ? depFenetre(cur, 24).slice(0, 1).concat([depYmAdd(cur, -13)]) : null;
+  const totP = fp ? depSomme(D.filter((l) => depDans(l, fp))) : null;
+  const ceMois = depSomme(D.filter((l) => l.ym === cur)), jour = new Date().getDate(), nbJ = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate();
+  const moy12 = depSomme(D.filter((l) => depDans(l, depFenetre(cur, 12)))) / 12;
+  const comp = W.filter((l) => DEP_CATS[l.cat] && DEP_CATS[l.cat][2] === 'comp'), compT = depSomme(comp);
+  const kpi = (lbl, val, sub, col) => scrEl('div', { style: 'flex:1 1 170px;background:#fff;border:1px solid #e3e8ee;border-radius:14px;padding:12px 16px', kids: [
+    scrEl('div', { text: lbl, style: 'font-size:0.66rem;letter-spacing:.06em;text-transform:uppercase;font-weight:700;color:#5b6b7d' }),
+    scrEl('div', { text: val, style: 'font-size:1.6rem;font-weight:800;margin-top:2px;color:' + (col || '#22303f') }),
+    scrEl('div', { text: sub, style: 'font-size:0.72rem;color:#5b6b7d;margin-top:2px' })] });
+  const evo = totP ? (tot / totP - 1) * 100 : null;
+  wrap.appendChild(scrEl('div', { style: 'display:flex;flex-wrap:wrap;gap:12px;margin-bottom:14px', kids: [
+    kpi('Dépensé', depEur(tot), DEP_PER === '12m' ? depMoisTxt(f[0]) + ' → ' + depMoisTxt(f[1]) + (evo != null ? ' · ' + (evo >= 0 ? '+' : '') + evo.toFixed(0) + ' % vs 12 mois d’avant' : '') : moisPer.length + ' mois', '#dd5f66'),
+    kpi('Par mois', depEur(moy), 'moyenne sur ' + nMois + ' mois complets', '#22303f'),
+    kpi('Ce mois-ci', depEur(ceMois), 'au ' + jour + ' ' + depMoisTxt(cur).split(' ')[0] + ' · rythme ' + depEur(ceMois / jour * nbJ) + ' vs ' + depEur(moy12) + ' en moyenne', ceMois / jour * nbJ > moy12 * 1.1 ? '#e0922c' : '#1d9e74'),
+    kpi('Compressible', depEur(compT), Math.round(tot ? compT / tot * 100 : 0) + ' % des dépenses : restos, achats en ligne, loisirs, abonnements…', '#e0922c')] }));
+  // 2. chasse aux depenses (toujours sur les 12 derniers mois)
+  const abosNoms = Object.keys(ABOS || {}).map((id) => (ABOS[id] || {}).nom || '');
+  const P = depPistes(L, cur, abosNoms), pot = depPotentiel(P);
+  const pisteEl = (p) => {
+    const btns = [];
+    if (p.cles.length) {
+      const b = scrEl('button', { text: p.cles.every((k) => DEP_CIB[k]) ? '🎯 Dans ma chasse' : '🎯 Chasser', attrs: { type: 'button' }, style: 'padding:4px 10px;border-radius:20px;border:1px solid #e0922c;background:#ffffff;color:#b86e14;font-weight:700;cursor:pointer;font-size:0.72rem' });
+      b.onclick = () => { const k = p.cles.find((x) => !DEP_CIB[x]); if (k) depCibler(k, L); else aboToast('Déjà dans ta liste de chasse'); };
+      btns.push(b);
+    }
+    return scrEl('div', { style: 'background:#fff;border:1px solid #e3e8ee;border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;gap:5px', kids: [
+      scrEl('div', { style: 'display:flex;gap:8px;align-items:baseline', kids: [
+        scrEl('span', { text: p.emoji, style: 'font-size:1.1rem' }),
+        scrEl('span', { text: p.titre, style: 'flex:1;font-weight:800;color:#22303f;font-size:0.86rem' })] }),
+      scrEl('div', { style: 'display:flex;gap:10px;flex-wrap:wrap;align-items:baseline', kids: [
+        scrEl('span', { text: depEur(p.an) + ' /an', style: 'font-weight:800;color:#dd5f66;font-size:0.95rem' }),
+        p.eco > 0 ? scrEl('span', { text: '→ jusqu’à −' + depEur(p.eco) + ' /an', style: 'font-weight:800;color:#1d9e74;font-size:0.82rem' }) : null] }),
+      scrEl('div', { text: p.detail, style: 'font-size:0.76rem;color:#42546a;line-height:1.45' }),
+      btns.length ? scrEl('div', { style: 'display:flex;gap:6px;margin-top:2px', kids: btns }) : null] });
+  };
+  wrap.appendChild(carte('🏹 Chasse aux dépenses inutiles', [
+    scrEl('div', { style: 'display:flex;flex-wrap:wrap;gap:6px 16px;align-items:baseline;margin-bottom:10px', kids: [
+      scrEl('span', { text: 'Potentiel : −' + depEur(pot) + ' par an', style: 'font-size:1.25rem;font-weight:800;color:#1d9e74' }),
+      scrEl('span', { text: 'soit ' + depEur(pot / 12) + ' par mois · estimation sur les 12 derniers mois, sans toucher aux courses, à la santé, à l’école ni aux dons', style: muted })] }),
+    P.length ? scrEl('div', { style: 'display:grid;grid-template-columns:repeat(auto-fill,minmax(' + (mob ? '100%' : '300px') + ',1fr));gap:10px', kids: P.map(pisteEl) })
+      : scrEl('div', { text: 'Rien de flagrant sur les 12 derniers mois.', style: 'font-size:0.82rem;color:#5b6b7d' })], 'margin-bottom:14px;border-color:#e0922c'));
+  // 3. ma liste de chasse : avant (moyenne figee au moment du choix) / depuis (mois complets apres)
+  const cibles = Object.keys(DEP_CIB || {});
+  if (cibles.length) {
+    let gagne = 0;
+    const lignes = cibles.map((k) => {
+      const ci = DEP_CIB[k], d0 = ci.depuis || cur, mois = [];
+      for (let m = d0; m < cur; m = depYmAdd(m, 1)) mois.push(m);
+      const apres = mois.length ? depSomme(L.filter((l) => l.k === k && mois.indexOf(l.ym) >= 0)) / mois.length : null;
+      const eco = apres == null ? null : (ci.moy || 0) - apres;
+      if (eco != null) gagne += eco * mois.length;
+      return { k: k, ci: ci, apres: apres, eco: eco, n: mois.length, ceMois: depSomme(L.filter((l) => l.k === k && l.ym === cur)) };
+    }).sort((a, b) => (b.ci.moy || 0) - (a.ci.moy || 0));
+    wrap.appendChild(carte('🎯 Ma liste de chasse', [
+      scrEl('div', { text: gagne > 0.5 ? 'Déjà économisé : ' + depEur(gagne) : 'Le compteur démarre au premier mois complet après chaque choix.', style: 'font-size:1.05rem;font-weight:800;color:' + (gagne > 0.5 ? '#1d9e74' : '#42546a') + ';margin-bottom:6px' })]
+      .concat(lignes.map((r) => {
+        const x = scrEl('button', { text: '✕', attrs: { type: 'button', title: 'Retirer de la liste' }, style: 'border:none;background:none;color:#9aa7b4;cursor:pointer;font-size:0.9rem' });
+        x.onclick = () => depCibler(r.k, L);
+        return scrEl('div', { style: 'display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;padding:6px 0;border-top:1px solid #e3e8ee', kids: [
+          scrEl('span', { text: r.ci.nom || r.k, style: 'flex:1 1 160px;min-width:0;font-weight:800;color:#22303f;font-size:0.84rem' }),
+          scrEl('span', { text: 'avant ' + depEur(r.ci.moy || 0) + ' /mois', style: 'font-size:0.74rem;color:#5b6b7d;white-space:nowrap' }),
+          scrEl('span', { text: r.apres == null ? 'ce mois-ci ' + depEur(r.ceMois) : 'depuis ' + depEur(r.apres) + ' /mois', style: 'font-size:0.74rem;color:#5b6b7d;white-space:nowrap' }),
+          r.eco == null ? null : scrEl('span', { text: (r.eco >= 0 ? '−' : '+') + depEur(Math.abs(r.eco)) + ' /mois', style: 'font-weight:800;font-size:0.82rem;white-space:nowrap;color:' + (r.eco >= 0 ? '#1d9e74' : '#dd5f66') }),
+          x] });
+      })), 'margin-bottom:14px;border-color:#1d9e74;background:#e5f4ee'));
+  }
+  // 4. graphique mois par mois, empile par categorie (6 premieres + reste)
+  const parCat = {};
+  W.forEach((l) => { parCat[l.cat] = (parCat[l.cat] || 0) + l.v; });
+  const cats = Object.keys(parCat).sort((a, b) => parCat[b] - parCat[a]);
+  const chMois = moisPer.length > 36 ? moisPer.slice(-36) : moisPer;
+  const topC = cats.slice(0, 6);
+  const cv = scrEl('canvas');
+  wrap.appendChild(carte('Mois par mois' + (moisPer.length > 36 ? ' (36 derniers mois)' : ''), [scrEl('div', { style: 'position:relative;height:' + (mob ? 240 : 300) + 'px', kids: [cv] })], 'margin-bottom:14px'));
+  // 5. categories
+  const fpC = DEP_PER === '12m' ? fp : (/^\d{4}$/.test(DEP_PER) ? [(+DEP_PER - 1) + '-01', (+DEP_PER - 1) + '-12'] : null);
+  const prevC = {};
+  if (fpC) D.filter((l) => depDans(l, fpC)).forEach((l) => { prevC[l.cat] = (prevC[l.cat] || 0) + l.v; });
+  const maxC = Math.max.apply(null, cats.map((k) => parCat[k]).concat([1]));
+  wrap.appendChild(carte('Par catégorie', [scrEl('div', { style: muted + ';margin-bottom:6px', text: 'Clique sur une catégorie pour voir ses marchands. ' + (fpC ? 'Variation par rapport à la période précédente de même durée.' : '') })]
+    .concat(cats.map((k) => {
+      const col = (DEP_CATS[k] || DEP_CATS['Autres'])[0], v = parCat[k], pv = prevC[k];
+      const var_ = fpC && pv > 50 ? (v / pv - 1) * 100 : null;
+      const row = scrEl('div', { style: 'display:grid;grid-template-columns:' + (mob ? '1fr auto' : 'minmax(170px,230px) 1fr 90px 80px 70px') + ';gap:4px 10px;align-items:center;padding:5px 4px;border-radius:8px;cursor:pointer;' + (DEP_CATF === k ? 'background:#eef3ff' : ''), kids: [
+        scrEl('span', { text: (DEP_CATS[k] || DEP_CATS['Autres'])[1] + ' ' + k, style: 'font-weight:700;color:#22303f;font-size:0.82rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis' }),
+        mob ? scrEl('span', { text: depEur(v), style: 'font-weight:800;color:#22303f;font-size:0.82rem;text-align:right' }) : null,
+        scrEl('div', { style: 'height:10px;background:#eef1f5;border-radius:6px;overflow:hidden;' + (mob ? 'grid-column:1 / -1' : ''), kids: [scrEl('div', { style: 'height:10px;border-radius:6px;width:' + Math.max(1, v / maxC * 100).toFixed(1) + '%;background:' + col })] }),
+        mob ? null : scrEl('span', { text: depEur(v), style: 'font-weight:800;color:#22303f;font-size:0.82rem;text-align:right' }),
+        mob ? null : scrEl('span', { text: depEur(v / nMois) + '/m', style: 'font-size:0.74rem;color:#5b6b7d;text-align:right' }),
+        mob ? null : scrEl('span', { text: var_ == null ? '' : (var_ >= 0 ? '+' : '') + var_.toFixed(0) + ' %', style: 'font-size:0.74rem;font-weight:700;text-align:right;color:' + (var_ == null ? '#5b6b7d' : var_ > 10 ? '#dd5f66' : var_ < -10 ? '#1d9e74' : '#5b6b7d') })] });
+      row.onclick = () => { DEP_CATF = DEP_CATF === k ? '' : k; DEP_NMARCH = 40; renderDepTab(); };
+      return row;
+    })), 'margin-bottom:14px'));
+  // 6. prelevements reguliers (6 derniers mois) : vers l'onglet Abonnements
+  const rec = depRecurrents(L, cur).filter((r) => r.actif);
+  if (rec.length) {
+    const noms = abosNoms.map((n) => n.toLowerCase());
+    const suivi = (r) => noms.some((n) => n && (r.nom.toLowerCase().indexOf(n) >= 0 || n.indexOf(r.nom.toLowerCase().split(/\s+/)[0]) >= 0));
+    wrap.appendChild(carte('🔁 Prélèvements réguliers détectés', [scrEl('div', { text: 'Payés au moins 3 mois sur les 6 derniers, montant stable. Total ' + depEur(rec.reduce((x, r) => x + r.mensuel, 0)) + ' par mois.', style: muted + ';margin-bottom:6px' })]
+      .concat(rec.map((r) => {
+        const ok = suivi(r);
+        let act;
+        if (ok) act = scrEl('span', { text: '✓ dans Abonnements', style: 'font-size:0.72rem;color:#1d9e74;font-weight:700;white-space:nowrap' });
+        else if (r.cat === 'Crédits et impôts') act = scrEl('span', { text: 'crédit / impôt', style: 'font-size:0.72rem;color:#5b6b7d;white-space:nowrap' });
+        else { act = scrEl('button', { text: '➕ Abonnements', attrs: { type: 'button' }, style: 'padding:3px 9px;border-radius:20px;border:1px solid #3563e9;background:#ffffff;color:#3563e9;font-weight:700;cursor:pointer;font-size:0.72rem;white-space:nowrap' });
+          act.onclick = () => depVersAbo(r); }
+        return scrEl('div', { style: 'display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;padding:5px 0;border-top:1px solid #e3e8ee', kids: [
+          scrEl('span', { text: r.nom, style: 'flex:1 1 160px;min-width:0;font-weight:700;color:#22303f;font-size:0.82rem' }),
+          scrEl('span', { text: r.cat, style: 'font-size:0.72rem;color:#5b6b7d;white-space:nowrap' }),
+          scrEl('span', { text: depEur(r.mensuel, 2) + ' /mois · ' + depEur(r.mensuel * 12) + ' /an', style: 'font-weight:800;color:#22303f;font-size:0.8rem;white-space:nowrap' }), act] });
+      })), 'margin-bottom:14px'));
+  }
+  // 7. marchands : recherche, filtre categorie, reclassement, chasse, detail des operations
+  const q = DEP_Q.trim().toLowerCase();
+  let M = depMarchands(W.filter((l) => (!DEP_CATF || l.cat === DEP_CATF) && (!q || l.desc.toLowerCase().indexOf(q) >= 0)));
+  const nTot = M.length;
+  M = M.slice(0, DEP_NMARCH);
+  const srch = scrEl('input', { attrs: { type: 'search', placeholder: 'Rechercher un marchand…' }, style: 'flex:1 1 200px;padding:7px 10px;border:1px solid #e3e8ee;border-radius:8px;font-size:0.84rem;background:#fff;color:#22303f' });
+  srch.value = DEP_Q;
+  let tmo = null;
+  srch.oninput = () => { clearTimeout(tmo); tmo = setTimeout(() => { DEP_Q = srch.value; DEP_NMARCH = 40; renderDepTab(); const s = document.querySelector('#tab-depenses input[type=search]'); if (s) { s.focus(); s.setSelectionRange(s.value.length, s.value.length); } }, 250); };
+  const catSel = (val, onch, vide) => {
+    const s = scrEl('select', { style: 'padding:5px 6px;border:1px solid #e3e8ee;border-radius:8px;font-size:0.76rem;background:#fff;color:#22303f;max-width:190px' });
+    [['', vide]].concat(Object.keys(DEP_CATS).map((k) => [k, DEP_CATS[k][1] + ' ' + k])).forEach(([v, t]) => { const o = scrEl('option', { text: t, attrs: { value: v } }); if (v === val) o.selected = true; s.appendChild(o); });
+    s.onchange = () => onch(s.value);
+    return s;
+  };
+  const head = scrEl('div', { style: 'display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:8px', kids: [srch,
+    catSel(DEP_CATF, (v) => { DEP_CATF = v; DEP_NMARCH = 40; renderDepTab(); }, 'Toutes les catégories')] });
+  const lignesM = M.map((x) => {
+    const l0 = L.find((l) => l.k === x.k) || { d: x.dernier, type: '', desc: x.nom, v: 1 };
+    const auto = depCat([l0.d, l0.type, l0.desc, -l0.v], null);
+    const sel = catSel(DEP_REG[x.k] || '', (v) => depSetRegle(x.k, v), '↺ auto : ' + auto);
+    sel.onclick = (e) => e.stopPropagation();
+    const cib = scrEl('button', { text: '🎯', attrs: { type: 'button', title: DEP_CIB[x.k] ? 'Dans ta liste de chasse (cliquer pour retirer)' : 'Ajouter à ma liste de chasse' },
+      style: 'border:1px solid ' + (DEP_CIB[x.k] ? '#e0922c' : '#e3e8ee') + ';background:' + (DEP_CIB[x.k] ? '#fff4e5' : '#ffffff') + ';border-radius:8px;cursor:pointer;padding:2px 6px;' + (DEP_CIB[x.k] ? '' : 'filter:grayscale(1);opacity:.55') });
+    cib.onclick = (e) => { e.stopPropagation(); depCibler(x.k, L); };
+    const row = scrEl('div', { style: 'display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;padding:7px 4px;border-top:1px solid #e3e8ee;cursor:pointer', kids: [
+      scrEl('span', { text: (DEP_OPEN === x.k ? '▾ ' : '▸ ') + x.nom, style: 'flex:1 1 180px;min-width:0;font-weight:700;color:#22303f;font-size:0.82rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap' }),
+      sel,
+      scrEl('span', { text: x.n + '×', style: 'font-size:0.74rem;color:#5b6b7d;width:42px;text-align:right' }),
+      scrEl('span', { text: depEur(x.total), style: 'font-weight:800;color:#22303f;font-size:0.84rem;width:84px;text-align:right' }),
+      scrEl('span', { text: depEur(x.total / nMois) + '/m', style: 'font-size:0.74rem;color:#5b6b7d;width:70px;text-align:right' }),
+      cib] });
+    row.onclick = () => { DEP_OPEN = DEP_OPEN === x.k ? null : x.k; renderDepTab(); };
+    const out = [row];
+    if (DEP_OPEN === x.k) {
+      const ops = W.filter((l) => l.k === x.k).slice().reverse();
+      out.push(scrEl('div', { style: 'padding:4px 8px 10px 22px;max-height:260px;overflow:auto', kids: ops.slice(0, 120).map((l) => scrEl('div', { style: 'display:flex;gap:10px;font-size:0.76rem;color:#42546a;padding:2px 0', kids: [
+        scrEl('span', { text: depDateTxt(l.d), style: 'width:80px' }), scrEl('span', { text: l.type, style: 'flex:1;color:#5b6b7d' }),
+        scrEl('span', { text: (l.v < 0 ? '+' : '−') + depEur(Math.abs(l.v), 2), style: 'font-weight:700;color:' + (l.v < 0 ? '#1d9e74' : '#22303f') })] }))
+        .concat(ops.length > 120 ? [scrEl('div', { text: '… ' + (ops.length - 120) + ' opérations plus anciennes', style: muted })] : []) }));
+    }
+    return out;
+  }).reduce((a, b) => a.concat(b), []);
+  const plus = nTot > M.length ? scrEl('button', { text: 'Afficher plus (' + (nTot - M.length) + ' autres)', attrs: { type: 'button' }, style: 'margin-top:8px;padding:6px 12px;border-radius:8px;border:1px solid #e3e8ee;background:#fff;color:#42546a;font-weight:700;cursor:pointer' }) : null;
+  if (plus) plus.onclick = () => { DEP_NMARCH += 60; renderDepTab(); };
+  wrap.appendChild(carte('Marchands' + (DEP_CATF ? ' · ' + DEP_CATF : '') + ' (' + nTot + ')', [head, scrEl('div', { text: 'La liste déroulante corrige la catégorie d’un marchand (retenu pour tout l’historique). 🎯 l’ajoute à ta liste de chasse.', style: muted + ';margin-bottom:4px' })].concat(lignesM).concat([plus]), 'margin-bottom:14px'));
+  // 8. transparence : ce qui est sorti des totaux
+  const hors = L.filter((l) => l.cat === 'Hors dépenses' && depDans(l, f) && l.v > 0);
+  const horsM = depMarchands(hors).slice(0, 8);
+  wrap.appendChild(scrEl('div', { style: 'font-size:0.7rem;color:#9aa7b4;margin-top:4px;line-height:1.5', text: 'Hors dépenses (sortis des totaux) : ' + depEur(depSomme(hors)) + ' d’épargne, de placements et de virements entre tes comptes sur la période (' +
+    horsM.map((x) => x.nom + ' ' + depEur(x.total)).join(', ') + '). Rechargements, change et argent reçu ne comptent pas non plus. Un remboursement sur carte vient en déduction du marchand. Données privées (base Firebase), jamais dans le dépôt.' }));
+  c.replaceChildren(wrap);
+  // graphique (apres insertion dans la page)
+  if (DEP_CHART) { try { DEP_CHART.destroy(); } catch (e) {} DEP_CHART = null; }
+  if (typeof Chart !== 'undefined') {
+    const ds = topC.map((k) => ({ label: k, backgroundColor: (DEP_CATS[k] || DEP_CATS['Autres'])[0], data: chMois.map((m) => Math.round(depSomme(W.filter((l) => l.ym === m && l.cat === k)))), stack: 's' }));
+    ds.push({ label: 'Autres postes', backgroundColor: '#c3ccd6', data: chMois.map((m) => Math.round(depSomme(W.filter((l) => l.ym === m && topC.indexOf(l.cat) < 0)))), stack: 's' });
+    DEP_CHART = new Chart(cv, { type: 'bar', data: { labels: chMois.map((m) => depMoisTxt(m)), datasets: ds },
+      options: { responsive: true, maintainAspectRatio: false, animation: false,
+        plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: mob ? 9 : 11 } } },
+          tooltip: { callbacks: { label: (x) => x.dataset.label + ' : ' + depEur(x.parsed.y), footer: (items) => 'Total : ' + depEur(items.reduce((s, i) => s + i.parsed.y, 0)) } } },
+        scales: { x: { stacked: true, grid: { display: false }, ticks: { font: { size: mob ? 9 : 11 } } }, y: { stacked: true, ticks: { callback: (v) => (v / 1000).toLocaleString('fr-FR') + ' k€' } } } } });
   }
 }
 
