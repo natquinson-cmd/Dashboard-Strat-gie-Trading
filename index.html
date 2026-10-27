@@ -8349,10 +8349,28 @@ function depRecurrents(L, curYm) {
     if (ecart > 0.25 || parMois > 2.2) return;   // trop variable ou trop frequent : pas un abonnement
     if (!DEP_REC_CATS[A[0].cat]) return;   // courses, restaurants, sante... : achats frequents, pas des abonnements
     if (moy < 3) return;
-    const dern = A[A.length - 1];
-    out.push({ k: k, nom: dern.nom, cat: dern.cat, mensuel: moy * ms.length / 6, nMois: ms.length, dernier: dern.d, montant: dern.v, actif: dern.ym >= depYmAdd(curYm, -2) });
+    const dern = A[A.length - 1], m1 = depYmAdd(curYm, -1), m2 = depYmAdd(curYm, -2), avant = mois[ms.slice().sort()[0]];
+    // actif = payé CHACUN des 2 derniers mois complets (règle du user, 27/10/2026 : avant, un dernier paiement dans les
+    // 2 derniers mois suffisait). mensuel = prix du DERNIER mois complet, et non plus la moyenne des 6 mois qui mélangeait
+    // l'ancien et le nouveau prix (Ligue 1 affichée 21,66 € pour 24,99 €). avant = montant du 1er mois de la fenêtre.
+    out.push({ k: k, nom: dern.nom, cat: dern.cat, mensuel: mois[m1] || moy, moyen: moy * ms.length / 6, avant: avant, nMois: ms.length, dernier: dern.d, montant: dern.v, actif: !!(mois[m1] && mois[m2]) });
   });
   return out.sort((a, b) => b.mensuel - a.mensuel);
+}
+// Prélèvement déjà suivi dans l'onglet Abonnements ? Noms normalisés (accents, apostrophes, ponctuation) : nom complet de
+// l'abonnement dans celui du marchand, 1er mot du marchand dans le nom de l'abonnement, ou un mot distinctif (4 lettres et
+// plus) de l'abonnement dans le nom du marchand (« L’Appart Fitness (Annecy-Pringy) » = « GHD - L'APPART FITNESS Annecy-Pringy »).
+const DEP_MOTS_VIDES = { abonnement: 1, abonnements: 1, ligne: 1, premium: 1, plus: 1, pass: 1, famille: 1, family: 1, personnel: 1, compte: 1,
+  store: 1, play: 1, google: 1, apple: 1, maison: 1, internet: 1, video: 1, montage: 1, robots: 1, integrale: 1, basic: 1 };
+function depNorm(t) { return String(t || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim(); }
+function depSuiviAbo(nom, abosNoms) {
+  const m = ' ' + depNorm(nom) + ' ', m0 = depNorm(nom).split(' ')[0];
+  return (abosNoms || []).some((n) => {
+    const a = depNorm(n);
+    if (!a) return false;
+    if (m.indexOf(' ' + a + ' ') >= 0 || (m0 && (' ' + a + ' ').indexOf(' ' + m0 + ' ') >= 0)) return true;
+    return a.split(' ').some((w) => w.length >= 4 && !DEP_MOTS_VIDES[w] && m.indexOf(' ' + w + ' ') >= 0);
+  });
 }
 // marchands d'une liste de lignes : {k, nom, cat, n, total, dernier}
 function depMarchands(L) {
@@ -8419,11 +8437,10 @@ function depPistes(L, curYm, abosNoms) {
       detail: 'Le même besoin payé plusieurs fois : en garder un seul économise au moins ' + eur(min) + ' par an.', cles: d[1].map((r) => r.k) });
   });
   // 5. abonnements detectes pas encore suivis dans l'onglet Abonnements
-  const noms = (abosNoms || []).map((n) => n.toLowerCase());
-  const suivi = (r) => noms.some((n) => n && (r.nom.toLowerCase().indexOf(n) >= 0 || n.indexOf(r.nom.toLowerCase().split(/\s+/)[0]) >= 0));
+  const suivi = (r) => depSuiviAbo(r.nom, abosNoms);
   const dejaDbl = {};
   dbl.forEach((d) => d[1].forEach((r) => { dejaDbl[r.k] = 1; }));
-  const nonSuivis = rec.filter((r) => r.cat !== 'Crédits et impôts' && r.cat !== 'Amendes et frais bancaires' && !dejaDbl[r.k] && !suivi(r));
+  const nonSuivis = abosNoms == null ? [] : rec.filter((r) => r.cat !== 'Crédits et impôts' && r.cat !== 'Amendes et frais bancaires' && !dejaDbl[r.k] && !suivi(r));
   if (nonSuivis.length) {
     const an = nonSuivis.reduce((x, r) => x + r.mensuel * 12, 0);
     out.push({ id: 'abos', emoji: '🔁', titre: nonSuivis.length + ' prélèvement' + (nonSuivis.length > 1 ? 's' : '') + ' réguliers hors de l’onglet Abonnements', an: an, eco: an * 0.25,
@@ -8580,7 +8597,7 @@ function renderDepTab() {
     kpi('Ce mois-ci', depEur(ceMois), 'au ' + jour + ' ' + depMoisTxt(cur).split(' ')[0] + ' · rythme ' + depEur(ceMois / jour * nbJ) + ' vs ' + depEur(moy12) + ' en moyenne', ceMois / jour * nbJ > moy12 * 1.1 ? '#e0922c' : '#1d9e74'),
     kpi('Compressible', depEur(compT), Math.round(tot ? compT / tot * 100 : 0) + ' % des dépenses : restos, achats en ligne, loisirs, abonnements…', '#e0922c')] }));
   // 2. chasse aux depenses (toujours sur les 12 derniers mois)
-  const abosNoms = Object.keys(ABOS || {}).map((id) => (ABOS[id] || {}).nom || '');
+  const abosNoms = ABOS == null ? null : Object.keys(ABOS).map((id) => (ABOS[id] || {}).nom || '');   // null = pas encore chargée
   const P = depPistes(L, cur, abosNoms), pot = depPotentiel(P);
   const pisteEl = (p) => {
     const btns = [];
@@ -8662,20 +8679,21 @@ function renderDepTab() {
   // 6. prelevements reguliers (6 derniers mois) : vers l'onglet Abonnements
   const rec = depRecurrents(L, cur).filter((r) => r.actif);
   if (rec.length) {
-    const noms = abosNoms.map((n) => n.toLowerCase());
-    const suivi = (r) => noms.some((n) => n && (r.nom.toLowerCase().indexOf(n) >= 0 || n.indexOf(r.nom.toLowerCase().split(/\s+/)[0]) >= 0));
-    wrap.appendChild(carte('🔁 Prélèvements réguliers détectés', [scrEl('div', { text: 'Payés au moins 3 mois sur les 6 derniers, montant stable. Total ' + depEur(rec.reduce((x, r) => x + r.mensuel, 0)) + ' par mois.', style: muted + ';margin-bottom:6px' })]
+    const suivi = (r) => depSuiviAbo(r.nom, abosNoms);
+    wrap.appendChild(carte('🔁 Prélèvements réguliers détectés', [scrEl('div', { text: 'Payés au moins 3 mois sur les 6 derniers, dont chacun des 2 derniers mois, montant stable. Prix du dernier mois. Total ' + depEur(rec.reduce((x, r) => x + r.mensuel, 0)) + ' par mois.', style: muted + ';margin-bottom:6px' })]
       .concat(rec.map((r) => {
         const ok = suivi(r);
         let act;
-        if (ok) act = scrEl('span', { text: '✓ dans Abonnements', style: 'font-size:0.72rem;color:#1d9e74;font-weight:700;white-space:nowrap' });
+        if (abosNoms == null) act = scrEl('span', { text: '…', style: 'font-size:0.72rem;color:#9aa7b4' });
+        else if (ok) act = scrEl('span', { text: '✓ dans Abonnements', style: 'font-size:0.72rem;color:#1d9e74;font-weight:700;white-space:nowrap' });
         else if (r.cat === 'Crédits et impôts') act = scrEl('span', { text: 'crédit / impôt', style: 'font-size:0.72rem;color:#5b6b7d;white-space:nowrap' });
         else { act = scrEl('button', { text: '➕ Abonnements', attrs: { type: 'button' }, style: 'padding:3px 9px;border-radius:20px;border:1px solid #3563e9;background:#ffffff;color:#3563e9;font-weight:700;cursor:pointer;font-size:0.72rem;white-space:nowrap' });
           act.onclick = () => depVersAbo(r); }
         return scrEl('div', { style: 'display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;padding:5px 0;border-top:1px solid #e3e8ee', kids: [
           scrEl('span', { text: r.nom, style: 'flex:1 1 160px;min-width:0;font-weight:700;color:#22303f;font-size:0.82rem' }),
           scrEl('span', { text: r.cat, style: 'font-size:0.72rem;color:#5b6b7d;white-space:nowrap' }),
-          scrEl('span', { text: depEur(r.mensuel, 2) + ' /mois · ' + depEur(r.mensuel * 12) + ' /an', style: 'font-weight:800;color:#22303f;font-size:0.8rem;white-space:nowrap' }), act] });
+          scrEl('span', { text: depEur(r.mensuel, 2) + ' /mois · ' + depEur(r.mensuel * 12) + ' /an', style: 'font-weight:800;color:#22303f;font-size:0.8rem;white-space:nowrap' }),
+          (r.avant && Math.abs(r.avant - r.mensuel) > 0.02 * r.mensuel) ? scrEl('span', { text: 'avant ' + depEur(r.avant, 2), attrs: { title: 'Montant au début des 6 derniers mois : le prix a changé depuis.' }, style: 'font-size:0.72rem;color:#9aa7b4;white-space:nowrap' }) : null, act] });
       })), 'margin-bottom:14px'));
   }
   // 7. marchands : recherche, filtre categorie, reclassement, chasse, detail des operations
@@ -8735,8 +8753,22 @@ function renderDepTab() {
   if (typeof Chart !== 'undefined') {
     const ds = topC.map((k) => ({ label: k, backgroundColor: (DEP_CATS[k] || DEP_CATS['Autres'])[0], data: chMois.map((m) => Math.round(depSomme(W.filter((l) => l.ym === m && l.cat === k)))), stack: 's' }));
     ds.push({ label: 'Autres postes', backgroundColor: '#c3ccd6', data: chMois.map((m) => Math.round(depSomme(W.filter((l) => l.ym === m && topC.indexOf(l.cat) < 0)))), stack: 's' });
-    DEP_CHART = new Chart(cv, { type: 'bar', data: { labels: chMois.map((m) => depMoisTxt(m)), datasets: ds },
-      options: { responsive: true, maintainAspectRatio: false, animation: false,
+    // total du mois au-dessus de chaque barre empilée (demande du user, 27/10/2026), séries masquées exclues
+    const totaux = { id: 'depTotaux', afterDatasetsDraw(chart) {
+      const ctx = chart.ctx, vis = chart.data.datasets.map((d, di) => chart.isDatasetVisible(di));
+      chart.data.labels.forEach((lb, i) => {
+        let t = 0, yTop = null, x = null;
+        chart.data.datasets.forEach((d, di) => { if (!vis[di]) return; const el = chart.getDatasetMeta(di).data[i]; t += Number(d.data[i]) || 0;
+          if (el && (yTop == null || el.y < yTop)) { yTop = el.y; x = el.x; } });
+        if (!(t > 0) || x == null) return;
+        ctx.save(); ctx.font = 'bold ' + (mob ? 9 : 11) + 'px Inter, sans-serif'; ctx.fillStyle = THEME === 'dark' ? '#e6edf3' : '#22303f';
+        ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+        ctx.fillText(mob ? (t / 1000).toLocaleString('fr-FR', { maximumFractionDigits: 1 }) + ' k' : depEur(t), x, yTop - 4);
+        ctx.restore();
+      });
+    } };
+    DEP_CHART = new Chart(cv, { type: 'bar', data: { labels: chMois.map((m) => depMoisTxt(m)), datasets: ds }, plugins: [totaux],
+      options: { responsive: true, maintainAspectRatio: false, animation: false, layout: { padding: { top: 18 } },
         plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: mob ? 9 : 11 } } },
           tooltip: { callbacks: { label: (x) => x.dataset.label + ' : ' + depEur(x.parsed.y), footer: (items) => 'Total : ' + depEur(items.reduce((s, i) => s + i.parsed.y, 0)) } } },
         scales: { x: { stacked: true, grid: { display: false }, ticks: { font: { size: mob ? 9 : 11 } } }, y: { stacked: true, ticks: { callback: (v) => (v / 1000).toLocaleString('fr-FR') + ' k€' } } } } });
@@ -8760,7 +8792,8 @@ function aboLoad() {
   if (ABO_LISTEN || typeof db === 'undefined') return;
   ABO_LISTEN = true;
   db.ref('abonnements').on('value', (snap) => { const v = snap.val() || {}; ABOS = v.items || {}; ABO_CFG = v.config || {}; ABO_HIST = v.historique || {}; ABO_ERR = null;
-    if (currentTab === 'abonnements') renderAbosTab(); },
+    if (currentTab === 'abonnements') renderAbosTab();
+    else if (currentTab === 'depenses' && DEP_TX) renderDepTab(); },   // l'onglet Dépenses compare ses prélèvements à cette liste
     (e) => { ABO_ERR = (e && e.message) || String(e); console.warn('[abonnements]', e); if (currentTab === 'abonnements') renderAbosTab(); });
 }
 // equivalent mensuel en euros (null si le montant n'est pas encore saisi)
