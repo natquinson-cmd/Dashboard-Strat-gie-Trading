@@ -8406,6 +8406,13 @@ function depPistes(L, curYm, abosNoms) {
   const lig = W.filter((l) => /ligue 1/i.test(l.desc)), ligK = {};
   lig.forEach((l) => { ligK[l.k] = 1; });
   if (Object.keys(ligK).length >= 2 && !dbl.some((d) => /ligue 1/i.test(d[0]))) dbl.push(['Ligue 1 payée sur ' + Object.keys(ligK).length + ' abonnements', Object.keys(ligK).map((k) => ({ k: k, mensuel: depSomme(lig.filter((l) => l.k === k)) / 12 }))]);
+  // Vrai doublon = au moins deux de ces marchands payés le MÊME mois, sur les 3 derniers mois complets (27/10/2026).
+  // Avant, deux noms vus sur 12 mois suffisaient : « Ligue 1 Pass » (août 2025 à mars 2026) renommé « Ligue 1 » (depuis
+  // avril) sur le relevé, un seul abonnement, sortait « Ligue 1 payée sur 2 abonnements ».
+  const f3 = depFenetre(curYm, 3), payeMois = {};
+  L.forEach((l) => { if (l.v > 0 && depDans(l, f3)) (payeMois[l.ym] = payeMois[l.ym] || {})[l.k] = 1; });
+  const enMemeTemps = (cles) => Object.keys(payeMois).some((m) => cles.filter((k) => payeMois[m][k]).length >= 2);
+  dbl.splice(0, dbl.length, ...dbl.filter((d) => enMemeTemps(d[1].map((r) => r.k))));
   dbl.forEach((d, i) => {
     const an = d[1].reduce((x, r) => x + r.mensuel * 12, 0), min = Math.min.apply(null, d[1].map((r) => r.mensuel * 12));
     out.push({ id: 'double' + i, emoji: '👯', titre: 'En double : ' + d[0], an: an, eco: min,
@@ -8501,6 +8508,7 @@ function depSetRegle(k, cat) {
 function depCibler(k, L) {
   if (DEP_CIB[k]) { if (confirm('Retirer ce marchand de ta liste de chasse ?')) db.ref('depenses/cibles/' + k).remove(); return; }
   const cur = aboYm(), f = depFenetre(cur, 6), A = L.filter((l) => l.k === k && depDans(l, f));
+  if (!(depSomme(A) > 0)) { aboToast('Plus aucun paiement depuis 6 mois : rien à chasser ici'); return; }
   db.ref('depenses/cibles/' + k).set({ depuis: cur, moy: Math.round(depSomme(A) / 6 * 100) / 100, nom: (A[0] || L.find((l) => l.k === k) || {}).nom || k })
     .then(() => aboToast('🎯 Ajouté à ta liste de chasse')).catch((e) => alert('Enregistrement impossible : ' + ((e && e.message) || e)));
 }
@@ -8576,9 +8584,11 @@ function renderDepTab() {
   const P = depPistes(L, cur, abosNoms), pot = depPotentiel(P);
   const pisteEl = (p) => {
     const btns = [];
-    if (p.cles.length) {
-      const b = scrEl('button', { text: p.cles.every((k) => DEP_CIB[k]) ? '🎯 Dans ma chasse' : '🎯 Chasser', attrs: { type: 'button' }, style: 'padding:4px 10px;border-radius:20px;border:1px solid #e0922c;background:#ffffff;color:#b86e14;font-weight:700;cursor:pointer;font-size:0.72rem' });
-      b.onclick = () => { const k = p.cles.find((x) => !DEP_CIB[x]); if (k) depCibler(k, L); else aboToast('Déjà dans ta liste de chasse'); };
+    // seuls les marchands encore payés ces 6 derniers mois se chassent (depCibler refuse les autres)
+    const f6 = depFenetre(cur, 6), cles = p.cles.filter((k) => L.some((l) => l.k === k && l.v > 0 && depDans(l, f6)));
+    if (cles.length) {
+      const b = scrEl('button', { text: cles.every((k) => DEP_CIB[k]) ? '🎯 Dans ma chasse' : '🎯 Chasser', attrs: { type: 'button' }, style: 'padding:4px 10px;border-radius:20px;border:1px solid #e0922c;background:#ffffff;color:#b86e14;font-weight:700;cursor:pointer;font-size:0.72rem' });
+      b.onclick = () => { const k = cles.find((x) => !DEP_CIB[x]); if (k) depCibler(k, L); else aboToast('Déjà dans ta liste de chasse'); };
       btns.push(b);
     }
     return scrEl('div', { style: 'background:#fff;border:1px solid #e3e8ee;border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;gap:5px', kids: [
