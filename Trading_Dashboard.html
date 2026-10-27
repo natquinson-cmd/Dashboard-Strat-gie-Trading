@@ -8645,6 +8645,18 @@ function scrDispSym() { return SCR_DISP_CCY === 'EUR' ? '€' : '$'; }
 function usdToDisp(u) { if (u == null || !isFinite(u)) return null; return (SCR_DISP_CCY === 'EUR' && SCR_FX && SCR_FX.EUR) ? u * SCR_FX.EUR : u; }
 function dispToUsd(v) { if (v == null || !isFinite(v)) return null; return (SCR_DISP_CCY === 'EUR' && SCR_FX && SCR_FX.EUR) ? v / SCR_FX.EUR : v; }
 function scrToDisp(v, exch) { return usdToDisp(scrToUsd(v, exch)); }   // devise native -> devise d'affichage
+// PRU USD EFFECTIF d'une position (27/10/2026, demande du user). Une ligne cotee en EUR (VUAA.DE, VFEA.DE) porte pruEur = son
+// prix de revient en euros, celui de Revolut : son P&L se mesure en EUR (cours EUR / pruEur - 1) puis se convertit au taux du
+// jour. Avant, seul le pru USD fige au taux de chaque achat (~1,15) existait : la baisse de l'euro (1,119) passait pour une perte
+// (VFEA -2,2 % au dashboard contre +0,73 % chez Revolut). pru reste le cout USD FIGE et c'est lui que gardent les photos
+// positionsHistory (invested) et scrLiveHistPoint : scrLineFlow lit toute variation d'investi comme un apport ou un retrait.
+// Ce helper ne sert donc qu'a l'AFFICHAGE (tableau, bandeau, ecran mobile, fiche, Stream Deck via engine.js qui l'extrait :
+// garder une declaration function).
+function scrPruUsd(p) {
+  const pe = Number(p && p.pruEur);
+  if (pe > 0 && SCR_FX && SCR_FX.EUR) return pe / SCR_FX.EUR;   // meme taux que scrToUsd(cours, 'GER') : le change s'annule dans le %
+  return Number(p && p.pru) || 0;
+}
 function scrFmt(x) { if (x == null || !isFinite(x)) return '–'; const n = Math.round(x), a = Math.abs(n).toLocaleString('fr-FR'); return SCR_DISP_CCY === 'EUR' ? ((n < 0 ? '-' : '') + a + ' €') : ((n < 0 ? '-$' : '$') + a); }
 function scrUsd(usd) { return scrFmt(usdToDisp(usd)); }   // formate une valeur USD canonique dans la devise d'affichage
 function scrFmt2(x) { if (x == null || !isFinite(x)) return '–'; const a = Math.abs(x).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); return SCR_DISP_CCY === 'EUR' ? ((x < 0 ? '-' : '') + a + ' €') : ((x < 0 ? '-' : '') + '$' + a); }
@@ -9359,7 +9371,10 @@ function scrShowCompanyCard(symbol) {
   // carte metrics (facon Revolut)
   const price = m.price, qty = pos ? ((pos.qty != null) ? pos.qty : 0) : 0, held = !!(pos && qty > 0);
   const money = (v) => (v == null ? '–' : scrPrice(v, m.exchange));
-  const retour = (held && pos.pru > 0 && price > 0) ? (price / pos.pru - 1) : null;
+  // Retour et PRU en USD des deux cotes : cours natif converti + PRU USD effectif. Avant (27/10/2026), le cours EUR d'une
+  // ligne Xetra etait divise par un PRU USD (VFEA -12 % au lieu de +0,7 %) et le PRU USD affiche comme un montant en euros.
+  const pruU = held ? scrPruUsd(pos) : 0, priceU = scrToUsd(price, m.exchange);
+  const retour = (held && pruU > 0 && priceU > 0) ? (priceU / pruU - 1) : null;
   const divAnnual = (m.dividendYield > 0 && price > 0) ? (m.dividendYield * price * (held ? qty : 1)) : 0;
   const mc = scrEl('div', { style: 'border:1px solid #e3e8ee;border-radius:12px;padding:12px;margin:4px 0 14px;background:#fbfcfe' });
   mc.appendChild(scrEl('div', { style: 'display:flex;align-items:center;gap:10px;margin-bottom:10px', kids: [
@@ -9368,7 +9383,7 @@ function scrShowCompanyCard(symbol) {
     scrEl('div', { style: 'text-align:right', kids: [(held ? scrEl('div', { text: (qty % 1 === 0 ? qty : qty.toFixed(3)) + ' ' + ticker, style: 'font-size:0.72rem;color:#5b6b7d' }) : scrEl('span')), scrEl('div', { text: money(price), style: 'font-weight:800;color:#22303f;font-size:1rem' })] })] }));
   const cell = (label, val, c) => scrEl('div', { style: 'flex:1;min-width:74px;text-align:center', kids: [scrEl('div', { text: label, style: 'font-size:0.6rem;color:#9aa7b4;text-transform:uppercase;font-weight:700' }), scrEl('div', { text: val, style: `font-size:0.84rem;font-weight:700;color:${c || '#22303f'};margin-top:2px` })] });
   mc.appendChild(scrEl('div', { style: 'display:flex;flex-wrap:wrap;gap:8px;border-top:1px solid #eef1f5;padding-top:8px', kids: [
-    cell('P.R.U.', held ? money(pos.pru) : '–'),
+    cell('P.R.U.', (held && pruU > 0) ? scrPrice(pruU, 'NMS') : '–'),   // montant deja en USD : ne pas le repasser par la devise de cotation
     cell('Retour', retour != null ? ((retour >= 0 ? '+' : '') + (retour * 100).toFixed(0) + '%') : '–', retour != null ? (retour >= 0 ? '#1d9e74' : '#dd5f66') : '#9aa7b4'),
     cell('Div annuel', divAnnual > 0 ? money(divAnnual) : '–'),
     cell('Rendement', m.dividendYield > 0 ? (m.dividendYield * 100).toFixed(2) + '%' : '–')] }));
@@ -11944,6 +11959,8 @@ function scrLiveHistPoint() {
     const d = SCR_PRICE_MAP[k], pu = d ? scrToUsd(d.price, d.exchange) : null;
     const a = agg[k] = agg[k] || { ticker: k, value: 0, invested: 0, qty: 0 };
     a.value += qty * (pu != null ? pu : pru); a.invested += qty * pru; a.qty += qty;   // cours indispo -> au coût (neutre), comme le VPS
+    // pru USD FIGE ici, jamais scrPruUsd : l'investi des photos sert a detecter les flux (scrLineFlow), un investi qui suivrait
+    // le change des lignes EUR creerait de faux apports/retraits chaque jour. Meme regle dans live_prices.py.
   });
   const lines = Object.values(agg).sort((x, y) => (x.ticker < y.ticker ? -1 : 1));
   return { date: scrLocalDay(new Date()), value: lines.reduce((s, l) => s + l.value, 0), invested: lines.reduce((s, l) => s + l.invested, 0), lines: lines, live: true };
@@ -12100,8 +12117,22 @@ function scrKpi(label, val, col, title) {
     scrEl('div', { text: val, style: `font-size:1rem;font-weight:800;color:${col || '#22303f'}` })] });
 }
 // fm : formatage des montants (scrUsd par defaut = portefeuille en USD ; kidsMoney pour la poche des enfants, en EUR)
-function scrEquityCurve(hist, fm) {
+// Plus-value latente des lignes détenues, MÊME formule que le bandeau scrTopKpiBand (lignes EUR en euros via scrPruUsd).
+// La légende de la courbe du portefeuille l'affiche pour ne pas contredire le bandeau : la ligne grise, elle, reste
+// l'investi des photos = coût en dollars au jour de chaque achat (nécessaire au calcul des flux, voir scrLiveHistPoint).
+function scrLatentGain() {
+  let g = 0;
+  scrGetPositions().forEach((p) => {
+    const d = SCR_PRICE_MAP[String(p.ticker || '').toUpperCase()];
+    const qty = (p.qty != null) ? p.qty : ((p.amount != null && p.pru) ? p.amount / p.pru : 0);
+    const pu = d ? scrToUsd(d.price, d.exchange) : null;
+    if (pu != null) g += qty * (pu - scrPruUsd(p));   // cours indispo : ligne au coût, gain nul (comme le bandeau)
+  });
+  return g;
+}
+function scrEquityCurve(hist, fm, opts) {
   fm = fm || scrUsd;
+  const gainNow = (opts && opts.gainNow != null && isFinite(opts.gainNow)) ? opts.gainNow : null;
   if (hist.length < 2) return scrEl('div', { style: 'color:#9aa7b4;font-size:0.78rem;padding:6px 0', text: 'La courbe se dessine dès 2 journées enregistrées (1 point/jour via le VPS).' });
   const NS = 'http://www.w3.org/2000/svg';
   const W = 620, H = 210, padL = 58, padR = 14, padT = 12, padB = 26, n = hist.length;
@@ -12198,11 +12229,13 @@ function scrEquityCurve(hist, fm) {
   // LEGENDE
   const leg = scrEl('div', { style: 'display:flex;gap:14px;align-items:center;margin-bottom:6px;font-size:0.68rem;color:#5b6b7d;flex-wrap:wrap', kids: [
     scrEl('span', { style: 'display:flex;align-items:center;gap:5px', kids: [scrEl('span', { style: 'display:inline-block;width:14px;height:2.5px;border-radius:2px;background:' + valCol }), scrEl('span', { text: 'Valeur de marché' })] }),
-    scrEl('span', { style: 'display:flex;align-items:center;gap:5px', kids: [scrEl('span', { style: 'display:inline-block;width:14px;height:0;border-top:2.5px dashed ' + GREY }), scrEl('span', { text: 'Investi (prix de revient)' })] }),
+    scrEl('span', { style: 'display:flex;align-items:center;gap:5px', kids: [scrEl('span', { style: 'display:inline-block;width:14px;height:0;border-top:2.5px dashed ' + GREY }), scrEl('span', { text: gainNow != null ? 'Investi (coût en $ au jour de l\'achat)' : 'Investi (prix de revient)' })] }),
     ...['in', 'out', 'reeq'].filter((k) => Object.keys(evts).some((i) => evts[i].kind === k)).map((k) => scrEl('span', { style: 'display:flex;align-items:center;gap:4px', kids: [
       scrEl('span', { text: k === 'in' ? '▲' : (k === 'out' ? '▼' : '◆'), style: 'font-size:0.66rem;color:' + EVT_COL[k] }),
       scrEl('span', { text: k === 'in' ? 'apport' : (k === 'out' ? 'retrait' : 'rééquilibrage') })] })),
-    scrEl('span', { style: 'margin-left:auto;font-weight:700;color:' + valCol, text: (last.value - last.invested >= 0 ? '+' : '') + fm(last.value - last.invested) })] });
+    (() => { const g = gainNow != null ? gainNow : last.value - last.invested;
+      return scrEl('span', { attrs: gainNow != null ? { title: 'Plus-value latente actuelle, comme le bandeau : lignes en euros (VUAA, VFEA) mesurées en euros comme Revolut. La ligne grise reste le coût en dollars au jour de chaque achat, change compris.' } : {},
+        style: 'margin-left:auto;font-weight:700;color:' + (g >= 0 ? '#1d9e74' : '#dd5f66') + (gainNow != null ? ';cursor:help' : ''), text: (g >= 0 ? '+' : '') + fm(g) }); })()] });
   cont.appendChild(leg); cont.appendChild(svg); cont.appendChild(tip);
   return cont;
 }
@@ -12364,7 +12397,7 @@ function scrBuildHistSection() {
   // KPI Valeur / Investi / Gain / TWR RETIRES : ils sont desormais dans le bandeau KPI en tete de page (refonte, plus de doublon).
   // Courbe d evolution A GAUCHE + graphique de PERFORMANCE A DROITE (occupe l espace vide).
   wrap.appendChild(scrEl('div', { style: 'display:flex;gap:14px;flex-wrap:wrap;align-items:stretch', kids: [
-    scrEl('div', { style: 'flex:1.7;min-width:340px;background:#fff;border:1px solid #e3e8ee;border-radius:10px;padding:12px 14px', kids: [scrEquityCurve(hist)] }),
+    scrEl('div', { style: 'flex:1.7;min-width:340px;background:#fff;border:1px solid #e3e8ee;border-radius:10px;padding:12px 14px', kids: [scrEquityCurve(hist, null, { gainNow: scrLatentGain() })] }),
     scrEl('div', { style: 'flex:1;min-width:290px;background:#fff;border:1px solid #e3e8ee;border-radius:10px;padding:12px 14px', kids: [scrPerfChart(SCR_HIST, SCR_BENCH, SCR_BENCH_NDX)] })] }));
   wrap.appendChild(scrEl('div', { style: 'display:flex;align-items:center;gap:10px;margin-top:14px;flex-wrap:wrap', kids: [
     scrCalToggle(), scrEl('span', { text: '% = rendement TWR, net de tes apports', style: 'font-size:0.66rem;color:#9aa7b4' })] }));
@@ -12643,7 +12676,7 @@ function scrTopKpiBand(pos, badge) {
   (pos || []).forEach((p) => {
     const d = SCR_PRICE_MAP[String(p.ticker || '').toUpperCase()];
     const qty = (p.qty != null) ? p.qty : ((p.amount != null && p.pru) ? p.amount / p.pru : 0);
-    const investi = qty * (p.pru || 0);
+    const investi = qty * scrPruUsd(p);   // lignes EUR mesurees en euros comme Revolut (pruEur au taux du jour)
     const pu = d ? scrToUsd(d.price, d.exchange) : null;
     const v = (pu != null) ? qty * pu : investi;
     val += v; inv += investi;
@@ -12688,7 +12721,7 @@ function scrTopKpiBand(pos, badge) {
     tile('Valeur du portefeuille', scrUsd(val), daySub, flat ? '#22303f' : dayCol,
       "Valeur de marché de tes lignes, aux cours du jour, convertie dans la devise d'affichage.", true),
     tile('Plus-value latente', sign(pnl) + scrUsd(pnl), sign(pnlPct) + (pnlPct * 100).toFixed(2) + '% sur ' + scrUsd(inv) + ' investis',
-      pnl >= 0 ? GREEN : RED, "Écart entre la valeur actuelle et ton prix de revient, sur les lignes que tu détiens encore."),
+      pnl >= 0 ? GREEN : RED, "Écart entre la valeur actuelle et ton prix de revient, sur les lignes que tu détiens encore. Lignes cotées en euros (VUAA, VFEA) : mesurées en euros comme Revolut, puis converties au taux du jour."),
     tile('Résultat réalisé', sign(real.total) + scrUsd2(real.total), real.closed.length + ' cession' + (real.closed.length > 1 ? 's' : '') + ' · frais ' + scrUsd2(real.fees),
       real.total >= 0 ? GREEN : RED, "Plus et moins-values des lignes VENDUES, net de frais. C'est la base imposable en compte-titres."),
     tile('Performance (TWR)', twr == null ? '–' : sign(twr) + (twr * 100).toFixed(2) + ' %', (twrDebut ? 'depuis le ' + twrDebut + ' · ' : '') + 'net des apports',
@@ -13161,12 +13194,13 @@ function scrMobilePortfolio(pos) {
   const lines = (pos || []).map((p) => {
     const t = String(p.ticker || '').toUpperCase(), d = SCR_PRICE_MAP[t];
     const qty = (p.qty != null) ? p.qty : ((p.amount != null && p.pru) ? p.amount / p.pru : 0);
-    const investi = qty * (p.pru || 0), pu = d ? scrToUsd(d.price, d.exchange) : null;
+    const pruU = scrPruUsd(p);   // lignes EUR mesurees en euros comme Revolut
+    const investi = qty * pruU, pu = d ? scrToUsd(d.price, d.exchange) : null;
     const valeur = pu != null ? qty * pu : investi;
     const chg = (d && d.changePct != null) ? d.changePct : null;
     const dj = (pu != null) ? scrDayImpact(p.ticker, qty, pu, chg) : null;   // reference = derniere photo, comme le calendrier
     return { t: t, d: d, qty: qty, investi: investi, valeur: valeur, cat: mpCat(t, d),
-      pnl: pu != null ? valeur - investi : null, pnlPct: (pu != null && p.pru > 0) ? pu / p.pru - 1 : null, day: dj ? dj.usd : 0,
+      pnl: pu != null ? valeur - investi : null, pnlPct: (pu != null && pruU > 0) ? pu / pruU - 1 : null, day: dj ? dj.usd : 0,
       dayOk: !!dj, dayPct: dj ? ((valeur - dj.usd) > 0 ? dj.usd / (valeur - dj.usd) : chg) : null };
   });
   const tot = lines.reduce((a, l) => a + l.valeur, 0), inv = lines.reduce((a, l) => a + l.investi, 0);
@@ -13465,13 +13499,27 @@ function screenerPositionsModule() {
     const ticker = (tkIn.value || '').toUpperCase().trim(), qty = Number(qtyIn.value), pru = Number(pruIn.value);
     if (!ticker || !(qty > 0) || !(pru > 0)) return;
     const pruUsd = dispToUsd(pru);
+    // Ligne cotée en EUR (Xetra...) : le PRU se tient AUSSI en euros (pruEur, mesure de Revolut, voir scrPruUsd). Prix saisi
+    // en € pris tel quel, en $ converti au taux du jour. Moyenne pondérée seulement si les lignes déjà détenues du ticker ont
+    // toutes un pruEur : on ne fabrique pas un PRU en euros au taux du jour pour une part achetée avant.
+    const aPruEur = scrGetPositions().some((p) => String(p.ticker || '').toUpperCase().trim() === ticker && Number(p.pruEur) > 0);
+    const enEur = aPruEur || SCR_EXCH_CCY[(SCR_PRICE_MAP[ticker] || {}).exchange] === 'EUR';
+    // Sans taux EUR/USD, une ligne en euros perdrait son pruEur et une saisie en € serait enregistrée comme des $ : on refuse.
+    if ((enEur || SCR_DISP_CCY === 'EUR') && !(SCR_FX && SCR_FX.EUR)) {
+      alert('Taux EUR/USD indisponible pour le moment : réessaie dans une minute (la position n\'a pas été enregistrée).');
+      return;
+    }
+    const pruEurIn = !enEur ? null : (SCR_DISP_CCY === 'EUR' ? pru : pru * SCR_FX.EUR);
     // Consolide sur UNE seule ligne par ticker : quantité cumulée + PRU MOYEN PONDÉRÉ (en USD canonique).
     // Fusionne aussi d'éventuels doublons déjà présents pour ce ticker.
     let pos = scrGetPositions().slice();
-    let totQty = qty, totCost = qty * pruUsd;
-    pos.forEach((p) => { if (String(p.ticker || '').toUpperCase().trim() === ticker) { const q = Number(p.qty) || 0, pr = Number(p.pru) || 0; totQty += q; totCost += q * pr; } });
+    let totQty = qty, totCost = qty * pruUsd, totCostEur = (pruEurIn != null) ? qty * pruEurIn : null;
+    pos.forEach((p) => { if (String(p.ticker || '').toUpperCase().trim() === ticker) { const q = Number(p.qty) || 0, pr = Number(p.pru) || 0; totQty += q; totCost += q * pr;
+      if (totCostEur != null) { const pe = Number(p.pruEur) || 0; if (pe > 0) totCostEur += q * pe; else if (q > 0) totCostEur = null; } } });
     pos = pos.filter((p) => String(p.ticker || '').toUpperCase().trim() !== ticker);
-    pos.push({ ticker, qty: Math.round(totQty * 1e8) / 1e8, pru: totQty > 0 ? Math.round((totCost / totQty) * 1e4) / 1e4 : pruUsd });
+    const ligne = { ticker, qty: Math.round(totQty * 1e8) / 1e8, pru: totQty > 0 ? Math.round((totCost / totQty) * 1e4) / 1e4 : pruUsd };
+    if (totCostEur != null && totQty > 0) ligne.pruEur = Math.round((totCostEur / totQty) * 1e4) / 1e4;
+    pos.push(ligne);
     scrSavePositions(pos);
     tkIn.value = ''; qtyIn.value = ''; pruIn.value = ''; render(); if (SCR_HIST_RERENDER) SCR_HIST_RERENDER();
   };
@@ -13533,15 +13581,16 @@ function renderPositionsTable(pos, onChange) {
   const rows = pos.map((p, idx) => {
     const d = SCR_PRICE_MAP[(p.ticker || '').toUpperCase()];
     const qty = (p.qty != null) ? p.qty : ((p.amount != null && p.pru) ? p.amount / p.pru : 0);   // migration ancien format {amount}
-    const investi = qty * (p.pru || 0);                          // USD (pru stocke en USD)
+    const pruU = scrPruUsd(p);                                   // PRU USD effectif : pruEur au taux du jour pour les lignes EUR
+    const investi = qty * pruU;                                  // USD (pru stocke en USD fige, pruEur en euros pour les lignes EUR)
     const priceUsd = d ? scrToUsd(d.price, d.exchange) : null;   // cours en USD
     const valeur = priceUsd != null ? qty * priceUsd : investi;
-    return { p: p, i: idx, d: d, qty: qty, investi: investi, priceUsd: priceUsd, valeur: valeur };
+    return { p: p, i: idx, d: d, qty: qty, investi: investi, priceUsd: priceUsd, valeur: valeur, pruU: pruU };
   }).sort((a, b) => b.valeur - a.valeur);
   const totValAll = rows.reduce((s, r) => s + r.valeur, 0);   // dénominateur du poids (%) de chaque ligne
-  rows.forEach(({ p, i, d, qty, investi, priceUsd, valeur }) => {
+  rows.forEach(({ p, i, d, qty, investi, priceUsd, valeur, pruU }) => {
     const pnl = priceUsd != null ? valeur - investi : null;
-    const pnlPct = (priceUsd != null && p.pru > 0) ? priceUsd / p.pru - 1 : null;
+    const pnlPct = (priceUsd != null && pruU > 0) ? priceUsd / pruU - 1 : null;   // ligne EUR : = cours EUR / pruEur - 1, comme Revolut
     const chg = d && d.changePct != null ? d.changePct : null;
     const dj = (priceUsd != null) ? scrDayImpact(p.ticker, qty, priceUsd, chg) : null;   // reference = derniere photo, comme le calendrier
     const dayImp = dj ? dj.usd : null;
@@ -13578,7 +13627,7 @@ function renderPositionsTable(pos, onChange) {
     const tr = scrEl('tr', { kids: [
       scrEl('td', { attrs: zStripe ? { title: "Zone d'achat : " + SCR_ZONE[zBand.zone].label + " (bandeau vert = décoté, rouge = cher, d'après la juste valeur DCF)" } : {}, style: `padding:6px 10px;${bd}${zStripe ? ';box-shadow:inset 4px 0 0 0 ' + zStripe : ''}`, kids: [scrEl('div', { style: 'display:flex;align-items:center;gap:8px', kids: tkKids })] }),
       scrEl('td', { text: qtyTxt, style: `padding:6px 10px;text-align:right;${bd};color:#42546a;font-weight:600` }),
-      scrEl('td', { text: (p.pru != null ? scrPxNum(usdToDisp(p.pru)) : '–'), style: `padding:6px 10px;text-align:right;${bd};color:#42546a` }),
+      scrEl('td', { text: (pruU > 0 ? scrPxNum(usdToDisp(pruU)) : '–'), attrs: (Number(p.pruEur) > 0) ? { title: 'Prix de revient Revolut en euros : ' + scrPxNum(Number(p.pruEur)) + ' €. Plus-value mesurée en euros, puis convertie au taux du jour.' } : {}, style: `padding:6px 10px;text-align:right;${bd};color:#42546a` }),
       (d ? scrCoursCell(d, bd, true) : scrEl('td', { text: '–', style: `padding:6px 10px;text-align:right;${bd};color:#c3ccd6` })),
       scrEl('td', { text: dayTxt, attrs: (dj && dj.note) ? { title: dj.note } : {}, style: `padding:6px 10px;text-align:right;${bd};font-weight:700;color:${dayCol};white-space:nowrap${(dj && dj.note) ? ';cursor:help;text-decoration:underline dotted #9aa7b4' : ''}` }),
       scrEl('td', { style: `padding:6px 10px;text-align:right;${bd};font-weight:700;color:#22303f;white-space:nowrap`, kids: [
@@ -13591,7 +13640,7 @@ function renderPositionsTable(pos, onChange) {
     // cles de tri, une par colonne (meme ordre que l'en-tete ; null = toujours en bas du tri)
     const mm = d || {};
     const k3m = (Array.isArray(mm.spark) && mm.spark.length > 1 && mm.spark[0] > 0) ? mm.spark[mm.spark.length - 1] / mm.spark[0] - 1 : null;
-    tr._k = [String(p.ticker || ''), qty, p.pru, k3m, chg, valeur, pnlPct, vgap,
+    tr._k = [String(p.ticker || ''), qty, pruU, k3m, chg, valeur, pnlPct, vgap,
       (dcf && isFinite(dcf.cagr)) ? dcf.cagr : null, mm.moatScore, mm.roic, mm.revCagr, mm.peg, mm.netMargin,
       mm.dividendYield > 0 ? mm.dividendYield : null, mm.payoutRatio, mm.divStreak, mm.fcfYield];
     tbody.appendChild(tr);
@@ -13612,7 +13661,7 @@ function renderPositionsTable(pos, onChange) {
   ] }));
   const table = scrEl('table', { style: 'width:100%;border-collapse:collapse;font-size:0.82rem', kids: [scrEl('thead', { kids: [thead] }), tbody] });
   const liveTxt = SCR_LIVE_AT ? '' : 'Cours = snapshot du run VPS (pas encore de cron temps réel). ';   // horodatage DEPLACE dans l'en-tete
-  const note = scrFoldNote('Saisie, devises et signaux ⚠', scrEl('div', { style: 'font-size:0.7rem;color:#9aa7b4', text: liveTxt + "Saisis la quantité d'actions et ton prix d'achat (en " + scrDispSym() + ", la devise affichée). Cours étrangers convertis au taux du jour. Titre hors univers screené : cours indisponible. P&L hors frais de change. ⚠ = signaux de vente à vérifier." }), 'posNote', 'margin-top:8px');
+  const note = scrFoldNote('Saisie, devises et signaux ⚠', scrEl('div', { style: 'font-size:0.7rem;color:#9aa7b4', text: liveTxt + "Saisis la quantité d'actions et ton prix d'achat (en " + scrDispSym() + ", la devise affichée). Cours étrangers convertis au taux du jour. Lignes cotées en euros (VUAA, VFEA) : prix de revient et plus-value en euros comme Revolut, convertis au taux du jour (la variation du jour et le calendrier restent mesurés en dollars). Titre hors univers screené : cours indisponible. P&L hors frais de change. ⚠ = signaux de vente à vérifier." }), 'posNote', 'margin-top:8px');
   // Graphiques : répartition par action (barres) + par secteur (donut), sur la valeur actuelle
   const parts2 = parts.filter((p) => p.valeur > 0).sort((a, b) => b.valeur - a.valeur);
   const totV = parts2.reduce((s, p) => s + p.valeur, 0);

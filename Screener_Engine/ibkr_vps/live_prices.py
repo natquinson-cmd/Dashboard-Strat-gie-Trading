@@ -107,6 +107,14 @@ def compute_dca(poslist, pmap, fx, today, state):
         new_pru = ((qty * pru + cost_usd) / new_qty) if new_qty > 0 else pru
         line['qty'] = round(new_qty, 8)
         line['pru'] = round(new_pru, 4)
+        # PRU en euros (pruEur, mesure de Revolut lue par le dashboard, 27/10/2026) : moyenne exacte en EUR, sans change.
+        # Jamais cree sur une ligne qui n'en a pas.
+        try:
+            pru_eur = float(line.get('pruEur') or 0)
+        except (TypeError, ValueError):
+            pru_eur = 0
+        if pru_eur > 0 and new_qty > 0:
+            line['pruEur'] = round((qty * pru_eur + plan['amountEur']) / new_qty, 4)
         state[key] = day_str
         changed = True
         logs.append(f'DCA {tk} : +{qty_add:.5f} act. ({plan["amountEur"]:.0f} EUR @ {pe:.2f} EUR) -> qty {new_qty:.5f} / pru ${new_pru:.2f}')
@@ -173,7 +181,7 @@ def main():
         lv = qty * (pu if pu is not None else pru)   # cours indispo -> on retient le cout (P&L neutre)
         a = agg.setdefault(t, {'value': 0.0, 'invested': 0.0, 'qty': 0.0})
         a['value'] += lv
-        a['invested'] += qty * pru
+        a['invested'] += qty * pru   # pru USD FIGE, jamais pruEur : l'investi sert au dashboard a detecter les flux (scrLineFlow)
         a['qty'] += qty   # sert au dashboard pour sortir une vente a son prix reel (PRU de la veille = investi / qte)
     lines = [{'ticker': k, 'value': round(v['value'], 2), 'invested': round(v['invested'], 2), 'qty': round(v['qty'], 8)}
              for k, v in sorted(agg.items())]

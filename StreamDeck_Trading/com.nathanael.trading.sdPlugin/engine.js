@@ -139,7 +139,9 @@ async function compute(opts) {
     scrGetPositions().forEach(function (p) {
       const t = String(p.ticker || '').toUpperCase(), d = SCR_PRICE_MAP[t];
       const qty = (p.qty != null) ? p.qty : ((p.amount != null && p.pru) ? p.amount / p.pru : 0);
-      const investi = qty * (p.pru || 0), pu = d ? scrToUsd(d.price, d.exchange) : null;
+      // PRU USD effectif du dashboard (lignes EUR mesurees en euros comme Revolut, 27/10/2026) ; repli pru si helper absent
+      const pruU = (typeof scrPruUsd === 'function') ? scrPruUsd(p) : (Number(p.pru) || 0);
+      const investi = qty * pruU, pu = d ? scrToUsd(d.price, d.exchange) : null;
       const valeur = pu != null ? qty * pu : investi;
       const chg = (d && d.changePct != null) ? d.changePct : null;
       const dj = (chg != null && pu != null && typeof scrDayImpact === 'function') ? scrDayImpact(p.ticker, qty, pu, chg) : null;
@@ -147,7 +149,7 @@ async function compute(opts) {
       o.value += valeur * c.fx; o.inv += investi * c.fx; o.day += (dj ? dj.usd : 0) * c.fx; o.lines++;
       // detail par ligne pour l'ecran Positions (memes formules que scrMobilePortfolio)
       lignes.push({ t: t, name: mpName(t, d), website: (d && d.website) || '', cat: k, value: valeur * c.fx,
-        pnl: pu != null ? (valeur - investi) * c.fx : null, pnlPct: (pu != null && p.pru > 0) ? (pu / p.pru - 1) * 100 : null,
+        pnl: pu != null ? (valeur - investi) * c.fx : null, pnlPct: (pu != null && pruU > 0) ? (pu / pruU - 1) * 100 : null,
         pnlUsd: pu != null ? valeur - investi : null, dayUsd: dj ? dj.usd : null, valueUsd: valeur,   // en dollars, devise native du portefeuille
         day: dj ? dj.usd * c.fx : null, dayPct: dj ? ((valeur - dj.usd) > 0 ? dj.usd / (valeur - dj.usd) * 100 : chg) : null });
     });
