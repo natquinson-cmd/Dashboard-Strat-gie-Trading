@@ -11584,6 +11584,7 @@ async function renderScreenerTab() {
       nodes.forEach((snap) => { const v = snap.val(); (v && v.top || []).forEach((t) => { const m = t.metrics || {}; if (t.symbol && m.price != null) SCR_PRICE_MAP[String(t.symbol).toUpperCase()] = Object.assign({}, m, { symbol: String(t.symbol).toUpperCase(), name: t.name, sector: t.sector, rating: t.rating, valuationScore: t.valuationScore }); }); });
     } catch (e) { /* ignore */ }
     await scrMergePositionMeta(); await scrMergeMoat(); await scrMergeValuationOverrides();
+    await scrRankCharger();   // photos quotidiennes du classement (flèches ▲▼ de la colonne #)
     scrFreezeEps(); await scrApplyLivePrices();   // BPA fige, PUIS cours temps réel (cron VPS) par-dessus le snapshot
     // Positions "Mes positions" depuis Firebase (cross-device) + migration one-shot depuis localStorage.
     try {
@@ -14867,6 +14868,74 @@ function resRemplir(box) {
   box.replaceChildren(...kids);
 }
 
+// Évolution du rang dans le screener (29/10/2026, demande du user) : flèche ▲ / ▼ et nombre de places gagnées
+// ou perdues sous le numéro de la colonne #. Le classement est calculé ICI (juste valeur + potentiel/an, cours en
+// direct, hypothèses DCF du user), pas sur le VPS : c'est donc le dashboard qui en garde une photo par jour (date de
+// Paris) dans stocks/screener/rankHistory/{AAAA-MM-JJ} = { at, order: 'MSFT GOOGL ...' }, ordre COMPLET (sans le
+// filtre des moats). La photo du jour est réécrite au plus toutes les 30 min : la dernière vue de la journée fait foi.
+// Référence = la photo la plus récente vieille d'au moins SCR_RANK_JOURS jours ; tant que l'historique est plus
+// court, la plus ancienne disponible (sa date est affichée dans les infobulles).
+const SCR_RANK_JOURS = 7;
+const SCR_RANK = { hist: {}, lu: 0, ecrit: 0 };
+function scrRankJour() { return new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Paris' }); }
+async function scrRankCharger() {
+  if (typeof db === 'undefined' || !db) return;
+  if (SCR_RANK.lu && Date.now() - SCR_RANK.lu < 1800000) return;   // relu au plus toutes les 30 min
+  try {
+    const v = (await db.ref('stocks/screener/rankHistory').orderByKey().limitToLast(30).once('value')).val();
+    SCR_RANK.hist = (v && typeof v === 'object') ? v : {};
+    SCR_RANK.lu = Date.now();
+  } catch (e) { console.warn('Historique des rangs illisible', e); }
+}
+function scrRankEcrire(jour, val) { return db.ref('stocks/screener/rankHistory/' + jour).set(val); }
+// Photo du classement du jour. Seulement une fois l'historique lu (sinon on ignore si la photo du jour existe)
+// et seulement si l'ordre a changé depuis la dernière photo.
+function scrRankNoter(top) {
+  if (!SCR_RANK.lu || typeof db === 'undefined' || !db) return;
+  const jour = scrRankJour();
+  const order = top.map((cd) => String(cd.symbol || '').toUpperCase()).filter(Boolean).join(' ');
+  if (!order) return;
+  const cur = SCR_RANK.hist[jour];
+  if (cur && cur.order === order) return;
+  if (cur && Date.now() - SCR_RANK.ecrit < 1800000) return;   // curseurs DCF : pas une écriture par mouvement
+  const val = { at: new Date().toISOString(), order };
+  SCR_RANK.hist[jour] = val; SCR_RANK.ecrit = Date.now();
+  try { Promise.resolve(scrRankEcrire(jour, val)).catch((e) => console.warn('Photo du classement non enregistrée', e)); }
+  catch (e) { console.warn('Photo du classement non enregistrée', e); }
+}
+// Référence de comparaison { jour, txt: 'JJ/MM', jours, rangs: {SYM: rang} }. Les rangs passés sont renumérotés
+// avec le même filtre que le tableau affiché (moats faibles masqués ou non) : la numérotation se compare à elle-même.
+function scrRankRef(garder) {
+  const today = scrRankJour(), h = SCR_RANK.hist || {};
+  const jours = Object.keys(h).filter((k) => /^\d{4}-\d{2}-\d{2}$/.test(k) && k < today && h[k] && typeof h[k].order === 'string').sort();
+  if (!jours.length) return null;
+  const cible = new Date(Date.parse(today) - SCR_RANK_JOURS * 864e5).toISOString().slice(0, 10);
+  const avant = jours.filter((k) => k <= cible);
+  const jour = avant.length ? avant[avant.length - 1] : jours[0];
+  let syms = h[jour].order.split(' ').filter(Boolean);
+  if (garder) syms = syms.filter(garder);
+  const rangs = {};
+  syms.forEach((sy, i) => { if (rangs[sy] == null) rangs[sy] = i + 1; });
+  return { jour, txt: jour.slice(8, 10) + '/' + jour.slice(5, 7), jours: Math.round((Date.parse(today) - Date.parse(jour)) / 864e5), rangs };
+}
+// Cellule # : rang affiché, et en dessous l'évolution depuis la référence (▲ gagné, ▼ perdu, = stable, « nouveau »).
+function scrRankCell(rang, sym, ref, tipZone, style) {
+  const kids = [scrEl('span', { text: String(rang) })], tips = [];
+  if (tipZone) tips.push(tipZone);
+  if (ref) {
+    const avant = ref.rangs[String(sym || '').toUpperCase()], d = (avant == null) ? null : avant - rang;
+    const quand = 'le ' + ref.txt, pl = (n) => n + ' place' + (n > 1 ? 's' : '');
+    let txt, col, tip;
+    if (d == null) { txt = 'nouveau'; col = '#3563e9'; tip = 'Absent du classement ' + quand + '.'; }
+    else if (d > 0) { txt = '▲' + d; col = '#1d9e74'; tip = (avant === 1 ? '1er' : avant + 'e') + ' ' + quand + ' : ' + pl(d) + ' gagnée' + (d > 1 ? 's' : '') + '.'; }
+    else if (d < 0) { txt = '▼' + (-d); col = '#dd5f66'; tip = (avant === 1 ? '1er' : avant + 'e') + ' ' + quand + ' : ' + pl(-d) + ' perdue' + (d < -1 ? 's' : '') + '.'; }
+    else { txt = '='; col = '#9aa7b4'; tip = 'Même rang ' + quand + '.'; }
+    kids.push(scrEl('span', { text: txt, style: `font-size:0.62rem;font-weight:800;color:${col};white-space:nowrap` }));
+    tips.push(tip);
+  }
+  return scrEl('td', { attrs: tips.length ? { title: tips.join('\n') } : {}, style,
+    kids: [scrEl('div', { style: 'display:flex;flex-direction:column;align-items:flex-start;gap:1px;line-height:1.15', kids })] });
+}
 function screenerRenderQuality(c, data, config) {
   SCR_LAST_Q = { c, data, config };   // memorise pour scrRerenderQuality() (curseurs DCF)
   const s = data.summary || {};
@@ -14878,6 +14947,7 @@ function screenerRenderQuality(c, data, config) {
   const scrRowValPot = (cd) => scrValPotScore(scrRowMetrics(cd), cd.sector);   // juste valeur + potentiel/an
   const sortFn = scrRowValPot;   // tri fige : juste valeur + potentiel/an (plus de selecteur)
   const top = [...(data.top || [])].sort((a, b) => sortFn(b) - sortFn(a));
+  scrRankNoter(top);   // photo du classement du jour (référence des flèches ▲▼ des jours suivants)
   const frag = document.createDocumentFragment();
   frag.appendChild(screenerPositionsModule());
   // Bandeau « SCREENER / Où déployer » et ses 4 compteurs (Notées, Univers qualité, Passent le filtre, Achat fort)
@@ -14893,6 +14963,7 @@ function screenerRenderQuality(c, data, config) {
   try { hideWeak = localStorage.getItem('scrHideWeakMoat') === '1'; } catch (e) {}
   const moatOf = (cd) => (SCR_PRICE_MAP[String(cd.symbol || '').toUpperCase()] || {}).moat;
   const rows = hideWeak ? top.filter((cd) => moatOf(cd) === 'Large') : top;
+  const rk = scrRankRef(hideWeak ? (sy) => moatOf({ symbol: sy }) === 'Large' : null);
   const weakBox = scrEl('input', { attrs: { type: 'checkbox' }, style: 'cursor:pointer;accent-color:#3563e9' });
   weakBox.checked = hideWeak;
   weakBox.onchange = () => { try { localStorage.setItem('scrHideWeakMoat', weakBox.checked ? '1' : '0'); } catch (e) {} if (SCR_LAST_Q) scrRerenderQuality(); else renderScreenerTab(); };
@@ -14903,7 +14974,7 @@ function screenerRenderQuality(c, data, config) {
   // On garde le critere affiche en clair, pour qu'un tableau non triable ne soit pas un tableau opaque.
   frag.appendChild(scrEl('div', { style: 'display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px', kids: [
     scrEl('span', { attrs: { title: "Classement figé : combinaison de la décote vs juste valeur DCF et du potentiel annuel attendu. Il n'y a plus d'autre tri." },
-      style: 'color:#5b6b7d;font-size:0.76rem;cursor:help', text: 'Classé par juste valeur + potentiel/an' }),
+      style: 'color:#5b6b7d;font-size:0.76rem;cursor:help', text: 'Classé par juste valeur + potentiel/an' + (rk ? ' · ▲▼ depuis le ' + rk.txt : '') }),
     scrEl('div', { style: 'display:flex;align-items:center;gap:10px', kids: [
       scrEl('span', { style: 'color:#5b6b7d;font-size:0.76rem', text: (data.generatedAt ? 'Généré le ' + new Date(data.generatedAt).toLocaleString('fr-FR') : '') + ' · Yahoo' }),
       scrFreshBadge(data.generatedAt), refresh] })]}));
@@ -14911,7 +14982,9 @@ function screenerRenderQuality(c, data, config) {
   frag.appendChild(screenerQualityAllocPanel(top));
 
   const cols = [
-    ['#', 'left', ''],
+    ['#', 'left', rk ? ("Rang dans le classement. En dessous, l'évolution depuis le " + rk.txt + ' (il y a ' + rk.jours + ' jour' + (rk.jours > 1 ? 's' : '') + ') : ▲ places gagnées, ▼ places perdues, = inchangé, « nouveau » = absent ce jour-là. '
+      + "Le classement bouge surtout avec les cours : un titre qui baisse sans que sa juste valeur change devient moins cher et monte.")
+      : "Rang dans le classement. L'évolution (▲ places gagnées, ▼ perdues) s'affichera dès demain : le dashboard garde une photo du classement chaque jour où il est ouvert."],
     ['Ticker', 'left', 'Symbole boursier. Clique pour ouvrir le graphique TradingView (passable en ordre via IBKR).'],
     ['Cours 3 M', 'left', "Dernier cours et variation sur ~3 mois (période du mini-graphique). Vert = hausse, rouge = baisse."],
     ['Juste valeur', 'left', "Juste valeur DCF + jauge de la zone d'achat (Idéal / Achat / Cher) et écart au cours. Clique pour la fiche complète (hypothèses, valeur manuelle)."],
@@ -14999,7 +15072,7 @@ function screenerRenderQuality(c, data, config) {
     const zBand = scrBuyBand(SCR_PRICE_MAP[String(cd.symbol || '').toUpperCase()] || m, cd.sector);
     const zStripe = zBand ? (SCR_ZONE[zBand.zone] || {}).bar : null;   // bandeau gauche = zone d'achat (vert décoté -> rouge cher)
     tbody.appendChild(scrEl('tr', { kids: [
-      scrEl('td', { text: String(i + 1), attrs: zStripe ? { title: "Zone d'achat : " + SCR_ZONE[zBand.zone].label + " (vert = décoté, rouge = cher)" } : {}, style: `padding:8px 10px;color:#9aa7b4;${bd}${zStripe ? ';box-shadow:inset 4px 0 0 0 ' + zStripe : ''}` }),
+      scrRankCell(i + 1, cd.symbol, rk, zStripe ? "Zone d'achat : " + SCR_ZONE[zBand.zone].label + " (vert = décoté, rouge = cher)" : '', `padding:8px 10px;color:#9aa7b4;${bd}${zStripe ? ';box-shadow:inset 4px 0 0 0 ' + zStripe : ''}`),
       scrEl('td', { style: `padding:8px 10px;${bd}`, kids: [scrEl('div', { style: 'display:flex;align-items:center;gap:8px', kids: [
         scrLogo(cd.symbol, m.website),
         scrEl('div', { kids: [
