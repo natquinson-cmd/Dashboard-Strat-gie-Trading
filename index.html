@@ -1309,6 +1309,13 @@
   .res-pied { font-size: 0.7rem; color: var(--text-secondary); line-height: 1.5; }
   html[data-theme="dark"] .res-pill.est, html[data-theme="dark"] .res-verdict.mid { color: #e2a35a; }
   html[data-theme="dark"] .res-carte.vedette { border-color: rgba(92,138,238,0.55); }
+  .res-claude { display: flex; align-items: center; gap: 4px 10px; flex-wrap: wrap; margin-top: auto; padding-top: 2px; }
+  .res-claude button { border: 1px solid rgba(53,99,233,0.45); background: transparent; color: #3563e9; border-radius: 8px; padding: 5px 11px;
+    font: inherit; font-size: 0.72rem; font-weight: 700; cursor: pointer; }
+  .res-claude button:hover { background: rgba(53,99,233,0.08); }
+  .res-claude span { font-size: 0.7rem; color: var(--text-secondary); line-height: 1.4; user-select: text; }
+  .res-claude span.ko { color: var(--negative); }
+  html[data-theme="dark"] .res-claude button { color: #8fb0ff; border-color: rgba(92,138,238,0.55); }
   @media (max-width: 520px) { .res-chiffres { grid-template-columns: repeat(2, minmax(0, 1fr)); } .res-quand { max-width: 55%; } }
   html[data-theme="dark"] .scr-pos-th .srt { color: #5c8aee; }
   /* légende des marqueurs d'événements (chartEventMarkers) */
@@ -14498,7 +14505,8 @@ function screenerQualityAllocPanel(top) {
 //   prochain = { aSurveiller, majLe }, affiché tant qu'il est postérieur à la dernière publication
 // Yahoo compare le BPA PUBLIÉ aux attentes : quand une plus-value ou une moins-value sur participations le fausse
 // (Alphabet, Amazon, Microsoft), le verdict de la note remplace le verdict calculé.
-let RES_DATA = null, RES_NOTES = null, RES_ABONNE = false, RES_REDRAW = null;
+// Demandes d'analyse faites à Claude par le bouton des cartes : stocks/screener/earningsDemandes (voir resBoutonClaude).
+let RES_DATA = null, RES_NOTES = null, RES_ABONNE = false, RES_REDRAW = null, RES_DEMANDES = {};
 let RES_VUE = 'portefeuille';   // vue choisie, gardée pendant la visite (un re-rendu de la page ne la perd pas)
 const RES_DEV = { USD: '$', EUR: '€', TWD: 'NT$', GBP: '£', JPY: '¥', CHF: 'CHF', DKK: 'DKK', SEK: 'SEK', CAD: 'C$' };
 const RES_NOMS = { MSFT: 'Microsoft', GOOGL: 'Alphabet', GOOG: 'Alphabet', AMZN: 'Amazon', NVDA: 'NVIDIA', AVGO: 'Broadcom',
@@ -14512,6 +14520,7 @@ function resAbonner() {
   try {
     db.ref('stocks/screener/earnings').on('value', (x) => { RES_DATA = x.val() || {}; maj(); }, refus);
     db.ref('stocks/screener/earningsNotes').on('value', (x) => { RES_NOTES = x.val() || {}; maj(); }, () => { RES_NOTES = {}; maj(); });
+    db.ref('stocks/screener/earningsDemandes').on('value', (x) => { RES_DEMANDES = x.val() || {}; maj(); }, () => { RES_DEMANDES = {}; maj(); });
   } catch (e) { RES_ABONNE = false; refus(e.message); }
 }
 function resNom(it) {
@@ -14792,6 +14801,123 @@ function resCarteAVenir(x, poids, vedette) {
   }
   return c;
 }
+// Bouton « Demander l'analyse à Claude » (29/10/2026, demande du user) sur les cartes publiées dont la note manque
+// ou n'a pas encore le compte rendu de la conférence. Un clic copie la phrase-demande (téléphone, autre poste), lance
+// sur ordinateur le lien claude://code/new?q=…&folder=…, reconnu par l'appli Claude, qui ouvre une nouvelle session
+// Code avec la demande déjà écrite (il reste à appuyer sur Entrée), et trace la demande dans
+// stocks/screener/earningsDemandes/{ticker assaini}/{AAAA-MM-JJ} = { at, type, ticker } : la carte l'affiche « en
+// attente » jusqu'à ce qu'une note écrite après elle y réponde, et Claude retrouve les demandes ouvertes.
+// Dossier de la session : RES_CLAUDE_DOSSIER, remplaçable sur un autre poste par localStorage resClaudeDossier.
+const RES_CLAUDE_DOSSIER = 'C:\\Users\\quinson\\Desktop\\Claude';
+const RES_DEM_MSG = {};   // retour du dernier clic, par carte (ticker assaini/date)
+function resClaudeDossier() {
+  try { return localStorage.getItem('resClaudeDossier') || RES_CLAUDE_DOSSIER; } catch (e) { return RES_CLAUDE_DOSSIER; }
+}
+// ce qui manque à la note : tout ('analyse') ou le compte rendu de la conférence ('conference'), sinon rien
+function resDemandeType(note) { return !note || !note.resume ? 'analyse' : (!note.conference ? 'conference' : null); }
+// demande enregistrée à laquelle aucune note écrite APRÈS elle n'a encore répondu
+function resDemandeOuverte(t, date, note) {
+  const d = ((RES_DEMANDES || {})[scrOvKey(t)] || {})[date];
+  if (!d || !d.at) return null;
+  const a = Date.parse(d.at), m = Date.parse((note && note.majLe) || '');
+  return (isFinite(a) && isFinite(m) && m >= a) ? null : d;
+}
+// clé de la note réellement affichée (resNotePub tolère ±1 jour de fuseau) : la demande complète la note à cet endroit
+function resNotePubDate(t, date) {
+  const n = resNotes(t);
+  if (n[date]) return date;
+  const d = new Date(date + 'T12:00:00');
+  for (const k of [-1, 1]) { const x = resIso(new Date(d.getFullYear(), d.getMonth(), d.getDate() + k)); if (n[x]) return x; }
+  return date;
+}
+function resPromptClaude(it, date, type, dateNote) {
+  const t = String(it.ticker).toUpperCase(), k = scrOvKey(t);
+  const nom = resNom(it).replace(/[^\p{L}\p{N} .,&'-]/gu, '').slice(0, 60) || t;   // nom Yahoo : rien d'autre que du texte simple dans la demande
+  const j = date.slice(8, 10) + '/' + date.slice(5, 7) + '/' + date.slice(0, 4);
+  const de = /^[AEIOUÂÉÈÊÎÔÛaeiouâéèêîôû]/.test(nom) ? 'd’' : 'de ';   // « d’Amazon », « de Visa », « de Yum »
+  return (type === 'conference'
+      ? 'Complète la note des résultats ' + de + nom + ' (' + t + ') publiés le ' + j + ' avec le compte rendu de la conférence (champ conference)'
+      : 'Fais le compte rendu des résultats ' + de + nom + ' (' + t + ') publiés le ' + j + ' (communiqué et conférence)')
+    + ', pour l’onglet Résultats du dashboard de trading : écris via Chrome la note stocks/screener/earningsNotes/' + k + '/' + (dateNote || date)
+    + ' et mets à jour prochain, puis supprime la demande stocks/screener/earningsDemandes/' + k + '/' + date + '.';
+}
+// lien vers l'appli de bureau : navigateur Chromium (Chrome, Edge) sur Windows ou macOS. Ailleurs (téléphone, iPad
+// qui se présente comme un Mac, Firefox qui remplacerait la page par une erreur), la phrase copiée suffit.
+function resClaudeOuvrable() {
+  const d = navigator.userAgentData;
+  return !!(d && !d.mobile && /Windows|macOS/.test(d.platform || ''));
+}
+function resCopier(txt) {
+  const repli = () => {
+    const ta = scrEl('textarea', { style: 'position:fixed;top:-1000px;left:0;opacity:0' });
+    ta.value = txt; document.body.appendChild(ta); ta.select();
+    let ok = false;
+    try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+    ta.remove();
+    return ok;
+  };
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) return navigator.clipboard.writeText(txt).then(() => true, () => repli());
+  } catch (e) { /* presse-papiers indisponible : repli ci-dessous */ }
+  return Promise.resolve(repli());
+}
+function resDemanderClaude(it, date, type, dateNote) {
+  const t = String(it.ticker).toUpperCase(), cle = scrOvKey(t) + '/' + date, txt = resPromptClaude(it, date, type, dateNote);
+  const msg = RES_DEM_MSG[cle] = { at: Date.now(), type: type, txt: txt, lien: false, ouvert: null, copie: null, erreur: null };
+  const maj = () => { if (RES_REDRAW) RES_REDRAW(); };
+  const copie = resCopier(txt);   // lancée AVANT le lien : la copie exige une page au premier plan
+  if (resClaudeOuvrable()) {
+    // un lien claude:// ne signale jamais d'échec (appli absente, « Annuler » dans la boîte de Chrome) : l'ouverture
+    // n'est retenue que si la page perd la main dans les 2,5 s, sinon la carte le dit et renvoie à la phrase copiée
+    const vu = () => { msg.ouvert = true; };
+    window.addEventListener('blur', vu);
+    document.addEventListener('visibilitychange', vu);
+    setTimeout(() => {
+      window.removeEventListener('blur', vu); document.removeEventListener('visibilitychange', vu);
+      if (msg.ouvert !== true) msg.ouvert = false;
+      maj();
+    }, 2500);
+    msg.lien = true;
+    window.location.href = 'claude://code/new?q=' + encodeURIComponent(txt) + '&folder=' + encodeURIComponent(resClaudeDossier());
+  }
+  copie.then((ok) => { msg.copie = !!ok; maj(); });
+  if (typeof db === 'undefined' || !db) msg.erreur = 'base non connectée';
+  else {
+    try {
+      Promise.resolve(db.ref('stocks/screener/earningsDemandes/' + cle).set({ at: new Date().toISOString(), type: type, ticker: t }))
+        .then(maj, (e) => { msg.erreur = (e && (e.code || e.message)) || String(e); maj(); });
+    } catch (e) { msg.erreur = e.message || String(e); }
+  }
+  setTimeout(maj, 601000);   // le message du clic expire vraiment au bout de 10 min
+  maj();
+}
+function resBoutonClaude(it, date, note, dateNote) {
+  const t = String(it.ticker).toUpperCase(), type = resDemandeType(note);
+  if (!type || !date) return null;
+  const cle = scrOvKey(t) + '/' + date, ouverte = resDemandeOuverte(t, date, note), msg = RES_DEM_MSG[cle];
+  const b = scrEl('button', { text: ouverte ? 'Relancer la demande' : (type === 'conference' ? 'Compléter l’analyse avec Claude' : 'Demander l’analyse à Claude'),
+    attrs: { type: 'button', title: (type === 'conference' ? 'Ajouter à la note le compte rendu de la conférence. ' : 'Faire rédiger par Claude le compte rendu de cette publication. ')
+      + (resClaudeOuvrable() ? 'Ouvre l’appli Claude sur une nouvelle session avec la demande déjà écrite (il reste à appuyer sur Entrée) et copie aussi la phrase.' : 'Copie la phrase à coller dans Claude.') } });
+  b.onclick = () => resDemanderClaude(it, date, type, dateNote);
+  const box = scrEl('div', { cls: 'res-claude', kids: [b] });
+  // retour du clic : 10 min au plus, et plus du tout dès qu'une note écrite après le clic a changé ce qui manque
+  const mN = Date.parse((note && note.majLe) || '');
+  const recent = msg && msg.type === type && Date.now() - msg.at < 600000 && !(isFinite(mN) && mN >= msg.at);
+  let txt = '', ko = false;
+  if (recent) {
+    if (msg.erreur) { txt = 'Demande non enregistrée : ' + msg.erreur + '.'; ko = true; }
+    else if (msg.lien && msg.ouvert === null) txt = 'Ouverture de l’appli Claude…';
+    else if (msg.ouvert) txt = 'Appli Claude ouverte sur une nouvelle session avec la demande : il reste à appuyer sur Entrée' + (msg.copie ? ' (phrase aussi copiée).' : '.');
+    else if (msg.copie) txt = msg.lien ? 'L’appli Claude ne s’est pas ouverte sur ce poste : colle dans Claude la phrase copiée.' : 'Phrase copiée : colle-la dans Claude.';
+    else if (msg.copie === false) { txt = (msg.lien ? 'L’appli Claude ne s’est pas ouverte et la copie a échoué. ' : 'Copie impossible. ') + 'Phrase à copier : ' + msg.txt; ko = true; }
+  } else if (ouverte) {
+    const a = Date.parse(ouverte.at);
+    const jour = isFinite(a) ? new Date(a).toLocaleDateString('sv-SE', { timeZone: 'Europe/Paris' }) : '';   // jour et heure de Paris, comme tout l'onglet
+    txt = 'Demandée ' + (jour ? resJourTxt(jour) + ' à ' + resHParis(a) : '') + ', en attente de Claude.';
+  }
+  if (txt) box.appendChild(scrEl('span', { cls: ko ? 'ko' : '', text: txt }));
+  return box;
+}
 function resCartePubliee(it, pb, poids) {
   const t = String(it.ticker).toUpperCase(), w = poids[t], note = resNotePub(t, pb.date), v = resVerdict(pb, note);
   const c = scrEl('article', { cls: 'res-carte' });
@@ -14808,6 +14934,8 @@ function resCartePubliee(it, pb, poids) {
     resCellule('Chiffre d’affaires', resMd(ca.reel, it.deviseCa), sousCa), cr] }));
   if (note && note.resume) c.appendChild(scrEl('p', { cls: 'res-txt', text: note.resume }));
   if (note && note.conference) c.appendChild(scrEl('p', { cls: 'res-note', kids: [scrEl('b', { text: 'Conférence : ' })] })).append(note.conference);
+  const bc = resBoutonClaude(it, pb.date, note, resNotePubDate(t, pb.date));
+  if (bc) c.appendChild(bc);
   return c;
 }
 // publication dont l'heure est passée, chiffres pas encore relevés : attentes relevées AVANT (item.attente), jamais
@@ -14824,6 +14952,8 @@ function resCarteEnAttente(it, p, poids) {
     resCellule('CA attendu', a && a.ca ? resMd(a.ca.moy, it.deviseCa) : '–', null, a ? '' : nr), resPoidsCell(w)] }));
   const n = resNoteProchain(it);
   if (n) c.appendChild(scrEl('p', { cls: 'res-txt', kids: [scrEl('b', { text: 'À surveiller. ' })] })).append(n.aSurveiller);
+  const bc = resBoutonClaude(it, p.date, resNotePub(t, p.date), resNotePubDate(t, p.date));
+  if (bc) c.appendChild(bc);
   return c;
 }
 function resSection(sur, titre, cartes, vide) {
