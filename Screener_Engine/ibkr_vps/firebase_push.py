@@ -48,3 +48,22 @@ def get(db_url, path):
             return json.loads(r.read())
     except Exception:
         return None
+
+
+def get_strict(db_url, path):
+    """Comme get, mais une lecture ratee (timeout, DNS, 4xx/5xx, corps illisible) LEVE une exception.
+    None = noeud vraiment vide (HTTP 200, corps null). A utiliser avant de reecrire un noeud entier :
+    avec get, une panne de lecture ressemble a un noeud vide et le PUT suivant efface tout."""
+    with urllib.request.urlopen(urllib.request.Request(_auth_url(db_url, path)), timeout=15) as r:
+        if r.status != 200:
+            raise RuntimeError(f'HTTP {r.status}')
+        return json.loads(r.read())
+
+
+def patch(db_url, path, data):
+    """Mise a jour PARTIELLE (PATCH) : seules les cles fournies sont ecrites, le reste du noeud est intact."""
+    body = json.dumps(data).encode('utf-8')
+    req = urllib.request.Request(_auth_url(db_url, path), data=body, method='PATCH',
+                                 headers={'content-type': 'application/json'})
+    with urllib.request.urlopen(req, timeout=20) as r:
+        return r.status in (200, 204)

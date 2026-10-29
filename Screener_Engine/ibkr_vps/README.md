@@ -93,6 +93,16 @@ python test_momentum.py
 - `stocks/screener/latest` : `{generatedAt, source, summary, top[]}` (chaque candidate : score, metrics, flags ; + `ibkrMomentumScore`/`tradableIBKR` si IBKR actif).
 - `stocks/screener/positions` : `{account, positions[]}` live IBKR.
 
+## Calendrier des résultats (onglet Résultats du dashboard)
+
+`earnings_calendar.py` écrit `stocks/screener/earnings` : pour chaque action détenue (ETF et crypto ignorés), prochaine date de publication et consensus (BPA, chiffre d'affaires), 4 dernières publications (BPA attendu et réel, CA attendu et réel) et réaction du cours (`provisoire` tant que la clôture suivante n'existe pas, puis `definitif`). Source : Yahoo `quoteSummary` (calendarEvents, earnings, earningsHistory, price).
+
+- **Cadence** : appelé à la fin de `live_prices.py` (toutes les 5 min), il ne rappelle Yahoo que si les données ont plus de 6 h, ou toutes les 20 min dans les 36 h autour d'une publication. Le consensus de CA est mémorisé AVANT la publication (`attente`), car Yahoo bascule ensuite sur le trimestre suivant.
+- **Panne** : les données précédentes restent, `error` porte la raison (`errors` par ticker), lue par le dashboard.
+- **Test local sans Firebase** : `python earnings_calendar.py --tickers MSFT,GOOGL --out test.json [--prev ancien.json] [--attendus MSFT=90736182420]`.
+- **Rafraîchissement forcé sur le VPS** : `python earnings_calendar.py --push`.
+- **Déploiement** : `git pull` sur le VPS suffit, aucune nouvelle tâche planifiée.
+
 ## Notes
 
 - `ib_async` = fork maintenu d'`ib_insync` (mort en 2024). Ne pas installer `ib_insync`.

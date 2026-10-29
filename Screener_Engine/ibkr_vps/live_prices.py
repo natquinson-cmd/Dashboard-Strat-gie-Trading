@@ -298,6 +298,15 @@ def main():
     except Exception as e:
         print('Actualites err', e)
 
+    # --- Calendrier des resultats trimestriels (onglet Resultats du dashboard) ---
+    # Ce script tourne toutes les 5 min : maybe_refresh ne rappelle Yahoo que si les donnees ont plus de 6 h,
+    # ou toutes les 20 min autour d'une publication (moins de 36 h) pour suivre chiffres et reaction du cours.
+    try:
+        from earnings_calendar import maybe_refresh
+        maybe_refresh(db, y, tickers)
+    except Exception as e:
+        print('Resultats err', e)
+
 
 if __name__ == '__main__':
     main()

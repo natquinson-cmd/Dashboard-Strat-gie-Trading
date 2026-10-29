@@ -1260,6 +1260,56 @@
   .scr-seg button + button { border-left: 1px solid var(--border-strong); }
   .scr-seg button.on { background: #3563e9; color: #fff; }
   html[data-theme="dark"] .scr-seg button.on { background: #3f76ed; }
+  /* Onglet Résultats de la page Portefeuille d'actions (29/10/2026) */
+  .res-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+  .res-teaser { border: 1px solid var(--border-strong); background: var(--bg-card); color: var(--text-primary); border-radius: 9px;
+    padding: 6px 12px; font: inherit; font-size: 0.76rem; font-weight: 600; cursor: pointer; text-align: left; }
+  .res-teaser:hover { background: var(--bg-card-hover); }
+  .res-vue { flex-direction: column; gap: 18px; }
+  .res-fraicheur { font-size: 0.74rem; color: var(--text-secondary); }
+  .res-fraicheur.ko { color: var(--negative); font-weight: 600; }
+  .res-sec h3 { font-size: 1rem; font-weight: 800; margin: 2px 0 10px; }
+  .res-sur { font-size: 0.64rem; letter-spacing: 0.07em; text-transform: uppercase; color: var(--text-secondary); font-weight: 700; }
+  .res-grille { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 330px), 1fr)); gap: 12px; }
+  .res-carte { background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px; padding: 14px 16px; display: flex;
+    flex-direction: column; gap: 9px; min-width: 0; }
+  .res-carte.vedette { border-color: rgba(53,99,233,0.45); }
+  .res-tete { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; }
+  .res-qui { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .res-qui b { font-size: 0.98rem; font-weight: 800; }
+  .res-tk { font-size: 0.72rem; color: var(--text-secondary); }
+  .res-quand { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; text-align: right; flex: none; max-width: 60%; }
+  .res-jour { font-weight: 800; font-size: 0.92rem; white-space: nowrap; }
+  .res-h { font-size: 0.72rem; color: var(--text-secondary); }
+  .res-pill { font-size: 0.64rem; font-weight: 700; padding: 2px 8px; border-radius: 99px; white-space: nowrap; }
+  .res-pill.ok { color: var(--positive); background: rgba(29,158,116,0.12); }
+  .res-pill.est { color: #b7701f; background: rgba(217,130,43,0.14); }
+  .res-chiffres { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; padding: 8px 0;
+    border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+  .res-chiffres div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .res-chiffres small { font-size: 0.62rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.06em; font-weight: 700; }
+  .res-chiffres span { font-size: 0.9rem; font-weight: 700; }
+  .res-chiffres em { font-style: normal; font-size: 0.7rem; color: var(--text-secondary); }
+  .res-barre { height: 5px; border-radius: 3px; background: var(--border-strong); overflow: hidden; margin-top: 5px; }
+  .res-barre i { display: block; height: 100%; background: #3563e9; }
+  .res-txt { font-size: 0.8rem; margin: 0; line-height: 1.45; }
+  .res-txt b, .res-note b { font-weight: 700; }
+  .res-note { font-size: 0.75rem; color: var(--text-secondary); margin: 0; line-height: 1.45; }
+  .res-verdict { font-size: 0.74rem; font-weight: 700; color: var(--positive); white-space: nowrap; }
+  .res-verdict.bof { color: var(--negative); }
+  .res-verdict.mid { color: #b7701f; }
+  .res-up { color: var(--positive); }
+  .res-down { color: var(--negative); }
+  .res-frise { background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px; padding: 12px 14px; }
+  .res-frise-scroll { overflow-x: auto; }
+  .res-frise-scroll svg { display: block; width: 100%; min-width: 760px; height: auto; }
+  .res-legende { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 0.7rem; color: var(--text-secondary); margin-top: 6px; }
+  .res-legende i { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 5px; vertical-align: -1px; }
+  .res-legende i.est { background: transparent !important; border: 1.5px dashed var(--text-secondary); width: 7px; height: 7px; }
+  .res-pied { font-size: 0.7rem; color: var(--text-secondary); line-height: 1.5; }
+  html[data-theme="dark"] .res-pill.est, html[data-theme="dark"] .res-verdict.mid { color: #e2a35a; }
+  html[data-theme="dark"] .res-carte.vedette { border-color: rgba(92,138,238,0.55); }
+  @media (max-width: 520px) { .res-chiffres { grid-template-columns: repeat(2, minmax(0, 1fr)); } .res-quand { max-width: 55%; } }
   html[data-theme="dark"] .scr-pos-th .srt { color: #5c8aee; }
   /* légende des marqueurs d'événements (chartEventMarkers) */
   .evt-legend { display: flex; gap: 4px 14px; flex-wrap: wrap; margin-top: 6px; font-size: 0.68rem; color: var(--text-secondary); }
@@ -6273,6 +6323,19 @@ function hbItems() {
     'Screener qualité-valorisation (tâche ScreenerGrowth, chaque jour ouvré vers 8 h).',
     'Le screener a sauté au moins une journée : relance run_screener.bat sur le VPS et lis le journal logs\\screener_*.log.',
     'SCREENER FIGÉ : notes de valorisation, ratings et graphiques 3 mois sont calculés sur des données périmées. Vérifie la tâche ScreenerGrowth et le journal logs\\screener_*.log.');
+  // Calendrier des résultats (29/10/2026) : earnings_calendar.py, lancé par live_prices.py au moins toutes les 6 h.
+  periodic('resultats', 'Résultats', hbMs(HB.resultats), 20, 48,
+    'Calendrier des résultats des lignes détenues (earnings_calendar.py, lancé par live_prices.py sur le VPS : toutes les 6 h, toutes les 20 min autour d’une publication).',
+    'Calendrier non rafraîchi depuis plus d’une nuit de semaine : vérifie que le VPS a bien earnings_calendar.py (git pull) et lis le journal des cours.',
+    'CALENDRIER FIGÉ : dates, attentes et résultats peuvent être périmés. Fais un git pull dans le dossier du dashboard sur le VPS et vérifie la tâche DivKing_LivePrices.');
+  {
+    const it = out[out.length - 1], ko = (HB.resultatsErrs && typeof HB.resultatsErrs === 'object') ? Object.keys(HB.resultatsErrs) : [];
+    if (it && it.key === 'resultats' && HB.resultatsErr) { it.level = 'bad'; it.tip += ' Dernière collecte en échec : ' + HB.resultatsErr + '.'; }
+    else if (it && it.key === 'resultats' && ko.length && it.level === 'ok') {   // collecte réussie mais des lignes manquent
+      it.level = 'warn';
+      it.tip += ' Lignes non relevées : ' + ko.map((k) => k + ' (' + HB.resultatsErrs[k] + ')').join(', ') + '.';
+    }
+  }
   periodic('brief', 'Brief', hbMs(HB.brief), 30, 78,
     'Brief du matin, Fear & Greed et actualités (morning_brief.py, chaque matin vers 7 h 45).',
     'Le brief du matin a sauté au moins une journée : vérifie la tâche planifiée du brief sur le VPS.',
@@ -6351,6 +6414,9 @@ function loadHealthBar() {
   const sub = (path, key) => { try { db.ref(path).on('value', (x) => { HB[key] = x.val(); renderHealthBar(); }); } catch (e) {} };
   sub('stocks/screener/livePrices/generatedAt', 'cours');
   sub('stocks/screener/quality/generatedAt', 'screener');
+  sub('stocks/screener/earnings/generatedAt', 'resultats');
+  sub('stocks/screener/earnings/error', 'resultatsErr');
+  sub('stocks/screener/earnings/errors', 'resultatsErrs');
   sub('dashboard/morningBrief/at', 'brief');
   sub('dashboard/darwinex/collectorStatus', 'dwx');
   sub('dashboard/pontIG', 'pont');
@@ -14422,6 +14488,385 @@ function screenerQualityAllocPanel(top) {
   render();
   return wrap;
 }
+// ═══ Onglet « Résultats » de la page Portefeuille d'actions (29/10/2026, demande du user) ═══
+// Calendrier des résultats trimestriels des lignes détenues : dates (confirmées ou estimées), attentes des analystes,
+// chiffres réels et réaction du cours. Données : stocks/screener/earnings, écrit par earnings_calendar.py, que
+// live_prices.py appelle sur le VPS (toutes les 6 h, toutes les 20 min autour d'une publication). Commentaires
+// écrits par Claude à la demande du user, dans stocks/screener/earningsNotes/{ticker assaini} :
+//   {AAAA-MM-JJ} (date de publication, heure de New York) = { verdict, bof, mitige, resume, conference, majLe }
+//   prochain = { aSurveiller, majLe }, affiché tant qu'il est postérieur à la dernière publication
+// Yahoo compare le BPA PUBLIÉ aux attentes : quand une plus-value ou une moins-value sur participations le fausse
+// (Alphabet, Amazon, Microsoft), le verdict de la note remplace le verdict calculé.
+let RES_DATA = null, RES_NOTES = null, RES_ABONNE = false, RES_REDRAW = null;
+let RES_VUE = 'portefeuille';   // vue choisie, gardée pendant la visite (un re-rendu de la page ne la perd pas)
+const RES_DEV = { USD: '$', EUR: '€', TWD: 'NT$', GBP: '£', JPY: '¥', CHF: 'CHF', DKK: 'DKK', SEK: 'SEK', CAD: 'C$' };
+const RES_NOMS = { MSFT: 'Microsoft', GOOGL: 'Alphabet', GOOG: 'Alphabet', AMZN: 'Amazon', NVDA: 'NVIDIA', AVGO: 'Broadcom',
+  TSM: 'TSMC', ASML: 'ASML', MA: 'Mastercard', V: 'Visa', BKNG: 'Booking', INTU: 'Intuit', FICO: 'FICO' };
+const RES_MATIN = '#e08a2e', RES_SOIR = '#6366e6';
+function resAbonner() {
+  if (RES_ABONNE || typeof db === 'undefined' || !db) return;
+  RES_ABONNE = true;
+  const maj = () => { if (RES_REDRAW) RES_REDRAW(); };
+  const refus = (e) => { RES_DATA = { error: 'lecture Firebase refusée (' + ((e && e.code) || e) + ')' }; maj(); };
+  try {
+    db.ref('stocks/screener/earnings').on('value', (x) => { RES_DATA = x.val() || {}; maj(); }, refus);
+    db.ref('stocks/screener/earningsNotes').on('value', (x) => { RES_NOTES = x.val() || {}; maj(); }, () => { RES_NOTES = {}; maj(); });
+  } catch (e) { RES_ABONNE = false; refus(e.message); }
+}
+function resNom(it) {
+  const t = String(it.ticker || '').toUpperCase();
+  if (RES_NOMS[t]) return RES_NOMS[t];
+  return String(it.nom || t).replace(/,?\s+(Inc\.?|Incorporated|Corporation|Corp\.?|Holdings?|N\.V\.|plc|Ltd\.?|Limited|S\.A\.|SE|AG|Co\.)(\s.*)?$/i, '').trim() || t;
+}
+// poids de chaque ligne dans le portefeuille d'actions (valeur en USD, ETF compris dans le total)
+function resPoids() {
+  const val = {}; let tot = 0;
+  scrGetPositions().forEach((p) => {
+    const t = String(p.ticker || '').toUpperCase(), d = SCR_PRICE_MAP[t];
+    const qty = (p.qty != null) ? Number(p.qty) : ((p.amount != null && p.pru) ? p.amount / p.pru : 0);
+    const pu = d ? scrToUsd(d.price, d.exchange) : null;
+    const v = qty * (pu != null ? pu : scrPruUsd(p));
+    if (v > 0) { val[t] = (val[t] || 0) + v; tot += v; }
+  });
+  const out = {};
+  if (tot > 0) for (const t in val) out[t] = val[t] / tot * 100;
+  return out;
+}
+function resIso(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+function resNyHeure(ts) {   // heure décimale à New York d'un horodatage en secondes
+  const p = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: 'numeric', hour12: false }).formatToParts(new Date(ts * 1000));
+  const g = (k) => Number((p.find((x) => x.type === k) || {}).value || 0);
+  return (g('hour') % 24) + g('minute') / 60;
+}
+function resHParis(ms) {
+  const s = new Date(ms).toLocaleTimeString('fr-FR', { timeZone: 'Europe/Paris', hour: '2-digit', minute: '2-digit' });
+  return s.endsWith(':00') ? s.slice(0, -3) + ' h' : s.replace(':', ' h ');
+}
+// instant de la clôture de New York (16 h) ce jour-là : 21 h ou 22 h à Paris selon les heures d'été des deux côtés
+function resClotureNy(dateStr) {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  let t = Date.UTC(y, m - 1, d, 20, 0);            // 16 h à l'heure d'été de New York
+  if (resNyHeure(t / 1000) !== 16) t += 3600000;    // 16 h à l'heure d'hiver
+  return t;
+}
+function resNyIso(ts) { return new Date(ts * 1000).toLocaleDateString('sv-SE', { timeZone: 'America/New_York' }); }
+// conférence retenue seulement si elle tombe le même jour (New York) que la publication : Yahoo donne parfois celle
+// d'un autre jour (Broadcom : publication le 9/12, conférence le 10/12)
+function resAppelJour(ts, appel) { return (appel && ts && resNyIso(appel) === resNyIso(ts)) ? appel : null; }
+function resSeance(ts, appel) { return resNyHeure(resAppelJour(ts, appel) || ts) < 12 ? 'matin' : 'soir'; }
+function resJourTxt(s) {
+  const n = new Date(), j = (k) => resIso(new Date(n.getFullYear(), n.getMonth(), n.getDate() + k));
+  if (s === j(0)) return "aujourd'hui";
+  if (s === j(1)) return 'demain';
+  if (s === j(-1)) return 'hier';
+  return new Date(s + 'T12:00:00').toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' });
+}
+function resQuandTxt(p) {   // p : { date, ts, appel, estimee }
+  if (!p.ts) return '';
+  const s = resSeance(p.ts, p.appel);
+  let t = s === 'matin' ? "avant l'ouverture de New York" : 'après la clôture de New York';
+  if (p.appel) {
+    // jour de la conférence à Paris s'il diffère de la date de publication affichée
+    const jp = new Date(p.appel * 1000).toLocaleDateString('sv-SE', { timeZone: 'Europe/Paris' });
+    t += ', conférence ' + (p.date && jp !== p.date ? 'le ' + resJourTxt(jp) + ' ' : '') + 'à ' + resHParis(p.appel * 1000);
+  } else if (s === 'soir' && p.date && !p.estimee) t += ', vers ' + resHParis(resClotureNy(p.date));
+  return t;
+}
+function resMd(v, dev) {
+  if (v == null || !isFinite(v)) return '–';
+  const s = RES_DEV[dev] || dev || '$', md = v / 1e9;
+  const txt = md.toLocaleString('fr-FR', { maximumFractionDigits: md >= 1000 ? 0 : (md >= 1 ? 1 : 2) });
+  return (s === '$' || s === '€') ? txt + ' Md' + s : txt + ' Md ' + s;
+}
+function resBpa(v, dev) {
+  if (v == null || !isFinite(v)) return '–';
+  return v.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' ' + (RES_DEV[dev] || dev || '$');
+}
+function resPct(v) { return (v == null || !isFinite(v)) ? '–' : (v > 0 ? '+' : '') + v.toLocaleString('fr-FR', { maximumFractionDigits: 1 }) + ' %'; }
+function resNotes(t) { return (RES_NOTES || {})[scrOvKey(t)] || {}; }
+function resNotePub(t, date) {   // note d'une publication passée : date exacte, sinon ±1 jour (fuseau)
+  const n = resNotes(t);
+  if (n[date]) return n[date];
+  const d = new Date(date + 'T12:00:00');
+  for (const k of [-1, 1]) { const x = resIso(new Date(d.getFullYear(), d.getMonth(), d.getDate() + k)); if (n[x]) return n[x]; }
+  return null;
+}
+function resNoteProchain(it) {
+  const n = resNotes(it.ticker).prochain, last = (it.publies || [])[0];
+  if (!n || !n.aSurveiller) return null;
+  // écrite avant la dernière publication : périmée (majLe horodaté, comparé à l'heure de publication quand on l'a)
+  const m = Date.parse(n.majLe || '');
+  if (last && (last.ts && isFinite(m) ? m < last.ts * 1000 : String(n.majLe || '').slice(0, 10) < String(last.date || ''))) return null;
+  return n;
+}
+// écart de BPA de 20 % ou plus : presque toujours une plus-value ou une moins-value sur participations, ou un élément
+// exceptionnel, que Yahoo laisse dans le BPA publié (Amazon +215 % au T2 2026 avec le gain sur Anthropic)
+function resInhabituel(e) { return e != null && Math.abs(e) >= 20; }
+const RES_INHAB = 'écart inhabituel, sans doute dû à des éléments exceptionnels comme des plus ou moins-values sur participations';
+function resDejaPublie(it, date) { return (it.publies || []).some((pb) => pb.date === date); }
+function resCaEcart(pb) { return (pb.ca && pb.ca.attendu > 0 && pb.ca.reel > 0) ? (pb.ca.reel / pb.ca.attendu - 1) * 100 : null; }
+function resVerdict(pb, note) {
+  if (note && note.verdict) return { txt: note.verdict, cls: note.bof ? 'bof' : (note.mitige ? 'mid' : '') };
+  const e = [], bpaE = pb.bpa ? pb.bpa.ecartPct : null;
+  // écart démesuré : le BPA publié contient sans doute des éléments exceptionnels, aucun verdict automatique fiable
+  // (Alphabet T3 2026 : -29,5 % sur le BPA publié, environ -11 % hors moins-values sur participations)
+  if (resInhabituel(bpaE)) return { txt: 'à interpréter', cls: 'mid' };
+  if (bpaE != null) e.push(bpaE);
+  const ca = resCaEcart(pb);
+  if (ca != null) e.push(ca);
+  if (!e.length) return null;
+  const haut = e.some((x) => x > 1), bas = e.some((x) => x < -1);
+  if (haut && !bas) return { txt: 'au-dessus des attentes', cls: '' };
+  if (bas && !haut) return { txt: 'sous les attentes', cls: 'bof' };
+  if (haut && bas) return { txt: 'mitigé', cls: 'mid' };
+  return { txt: 'conforme aux attentes', cls: '' };
+}
+function resReactionTxt(r) {
+  if (!r || r.pct == null) return null;
+  const v = r.pct * 100;
+  return { txt: (r.etat === 'provisoire' ? 'en cours : ' : '') + resPct(v), cls: v >= 0 ? 'res-up' : 'res-down',
+    tip: 'Cours ' + (r.base != null ? 'de référence ' + r.base + (r.baseDate ? ' (' + r.baseDate + ')' : '') : '') + ' → ' + (r.cours != null ? r.cours : '–')
+      + (r.coursDate ? ' (' + r.coursDate + ')' : '') + (r.etat === 'provisoire' ? '. Provisoire : la séance qui suit la publication n’est pas encore close (cours hors séance compris).' : '') };
+}
+// prochaines publications (date connue, heure annoncée pas encore passée), les plus proches d'abord
+function resAVenir(items) {
+  const now = Date.now() / 1000, out = [];
+  items.forEach((it) => {
+    const p = it.prochain;
+    if (!p || !p.date || !p.ts || resDejaPublie(it, p.date) || p.ts <= now) return;
+    out.push({ it: it, p: p });
+  });
+  return out.sort((a, b) => a.p.ts - b.p.ts);
+}
+// heure annoncée passée mais chiffres pas encore relevés par Yahoo (quelques minutes à quelques heures) : ces lignes
+// passent dans « Ce qui est sorti » au lieu de disparaître ; au-delà de 4 jours, la date Yahoo est périmée, on l'ignore
+function resEnAttente(items) {
+  const now = Date.now() / 1000, out = [];
+  items.forEach((it) => {
+    const p = it.prochain;
+    if (!p || !p.date || !p.ts || resDejaPublie(it, p.date) || p.ts > now || p.ts < now - 4 * 86400) return;
+    out.push({ it: it, p: p });
+  });
+  return out;
+}
+function resTeaser(btn) {
+  const items = (RES_DATA && Array.isArray(RES_DATA.items)) ? RES_DATA.items : [];
+  const av = resAVenir(items);
+  if (!av.length) { btn.style.display = 'none'; return; }
+  const jour = av[0].p.date, poids = resPoids();
+  const memeJour = av.filter((x) => x.p.date === jour);
+  const j = resJourTxt(jour);
+  const qui = memeJour.map((x) => {
+    const w = poids[String(x.it.ticker).toUpperCase()];
+    let q = resNom(x.it);
+    if (j === "aujourd'hui") q += resSeance(x.p.ts, x.p.appel) === 'soir' ? ' ce soir' : " avant l'ouverture";
+    return q + (w ? ' (' + Math.round(w) + ' %)' : '');
+  });
+  btn.textContent = (memeJour.length > 1 ? 'Prochains résultats ' : 'Prochain résultat ') + (j === "aujourd'hui" ? "aujourd'hui" : j) + ' : '
+    + qui.join(', ') + (av[0].p.estimee ? ' · date estimée' : '');
+  btn.title = 'Ouvre l’onglet Résultats (poids = part de la ligne dans le portefeuille d’actions)';
+  btn.style.display = '';
+}
+function resMonterVues(c, frag) {
+  const vuePf = scrEl('div'), vueRes = scrEl('div', { cls: 'res-vue' });
+  vuePf.appendChild(frag);
+  const bPf = scrEl('button', { text: 'Portefeuille', attrs: { type: 'button' } });
+  const bRes = scrEl('button', { text: 'Résultats', attrs: { type: 'button', title: 'Calendrier des résultats trimestriels des lignes détenues' } });
+  const teaser = scrEl('button', { cls: 'res-teaser', attrs: { type: 'button' } });
+  teaser.style.display = 'none';
+  const bar = scrEl('div', { cls: 'res-bar', kids: [scrEl('div', { cls: 'scr-seg', kids: [bPf, bRes] }), teaser] });
+  const montrer = (v) => {
+    RES_VUE = v;
+    bPf.classList.toggle('on', v !== 'resultats'); bRes.classList.toggle('on', v === 'resultats');
+    vuePf.style.display = v === 'resultats' ? 'none' : '';
+    vueRes.style.display = v === 'resultats' ? 'flex' : 'none';
+    if (v === 'resultats') resRemplir(vueRes);
+    resTeaser(teaser);
+  };
+  bPf.onclick = () => montrer('portefeuille');
+  bRes.onclick = () => montrer('resultats');
+  teaser.onclick = () => { montrer('resultats'); window.scrollTo({ top: 0, behavior: 'smooth' }); };
+  RES_REDRAW = () => { if (!bar.isConnected) return; resTeaser(teaser); if (RES_VUE === 'resultats') resRemplir(vueRes); };
+  c.replaceChildren(bar, vuePf, vueRes);
+  montrer(RES_VUE);
+  resAbonner();
+}
+function resFrise(items, poids) {
+  const NS = 'http://www.w3.org/2000/svg';
+  const sv = (tag, a) => { const e = document.createElementNS(NS, tag); for (const k in a) e.setAttribute(k, a[k]); return e; };
+  const now = new Date(), t0 = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 21).getTime();
+  const t1 = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 100).getTime();
+  const ev = [];
+  items.forEach((it) => {
+    const t = String(it.ticker).toUpperCase(), w = poids[t] || 0;
+    (it.publies || []).forEach((pb) => {
+      const x = Date.parse(pb.date + 'T12:00:00');
+      if (x >= t0 && x <= t1) ev.push({ x: x, t: t, nom: resNom(it), passe: true, w: w, date: pb.date });
+    });
+    const p = it.prochain;
+    if (p && p.date && !resDejaPublie(it, p.date)) {
+      const x = Date.parse(p.date + 'T12:00:00'), sortie = !!(p.ts && p.ts <= Date.now() / 1000);   // heure passée, chiffres pas encore relevés
+      if (x >= t0 && x <= t1) ev.push({ x: x, t: t, nom: resNom(it), passe: sortie, est: !sortie && !!p.estimee, seance: p.ts ? resSeance(p.ts, p.appel) : 'soir', w: w, date: p.date });
+    }
+  });
+  const W = 1000, x0 = 24, x1 = 976, axeY = 222, X = (x) => x0 + (x - t0) / (t1 - t0) * (x1 - x0);
+  const svg = sv('svg', { viewBox: '0 0 ' + W + ' 262', role: 'img', 'aria-label': 'Publications des 3 dernières semaines et des 3 prochains mois, taille selon le poids dans le portefeuille' });
+  const txt = (x, y, s, o) => { const e = sv('text', Object.assign({ x: x, y: y, 'font-size': 12, fill: 'var(--text-secondary)', 'font-family': 'inherit' }, o || {})); e.textContent = s; svg.appendChild(e); };
+  for (let m = new Date(new Date(t0).getFullYear(), new Date(t0).getMonth() + 1, 1); m.getTime() <= t1; m = new Date(m.getFullYear(), m.getMonth() + 1, 1)) {
+    const x = X(m.getTime());
+    svg.appendChild(sv('line', { x1: x, x2: x, y1: 16, y2: axeY + 6, stroke: 'var(--border-strong)', 'stroke-width': 1 }));
+    txt(x + 5, axeY + 24, m.toLocaleDateString('fr-FR', { month: 'short' }) + (m.getMonth() === 0 ? ' ' + m.getFullYear() : ''));
+  }
+  svg.appendChild(sv('line', { x1: x0, x2: x1, y1: axeY, y2: axeY, stroke: 'var(--text-muted)', 'stroke-width': 1.5 }));
+  const xa = X(now.getTime());
+  svg.appendChild(sv('line', { x1: xa, x2: xa, y1: 12, y2: axeY, stroke: '#3563e9', 'stroke-width': 1.5, 'stroke-dasharray': '3 3' }));
+  txt(xa - 5, 12, "aujourd'hui", { 'text-anchor': 'end', fill: '#3563e9', 'font-weight': 700 });
+  const lanes = [];
+  ev.sort((a, b) => a.x - b.x).forEach((e) => {
+    const x = X(e.x), r = 4 + Math.sqrt(Math.max(e.w, 0.5)) * 2.6;
+    let lane = 0;
+    // couloirs : place pour le point ET l'étiquette du voisin ; saison chargée (7 publications en une semaine fin
+    // octobre) : au-delà de 7 couloirs, on reprend celui dont le dernier point est le plus loin
+    while (lane < 7 && lanes[lane] != null && lanes[lane] > x - 92) lane++;
+    if (lane === 7) { lane = 0; for (let k = 1; k < 7; k++) if (lanes[k] < lanes[lane]) lane = k; }
+    lanes[lane] = x;
+    const y = axeY - 24 - lane * 29;
+    const col = e.passe ? 'var(--text-muted)' : (e.seance === 'matin' ? RES_MATIN : RES_SOIR);
+    svg.appendChild(sv('line', { x1: x, x2: x, y1: y + r, y2: axeY, stroke: 'var(--text-muted)', 'stroke-width': 1, opacity: 0.5 }));
+    const c = sv('circle', { cx: x, cy: y, r: r, fill: col, 'fill-opacity': e.passe ? 0.3 : (e.est ? 0.2 : 0.85), stroke: col, 'stroke-width': 1.6 });
+    if (e.est) c.setAttribute('stroke-dasharray', '3 2');
+    const tt = sv('title', {}); tt.textContent = e.nom + ' · ' + new Date(e.date + 'T12:00:00').toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
+      + (e.passe ? ' (publié)' : (e.est ? ' (date estimée)' : '')) + ' · ' + resPct(e.w).replace('+', '') + ' du portefeuille';
+    c.appendChild(tt); svg.appendChild(c);
+    txt(x + r + 4, y + 4, e.t, { fill: e.passe ? 'var(--text-muted)' : 'var(--text-primary)', 'font-weight': 700, 'font-size': 12 });
+  });
+  const leg = scrEl('div', { cls: 'res-legende', kids: [
+    scrEl('span', { kids: [scrEl('i', { style: 'background:' + RES_MATIN })], text: null }),
+    scrEl('span', { kids: [scrEl('i', { style: 'background:' + RES_SOIR })] }),
+    scrEl('span', { kids: [scrEl('i', { style: 'background:var(--text-muted);opacity:.5' })] }),
+    scrEl('span', { kids: [scrEl('i', { cls: 'est' })] }),
+    scrEl('span', { text: 'taille = poids dans le portefeuille' })] });
+  ["avant l'ouverture de New York", 'après la clôture', 'déjà publié', 'date estimée'].forEach((t, i) => leg.children[i].append(t));
+  return scrEl('div', { cls: 'res-frise', kids: [scrEl('div', { cls: 'res-frise-scroll', kids: [svg] }), leg] });
+}
+function resCellule(lab, val, sous, tip) {
+  const d = scrEl('div', { kids: [scrEl('small', { text: lab }), scrEl('span', { text: val })] });
+  if (sous) d.appendChild(sous);
+  if (tip) d.title = tip;
+  return d;
+}
+function resPoidsCell(w) {
+  const d = resCellule('Poids', w ? resPct(w).replace('+', '') : '–');
+  const b = scrEl('div', { cls: 'res-barre', kids: [scrEl('i', { style: 'width:' + Math.min(100, (w || 0) / 15 * 100) + '%' })] });
+  d.appendChild(b);
+  return d;
+}
+function resCarteAVenir(x, poids, vedette) {
+  const it = x.it, p = x.p, t = String(it.ticker).toUpperCase(), w = poids[t];
+  const c = scrEl('article', { cls: 'res-carte' + (vedette ? ' vedette' : '') });
+  const jour = p.date ? resJourTxt(p.date) : 'date pas encore annoncée';
+  const q = scrEl('div', { cls: 'res-quand', kids: [scrEl('span', { cls: 'res-jour', text: jour })] });
+  const h = p.date ? resQuandTxt(p) : '';
+  if (h && !p.estimee) q.appendChild(scrEl('span', { cls: 'res-h', text: h }));
+  if (p.date) q.appendChild(scrEl('span', { cls: 'res-pill ' + (p.estimee ? 'est' : 'ok'), text: p.estimee ? 'date estimée' : 'date confirmée',
+    attrs: { title: p.estimee ? 'Date estimée par Yahoo Finance, pas encore annoncée par la société.' : 'Date annoncée (Yahoo Finance).' } }));
+  c.appendChild(scrEl('div', { cls: 'res-tete', kids: [scrEl('div', { cls: 'res-qui', kids: [scrEl('b', { text: resNom(it) }), scrEl('span', { cls: 'res-tk', text: t })] }), q] }));
+  const b = p.bpa || {}, ca = p.ca || {};
+  c.appendChild(scrEl('div', { cls: 'res-chiffres', kids: [
+    resCellule('BPA attendu', resBpa(b.moy, it.deviseBpa), null, (b.bas != null && b.haut != null) ? 'Fourchette des analystes : ' + resBpa(b.bas, it.deviseBpa) + ' à ' + resBpa(b.haut, it.deviseBpa) : ''),
+    resCellule('CA attendu', resMd(ca.moy, it.deviseCa), null, (ca.bas != null && ca.haut != null) ? 'Fourchette des analystes : ' + resMd(ca.bas, it.deviseCa) + ' à ' + resMd(ca.haut, it.deviseCa) : ''),
+    resPoidsCell(w)] }));
+  const n = resNoteProchain(it);
+  if (n) c.appendChild(scrEl('p', { cls: 'res-txt', kids: [scrEl('b', { text: 'À surveiller. ' })], text: null })).append(n.aSurveiller);
+  const last = (it.publies || [])[0];
+  if (last && last.bpa) {
+    const l = scrEl('p', { cls: 'res-note', kids: [scrEl('b', { text: 'Trimestre précédent : ' })] });
+    let s = 'BPA de ' + resBpa(last.bpa.reel, it.deviseBpa) + ' pour ' + resBpa(last.bpa.attendu, it.deviseBpa) + ' attendus (' + resPct(last.bpa.ecartPct)
+      + (resInhabituel(last.bpa.ecartPct) ? ', ' + RES_INHAB : '') + ')';
+    if (last.ca && last.ca.reel) s += ', chiffre d’affaires de ' + resMd(last.ca.reel, it.deviseCa) + (resCaEcart(last) != null ? ' (' + resPct(resCaEcart(last)) + ' vs attentes)' : '');
+    const r = resReactionTxt(last.reaction);
+    if (r) s += ', cours ' + r.txt.replace('en cours : ', '') + (last.reaction.etat === 'provisoire' ? ' (provisoire)' : '');
+    l.append(s + '.');
+    c.appendChild(l);
+  }
+  return c;
+}
+function resCartePubliee(it, pb, poids) {
+  const t = String(it.ticker).toUpperCase(), w = poids[t], note = resNotePub(t, pb.date), v = resVerdict(pb, note);
+  const c = scrEl('article', { cls: 'res-carte' });
+  const q = scrEl('div', { cls: 'res-quand', kids: [scrEl('span', { cls: 'res-jour', text: resJourTxt(pb.date) })] });
+  if (v) q.appendChild(scrEl('span', { cls: 'res-verdict ' + v.cls, text: v.txt, attrs: note && note.verdict ? { title: 'Verdict de la note (corrige les effets que Yahoo ne retire pas).' } : { title: 'Calculé sur l’écart du BPA face aux attentes et, quand l’attente a été relevée avant la publication, sur celui du chiffre d’affaires (seuil : 1 %).' } }));
+  c.appendChild(scrEl('div', { cls: 'res-tete', kids: [scrEl('div', { cls: 'res-qui', kids: [scrEl('b', { text: resNom(it) }), scrEl('span', { cls: 'res-tk', text: t + (w ? ' · ' + resPct(w).replace('+', '') + ' du portefeuille' : '') })] }), q] }));
+  const b = pb.bpa || {}, ca = pb.ca || {}, r = resReactionTxt(pb.reaction), caE = resCaEcart(pb);
+  const sousBpa = scrEl('em', { text: 'attendu ' + resBpa(b.attendu, it.deviseBpa) + ' (' + resPct(b.ecartPct) + ')' + (resInhabituel(b.ecartPct) && !(note && note.resume) ? ' · écart inhabituel' : '') });
+  const sousCa = scrEl('em', { text: ca.attendu ? 'attendu ' + resMd(ca.attendu, it.deviseCa) + ' (' + resPct(caE) + ')' : 'attente non relevée' });
+  const cr = resCellule('Réaction du cours', r ? r.txt : '–', null, r ? r.tip : 'Non calculée : publication antérieure au suivi (plus de 10 jours avant la première collecte), place hors des États-Unis, ou cours pas encore disponible.');
+  if (r) cr.querySelector('span').className = r.cls;
+  c.appendChild(scrEl('div', { cls: 'res-chiffres', kids: [
+    resCellule('BPA publié', resBpa(b.reel, it.deviseBpa), sousBpa, 'Écart calculé par Yahoo sur le BPA publié : une plus-value ou une moins-value sur participations peut le fausser (voir la note).'),
+    resCellule('Chiffre d’affaires', resMd(ca.reel, it.deviseCa), sousCa), cr] }));
+  if (note && note.resume) c.appendChild(scrEl('p', { cls: 'res-txt', text: note.resume }));
+  if (note && note.conference) c.appendChild(scrEl('p', { cls: 'res-note', kids: [scrEl('b', { text: 'Conférence : ' })] })).append(note.conference);
+  return c;
+}
+// publication dont l'heure est passée, chiffres pas encore relevés : attentes relevées AVANT (item.attente), jamais
+// celles du trimestre suivant que Yahoo affiche parfois déjà dans prochain
+function resCarteEnAttente(it, p, poids) {
+  const t = String(it.ticker).toUpperCase(), w = poids[t], a = (it.attente && it.attente.date === p.date) ? it.attente : null;
+  const c = scrEl('article', { cls: 'res-carte vedette' });
+  const q = scrEl('div', { cls: 'res-quand', kids: [scrEl('span', { cls: 'res-jour', text: resJourTxt(p.date) }),
+    scrEl('span', { cls: 'res-verdict mid', text: 'chiffres en cours de relevé', attrs: { title: 'L’heure annoncée est passée : Yahoo Finance n’a pas encore les chiffres publiés. La carte se complète à la prochaine collecte (toutes les 20 min autour d’une publication).' } })] });
+  c.appendChild(scrEl('div', { cls: 'res-tete', kids: [scrEl('div', { cls: 'res-qui', kids: [scrEl('b', { text: resNom(it) }), scrEl('span', { cls: 'res-tk', text: t })] }), q] }));
+  const nr = 'Attente non relevée avant la publication.';
+  c.appendChild(scrEl('div', { cls: 'res-chiffres', kids: [
+    resCellule('BPA attendu', a && a.bpa ? resBpa(a.bpa.moy, it.deviseBpa) : '–', null, a ? '' : nr),
+    resCellule('CA attendu', a && a.ca ? resMd(a.ca.moy, it.deviseCa) : '–', null, a ? '' : nr), resPoidsCell(w)] }));
+  const n = resNoteProchain(it);
+  if (n) c.appendChild(scrEl('p', { cls: 'res-txt', kids: [scrEl('b', { text: 'À surveiller. ' })] })).append(n.aSurveiller);
+  return c;
+}
+function resSection(sur, titre, cartes, vide) {
+  const sec = scrEl('section', { cls: 'res-sec', kids: [scrEl('div', { cls: 'res-sur', text: sur }), scrEl('h3', { text: titre })] });
+  sec.appendChild(cartes.length ? scrEl('div', { cls: 'res-grille', kids: cartes }) : scrEl('div', { cls: 'res-note', text: vide }));
+  return sec;
+}
+function resRemplir(box) {
+  if (RES_DATA == null) { box.replaceChildren(scrEl('div', { cls: 'res-fraicheur', text: 'Chargement du calendrier des résultats…' })); return; }
+  const items = Array.isArray(RES_DATA.items) ? RES_DATA.items : [];
+  const kids = [];
+  // fraîcheur : âge réel de la collecte, jamais une pastille verte en dur ; la raison d'un échec s'affiche telle quelle
+  const t = hbMs(RES_DATA.generatedAt);
+  if (!items.length) {
+    kids.push(scrEl('div', { cls: 'res-fraicheur ko', text: RES_DATA.error
+      ? 'Calendrier indisponible : ' + RES_DATA.error
+      : 'Pas encore de calendrier. Il est produit sur le VPS par earnings_calendar.py, lancé avec la collecte des cours : fais un git pull dans le dossier du dashboard sur le VPS pour l’installer.' }));
+    box.replaceChildren(...kids);
+    return;
+  }
+  const fr = scrEl('div', { cls: 'res-fraicheur', text: 'Données Yahoo Finance collectées il y a ' + hbAgo(t) + ' (' + hbWhen(t) + '). Heures de Paris.' });
+  kids.push(fr);
+  if (RES_DATA.error) kids.push(scrEl('div', { cls: 'res-fraicheur ko', text: 'Dernière collecte en échec' + (RES_DATA.errorAt ? ' (' + hbWhen(hbMs(RES_DATA.errorAt)) + ')' : '') + ' : ' + RES_DATA.error + '. Les données affichées sont celles de la collecte précédente.' }));
+  const poids = resPoids();
+  kids.push(resFrise(items, poids));
+  const av = resAVenir(items), now = new Date();
+  const lim = resIso(new Date(now.getFullYear(), now.getMonth(), now.getDate() + 7));
+  const proches = av.filter((x) => x.p.date <= lim), suite = av.filter((x) => x.p.date > lim);
+  items.forEach((it) => { const p = it.prochain; if (p && !p.date && (p.bpa || p.ca)) suite.push({ it: it, p: p }); });
+  kids.push(resSection('7 prochains jours', proches.length > 1 ? 'Les prochaines publications' : 'La prochaine publication', proches.map((x) => resCarteAVenir(x, poids, true)), 'Aucune publication d’ici une semaine.'));
+  kids.push(resSection('Plus tard', 'La suite du calendrier', suite.map((x) => resCarteAVenir(x, poids, false)), 'Rien de prévu au-delà pour le moment.'));
+  const lim2 = resIso(new Date(now.getFullYear(), now.getMonth(), now.getDate() - 45)), pubs = [];
+  items.forEach((it) => (it.publies || []).forEach((pb) => { if (pb.date && pb.date >= lim2) pubs.push({ it: it, pb: pb }); }));
+  pubs.sort((a, b) => (b.pb.ts || 0) - (a.pb.ts || 0) || b.pb.date.localeCompare(a.pb.date));
+  const sorties = resEnAttente(items).sort((a, b) => b.p.ts - a.p.ts).map((x) => resCarteEnAttente(x.it, x.p, poids));
+  kids.push(resSection('45 derniers jours', 'Ce qui est sorti', sorties.concat(pubs.map((x) => resCartePubliee(x.it, x.pb, poids))), 'Aucune publication ces 45 derniers jours.'));
+  const ign = (RES_DATA.errors && typeof RES_DATA.errors === 'object') ? Object.keys(RES_DATA.errors) : [];
+  kids.push(scrEl('div', { cls: 'res-pied', text: 'Faits uniquement, pas un conseil d’achat ou de vente. Attentes = moyenne des analystes relevée par Yahoo Finance avant la publication. '
+    + 'BPA = bénéfice par action ; Yahoo compare le BPA publié aux attentes, une plus-value ou une moins-value sur participations peut fausser l’écart (la note de la carte le corrige quand elle existe). '
+    + 'Réaction = clôture de la séance qui suit la publication face à la clôture d’avant ; « en cours » tant que cette séance n’est pas close. Les ETF ne publient pas de résultats.'
+    + (ign.length ? ' Lignes non relevées à la dernière collecte : ' + ign.map((k) => k + ' (' + RES_DATA.errors[k] + ')').join(', ') + '.' : '') }));
+  box.replaceChildren(...kids);
+}
+
 function screenerRenderQuality(c, data, config) {
   SCR_LAST_Q = { c, data, config };   // memorise pour scrRerenderQuality() (curseurs DCF)
   const s = data.summary || {};
@@ -14585,7 +15030,7 @@ function screenerRenderQuality(c, data, config) {
   // des positions reste visible d'emblee
   Array.from(frag.children).forEach((el, i) => { if (i > 0) el.classList.add('m-sec'); });
   frag.appendChild(mMoreBtn());
-  c.replaceChildren(frag);
+  resMonterVues(c, frag);   // sélecteur Portefeuille | Résultats au-dessus de la page (29/10/2026)
 }
 
 function screenerRender(c, data, positions, config) {
