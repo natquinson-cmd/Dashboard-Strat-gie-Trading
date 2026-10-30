@@ -14942,17 +14942,22 @@ function resCartePubliee(it, pb, poids) {
 // celles du trimestre suivant que Yahoo affiche parfois déjà dans prochain
 function resCarteEnAttente(it, p, poids) {
   const t = String(it.ticker).toUpperCase(), w = poids[t], a = (it.attente && it.attente.date === p.date) ? it.attente : null;
+  const note = resNotePub(t, p.date);   // note de Claude parfois écrite avant le relevé de Yahoo (Amazon, 29/10/2026)
   const c = scrEl('article', { cls: 'res-carte vedette' });
   const q = scrEl('div', { cls: 'res-quand', kids: [scrEl('span', { cls: 'res-jour', text: resJourTxt(p.date) }),
+    note && note.verdict ? scrEl('span', { cls: 'res-verdict ' + (note.bof ? 'bof' : (note.mitige ? 'mid' : '')), text: note.verdict, attrs: { title: 'Verdict de la note, écrite d’après le communiqué de la société.' } }) : null,
     scrEl('span', { cls: 'res-verdict mid', text: 'chiffres en cours de relevé', attrs: { title: 'L’heure annoncée est passée : Yahoo Finance n’a pas encore les chiffres publiés. La carte se complète à la prochaine collecte (toutes les 20 min autour d’une publication).' } })] });
   c.appendChild(scrEl('div', { cls: 'res-tete', kids: [scrEl('div', { cls: 'res-qui', kids: [scrEl('b', { text: resNom(it) }), scrEl('span', { cls: 'res-tk', text: t })] }), q] }));
   const nr = 'Attente non relevée avant la publication.';
   c.appendChild(scrEl('div', { cls: 'res-chiffres', kids: [
     resCellule('BPA attendu', a && a.bpa ? resBpa(a.bpa.moy, it.deviseBpa) : '–', null, a ? '' : nr),
     resCellule('CA attendu', a && a.ca ? resMd(a.ca.moy, it.deviseCa) : '–', null, a ? '' : nr), resPoidsCell(w)] }));
-  const n = resNoteProchain(it);
+  if (note && note.resume) c.appendChild(scrEl('p', { cls: 'res-txt', text: note.resume }));
+  if (note && note.conference) c.appendChild(scrEl('p', { cls: 'res-note', kids: [scrEl('b', { text: 'Conférence : ' })] })).append(note.conference);
+  // une fois la note écrite, « À surveiller » parle du trimestre suivant : il attend la carte de la prochaine publication
+  const n = (note && note.resume) ? null : resNoteProchain(it);
   if (n) c.appendChild(scrEl('p', { cls: 'res-txt', kids: [scrEl('b', { text: 'À surveiller. ' })] })).append(n.aSurveiller);
-  const bc = resBoutonClaude(it, p.date, resNotePub(t, p.date), resNotePubDate(t, p.date));
+  const bc = resBoutonClaude(it, p.date, note, resNotePubDate(t, p.date));
   if (bc) c.appendChild(bc);
   return c;
 }
