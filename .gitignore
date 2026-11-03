@@ -20,6 +20,9 @@ site-static/
 
 # Scripts temporaires Claude
 __cleanup_index.sh
+
+# Fichier de verrou des tâches planifiées (état runtime par session, ne doit pas être tracké)
+.claude/scheduled_tasks.lock
 Tableau DWH/
 *.hyper
 hyperd.log
