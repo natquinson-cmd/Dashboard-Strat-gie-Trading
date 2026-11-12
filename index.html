@@ -10465,6 +10465,21 @@ function potCompute() {
     return { child: n, parts: parts[n], share: share, value: v, etf: (etf.value != null) ? share * etf.value : null, lm: share * lm,
              base: base[n], gain: (v != null) ? v - base[n] : null, gainPct: (v != null && base[n] > 0) ? v / base[n] - 1 : null };
   }).sort((x, y) => y.parts - x.parts);
+  // Plus-value de chaque enfant decomposee ETF / Lendermarket (demande du 12/11/2026). Avant la bascule, chacun avait
+  // ses propres placements : sa part ETF a la bascule moins ses achats d'ETF. Depuis, la plus-value de l'ETF (valeur
+  // - valeur a la bascule - achats de la cagnotte) se partage selon les parts. Lendermarket = le reste de sa plus-value,
+  // ecarts d'arrondi compris (meme regle que l'en-tete) : ETF + Lendermarket = plus-value, et la somme des enfants
+  // retombe sur l'en-tete. Apres un nouvel apport, la part du jour sert pour toute la periode (approximation ETF/LM,
+  // le total de l'enfant reste exact).
+  const preInv = {};
+  kidsContribs().forEach((c) => { if (!c.pot) preInv[c.child] = (preInv[c.child] || 0) + (+c.amount || 0); });
+  const postBuys = kidsContribs().reduce((s, c) => s + (c.pot ? (+c.amount || 0) : 0), 0);
+  const etfPost = (etf.value != null && b.etf && b.etf.value != null) ? etf.value - (+b.etf.value) - postBuys : null;
+  kids.forEach((k) => {
+    const be = b.enfants[k.child], preEtf = (be && be.etf != null) ? +be.etf - (preInv[k.child] || 0) : 0;
+    k.etfGain = (etfPost != null && k.gain != null) ? preEtf + k.share * etfPost : null;
+    k.lmGain = (k.etfGain != null) ? k.gain - k.etfGain : null;
+  });
   const baseTot = kids.reduce((s, k) => s + k.base, 0);
   const tgt = potCfg().lmTarget, gainTot = (value != null) ? value - baseTot : null;
   const etfGain = (etf.value != null) ? etf.value - etf.invested : null;
@@ -10739,9 +10754,13 @@ function renderPotMain(host) {
   const bd = 'border-bottom:1px solid #eef1f5';
   const th = (t, al) => scrEl('th', { text: t, style: 'padding:7px 9px;text-align:' + (al || 'right') + ';font-size:0.66rem;text-transform:uppercase;letter-spacing:.03em;border-bottom:1px solid #e3e8ee;white-space:nowrap' });
   const td = (t, extra) => scrEl('td', { text: t, style: 'padding:7px 9px;text-align:right;' + bd + (extra || '') });
+  // montant ETF ou Lendermarket de l'enfant, suivi de sa plus-value depuis le debut (12/11/2026)
+  const tdG = (amt, g, col) => scrEl('td', { style: 'padding:7px 9px;text-align:right;white-space:nowrap;' + bd, kids: [
+    scrEl('span', { text: amt, style: 'color:' + col }),
+    scrEl('span', { text: g == null ? '' : F.S(g), style: 'margin-left:8px;font-size:0.72rem;font-weight:700;color:' + F.col(g) })] });
   const tbody = scrEl('tbody');
   P.kids.forEach((k, i) => {
-    tbody.appendChild(scrEl('tr', { attrs: { title: k.child + ' : ' + F.E(k.value) + ', dont ETF ' + F.E(k.etf) + ' et Lendermarket ' + F.E(k.lm) + '. Investi au ' + dS + ' : ' + F.E(k.base) + '. ' + (+k.parts.toFixed(2)).toLocaleString('fr-FR') + ' parts de cagnotte.' }, kids: [
+    tbody.appendChild(scrEl('tr', { attrs: { title: k.child + ' : ' + F.E(k.value) + ', dont ETF ' + F.E(k.etf) + ' et Lendermarket ' + F.E(k.lm) + '. Investi au ' + dS + ' : ' + F.E(k.base) + '. Plus-value ' + F.S(k.gain) + ' : ETF ' + F.S(k.etfGain) + ', Lendermarket ' + F.S(k.lmGain) + '. ' + (+k.parts.toFixed(2)).toLocaleString('fr-FR') + ' parts de cagnotte.' }, kids: [
       scrEl('td', { style: 'padding:7px 9px;' + bd + ';min-width:150px', kids: [
         scrEl('div', { style: 'display:flex;align-items:center;gap:7px', kids: [
           scrEl('span', { style: 'width:10px;height:10px;border-radius:3px;display:inline-block;background:' + kidColor(k.child, i) }),
@@ -10751,12 +10770,14 @@ function renderPotMain(host) {
       td(F.E(k.base), ';color:#42546a'),
       // la valeur de chaque enfant est LE chiffre du tableau : colonne surlignee, plus grande (demande du 09/10/2026)
       td(F.E(k.value), ';font-size:1.08rem;font-weight:800;color:#22303f;background:rgba(53,99,233,0.08);white-space:nowrap'),
-      td(F.E(k.etf), ';color:' + POT_COL.etf),
-      td(F.E(k.lm), ';color:' + POT_COL.lm),
+      tdG(F.E(k.etf), k.etfGain, POT_COL.etf),
+      tdG(F.E(k.lm), k.lmGain, POT_COL.lm),
       td(k.gain == null ? '–' : F.S(k.gain) + ' (' + F.P(k.gainPct, 2) + ')', ';font-weight:700;white-space:nowrap;color:' + F.col(k.gain))] }));
   });
   const table = scrEl('table', { style: 'width:100%;border-collapse:collapse;font-size:0.82rem', kids: [
-    scrEl('thead', { kids: [scrEl('tr', { style: 'background:#f6f8fb;color:#5b6b7d', kids: [th('Enfant', 'left'), th('Part'), th('Investi'), (() => { const h = th('Valeur'); h.style.background = 'rgba(53,99,233,0.08)'; h.style.color = '#3563e9'; h.style.fontWeight = '800'; return h; })(), th('dont ETF'), th('dont Lendermarket'), th('Plus-value')] })] }), tbody] });
+    scrEl('thead', { kids: [scrEl('tr', { style: 'background:#f6f8fb;color:#5b6b7d', kids: [th('Enfant', 'left'), th('Part'), th('Investi'), (() => { const h = th('Valeur'); h.style.background = 'rgba(53,99,233,0.08)'; h.style.color = '#3563e9'; h.style.fontWeight = '800'; return h; })(), th('dont ETF'), th('dont Lendermarket'), th('Plus-value')].map((h) => {
+      if (/^dont /.test(h.textContent)) { h.title = 'Montant, puis plus-value depuis le ' + dS + ' (ETF + Lendermarket = colonne Plus-value)'; h.style.cursor = 'help'; }
+      return h; }) })] }), tbody] });
   wrap.appendChild(scrEl('div', { style: 'display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start;margin-bottom:14px', kids: [
     scrEl('div', { style: 'flex:0 0 auto;background:#fafbfc;border:1px solid #eef1f5;border-radius:12px;padding:12px', kids: [
       scrEl('div', { text: 'Parts de la cagnotte', style: 'font-size:0.7rem;text-transform:uppercase;letter-spacing:.03em;color:#5b6b7d;font-weight:700;margin-bottom:10px' }),
