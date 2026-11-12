@@ -12656,11 +12656,61 @@ function scrLinesMap(s) {
 // journal (VUAA), prix d'un ordre en USD, ordres d'un jour (date LOCALE, celle des instantanés du VPS).
 const SCR_TX_SUFFIX = /(\.(DE|PA|AS|MI|L|SW|MC|BR|LS|HE|VI|ST|CO)|-(USD|EUR))$/;   // VUAA.DE = VUAA, SHIB-USD = SHIB (journal Revolut)
 function scrTxKey(t) { return String(t || '').toUpperCase().trim().replace(SCR_TX_SUFFIX, ''); }
+// TAUX EUR/USD DU JOUR DE L'OPERATION (12/11/2026). Un ordre en euros du journal (VUAA, VFEA, SHIB) se convertit en USD
+// au taux de SA date, pas au taux du jour : une cession est figee a sa date, et le flux de vente d'un jour (scrLineFlow)
+// bougerait sinon d'environ 10 $ par centime d'EUR/USD sur une vente de 1 000 EUR. Source : fixing BCE
+// (api.frankfurter.dev, gratuit, sans cle), USD pour 1 EUR par jour ouvre, cache local 6 h. Jour sans fixing
+// (week-end, ferie, crypto) : dernier fixing des 7 jours precedents. Jour meme : taux du moment (SCR_FX), celui qui
+// valorise les positions en direct. Historique indisponible : SCR_FX a defaut.
+let SCR_FX_HIST = null;   // { 'YYYY-MM-DD': 1.1214 } = USD pour 1 EUR (fixing BCE)
+const SCR_FX_HIST_FROM = '2025-01-01';   // debut de l'historique demande (le journal Revolut commence en aout 2026)
+function scrEurUsdOn(day) {
+  const h = SCR_FX_HIST, live = (SCR_FX && SCR_FX.EUR > 0) ? 1 / SCR_FX.EUR : null;
+  if ((!day || day >= scrLocalDay(new Date())) && live) return live;
+  if (h && day) {
+    const d = new Date(day + 'T12:00:00');
+    for (let i = 0; i <= 7 && !isNaN(d); i++) { const r = Number(h[scrLocalDay(d)]); if (r > 0) return r; d.setDate(d.getDate() - 1); }
+  }
+  return live;
+}
+// Charge (ou rafraichit) SCR_FX_HIST. Le cache local est pose tout de suite (avant tout await), donc disponible des
+// l'appel ; renvoie true seulement si de nouveaux taux sont arrives du reseau (l'appelant re-rend alors l'ecran).
+async function scrLoadFxHist() {
+  let cached = null;
+  try { cached = JSON.parse(localStorage.getItem('scrFxHist') || 'null'); } catch (e) { console.warn('scrFxHist : cache local illisible', e); }
+  if (cached && cached.rates && cached.from === SCR_FX_HIST_FROM && !SCR_FX_HIST) SCR_FX_HIST = cached.rates;
+  if (cached && cached.rates && cached.from === SCR_FX_HIST_FROM && cached.t && (Date.now() - cached.t) < 21600000) return false;
+  try {
+    const r = await fetch('https://api.frankfurter.dev/v1/' + SCR_FX_HIST_FROM + '..?from=EUR&to=USD');
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const j = await r.json(), out = {};
+    Object.keys((j && j.rates) || {}).forEach((d) => { const v = Number(j.rates[d] && j.rates[d].USD); if (v > 0) out[d] = v; });
+    if (!Object.keys(out).length) throw new Error('reponse sans taux');
+    SCR_FX_HIST = out;
+    try { localStorage.setItem('scrFxHist', JSON.stringify({ rates: out, from: SCR_FX_HIST_FROM, t: Date.now() })); } catch (e2) { console.warn('scrFxHist : cache local non enregistre', e2); }
+    return true;
+  } catch (e) {
+    console.warn('Taux EUR/USD historiques (fixing BCE) indisponibles, ordres en euros convertis au taux du jour :', e);
+    return false;
+  }
+}
+// EUR/USD d'un ordre du journal (USD pour 1 EUR). Ordre en USD : son champ fx, vrai taux du releve Revolut (1 = absent) ;
+// sinon le fixing BCE du jour de l'ordre.
+function scrTxEurUsd(t) {
+  const fx = Number(t && t.fx), ccy = String((t && t.ccy) || 'USD').toUpperCase();
+  if (ccy === 'USD' && fx > 0.5 && fx < 2.5 && fx !== 1) return fx;
+  return scrEurUsdOn(scrLocalDay(t && t.date));
+}
+// Valeur en USD d'une unite de la devise d'un ordre, au taux du JOUR DE L'ORDRE (null si aucun taux).
+function scrTxRateUsd(t) {
+  const ccy = String((t && t.ccy) || 'USD').toUpperCase();
+  if (ccy === 'USD') return 1;
+  if (ccy === 'EUR') return scrTxEurUsd(t);
+  return (SCR_FX && SCR_FX[ccy]) ? 1 / SCR_FX[ccy] : null;   // autre devise : pas d'historique, taux du moment
+}
 function scrTxPriceUsd(t) {
-  const px = Number(t.price), ccy = String(t.ccy || 'USD').toUpperCase();
-  if (!(px > 0)) return null;
-  if (ccy === 'USD') return px;
-  return (SCR_FX && SCR_FX[ccy]) ? px / SCR_FX[ccy] : null;
+  const px = Number(t.price), r = scrTxRateUsd(t);
+  return (px > 0 && r > 0) ? px * r : null;
 }
 function scrLocalDay(d) { const x = new Date(d); return isNaN(x) ? '' : (x.getFullYear() + '-' + String(x.getMonth() + 1).padStart(2, '0') + '-' + String(x.getDate()).padStart(2, '0')); }
 function scrTxOn(day, type, k) {
@@ -12674,12 +12724,16 @@ function scrTxOn(day, type, k) {
 // gain du jour sur les titres vendus reste dans la performance (le tableau des positions le compte) ; sans
 // journal, ou si les positions n'ont pas encore enregistré la vente, elle sort à la valeur de marché de la
 // veille (neutre). Partagée par le calendrier, le TWR, le détail du jour et le détail du mois.
+// 12/11/2026 : k est la clé des photos (VUAA.DE, SHIB-USD) et le journal porte VUAA, SHIB : on cherche les ordres sous
+// scrTxKey(k), comme scrDayImpact. Avant, une vente sur une ligne .DE ou -USD n'était jamais trouvée et sortait au
+// prorata de la veille. Un ordre en euros passe en USD au taux de SON jour (scrTxPriceUsd), pas au taux du jour.
 function scrLineFlow(k, p, c, date) {
   if (!p && !c) return 0;
   const di = (c ? c.i : 0) - (p ? p.i : 0);
-  const sells = p ? scrTxOn(date, 'SELL', k) : [];
+  const kt = scrTxKey(k);
+  const sells = p ? scrTxOn(date, 'SELL', kt) : [];
   if (sells.length && p.i > 0) {
-    const buys = scrTxOn(date, 'BUY', k);
+    const buys = scrTxOn(date, 'BUY', kt);
     const qs = sells.reduce((a, t) => a + t.q, 0), produit = sells.reduce((a, t) => a + t.q * t.px, 0);
     const qb = buys.reduce((a, t) => a + t.q, 0), coutAchats = buys.reduce((a, t) => a + t.q * t.px, 0);
     const qPrev = p.q > 0 ? p.q : (((c && c.q > 0) ? c.q : 0) + qs - qb);   // quantité de la veille
@@ -13359,8 +13413,8 @@ function scrTopKpiBand(pos, badge) {
   const pnl = val - inv, pnlPct = inv > 0 ? pnl / inv : 0;
   const dayBase = val - day, dayPct = dayBase > 0 ? day / dayBase : 0;
   const pot = fairBase > 0 ? (fair / fairBase - 1) : null;
-  const real = scrRealized(SCR_TX);
-  const twr = (typeof scrTWR === 'function') ? scrTWR(SCR_HIST) : null;
+  const real = scrRealized(SCR_TX), realTot = scrRealVal(real, 'total');   // devise d'affichage, aux taux des jours d'operation
+  const twr =(typeof scrTWR === 'function') ? scrTWR(SCR_HIST) : null;
   const twrDebut = (SCR_HIST && SCR_HIST.length) ? SCR_HIST[0].date.slice(8, 10) + '/' + SCR_HIST[0].date.slice(5, 7) : null;   // debut du suivi (TWR de l'en-tete)
   const twrAn = scrTwrAnnual(SCR_HIST);   // la meme TWR ramenee a un an
   const GREEN = '#1d9e74', RED = '#dd5f66';
@@ -13388,8 +13442,8 @@ function scrTopKpiBand(pos, badge) {
       "Valeur de marché de tes lignes, aux cours du jour, convertie dans la devise d'affichage.", true),
     tile('Plus-value latente', sign(pnl) + scrUsd(pnl), sign(pnlPct) + (pnlPct * 100).toFixed(2) + '% sur ' + scrUsd(inv) + ' investis',
       pnl >= 0 ? GREEN : RED, "Écart entre la valeur actuelle et ton prix de revient, sur les lignes que tu détiens encore. Lignes cotées en euros (VUAA, VFEA) : mesurées en euros comme Revolut, puis converties au taux du jour."),
-    tile('Résultat réalisé', sign(real.total) + scrUsd2(real.total), real.closed.length + ' cession' + (real.closed.length > 1 ? 's' : '') + ' · frais ' + scrUsd2(real.fees),
-      real.total >= 0 ? GREEN : RED, "Plus et moins-values des lignes VENDUES, net de frais. C'est la base imposable en compte-titres."),
+    tile('Résultat réalisé', sign(realTot) + scrFmt2(realTot), real.closed.length + ' cession' + (real.closed.length > 1 ? 's' : '') + ' · frais ' + scrFmt2(scrRealVal(real, 'fees')),
+      realTot >= 0 ? GREEN : RED, "Plus et moins-values des lignes VENDUES, net de frais. C'est la base imposable en compte-titres. Opérations en euros (VUAA, VFEA) converties au taux de leur jour."),
     tile('Performance (TWR)', twr == null ? '–' : sign(twr) + (twr * 100).toFixed(2) + ' %', (twrDebut ? 'depuis le ' + twrDebut + ' · ' : '') + 'net des apports',
       twr == null ? '#9aa7b4' : (twr >= 0 ? GREEN : RED), "Rendement réel de ta stratégie depuis le début du suivi : il neutralise le calendrier de tes versements, donc il est comparable aux indices. Le graphique « Performance » donne la même mesure sur la période choisie (1J, 1S, 1M, 1A, Tout) : « Tout » retombe sur ce chiffre."),
     tile('Performance annualisée', twrAn == null ? '–' : sign(twrAn.ann) + (twrAn.ann * 100).toFixed(1) + ' %/an', twrAn == null ? 'dès 7 jours de suivi' : ('TWR ramené à un an, sur ' + twrAn.days + ' jours' + (twrAn.days < 365 ? ' · indicatif' : '')),
@@ -13469,26 +13523,51 @@ let SCR_TX = null;   // journal de transactions (stocks/screener/transactions), 
 // Le champ `total` du releve Revolut est deja NET (frais ajoutes a l'achat, deduits a la vente), donc le
 // cout de revient integre les frais d'acquisition, ce qui est le traitement fiscal correct. Revolut affiche
 // de son cote un prix moyen HORS frais, d'ou un leger ecart assume entre les deux.
+// DEVISES (12/11/2026) : avant, les montants des ordres en euros (VUAA, VFEA, ccy 'EUR') etaient additionnes tels quels
+// aux montants en dollars et affiches comme des dollars. Desormais chaque ligne se calcule dans SA devise (cout moyen,
+// encaisse, +/- en euros pour VUAA, comme Revolut), puis chaque cession et chaque frais passe en USD et en EUR au taux du
+// JOUR DE L'OPERATION (scrTxRateUsd / scrTxEurUsd) avant d'etre somme. total / engaged / fees = USD (comme avant),
+// totalEur / engagedEur / feesEur = EUR, pour un affichage en euros sans repasser par le taux du jour.
 function scrRealized(tx) {
   const list = (Array.isArray(tx) ? tx : Object.values(tx || {}))
     .filter((t) => t && (t.type === 'BUY' || t.type === 'SELL') && t.ticker)
     .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
-  const pos = {}, closed = [];
-  let fees = 0;
+  const pos = {}, closed = [], fee = { usd: 0, eur: 0 };
+  let noFx = 0;   // ordres sans aucun taux de change : hors totaux, signales par la carte
+  const rates = (t) => {   // 1 unite de la devise de l'ordre -> { usd, eur } au taux du jour de l'ordre (null si inconnu)
+    const ccy = String(t.ccy || 'USD').toUpperCase(), ru = scrTxRateUsd(t), eu = scrTxEurUsd(t);
+    return { usd: ru > 0 ? ru : null, eur: ccy === 'EUR' ? 1 : ((ru > 0 && eu > 0) ? ru / eu : null) };
+  };
+  const addFee = (f, t) => { const r = rates(t); if (r.usd == null || r.eur == null) { if (Math.abs(f) > 1e-9) noFx++; return; } fee.usd += f * r.usd; fee.eur += f * r.eur; };
   list.forEach((t) => {
-    const k = String(t.ticker).toUpperCase(), q = Number(t.qty) || 0, tot = Number(t.total) || 0, px = Number(t.price) || 0;
+    const ccy = String(t.ccy || 'USD').toUpperCase(), tk = String(t.ticker).toUpperCase();
+    const k = tk + '|' + ccy;   // une ligne = un titre dans une devise : jamais de cout moyen qui melange euros et dollars
+    const q = Number(t.qty) || 0, tot = Number(t.total) || 0, px = Number(t.price) || 0;
     if (t.type === 'BUY') {
       const p = pos[k] = pos[k] || { qty: 0, cost: 0 };
-      p.qty += q; p.cost += tot; fees += (tot - q * px);
+      p.qty += q; p.cost += tot; addFee(tot - q * px, t);
     } else {
       const p = pos[k]; if (!p || p.qty <= 1e-9) return;   // vente d'un titre acquis hors periode -> ignoree
-      const cost = (p.cost / p.qty) * q;
-      closed.push({ date: String(t.date).slice(0, 10), ticker: k, qty: q, price: px, cost: cost, proceeds: tot, pnl: tot - cost, pct: cost > 0 ? (tot - cost) / cost : 0 });
-      p.qty -= q; p.cost -= cost; fees += (q * px - tot);
+      const cost = (p.cost / p.qty) * q, r = rates(t);
+      if (r.usd == null || r.eur == null) noFx++;
+      closed.push({ date: String(t.date).slice(0, 10), ticker: tk, ccy: ccy, qty: q, price: px, cost: cost, proceeds: tot, pnl: tot - cost,
+        pct: cost > 0 ? (tot - cost) / cost : 0, rateUsd: r.usd, rateEur: r.eur });   // montants dans la devise de l'ordre ; taux du jour de la cession
+      p.qty -= q; p.cost -= cost; addFee(q * px - tot, t);
       if (p.qty <= 1e-9) delete pos[k];
     }
   });
-  return { closed: closed.reverse(), total: closed.reduce((a, c) => a + c.pnl, 0), engaged: closed.reduce((a, c) => a + c.cost, 0), fees: fees };
+  const sum = (field, rk) => closed.reduce((a, c) => a + (c[rk] != null ? c[field] * c[rk] : 0), 0);
+  return { closed: closed.reverse(), total: sum('pnl', 'rateUsd'), totalEur: sum('pnl', 'rateEur'), engaged: sum('cost', 'rateUsd'), engagedEur: sum('cost', 'rateEur'),
+    fees: fee.usd, feesEur: fee.eur, noFx: noFx };
+}
+// Montant du realise (total, engaged, fees) dans la devise d'affichage, aux taux des jours d'operation.
+function scrRealVal(r, key) { return (SCR_DISP_CCY === 'EUR') ? r[key + 'Eur'] : r[key]; }
+// Montant ou prix dans SA devise (table des cessions : chiffres du releve Revolut), 2 decimales, sauf prix sous 0,01.
+function scrFmtCcy2(x, ccy) {
+  if (x == null || !isFinite(x)) return '–';
+  const ax = Math.abs(x), a = (ax > 0 && ax < 0.01) ? scrPxNum(ax).replace('.', ',') : ax.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const sg = x < 0 ? '-' : '';
+  return ccy === 'EUR' ? (sg + a + ' €') : (ccy === 'USD' ? (sg + '$' + a) : (sg + a + ' ' + ccy));
 }
 function scrRealizedCard(tx) {
   const wrap = scrEl('div', { style: 'background:#fff;border:1px solid #e3e8ee;border-radius:14px;padding:14px' });
@@ -13500,13 +13579,15 @@ function scrRealizedCard(tx) {
     wrap.appendChild(scrEl('div', { style: 'color:#9aa7b4;font-size:0.8rem', text: "Aucune cession enregistrée. Le journal se remplit depuis le relevé Revolut (Compte, puis Relevé), rien à saisir à la main." }));
     return wrap;
   }
-  const col = r.total >= 0 ? '#1d9e74' : '#dd5f66';
+  const tot = scrRealVal(r, 'total'), col = tot >= 0 ? '#1d9e74' : '#dd5f66';
   const bd = 'border-bottom:1px solid #eef1f5';
+  const conv = " Chaque opération en euros (VUAA, VFEA) est convertie au taux de SON jour (fixing BCE), chaque opération en dollars au taux de son relevé Revolut.";
   wrap.appendChild(scrEl('div', { style: 'display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px', kids: [
-    scrKpi('Résultat réalisé', (r.total >= 0 ? '+' : '') + scrUsd2(r.total), col, "Somme des plus et moins-values des cessions, net de frais. En compte-titres, c'est cette somme qui constitue la base imposable."),
+    scrKpi('Résultat réalisé', (tot >= 0 ? '+' : '') + scrFmt2(tot), col, "Somme des plus et moins-values des cessions, net de frais. En compte-titres, c'est cette somme qui constitue la base imposable." + conv),
     scrKpi('Cessions', String(r.closed.length)),
-    scrKpi('Capital engagé', scrUsd2(r.engaged), null, 'Coût de revient cumulé des lignes cédées.'),
-    scrKpi('Frais payés', scrUsd2(r.fees), '#dd5f66', 'Frais de courtage cumulés sur TOUS les ordres du journal, achats comme ventes.')] }));
+    scrKpi('Capital engagé', scrFmt2(scrRealVal(r, 'engaged')), null, 'Coût de revient cumulé des lignes cédées.' + conv),
+    scrKpi('Frais payés', scrFmt2(scrRealVal(r, 'fees')), '#dd5f66', 'Frais de courtage cumulés sur TOUS les ordres du journal, achats comme ventes.' + conv)] }));
+  if (r.noFx) wrap.appendChild(scrEl('div', { style: 'font-size:0.7rem;color:#dd5f66;margin:-6px 0 8px', text: r.noFx + ' opération' + (r.noFx > 1 ? 's' : '') + ' sans taux de change disponible : hors totaux.' }));
   const thead = scrEl('tr', { style: 'background:#f6f8fb;color:#5b6b7d' });
   [['Date', 'left'], ['Titre', 'left'], ['Qté', 'right'], ['Prix vente', 'right'], ['Coût', 'right'], ['Encaissé', 'right'], ['+/−', 'right']].forEach(function (h) {
     thead.appendChild(scrEl('th', { text: h[0], style: 'padding:7px 9px;text-align:' + h[1] + ';font-size:0.66rem;text-transform:uppercase;letter-spacing:.03em;border-bottom:1px solid #e3e8ee;white-space:nowrap' }));
@@ -13518,13 +13599,13 @@ function scrRealizedCard(tx) {
       scrEl('td', { text: c.date, style: 'padding:6px 9px;' + bd + ';color:#5b6b7d;white-space:nowrap' }),
       scrEl('td', { style: 'padding:6px 9px;' + bd, kids: [scrEl('b', { text: c.ticker, style: 'color:#22303f' })] }),
       scrEl('td', { text: (c.qty % 1 === 0 ? String(c.qty) : c.qty.toLocaleString('fr-FR', { maximumFractionDigits: 4 })), style: 'padding:6px 9px;text-align:right;' + bd + ';color:#42546a' }),
-      scrEl('td', { text: scrUsd2(c.price), style: 'padding:6px 9px;text-align:right;' + bd + ';color:#42546a' }),
-      scrEl('td', { text: scrUsd2(c.cost), style: 'padding:6px 9px;text-align:right;' + bd + ';color:#42546a' }),
-      scrEl('td', { text: scrUsd2(c.proceeds), style: 'padding:6px 9px;text-align:right;' + bd + ';color:#42546a' }),
-      scrEl('td', { text: (c.pnl >= 0 ? '+' : '') + scrUsd2(c.pnl) + ' (' + (c.pct >= 0 ? '+' : '') + (c.pct * 100).toFixed(1) + '%)', style: 'padding:6px 9px;text-align:right;' + bd + ';font-weight:700;color:' + cc + ';white-space:nowrap' })] }));
+      scrEl('td', { text: scrFmtCcy2(c.price, c.ccy), style: 'padding:6px 9px;text-align:right;' + bd + ';color:#42546a' }),
+      scrEl('td', { text: scrFmtCcy2(c.cost, c.ccy), style: 'padding:6px 9px;text-align:right;' + bd + ';color:#42546a' }),
+      scrEl('td', { text: scrFmtCcy2(c.proceeds, c.ccy), style: 'padding:6px 9px;text-align:right;' + bd + ';color:#42546a' }),
+      scrEl('td', { text: (c.pnl >= 0 ? '+' : '') + scrFmtCcy2(c.pnl, c.ccy) + ' (' + (c.pct >= 0 ? '+' : '') + (c.pct * 100).toFixed(1) + '%)', style: 'padding:6px 9px;text-align:right;' + bd + ';font-weight:700;color:' + cc + ';white-space:nowrap' })] }));
   });
   wrap.appendChild(scrTableBox(scrEl('table', { style: 'width:100%;border-collapse:collapse;font-size:0.8rem', kids: [scrEl('thead', { kids: [thead] }), tbody] }), { maxH: 'none' }));
-  wrap.appendChild(scrFoldNote('Calcul des cessions (information, pas un conseil fiscal)', scrEl('div', { style: 'font-size:0.7rem;color:#9aa7b4', text: "Coût de revient FRAIS INCLUS (Revolut affiche un prix moyen hors frais, d'où un léger écart). Une vente portant sur un titre acheté avant la période du relevé est ignorée, faute de prix de revient connu. Information, pas un conseil fiscal." }), 'cessions', 'margin-top:8px'));
+  wrap.appendChild(scrFoldNote('Calcul des cessions (information, pas un conseil fiscal)', scrEl('div', { style: 'font-size:0.7rem;color:#9aa7b4', text: "Chaque cession s'affiche dans sa devise de cotation, comme sur le relevé Revolut (VUAA et VFEA en euros, les actions américaines en dollars). Les totaux sont convertis dans la devise d'affichage au taux du jour de chaque opération : fixing BCE pour les opérations en euros, taux du relevé Revolut pour celles en dollars. Coût de revient FRAIS INCLUS (Revolut affiche un prix moyen hors frais, d'où un léger écart). Une vente portant sur un titre acheté avant la période du relevé est ignorée, faute de prix de revient connu. Information, pas un conseil fiscal." }), 'cessions', 'margin-top:8px'));
   return wrap;
 }
 // DIVIDENDES ENCAISSES : lus dans le journal Revolut (type DIVIDEND), en USD canonique. Le ticker vient
@@ -14147,6 +14228,10 @@ function screenerPositionsModule() {
     db.ref('stocks/screener/companyProfiles').once('value').then((s) => { SCR_PROFILES = s.val() || {}; }).catch(() => {});
     db.ref('stocks/screener/transactions').once('value').then((s) => { SCR_TX = s.val() || null; render(); if (SCR_HIST_RERENDER) SCR_HIST_RERENDER(); }).catch(() => {});
   }
+  // Taux EUR/USD historiques (ordres en euros du journal convertis au taux de leur jour) : cache local pose tout de suite,
+  // re-rendu quand des taux frais arrivent du reseau.
+  scrLoadFxHist().then((neuf) => { if (neuf) { render(); if (SCR_HIST_RERENDER) SCR_HIST_RERENDER(); } })
+    .catch((e) => console.warn('scrLoadFxHist :', e));
   // Écoute temps réel : la table + les graphiques se mettent à jour seuls dès que le cron VPS pousse de nouveaux cours (plus de bouton).
   if (typeof db !== 'undefined' && db) {
     const lpRef = db.ref('stocks/screener/livePrices');
