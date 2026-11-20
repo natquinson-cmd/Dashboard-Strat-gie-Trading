@@ -1,12 +1,11 @@
-// Cloudflare Worker: Handler du formulaire de contact
+// Cloudflare Worker: Handler du formulaire de contact (choisislavie.org)
 // - Reçoit la soumission POST depuis le site
-// - Envoie un email de notification à l'équipe (natquinson + mimi.deco7)
+// - Filtre le spam AVANT tout envoi (économise le quota Brevo)
+// - Envoie un email de notification à l'équipe
 // - Envoie un email d'accusé de réception stylé au visiteur
 // Utilise Brevo (https://api.brevo.com/v3/smtp/email)
 
 const CORS_HEADERS = {
-  // Same-origin via route choisislavie.org/api/contact, mais on laisse
-  // les headers CORS pour permettre les tests depuis d'autres origines si besoin
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type",
@@ -24,6 +23,59 @@ function escapeHtml(s = "") {
 
 function isValidEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+// --- Anti-spam heuristique ---
+function looksLikeSpam({ prenom, message }) {
+  const p = (prenom || "").trim();
+  const m = (message || "").trim();
+  const lower = m.toLowerCase();
+
+  // 1. Signature du bot : prénom CamelCase se terminant par 2+ majuscules (HenrydoubyGM, WilliamKareeFO)
+  if (/[a-z][A-Z]{2,}$/.test(p)) return true;
+
+  // 2. Prénom contenant un chiffre = quasi toujours un bot
+  if (/\d/.test(p)) return true;
+
+  // 3. Liens dans le message
+  if (/https?:\/\/|www\.|\b[a-z0-9-]+\.(ru|xyz|top|click|shop|online|site|link|th)\b|url\.in\.th/i.test(m)) return true;
+
+  // 4. Template "je veux connaître votre prix" (multilingue)
+  const priceSpam = [
+    "i wanted to know your price", "know your price", "your price",
+    "volevo sapere il tuo prezzo", "il tuo prezzo", "prezzo",
+    "queria saber tu precio", "tu precio", "saber el seu preu", "volia saber",
+    "kende din pris", "jou prys ken", "ihren preis",
+    "sužinoti jūsų kainą", "jūsų kainą", "zināt savu cenu", "savu cenu", "es gribeju zinat",
+    "знать вашу цену", "вашу цену", "знам цената", "цената",
+    "çmimin tuaj", "meg akartam tudni az árát", "az árát",
+    "makemake wau", "kumukuʻai", "theastaigh uaim do phraghas", "phraghas",
+    "qiymətinizi bilmək", "qiymetinizi", "wollt äre präis", "äre präis",
+    "promo code", "royal flush", "$25000", "25000 promo",
+  ];
+  if (priceSpam.some((s) => lower.includes(s))) return true;
+
+  return false;
+}
+
+// --- Vérification Cloudflare Turnstile (active uniquement si TURNSTILE_SECRET est défini) ---
+async function verifyTurnstile(env, token, ip) {
+  if (!env.TURNSTILE_SECRET) return true;
+  if (!token) return false;
+  const form = new FormData();
+  form.append("secret", env.TURNSTILE_SECRET);
+  form.append("response", token);
+  if (ip) form.append("remoteip", ip);
+  try {
+    const r = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
+      method: "POST",
+      body: form,
+    });
+    const j = await r.json();
+    return !!j.success;
+  } catch (e) {
+    return false;
+  }
 }
 
 async function sendViaBrevo(env, payload) {
@@ -127,9 +179,37 @@ function buildAutoReplyEmail(env, { prenom, email }) {
   };
 }
 
+function silentOk() {
+  return new Response(JSON.stringify({ ok: true }), {
+    status: 200,
+    headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+  });
+}
+
 export default {
   async fetch(request, env, ctx) {
-    // Preflight CORS
+    // Relais interne : appele seulement par le worker lifeparty-benevoles (liaison de service + secret partage),
+    // pour envoyer l'e-mail de confirmation et le billet d'une inscription Life Party.
+    if (new URL(request.url).pathname === "/interne/envoi") {
+      if (!env.SECRET_INTERNE || request.headers.get("X-Secret-Interne") !== env.SECRET_INTERNE) {
+        return new Response("Interdit", { status: 403 });
+      }
+      try {
+        const p = await request.json();
+        if (!isValidEmail(String(p.to || "")) || !p.subject || !p.html) return new Response("Requete incomplete", { status: 400 });
+        await sendViaBrevo(env, {
+          // nom d'expediteur fourni par l'appelant interne (ex. soiree « Au pied du Pere »), Life Party par defaut
+          sender: { email: env.FROM_EMAIL, name: String(p.fromName || "Life Party (Choisis la Vie)").replace(/[\r\n<>"]/g, "").slice(0, 60) },
+          replyTo: { email: env.FROM_EMAIL, name: "Choisis la Vie" },
+          to: [{ email: String(p.to), name: String(p.toName || p.to).slice(0, 80) }],
+          subject: String(p.subject).slice(0, 150),
+          htmlContent: String(p.html),
+        });
+        return new Response(JSON.stringify({ ok: true }), { headers: { "Content-Type": "application/json" } });
+      } catch (e) {
+        return new Response("Erreur envoi : " + e.message, { status: 502 });
+      }
+    }
     if (request.method === "OPTIONS") {
       return new Response(null, { status: 204, headers: CORS_HEADERS });
     }
@@ -137,7 +217,6 @@ export default {
       return new Response("Method not allowed", { status: 405, headers: CORS_HEADERS });
     }
 
-    // Parse body (supporte FormData et JSON)
     let data = {};
     const ct = request.headers.get("content-type") || "";
     try {
@@ -156,16 +235,18 @@ export default {
 
     // Honeypot anti-spam
     if (data._honeypot || data.website) {
-      // Réponse OK silencieuse pour leurrer le bot
-      return new Response(JSON.stringify({ ok: true }), {
-        status: 200,
-        headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
-      });
+      return silentOk();
     }
 
+    const ip = request.headers.get("CF-Connecting-IP") || "";
     const prenom = (data.prenom || "").toString().trim().substring(0, 100);
     const email = (data.email || "").toString().trim().substring(0, 200);
     const message = (data.message || "").toString().trim().substring(0, 5000);
+
+    // Filtre anti-spam AVANT tout envoi Brevo
+    if (looksLikeSpam({ prenom, email, message })) {
+      return silentOk();
+    }
 
     if (!isValidEmail(email)) {
       return new Response(JSON.stringify({ ok: false, error: "Email invalide" }), {
@@ -180,7 +261,16 @@ export default {
       });
     }
 
-    // Envoi parallèle des 2 emails
+    // Vérification Turnstile (bloquante uniquement si TURNSTILE_SECRET configuré)
+    const tsToken = (data["cf-turnstile-response"] || data.turnstileToken || "").toString();
+    const tsOk = await verifyTurnstile(env, tsToken, ip);
+    if (!tsOk) {
+      return new Response(JSON.stringify({ ok: false, error: "Vérification anti-robot échouée. Réessayez." }), {
+        status: 403,
+        headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+      });
+    }
+
     const errors = [];
     try {
       await sendViaBrevo(env, buildNotificationEmail(env, { prenom, email, message }));
@@ -194,7 +284,6 @@ export default {
     }
 
     if (errors.length === 2) {
-      // Les deux ont échoué
       return new Response(JSON.stringify({ ok: false, error: errors.join(" | ") }), {
         status: 502,
         headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
