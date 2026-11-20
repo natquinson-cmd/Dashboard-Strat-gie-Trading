@@ -5409,6 +5409,10 @@ const FG_COMPONENTS = [
    'Écart de rendement entre les obligations d’entreprises mal notées et les emprunts d’État.\nUn écart FAIBLE veut dire que les investisseurs se contentent d’une petite prime pour prêter à des emprunteurs fragiles, donc de la cupidité. Un écart qui s’élargit trahit la méfiance.']];
 let SCR_BRIEF = null;
 let SCR_BRIEF_REQ = null;   // instant (ms) de la dernière demande de rafraîchissement
+// Veille d'achat sèche-linge, affichée en pied du brief. Elle ne vient PAS du VPS : Amazon le
+// bloque ou lui sert de faux prix. C'est la tâche Claude « veille-seche-linge » qui relève les
+// prix chaque matin dans le Chrome du user, puis écrit dashboard/veilleAchats/secheLinge.
+let SCR_VEILLE = null;
 // Actualités par ligne détenue, rafraîchies en séance par le VPS. Sert la fiche société :
 // un titre décroche, on clique son logo, on voit tout de suite ce qui s'est publié.
 let SCR_POS_NEWS = null;
@@ -5967,7 +5971,85 @@ function renderMorningBrief() {
   }
   row.appendChild(txt);
   card.appendChild(row);
+  const veille = scrVeilleBloc(SCR_VEILLE);
+  if (veille) card.appendChild(veille);
   c.replaceChildren(card);
+}
+// Pied du brief : la veille sèche-linge. Pas de classe « bm », il reste visible sur mobile.
+// Masqué quand la veille est terminée (termine: true) ou que le dernier relevé a plus de 30 jours.
+function scrVeilleBloc(v) {
+  if (!v || v.termine) return null;
+  const lignes = Array.isArray(v.lignes) ? v.lignes.filter((l) => l && l.modele) : [];
+  if (!lignes.length && !v.erreur) return null;
+  const atMs = v.at ? Date.parse(v.at) : NaN;
+  if (!isNaN(atMs) && Date.now() - atMs > 30 * 86400000) return null;
+  const n = (x) => (x === '' || x == null || isNaN(+x)) ? null : +x;
+  const eur = (x) => n(x) == null ? '·' : n(x).toLocaleString('fr-FR', { maximumFractionDigits: 2 }) + ' €';
+  const box = scrEl('div', { style: 'border-top:1px solid var(--border);margin-top:18px;padding-top:14px' });
+  const d = isNaN(atMs) ? null : new Date(atMs);
+  box.appendChild(scrEl('div', { style: 'display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:9px', kids: [
+    scrEl('span', { text: '🧺 Veille sèche-linge', style: 'font-weight:700;color:var(--text-primary);font-size:0.88rem' }),
+    scrEl('span', { style: 'font-size:0.7rem;color:var(--text-secondary)', text: d
+      ? 'Relevé du ' + d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })
+        + ' à ' + d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '' }),
+    scrFreshBadge(v.at, 'Relevé chaque matin vers 8h15 sur amazon.fr par une tâche Claude, dans Chrome. '
+      + 'Il ne tourne que si le PC est allumé et l’app Claude ouverte.'),
+    scrEl('span', { text: 'Repérage de prix, pas un conseil d’achat', style: 'margin-left:auto;font-size:0.68rem;color:var(--text-muted)' })] }));
+  if (v.erreur) {
+    box.appendChild(scrEl('div', { text: 'Relevé en échec : ' + v.erreur,
+      style: 'color:var(--negative);font-weight:700;font-size:0.78rem;margin-bottom:8px' }));
+  }
+  if (v.alerte) {
+    box.appendChild(scrEl('div', { kids: scrGras(v.alerte), style: 'background:#e5f4ee;border-left:3px solid #1d9e74;'
+      + 'border-radius:0 8px 8px 0;padding:7px 11px;margin-bottom:9px;font-size:0.8rem;color:var(--text-primary);line-height:1.45' }));
+  }
+  if (lignes.length) {
+    const grid = scrEl('div', { style: 'display:grid;grid-template-columns:minmax(0,1fr) auto auto auto;gap:4px 16px;'
+      + 'align-items:baseline;font-size:0.78rem;color:var(--text-secondary)' });
+    ['Modèle', 'Prix du jour', 'Plus bas vu', 'Seuil'].forEach((h, i) => grid.appendChild(scrEl('div', { text: h,
+      style: 'font-size:0.6rem;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--text-muted)'
+        + (i ? ';text-align:right' : '') })));
+    lignes.forEach((l) => {
+      const p = n(l.prix), pv = n(l.prev), seuil = n(l.seuil);
+      const sous = p != null && seuil != null && p <= seuil && (!l.vendeur || l.vendeur === 'Amazon');
+      const nom = scrEl('div', { kids: [
+        scrEl('a', { text: l.modele + (l.kg ? ', ' + l.kg + ' kg' : ''),
+          attrs: { href: 'https://www.amazon.fr/dp/' + encodeURIComponent(l.asin || ''), target: '_blank', rel: 'noopener',
+            title: 'Ouvrir la fiche amazon.fr' + (l.favori ? ' (favori)' : '') },
+          style: 'color:var(--text-primary);text-decoration:none;' + (l.favori ? 'font-weight:700' : '') }),
+        l.favori ? scrEl('span', { text: ' ★', attrs: { title: 'Favori' }, style: 'color:#d99a00' }) : null,
+        (l.remarque || (l.vendeur && l.vendeur !== 'Amazon'))
+          ? scrEl('span', { text: ' ' + [l.vendeur && l.vendeur !== 'Amazon' ? 'vendu par ' + l.vendeur : '', l.remarque || '']
+              .filter(Boolean).join(', '), style: 'font-size:0.7rem;color:#8a6d1f' }) : null] });
+      const varEl = (p != null && pv != null && Math.abs(p - pv) >= 0.5)
+        ? scrEl('span', { text: (p < pv ? ' ▼ ' : ' ▲ ') + Math.abs(p - pv).toLocaleString('fr-FR', { maximumFractionDigits: 0 }) + ' €',
+            attrs: { title: 'Relevé précédent : ' + eur(pv) },
+            style: 'font-size:0.68rem;font-weight:700;color:' + (p < pv ? '#1d9e74' : 'var(--negative)') }) : null;
+      grid.appendChild(nom);
+      grid.appendChild(scrEl('div', { style: 'text-align:right;white-space:nowrap', kids: [
+        scrEl('span', { text: eur(l.prix), style: 'font-weight:700;color:' + (sous ? '#1d9e74' : 'var(--text-primary)') }), varEl] }));
+      grid.appendChild(scrEl('div', { text: eur(l.min), style: 'text-align:right;white-space:nowrap' }));
+      grid.appendChild(scrEl('div', { text: eur(l.seuil), style: 'text-align:right;white-space:nowrap;color:var(--text-muted)' }));
+    });
+    box.appendChild(grid);
+  }
+  const dec = Array.isArray(v.decouvertes) ? v.decouvertes.filter((x) => x && x.modele) : [];
+  if (dec.length) {
+    const ligne = scrEl('div', { style: 'font-size:0.76rem;color:var(--text-secondary);margin-top:9px', kids: [
+      scrEl('b', { text: 'Découvertes : ', style: 'color:var(--text-primary)' })] });
+    dec.forEach((x, i) => {
+      if (i) ligne.appendChild(scrEl('span', { text: ' · ' }));
+      ligne.appendChild(scrEl('a', { text: x.modele + (x.kg ? ', ' + x.kg + ' kg' : '') + ' à ' + eur(x.prix)
+          + (x.note ? ' (' + x.note + '/5' + (x.avis ? ', ' + x.avis + ' avis' : '') + ')' : ''),
+        attrs: { href: 'https://www.amazon.fr/dp/' + encodeURIComponent(x.asin || ''), target: '_blank', rel: 'noopener' },
+        style: 'color:#3563e9;text-decoration:none' }));
+    });
+    box.appendChild(ligne);
+  }
+  if (v.conclusion) {
+    box.appendChild(scrEl('div', { kids: scrGras(v.conclusion), style: 'font-size:0.74rem;color:var(--text-muted);margin-top:9px;line-height:1.45' }));
+  }
+  return box;
 }
 // Pourquoi la synthèse manque, quand elle manque. Avant, le bloc affichait « synthèse
 // indisponible » et rien d'autre : impossible de savoir si la clé était absente, si l'API
@@ -6047,6 +6129,8 @@ function loadMorningBrief() {
   // morningBrief restait sans lien si positionNews arrivait apres (course des deux listeners), et
   // plus rien ne le redessinait. Couvre aussi les rafraichissements d actus en seance (20 min).
   try { db.ref('dashboard/positionNews').on('value', (s) => { SCR_POS_NEWS = s.val(); renderMorningBrief(); }); } catch (e) {}
+  try { db.ref('dashboard/veilleAchats/secheLinge').on('value', (s) => { SCR_VEILLE = s.val(); renderMorningBrief(); }); }
+  catch (e) { console.warn('Veille sèche-linge non chargée', e); }
   // La demande en cours est relue depuis Firebase, et pas seulement gardée en mémoire de l'onglet.
   // Sinon un simple rechargement de page effaçait l'attente, et une demande jamais servie (tâche
   // MorningBriefOnDemand absente du VPS) redevenait invisible : le bouton reprenait son air normal.
