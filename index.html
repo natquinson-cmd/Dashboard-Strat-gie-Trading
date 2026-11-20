@@ -5984,7 +5984,10 @@ function scrVeilleBloc(v) {
   const atMs = v.at ? Date.parse(v.at) : NaN;
   if (!isNaN(atMs) && Date.now() - atMs > 30 * 86400000) return null;
   const n = (x) => (x === '' || x == null || isNaN(+x)) ? null : +x;
-  const eur = (x) => n(x) == null ? '·' : n(x).toLocaleString('fr-FR', { maximumFractionDigits: 2 }) + ' €';
+  // 482,20 € et pas 482,2 € ; les prix ronds restent sans décimales (589 €)
+  const eur = (x) => { const v = n(x); if (v == null) return '·';
+    const dec = Number.isInteger(v) ? 0 : 2;
+    return v.toLocaleString('fr-FR', { minimumFractionDigits: dec, maximumFractionDigits: dec }) + ' €'; };
   const box = scrEl('div', { style: 'border-top:1px solid var(--border);margin-top:18px;padding-top:14px' });
   const d = isNaN(atMs) ? null : new Date(atMs);
   box.appendChild(scrEl('div', { style: 'display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:9px', kids: [
